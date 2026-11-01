@@ -15,9 +15,9 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 | Page editor | Same React section components as the storefront |
 | Database | Managed PostgreSQL + Drizzle |
 | Background jobs | pg-boss |
-| Media | Cloudflare R2, images resized on delivery |
+| Media | Cloudflare R2, images resized at upload with sharp |
 | CDN, custom domains | Cloudflare, Cloudflare for SaaS |
-| Hosting | Docker containers on AWS (Mumbai or Singapore) |
+| Hosting | Railway (app and Postgres). Its filesystem does not persist, so uploads never go on local disk in production |
 | UI primitives | Radix + our own design tokens |
 | Packages | npm workspaces |
 
@@ -80,6 +80,8 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing, Referrals
 
 ## Media gallery
+
+Files live in Cloudflare R2 (`.media/` in development), and the `media` table holds their details. Never store uploads in the repo. The API converts every image to WebP, strips its metadata and makes a thumbnail.
 
 One picker used across products, pages, themes and the logo. It shows where each file is used, blocks deleting a file that is live, compresses images automatically and counts against a per-plan storage limit.
 

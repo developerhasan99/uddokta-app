@@ -6,13 +6,13 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T = unknown>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, options: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
   let res: Response
   try {
     res = await fetch(`/api${path}`, {
       method: options.method ?? 'GET',
       headers: options.body === undefined ? undefined : { 'content-type': 'application/json' },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     })
   } catch {
     throw new ApiError('network')

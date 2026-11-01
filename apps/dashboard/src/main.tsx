@@ -10,6 +10,7 @@ import { channels, nav, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
 import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
+import { Media } from './pages/Media'
 import { Members } from './pages/Members'
 import { Orders } from './pages/Orders'
 import { Placeholder, NotFound } from './pages/Placeholder'
@@ -17,7 +18,7 @@ import { SettingsLayout } from './pages/Settings'
 import { DesignSystem } from './pages/DesignSystem'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders'])
+const built = new Set(['/', '/orders', '/media'])
 const placeholders = [...nav, channels]
   .flatMap((item) => [item, ...(item.children ?? [])])
   .filter((item) => !built.has(item.path))
@@ -48,6 +49,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="store/:handle" element={<Shell />}>
                 <Route index element={<Home />} />
                 <Route path="orders" element={<Orders />} />
+                <Route path="media" element={<Media />} />
                 <Route path="orders/new" element={<Placeholder item="newOrder" />} />
                 {placeholders.map((item) => (
                   <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />

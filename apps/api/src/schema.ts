@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { check, index, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, check, index, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -59,3 +59,16 @@ export const storeInvites = pgTable('store_invites', {
   index('store_invites_store').on(t.storeId),
   check('store_invites_role', sql`${t.role} in ('owner', 'admin', 'staff')`),
 ])
+
+export const media = pgTable('media', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  alt: text('alt').notNull().default(''),
+  key: text('key').notNull().unique(),
+  thumbKey: text('thumb_key').notNull().unique(),
+  width: integer('width').notNull(),
+  height: integer('height').notNull(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('media_store_created').on(t.storeId, t.createdAt)])

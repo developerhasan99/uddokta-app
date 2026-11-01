@@ -1,17 +1,103 @@
-import { Link } from 'react-router'
-import { useStorePath } from '../account-context'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
+import { ChevronDown, ClipboardCheck, Image, Palette, Store, Tag, Truck, UserPlus, type LucideIcon } from 'lucide-react'
+import { useAccount, useCurrentStore, useStorePath } from '../account-context'
 import { AreaChart, Sparkline } from '../components/charts'
-import { Badge, Card, LinkButton, PageHeader } from '../components/ui'
+import { Badge, LinkButton, PageHeader } from '../components/ui'
 import { useLang, type Key } from '../i18n'
 
-const steps: { title: Key; body: Key; to: string }[] = [
-  { title: 'stepProduct', body: 'stepProductD', to: '/products' },
-  { title: 'stepLogo', body: 'stepLogoD', to: '/settings' },
-  { title: 'stepTheme', body: 'stepThemeD', to: '/online-store/themes' },
-  { title: 'stepDelivery', body: 'stepDeliveryD', to: '/settings' },
-  { title: 'stepTest', body: 'stepTestD', to: '/orders/new' },
-  { title: 'stepPublish', body: 'stepPublishD', to: '/settings/billing' },
+const steps: { title: Key; body: Key; action: Key; to: string; icon: LucideIcon }[] = [
+  { title: 'stepProduct', body: 'stepProductD', action: 'stepProductAction', to: '/products', icon: Tag },
+  { title: 'stepLogo', body: 'stepLogoD', action: 'stepLogoAction', to: '/settings', icon: Image },
+  { title: 'stepTheme', body: 'stepThemeD', action: 'stepThemeAction', to: '/online-store/themes', icon: Palette },
+  { title: 'stepDelivery', body: 'stepDeliveryD', action: 'stepDeliveryAction', to: '/settings', icon: Truck },
+  { title: 'stepTest', body: 'stepTestD', action: 'stepTestAction', to: '/orders/new', icon: ClipboardCheck },
+  { title: 'stepPublish', body: 'stepPublishD', action: 'stepPublishAction', to: '/settings/billing', icon: Store },
 ]
+
+// ponytail: nothing can be completed yet, so steps have no done state. Add it as products, themes and orders are built.
+function Onboarding() {
+  const { t, num } = useLang()
+  const { me } = useAccount()
+  const current = useCurrentStore()!
+  const path = useStorePath()
+  const [open, setOpen] = useState(0)
+
+  return (
+    <div className="page page--onboarding">
+      <header className="welcome">
+        <title>{t('home')}</title>
+        <h1>{t('welcomeTitle', { name: me.name.split(' ')[0] })}</h1>
+        <p className="muted">{t('welcomeD', { store: current.store.name })}</p>
+      </header>
+
+      <div className="onboarding">
+        <section className="card card--flush">
+          <div className="guide__head">
+            <div className="guide__title">
+              <h2>{t('setupTitle')}</h2>
+              <p className="muted">{t('setupProgress', { n: num(0) })}</p>
+            </div>
+            <span className="bars__track" role="progressbar" aria-label={t('setupTitle')} aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={0} />
+          </div>
+          <ol className="guide">
+            {steps.map((step, i) => {
+              const Icon = step.icon
+              const isOpen = open === i
+              return (
+                <li key={step.title} className={isOpen ? 'guide__step guide__step--open' : 'guide__step'}>
+                  <h3>
+                    <button type="button" className="guide__toggle" aria-expanded={isOpen} onClick={() => setOpen(i)}>
+                      <span className="guide__mark" aria-hidden="true">{num(i + 1)}</span>
+                      <span className="guide__name">{t(step.title)}</span>
+                      {!isOpen && <ChevronDown size={16} aria-hidden="true" />}
+                    </button>
+                  </h3>
+                  {isOpen && (
+                    <div className="guide__panel">
+                      <div className="guide__copy">
+                        <p className="muted">{t(step.body)}</p>
+                        <LinkButton to={path(step.to)} variant="primary">{t(step.action)}</LinkButton>
+                      </div>
+                      <span className="guide__icon" aria-hidden="true"><Icon size={28} strokeWidth={1.5} /></span>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+
+        <aside className="onboarding__side">
+          <section className="card">
+            <h2>{t('yourStore')}</h2>
+            <div className="side-store">
+              <span className="store-mark" aria-hidden="true">{current.store.name.charAt(0).toUpperCase()}</span>
+              <span className="store-row__text">
+                <strong>{current.store.name}</strong>
+                <span className="muted">{current.store.handle}</span>
+              </span>
+            </div>
+            <div className="side-status">
+              <Badge tone="warning">{t('storeNotOpen')}</Badge>
+              <p className="muted">{t('storeNotOpenD')}</p>
+            </div>
+          </section>
+          {current.role !== 'staff' && (
+            <section className="card">
+              <h2>{t('inviteTeam')}</h2>
+              <p className="muted">{t('inviteTeamD')}</p>
+              <Link className="side-link" to={path('/settings/members')}>
+                <UserPlus size={16} aria-hidden="true" />
+                {t('inviteMember')}
+              </Link>
+            </section>
+          )}
+        </aside>
+      </div>
+    </div>
+  )
+}
 
 // Sample figures for judging the design; replaced by the API in step 8.
 const dailySales = [18400, 21200, 19800, 24600, 26100, 23300, 28900, 27400, 31200, 29800, 33500, 30100, 35200, 38700]
@@ -26,7 +112,7 @@ const orderStatus: { label: Key; count: number }[] = [
   { label: 'statusReturned', count: 47 },
 ]
 
-export function Home() {
+function Dashboard() {
   const { t, num, money, date } = useLang()
   const path = useStorePath()
   const last = (values: number[]) => values[values.length - 1]
@@ -42,27 +128,6 @@ export function Home() {
   return (
     <div className="page">
       <PageHeader title={t('home')} description={t('home.d')} action={<LinkButton to={path('/orders/new')} variant="primary">{t('newOrder')}</LinkButton>} />
-
-      <Card>
-        <div className="setup__head">
-          <h2>{t('setupTitle')}</h2>
-          <p className="muted">{t('setupProgress', { n: num(0) })}</p>
-        </div>
-        <ol className="setup">
-          {steps.map((step, i) => (
-            <li key={step.title} className={i === 0 ? 'setup__step setup__step--next' : 'setup__step'}>
-              <span className="setup__number" aria-hidden="true">{num(i + 1)}</span>
-              <div className="setup__text">
-                {i === 0
-                  ? <h3>{t(step.title)}</h3>
-                  : <h3><Link to={path(step.to)}>{t(step.title)}</Link></h3>}
-                {i === 0 && <p className="muted">{t(step.body)}</p>}
-              </div>
-              {i === 0 && <LinkButton to={path(step.to)}>{t('start')}</LinkButton>}
-            </li>
-          ))}
-        </ol>
-      </Card>
 
       <div className="sample-note">
         <Badge>{t('sampleData')}</Badge>
@@ -106,4 +171,10 @@ export function Home() {
       </div>
     </div>
   )
+}
+
+// Stores have no real figures yet, so everyone gets onboarding. The dashboard design stays reachable with ?preview=dashboard.
+export function Home() {
+  const [params] = useSearchParams()
+  return params.get('preview') === 'dashboard' ? <Dashboard /> : <Onboarding />
 }

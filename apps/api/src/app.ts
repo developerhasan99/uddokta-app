@@ -7,6 +7,8 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
+import { registerMedia } from './media.ts'
+import { readLocalFile } from './storage.ts'
 import { roles, storeInvites, storeMembers, stores, users, type Role } from './schema.ts'
 
 const sessionDays = 30
@@ -18,7 +20,7 @@ const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 const newToken = () => randomBytes(32).toString('base64url')
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 
-const fail = (status: ContentfulStatusCode, error: string) =>
+export const fail = (status: ContentfulStatusCode, error: string) =>
   new HTTPException(status, { res: Response.json({ error }, { status }) })
 
 function databaseCode(err: unknown) {
@@ -26,7 +28,7 @@ function databaseCode(err: unknown) {
   return e.cause?.code ?? e.code
 }
 
-type Env = { Variables: { userId: string } }
+export type Env = { Variables: { userId: string } }
 
 function text(body: Record<string, unknown>, key: string) {
   const value = body[key]
@@ -59,7 +61,7 @@ async function startSession(c: Context, userId: string) {
 }
 
 // The store the current user can see, or 404: other stores are indistinguishable from missing ones.
-async function storeByHandle(t: Tx, handle: string) {
+export async function storeByHandle(t: Tx, handle: string) {
   const [store] = await t.select().from(stores).where(eq(stores.handle, handle))
   if (!store) throw fail(404, 'notFound')
   return store
@@ -67,7 +69,13 @@ async function storeByHandle(t: Tx, handle: string) {
 
 export const app = new Hono<Env>().basePath('/api')
 
-app.use(csrf())
+// Compares hosts, not full origins: behind Railway's proxy the app sees http while browsers send https.
+app.use(csrf({
+  origin: (origin, c) => {
+    const host = c.req.header('x-forwarded-host') ?? c.req.header('host')
+    return URL.canParse(origin) && new URL(origin).host === host
+  },
+}))
 
 app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
@@ -133,6 +141,13 @@ app.get('/invites/:token', async (c) => {
     one<{ store_name: string; role: Role }>(t, sql`select * from invite_preview(${hash(c.req.param('token'))})`))
   if (!invite) throw fail(404, 'inviteInvalid')
   return c.json({ storeName: invite.store_name, role: invite.role })
+})
+
+// Development stand-in for the public R2 bucket. Keys are unguessable, as they are in production.
+app.get('/media-files/:store/:file', async (c) => {
+  const data = await readLocalFile(`${c.req.param('store')}/${c.req.param('file')}`)
+  if (!data) throw fail(404, 'notFound')
+  return c.body(new Uint8Array(data), 200, { 'content-type': 'image/webp', 'x-content-type-options': 'nosniff', 'cache-control': 'public, max-age=31536000, immutable' })
 })
 
 // Everything below needs a signed-in user.
@@ -256,3 +271,5 @@ app.post('/invites/:token/accept', async (c) => {
   if (!row?.handle) throw fail(404, 'inviteInvalid')
   return c.json({ handle: row.handle })
 })
+
+registerMedia(app)
