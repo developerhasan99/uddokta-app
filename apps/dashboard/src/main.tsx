@@ -4,10 +4,11 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/noto-sans-bengali'
 import './styles/app.css'
-import { AccountProvider, lastStoreHandle, useAccount } from './account-context'
+import { AccountProvider, lastStoreHandle, RequireAccount, useAccount } from './account-context'
 import { LangProvider } from './i18n'
 import { channels, nav, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
+import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
 import { Members } from './pages/Members'
 import { Orders } from './pages/Orders'
@@ -34,28 +35,33 @@ createRoot(document.getElementById('root')!).render(
       <AccountProvider>
         <BrowserRouter>
           <Routes>
-            <Route index element={<Start />} />
-            <Route element={<AccountLayout />}>
-              <Route path="stores" element={<Stores />} />
-              <Route path="stores/new" element={<NewStore />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-            <Route path="store/:handle" element={<Shell />}>
-              <Route index element={<Home />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="orders/new" element={<Placeholder item="newOrder" />} />
-              {placeholders.map((item) => (
-                <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />
-              ))}
-              <Route path="settings" element={<SettingsLayout />}>
-                {settingsNav.map((item) => (
-                  item.key === 'sStore'
-                    ? <Route key={item.path} index element={<Placeholder item={item.key} />} />
-                    : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : <Placeholder item={item.key} />} />
-                ))}
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+            <Route path="invite/:token" element={<Invite />} />
+            <Route element={<RequireAccount />}>
+              <Route index element={<Start />} />
+              <Route element={<AccountLayout />}>
+                <Route path="stores" element={<Stores />} />
+                <Route path="stores/new" element={<NewStore />} />
+                <Route path="*" element={<NotFound />} />
               </Route>
-              <Route path="design-system" element={<DesignSystem />} />
-              <Route path="*" element={<NotFound />} />
+              <Route path="store/:handle" element={<Shell />}>
+                <Route index element={<Home />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="orders/new" element={<Placeholder item="newOrder" />} />
+                {placeholders.map((item) => (
+                  <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />
+                ))}
+                <Route path="settings" element={<SettingsLayout />}>
+                  {settingsNav.map((item) => (
+                    item.key === 'sStore'
+                      ? <Route key={item.path} index element={<Placeholder item={item.key} />} />
+                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : <Placeholder item={item.key} />} />
+                  ))}
+                </Route>
+                <Route path="design-system" element={<DesignSystem />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
             </Route>
           </Routes>
         </BrowserRouter>

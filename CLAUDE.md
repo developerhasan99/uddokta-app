@@ -43,9 +43,18 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 ## Accounts and stores
 
 - `users`, `stores` and `store_members (user_id, store_id, role)`: many-to-many. Roles are owner, admin and staff.
-- A user can exist with no store. A store always has at least one owner: the store and its first owner are created in one transaction, and the database must reject removing or demoting the last owner.
-- Dashboard URLs are `/store/:handle/...`. Screens outside a store (`/stores`, `/stores/new`) use the account layout. Every store route and API call checks membership.
-- Rules live in `apps/dashboard/src/account.ts`, tested by `npm test`, and move to the API when accounts are built. Permission checks in the UI are never the real enforcement.
+- A user can exist with no store. A store always has an owner: this is enforced by deferred triggers in the database, not only in code.
+- Team members join through single-use invite links that last 7 days, sent by the owner (for example on WhatsApp). No email provider is needed.
+- Dashboard URLs are `/store/:handle/...`. Screens outside a store (`/stores`, `/stores/new`) use the account layout.
+- Every API query goes through `tx()` in `apps/api/src/db.ts`, which drops to the restricted `uddokta_app` role and sets the user for one transaction. Never query outside it. New tenant tables need `store_id`, row-level security policies and a test proving another store cannot reach them.
+- UI permission checks are only for display. The database and API are the real enforcement.
+
+## Development
+
+- `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, Postgres on 5433).
+- `npm test` runs API tests against the `uddokta_test` database. `npm run build` type-checks both apps and builds the dashboard.
+- Schema changes: edit `apps/api/src/schema.ts`, then `npm run db:generate -w api`. Row-level security and triggers go in custom migrations.
+- For small UI changes, run the build and check the affected screen. Do not run long full-app browser tests unless the change is broad.
 
 ## Store customization
 

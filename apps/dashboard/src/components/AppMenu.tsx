@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronsUpDown, LayoutGrid, Plus } from 'lucide-react'
-import type { Role } from '../account'
-import { useAccount, useCurrentStore } from '../account-context'
+import { Check, ChevronsUpDown, LayoutGrid, LogOut, Plus } from 'lucide-react'
+import { useAccount, useCurrentStore, type Role } from '../account-context'
 import { useLang, type Key, type Lang } from '../i18n'
 
 export const roleLabels: Record<Role, Key> = { owner: 'roleOwner', admin: 'roleAdmin', staff: 'roleStaff' }
@@ -15,7 +14,7 @@ export function StoreMark({ name, round }: { name: string; round?: boolean }) {
 // Store switcher inside a store; account and language menu everywhere.
 export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 'top' | 'bottom'; align?: 'start' | 'end'; container?: HTMLElement | null }) {
   const { t, lang, setLang } = useLang()
-  const { me, myStores } = useAccount()
+  const { me, myStores, logout } = useAccount()
   const current = useCurrentStore()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -88,6 +87,12 @@ export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 
               <span className="menu__sub">{me.email}</span>
             </span>
           </div>
+          <Dropdown.Group className="menu__section menu__section--ruled">
+            <Dropdown.Item className="menu__item menu__action" onSelect={() => void logout()}>
+              <LogOut size={16} aria-hidden="true" />
+              {t('logout')}
+            </Dropdown.Item>
+          </Dropdown.Group>
         </Dropdown.Content>
       </Dropdown.Portal>
     </Dropdown.Root>

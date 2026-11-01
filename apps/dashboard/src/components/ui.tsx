@@ -53,13 +53,16 @@ export function Notice({ title, body, role, action }: { title: string; body?: st
   )
 }
 
-export function Field({ label, error, help, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; id: string; error?: string; help?: string }) {
+export function Field({ label, error, help, id, trailing, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; id: string; error?: string; help?: string; trailing?: ReactNode }) {
   const message = error ?? help
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
-      <input id={id} className="input" aria-invalid={error ? true : undefined} aria-describedby={message ? `${id}-help` : undefined} {...props} />
-      <p id={`${id}-help`} className={error ? 'field__help field__help--error' : 'field__help'}>{message}</p>
+      <div className="field__control">
+        <input id={id} className="input" aria-invalid={error ? true : undefined} aria-describedby={message ? `${id}-help` : undefined} {...props} />
+        {trailing}
+      </div>
+      {message && <p id={`${id}-help`} className={error ? 'field__help field__help--error' : 'field__help'}>{message}</p>}
     </div>
   )
 }

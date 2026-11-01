@@ -43,6 +43,27 @@ export function Home() {
     <div className="page">
       <PageHeader title={t('home')} description={t('home.d')} action={<LinkButton to={path('/orders/new')} variant="primary">{t('newOrder')}</LinkButton>} />
 
+      <Card>
+        <div className="setup__head">
+          <h2>{t('setupTitle')}</h2>
+          <p className="muted">{t('setupProgress', { n: num(0) })}</p>
+        </div>
+        <ol className="setup">
+          {steps.map((step, i) => (
+            <li key={step.title} className={i === 0 ? 'setup__step setup__step--next' : 'setup__step'}>
+              <span className="setup__number" aria-hidden="true">{num(i + 1)}</span>
+              <div className="setup__text">
+                {i === 0
+                  ? <h3>{t(step.title)}</h3>
+                  : <h3><Link to={path(step.to)}>{t(step.title)}</Link></h3>}
+                {i === 0 && <p className="muted">{t(step.body)}</p>}
+              </div>
+              {i === 0 && <LinkButton to={path(step.to)}>{t('start')}</LinkButton>}
+            </li>
+          ))}
+        </ol>
+      </Card>
+
       <div className="sample-note">
         <Badge>{t('sampleData')}</Badge>
         <p className="muted">{t('sampleNoteHome')}</p>
@@ -83,27 +104,6 @@ export function Home() {
           </ul>
         </section>
       </div>
-
-      <Card>
-        <div className="setup__head">
-          <h2>{t('setupTitle')}</h2>
-          <p className="muted">{t('setupProgress', { n: num(0) })}</p>
-        </div>
-        <ol className="setup">
-          {steps.map((step, i) => (
-            <li key={step.title} className={i === 0 ? 'setup__step setup__step--next' : 'setup__step'}>
-              <span className="setup__number" aria-hidden="true">{num(i + 1)}</span>
-              <div className="setup__text">
-                {i === 0
-                  ? <h3>{t(step.title)}</h3>
-                  : <h3><Link to={path(step.to)}>{t(step.title)}</Link></h3>}
-                {i === 0 && <p className="muted">{t(step.body)}</p>}
-              </div>
-              {i === 0 && <LinkButton to={path(step.to)}>{t('start')}</LinkButton>}
-            </li>
-          ))}
-        </ol>
-      </Card>
     </div>
   )
 }
