@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { bigint, check, index, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -73,4 +73,66 @@ export const media = pgTable('media', {
   // What the seller uploaded; files are always stored as WebP. Null when it could not be worked out for older images.
   sourceFormat: text('source_format'),
   createdAt: createdAt(),
-}, (t) => [index('media_store_created').on(t.storeId, t.createdAt)])
+}, (t) => [
+  index('media_store_created').on(t.storeId, t.createdAt),
+  unique('media_store_id').on(t.storeId, t.id),
+])
+
+export const productStatuses = ['draft', 'active'] as const
+export type ProductOption = { name: string; values: string[] }
+
+export const products = pgTable('products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  status: text('status', { enum: productStatuses }).notNull().default('active'),
+  options: jsonb('options').$type<ProductOption[]>().notNull().default([]),
+  createdAt: createdAt(),
+}, (t) => [
+  index('products_store_created').on(t.storeId, t.createdAt),
+  unique('products_store_id').on(t.storeId, t.id),
+  check('products_status', sql`${t.status} in ('draft', 'active')`),
+])
+
+// Every product has at least one variant, so price and stock always live here.
+// ponytail: amounts are whole taka; multiply by 100 and move to poisha if sellers need fractions.
+export const productVariants = pgTable('product_variants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  options: text('options').array().notNull(),
+  position: integer('position').notNull(),
+  price: integer('price').notNull(),
+  comparePrice: integer('compare_price'),
+  sku: text('sku').notNull().default(''),
+  // Null means stock is not tracked.
+  stock: integer('stock'),
+}, (t) => [
+  foreignKey({ name: 'product_variants_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
+  unique('product_variants_store_id').on(t.storeId, t.id),
+  index('product_variants_product_idx').on(t.productId, t.position),
+  check('product_variants_amounts', sql`${t.price} >= 0 and ${t.comparePrice} >= 0 and ${t.stock} >= 0`),
+])
+
+// Apart from variants so row-level security can hide buying prices from staff.
+export const productVariantCosts = pgTable('product_variant_costs', {
+  variantId: uuid('variant_id').primaryKey(),
+  storeId: uuid('store_id').notNull(),
+  cost: integer('cost').notNull(),
+}, (t) => [
+  foreignKey({ name: 'product_variant_costs_variant', columns: [t.storeId, t.variantId], foreignColumns: [productVariants.storeId, productVariants.id] }).onDelete('cascade'),
+  check('product_variant_costs_amount', sql`${t.cost} >= 0`),
+])
+
+// The foreign key to media is in the security migration: it must be deferred, which Drizzle cannot express.
+export const productMedia = pgTable('product_media', {
+  storeId: uuid('store_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  mediaId: uuid('media_id').notNull(),
+  position: integer('position').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.productId, t.mediaId] }),
+  foreignKey({ name: 'product_media_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
+  index('product_media_media').on(t.storeId, t.mediaId),
+])

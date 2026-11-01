@@ -1,3 +1,5 @@
+export type MediaItem = { id: string; name: string; alt: string; width: number; height: number; sizeBytes: number; sourceFormat: string; createdAt: string; url: string; thumbUrl: string }
+
 export class ApiError extends Error {
   code: string
   constructor(code: string) {

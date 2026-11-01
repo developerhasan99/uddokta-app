@@ -8,6 +8,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerMedia } from './media.ts'
+import { registerProducts } from './products.ts'
 import { readLocalFile } from './storage.ts'
 import { roles, storeInvites, storeMembers, stores, users, type Role } from './schema.ts'
 
@@ -26,6 +27,11 @@ export const fail = (status: ContentfulStatusCode, error: string) =>
 function databaseCode(err: unknown) {
   const e = err as { code?: string; cause?: { code?: string } }
   return e.cause?.code ?? e.code
+}
+
+const databaseConstraint = (err: unknown) => {
+  const e = err as { constraint?: string; cause?: { constraint?: string } }
+  return e.cause?.constraint ?? e.constraint
 }
 
 export type Env = { Variables: { userId: string } }
@@ -81,6 +87,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
+  if (databaseConstraint(err) === 'product_media_media_fk') return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -273,3 +280,4 @@ app.post('/invites/:token/accept', async (c) => {
 })
 
 registerMedia(app)
+registerProducts(app)

@@ -36,6 +36,20 @@
       "when": 1793549103928,
       "tag": "0004_media_source_format",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793550603135,
+      "tag": "0005_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793550603622,
+      "tag": "0006_products_security",
+      "breakpoints": true
     }
   ]
 }

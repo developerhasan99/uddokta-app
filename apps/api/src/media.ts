@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import sharp from 'sharp'
 import { one, tx } from './db.ts'
-import { media } from './schema.ts'
+import { media, productMedia, products } from './schema.ts'
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
 
@@ -14,7 +14,7 @@ const allowedFormats = ['jpeg', 'png', 'webp', 'avif']
 // ponytail: one limit for every store; read it from the store's plan once plans exist.
 export const storeLimitBytes = 1024 * 1024 * 1024
 
-const present = (row: typeof media.$inferSelect) => ({
+export const present = (row: typeof media.$inferSelect) => ({
   id: row.id,
   name: row.name,
   alt: row.alt,
@@ -26,6 +26,9 @@ const present = (row: typeof media.$inferSelect) => ({
   url: publicUrl(row.key),
   thumbUrl: publicUrl(row.thumbKey),
 })
+
+// Escaped so % and _ typed by a seller are searched for literally.
+export const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
 // Decoding here rejects anything that is not really an image, whatever its name or type claims.
 // Re-encoding drops metadata such as a phone's GPS location.
@@ -78,8 +81,7 @@ export function registerMedia(app: Hono<Env>) {
   app.get('/stores/:handle/media', async (c) => {
     const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
     const q = (c.req.query('q') ?? '').trim().slice(0, 200)
-    // Escaped so % and _ typed by a seller are searched for literally.
-    const pattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`
+    const pattern = likePattern(q)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       // ponytail: offset paging; switch to a created_at cursor if galleries reach tens of thousands of files.
@@ -131,6 +133,19 @@ export function registerMedia(app: Hono<Env>) {
     const full = await sharp(cropped).webp({ quality: 82 }).toBuffer()
     const row = await saveImage(userId, source.storeId, croppedName(source.name), { full, thumb, width, height, sourceFormat: 'webp' })
     return c.json(present(row), 201)
+  })
+
+  app.get('/stores/:handle/media/:id/usage', async (c) => {
+    return tx(c.get('userId'), async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle'))
+      const used = await t
+        .select({ id: products.id, name: products.name })
+        .from(productMedia)
+        .innerJoin(products, eq(products.id, productMedia.productId))
+        .where(and(eq(productMedia.storeId, store.id), eq(productMedia.mediaId, c.req.param('id'))))
+        .orderBy(asc(products.name))
+      return c.json({ products: used })
+    })
   })
 
   app.patch('/stores/:handle/media/:id', async (c) => {

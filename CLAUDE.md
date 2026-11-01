@@ -85,6 +85,14 @@ Files live in Cloudflare R2 (`.media/` in development), and the `media` table ho
 
 One picker used across products, pages, themes and the logo. It shows where each file is used, blocks deleting a file that is live, compresses images automatically and counts against a per-plan storage limit.
 
+## Products
+
+- Every product has at least one variant, so price and stock always live on `product_variants`. Options generate one variant per combination, up to 100.
+- Amounts are whole taka in integer columns. Blank stock means it is not tracked.
+- Buying prices live in `product_variant_costs`, which row-level security hides from staff. Staff saves leave the field out and keep the existing price.
+- Staff can add and edit products; only owners and admins can delete them.
+- `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.
+
 ## Design rules
 
 - Do not use the Hallmark skill or its linter in this project.

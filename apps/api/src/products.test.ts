@@ -1,0 +1,196 @@
+import assert from 'node:assert/strict'
+import { after, before, test } from 'node:test'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
+import sharp from 'sharp'
+import { app } from './app.ts'
+import { pool, tx } from './db.ts'
+import { productVariantCosts, products } from './schema.ts'
+
+before(async () => {
+  await pool.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public')
+  await migrate(drizzle(pool), { migrationsFolder: new URL('../migrations', import.meta.url).pathname })
+})
+after(() => pool.end())
+
+function client() {
+  let cookie = ''
+  return async (method: string, path: string, body?: unknown) => {
+    const isForm = body instanceof FormData
+    const res = await app.request(`/api${path}`, {
+      method,
+      headers: isForm ? { cookie, host: 'shop.test', origin: 'https://shop.test' } : { 'content-type': 'application/json', cookie },
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+    })
+    const set = res.headers.get('set-cookie')
+    if (set) cookie = set.split(';')[0]
+    return { status: res.status, json: await res.json() as any }
+  }
+}
+
+let count = 0
+async function storeOwner() {
+  const call = client()
+  const n = ++count
+  await call('POST', '/auth/signup', { name: 'Owner', email: `p${n}@example.com`, password: 'correct horse' })
+  const handle = `shop-${n}`
+  const store = await call('POST', '/stores', { name: 'Shop', handle })
+  return { call, handle, storeId: store.json.id as string, base: `/stores/${handle}/products` }
+}
+
+async function staffOf(owner: Awaited<ReturnType<typeof storeOwner>>) {
+  const invite = await owner.call('POST', `/stores/${owner.handle}/invites`, { role: 'staff' })
+  const staff = client()
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `pstaff${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', `/invites/${invite.json.token}/accept`)
+  return staff
+}
+
+async function upload(owner: Awaited<ReturnType<typeof storeOwner>>) {
+  const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#2a7' } }).png().toBuffer()
+  const form = new FormData()
+  form.set('file', new File([png as BlobPart], 'a.png', { type: 'image/png' }))
+  return (await owner.call('POST', `/stores/${owner.handle}/media`, form)).json
+}
+
+const simple = (extra = {}) => ({ name: 'পাঞ্জাবি', variants: [{ options: [], price: 1200, cost: 700, sku: 'P-1', stock: 5 }], ...extra })
+const sized = (extra = {}) => ({
+  name: 'Shirt',
+  options: [{ name: 'Size', values: ['M', 'L'] }],
+  variants: [{ options: ['M'], price: 500, stock: 3 }, { options: ['L'], price: 600, stock: 0 }],
+  ...extra,
+})
+
+test('a product saves with its variants, buying price and images', async () => {
+  const owner = await storeOwner()
+  const image = await upload(owner)
+  const made = await owner.call('POST', owner.base, simple({ description: 'সুতি', mediaIds: [image.id] }))
+  assert.equal(made.status, 201)
+  assert.equal(made.json.status, 'active')
+  assert.equal(made.json.variants[0].cost, 700)
+  assert.equal(made.json.media[0].id, image.id)
+
+  const list = await owner.call('GET', owner.base)
+  assert.deepEqual(list.json.counts, { active: 1 })
+  const row = list.json.items[0]
+  assert.deepEqual([row.minPrice, row.maxPrice, row.stock, row.variantCount], [1200, 1200, 5, 1])
+  assert.equal(row.thumbUrl, image.thumbUrl)
+})
+
+test('saving keeps variant ids, removes dropped variants and leaves untouched buying prices alone', async () => {
+  const owner = await storeOwner()
+  const made = (await owner.call('POST', owner.base, sized())).json
+  const [m, l] = made.variants
+  const url = `${owner.base}/${made.id}`
+  await owner.call('PUT', url, sized({ variants: [{ id: m.id, options: ['M'], price: 550, cost: 300 }, { id: l.id, options: ['L'], price: 600 }] }))
+  const edited = await owner.call('PUT', url, {
+    name: 'Shirt',
+    options: [{ name: 'Size', values: ['M', 'XL'] }],
+    variants: [{ id: m.id, options: ['M'], price: 560 }, { options: ['XL'], price: 700 }],
+  })
+  assert.equal(edited.json.variants.length, 2)
+  assert.equal(edited.json.variants[0].id, m.id)
+  assert.equal(edited.json.variants[0].cost, 300)
+  assert.notEqual(edited.json.variants[1].id, l.id)
+})
+
+test('bad products are refused', async () => {
+  const owner = await storeOwner()
+  const other = (await owner.call('POST', owner.base, simple())).json
+  const bad: [string, unknown][] = [
+    ['no name', simple({ name: '  ' })],
+    ['no variants', simple({ variants: [] })],
+    ['negative price', simple({ variants: [{ options: [], price: -1 }] })],
+    ['fractional price', simple({ variants: [{ options: [], price: 1.5 }] })],
+    ['missing combination', sized({ variants: [{ options: ['M'], price: 1 }] })],
+    ['repeated combination', sized({ variants: [{ options: ['M'], price: 1 }, { options: ['M'], price: 1 }] })],
+    ['unknown value', sized({ variants: [{ options: ['M'], price: 1 }, { options: ['S'], price: 1 }] })],
+    ['repeated option', sized({ options: [{ name: 'Size', values: ['M'] }, { name: 'Size', values: ['L'] }], variants: [{ options: ['M', 'L'], price: 1 }] })],
+    ['bad status', simple({ status: 'live' })],
+    ['bad image id', simple({ mediaIds: ['x'] })],
+    ['another product’s variant', simple({ variants: [{ id: other.variants[0].id, options: [], price: 1 }] })],
+  ]
+  for (const [label, body] of bad) assert.equal((await owner.call('POST', owner.base, body)).status, 400, label)
+  assert.equal((await owner.call('GET', `${owner.base}/not-an-id`)).status, 404)
+})
+
+test('search covers name and SKU, and tabs filter by status', async () => {
+  const owner = await storeOwner()
+  await owner.call('POST', owner.base, simple({ name: 'লাল শাড়ি 100%', status: 'draft' }))
+  await owner.call('POST', owner.base, simple({ name: 'Bag', variants: [{ options: [], price: 1, sku: 'XY-9' }] }))
+  const names = async (query: string) => (await owner.call('GET', `${owner.base}?${query}`)).json.items.map((i: any) => i.name)
+  assert.deepEqual(await names(`q=${encodeURIComponent('শাড়ি')}`), ['লাল শাড়ি 100%'])
+  assert.deepEqual(await names('q=xy-9'), ['Bag'])
+  assert.deepEqual(await names(`q=${encodeURIComponent('%')}`), ['লাল শাড়ি 100%'])
+  assert.deepEqual(await names('status=draft'), ['লাল শাড়ি 100%'])
+  const all = await owner.call('GET', `${owner.base}?status=draft`)
+  assert.deepEqual(all.json.counts, { draft: 1, active: 1 }, 'tab counts ignore the current tab')
+})
+
+test('staff can edit products but never read or change buying prices, and cannot delete', async () => {
+  const owner = await storeOwner()
+  const staff = await staffOf(owner)
+  const made = (await owner.call('POST', owner.base, simple())).json
+  const url = `${owner.base}/${made.id}`
+  const variant = made.variants[0]
+
+  const seen = await staff('GET', url)
+  assert.equal(seen.json.variants[0].cost, null)
+  const me = await staff('GET', '/me')
+  await tx(me.json.user.id, async (t) => assert.deepEqual(await t.select().from(productVariantCosts), []))
+
+  const edited = await staff('PUT', url, simple({ name: 'New', variants: [{ id: variant.id, options: [], price: 1300 }] }))
+  assert.equal(edited.status, 200)
+  assert.equal((await owner.call('GET', url)).json.variants[0].cost, 700, 'a staff save keeps the buying price')
+
+  assert.equal((await staff('PUT', url, simple({ variants: [{ id: variant.id, options: [], price: 1, cost: 1 }] }))).status, 403)
+  assert.equal((await staff('PUT', url, simple({ variants: [{ id: variant.id, options: [], price: 1, cost: null }] }))).status, 200)
+  assert.equal((await owner.call('GET', url)).json.variants[0].cost, 700, 'staff cannot clear it either')
+  assert.equal((await staff('DELETE', url)).status, 403)
+  assert.equal((await owner.call('DELETE', url)).status, 200)
+  assert.equal((await owner.call('GET', url)).status, 404)
+})
+
+test('one store cannot reach another store’s products or use its images', async () => {
+  const a = await storeOwner()
+  const b = await storeOwner()
+  const product = (await b.call('POST', b.base, simple())).json
+  const image = await upload(b)
+  assert.equal((await a.call('GET', b.base)).status, 404)
+  assert.equal((await a.call('GET', `${a.base}/${product.id}`)).status, 404)
+  assert.equal((await a.call('PUT', `${a.base}/${product.id}`, simple())).status, 404)
+  assert.equal((await a.call('DELETE', `${a.base}/${product.id}`)).status, 403)
+  assert.equal((await a.call('POST', a.base, simple({ mediaIds: [image.id] }))).status, 400)
+  const me = await a.call('GET', '/me')
+  await tx(me.json.user.id, async (t) => assert.deepEqual(await t.select().from(products), []))
+  await assert.rejects(
+    pool.query(`insert into product_media (store_id, product_id, media_id, position) values ($1, $2, $3, 0)`, [b.storeId, product.id, '00000000-0000-4000-8000-000000000000']),
+    'the database refuses images outside the store as well',
+  )
+})
+
+test('an image in use shows where and cannot be deleted until it is removed', async () => {
+  const owner = await storeOwner()
+  const image = await upload(owner)
+  const made = (await owner.call('POST', owner.base, simple({ mediaIds: [image.id] }))).json
+  const mediaUrl = `/stores/${owner.handle}/media/${image.id}`
+  assert.deepEqual((await owner.call('GET', `${mediaUrl}/usage`)).json.products, [{ id: made.id, name: made.name }])
+
+  const refused = await owner.call('DELETE', mediaUrl)
+  assert.equal(refused.status, 409)
+  assert.equal(refused.json.error, 'mediaInUse')
+  assert.equal((await owner.call('GET', `/stores/${owner.handle}/media`)).json.items.length, 1)
+
+  await owner.call('PUT', `${owner.base}/${made.id}`, simple({ variants: [{ id: made.variants[0].id, options: [], price: 1 }], mediaIds: [] }))
+  assert.deepEqual((await owner.call('GET', `${mediaUrl}/usage`)).json.products, [])
+  assert.equal((await owner.call('DELETE', mediaUrl)).status, 200)
+})
+
+test('deleting a store removes its products and images together', async () => {
+  const owner = await storeOwner()
+  const image = await upload(owner)
+  await owner.call('POST', owner.base, simple({ mediaIds: [image.id] }))
+  await pool.query('delete from stores where id = $1', [owner.storeId])
+  const left = await pool.query('select count(*)::int as n from products where store_id = $1', [owner.storeId])
+  assert.equal(left.rows[0].n, 0)
+})

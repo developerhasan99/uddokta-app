@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { Check, Crop, ImagePlus, Link2, Trash2, Upload, X } from 'lucide-react'
-import { useCurrentStore } from '../account-context'
-import { api, errorCode } from '../api'
+import { useCurrentStore, useStorePath } from '../account-context'
+import { api, errorCode, type MediaItem as Item } from '../api'
 import { Button, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { centered, moved, resized, toPixels, type Corner, type Rect } from '../crop'
 import { errorLabel, useLang } from '../i18n'
+import { useUrlSearch } from '../use-url-search'
 
-type Item = { id: string; name: string; alt: string; width: number; height: number; sizeBytes: number; sourceFormat: string; createdAt: string; url: string; thumbUrl: string }
 type Page = { items: Item[]; hasMore: boolean; usedBytes: number; limitBytes: number }
 type Upload = { id: number; name: string; error?: string }
 
@@ -21,9 +21,7 @@ export function Media() {
   const { t, num, date } = useLang()
   const current = useCurrentStore()!
   const base = `/stores/${current.store.handle}/media`
-  const [params, setParams] = useSearchParams()
-  const query = params.get('q') ?? ''
-  const [searchText, setSearchText] = useState(query)
+  const { query, text: searchText, setText: setSearchText } = useUrlSearch()
   const latestLoad = useRef(0)
   const [page, setPage] = useState<Page | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -56,14 +54,6 @@ export function Media() {
   useEffect(() => {
     void load()
   }, [load])
-
-  // Waits for a pause in typing, and keeps the search in the URL.
-  useEffect(() => {
-    const value = searchText.trim()
-    if (value === query) return
-    const timer = setTimeout(() => setParams(value ? { q: value } : {}, { replace: true }), 250)
-    return () => clearTimeout(timer)
-  }, [searchText, query, setParams])
 
   const loadMore = async () => {
     if (!page) return
@@ -183,7 +173,7 @@ export function Media() {
           )}
 
           {!loadFailed && !page && (
-            <div className="media__list" role="status" aria-label={t('loading')}>
+            <div className="data-list" role="status" aria-label={t('loading')}>
           {Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="16rem" /><Skeleton width="5rem" /></div>)}
         </div>
           )}
@@ -193,7 +183,7 @@ export function Media() {
       )}
 
       {page && page.items.length === 0 && pending.length === 0 && query && (
-        <section className="media__list">
+        <section className="data-list">
           <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<Button onClick={() => setSearchText('')}>{t('clearFilters')}</Button>} />
         </section>
       )}
@@ -207,41 +197,41 @@ export function Media() {
           )}
 
           {page && (page.items.length > 0 || pending.length > 0) && (
-            <div className="media__list">
-          <table className="media-table">
+            <div className="data-list">
+          <table className="data-table">
             <thead>
               <tr>
                 <th scope="col">{t('mediaName')}</th>
-                <th scope="col" className="media-table__meta">{t('mediaFormat')}</th>
-                <th scope="col" className="media-table__meta">{t('mediaSize')}</th>
-                <th scope="col" className="media-table__meta media-table__wide">{t('mediaDimensions')}</th>
-                <th scope="col" className="media-table__meta media-table__wide">{t('mediaAdded')}</th>
+                <th scope="col" className="data-table__meta">{t('mediaFormat')}</th>
+                <th scope="col" className="data-table__meta">{t('mediaSize')}</th>
+                <th scope="col" className="data-table__meta data-table__wide">{t('mediaDimensions')}</th>
+                <th scope="col" className="data-table__meta data-table__wide">{t('mediaAdded')}</th>
               </tr>
             </thead>
             <tbody>
               {pending.map((u) => (
                 <tr key={u.id} aria-label={u.name}>
-                  <td colSpan={5}><span className="media-table__file"><span className="media-table__thumb" /><span className="muted media-table__name">{u.name}</span></span></td>
+                  <td colSpan={5}><span className="data-table__file"><span className="data-table__thumb" /><span className="muted data-table__name">{u.name}</span></span></td>
                 </tr>
               ))}
               {page.items.map((item) => (
-                <tr key={item.id} className={selected?.id === item.id ? 'media-table__row media-table__row--selected' : 'media-table__row'} onClick={() => setSelected(item)}>
+                <tr key={item.id} className={selected?.id === item.id ? 'data-table__row data-table__row--selected' : 'data-table__row'} onClick={() => setSelected(item)}>
                   <td>
-                    <button type="button" className="media-table__file" aria-pressed={selected?.id === item.id} onClick={(e) => {
+                    <button type="button" className="data-table__file" aria-pressed={selected?.id === item.id} onClick={(e) => {
                       e.stopPropagation()
                       setSelected(item)
                     }}>
-                      <span className="media-table__thumb"><img src={item.thumbUrl} alt="" loading="lazy" /></span>
-                      <span className="media-table__text">
-                        <span className="media-table__name" title={item.name}>{item.name}</span>
-                        <span className="muted media-table__sub">{formatLabel(item.sourceFormat)}, {size(item.sizeBytes)}</span>
+                      <span className="data-table__thumb"><img src={item.thumbUrl} alt="" loading="lazy" /></span>
+                      <span className="data-table__text">
+                        <span className="data-table__name" title={item.name}>{item.name}</span>
+                        <span className="muted data-table__sub">{formatLabel(item.sourceFormat)}, {size(item.sizeBytes)}</span>
                       </span>
                     </button>
                   </td>
-                  <td className="media-table__meta">{formatLabel(item.sourceFormat)}</td>
-                  <td className="media-table__meta">{size(item.sizeBytes)}</td>
-                  <td className="media-table__meta media-table__wide">{num(item.width).replace(/[,،]/g, '')} × {num(item.height).replace(/[,،]/g, '')}</td>
-                  <td className="media-table__meta media-table__wide">{date(new Date(item.createdAt))}</td>
+                  <td className="data-table__meta">{formatLabel(item.sourceFormat)}</td>
+                  <td className="data-table__meta">{size(item.sizeBytes)}</td>
+                  <td className="data-table__meta data-table__wide">{num(item.width).replace(/[,،]/g, '')} × {num(item.height).replace(/[,،]/g, '')}</td>
+                  <td className="data-table__meta data-table__wide">{date(new Date(item.createdAt))}</td>
                 </tr>
               ))}
             </tbody>
@@ -420,7 +410,9 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
   onDeleted: (item: Item) => void
 }) {
   const { t } = useLang()
+  const path = useStorePath()
   const panel = useRef<HTMLElement>(null)
+  const [usedIn, setUsedIn] = useState<{ id: string; name: string }[] | null>(null)
   const [alt, setAlt] = useState(item.alt)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -435,6 +427,14 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useEffect(() => {
+    let current = true
+    api<{ products: { id: string; name: string }[] }>(`${base}/${item.id}/usage`)
+      .then((result) => { if (current) setUsedIn(result.products) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [base, item.id])
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -478,7 +478,7 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
       <div className="media-details__preview"><img src={item.url} alt={item.alt} /></div>
 
       <div className="media-details__body">
-        {wasCropped && <p className="media-details__saved" role="status">{t('mediaCropDone')}</p>}
+        {wasCropped && <p className="success-note" role="status">{t('mediaCropDone')}</p>}
         {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
 
         <div className="media-details__actions">
@@ -506,7 +506,17 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
           {alt.trim() !== item.alt && <Button type="submit">{t('mediaSave')}</Button>}
         </form>
 
-        {canDelete && (
+        {usedIn && (
+          <div className="media-details__usage">
+            <span className="media-details__label">{t('mediaUsedIn')}</span>
+            {usedIn.length === 0
+              ? <p className="muted">{t('mediaNotUsed')}</p>
+              : <ul>{usedIn.map((p) => <li key={p.id}><Link to={path(`/products/${p.id}`)}>{p.name}</Link></li>)}</ul>}
+          </div>
+        )}
+
+        {canDelete && usedIn !== null && usedIn.length > 0 && <p className="muted media-details__locked">{t('mediaUsedNoDelete')}</p>}
+        {canDelete && usedIn?.length === 0 && (
           confirming
             ? (
               <div className="media-details__confirm">
