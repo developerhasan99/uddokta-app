@@ -1,0 +1,33 @@
+:root {
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px;
+  --text-sm: 0.8125rem; --text-md: 0.875rem; --text-lg: 1rem; --text-xl: 1.2rem; --text-2xl: 1.44rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms;
+  --container: 1400px; --sidebar-width: 240px; --control: 32px; --frame-gap: 6px;
+  --z-dropdown: 100; --z-tooltip: 600;
+
+  --color-frame: oklch(14% 0 0); --color-frame-2: oklch(26% 0 0); --color-frame-3: oklch(32% 0 0);
+  --color-frame-ink: oklch(98% 0 0); --color-frame-muted: oklch(78% 0 0); --color-frame-rule: oklch(40% 0 0);
+
+  --color-paper: oklch(100% 0 0); --color-paper-2: oklch(97.5% 0.002 155); --color-paper-3: oklch(94.5% 0.003 155);
+  --color-ink: oklch(20% 0 0); --color-ink-2: oklch(36% 0 0); --color-muted: oklch(48% 0 0);
+  --color-rule: oklch(94% 0 0); --color-field: oklch(88% 0 0);
+  --color-primary: oklch(45% 0.12 155); --color-primary-2: oklch(39% 0.11 155); --color-frame-active: oklch(80% 0.15 155); --color-primary-ink: oklch(100% 0 0); --color-focus: oklch(52% 0.13 155);
+
+  --color-info: oklch(32% 0.08 235); --color-info-soft: oklch(87% 0.07 225);
+  --color-warning: oklch(36% 0.08 75); --color-warning-soft: oklch(89% 0.1 88);
+  --color-success: oklch(32% 0.09 140); --color-success-soft: oklch(89% 0.15 130);
+  --color-error: oklch(46% 0.17 27); --color-error-soft: oklch(92% 0.05 27);
+
+  --font-body: "Inter Variable", "Noto Sans Bengali Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-danger: oklch(55% 0.21 27); --color-danger-2: oklch(49% 0.2 27);
+  --shadow-btn: inset 0 -1px 0 0 oklch(72% 0 0), inset 0 0 0 1px oklch(0% 0 0 / 0.1), inset 0 1px 0 1px oklch(100% 0 0);
+  --shadow-btn-pressed: inset 0 1px 2px oklch(0% 0 0 / 0.22), inset 0 0 0 1px oklch(0% 0 0 / 0.12);
+  --shadow-btn-fill: inset 0 -1px 0 1px oklch(0% 0 0 / 0.32), inset 0 0 0 1px oklch(0% 0 0 / 0.22), inset 0 1px 0 1px oklch(100% 0 0 / 0.28);
+  --shadow-btn-fill-pressed: inset 0 2px 3px oklch(0% 0 0 / 0.4), inset 0 0 0 1px oklch(0% 0 0 / 0.25);
+  --radius-panel: 16px; --radius-card: 12px; --radius-control: 8px; --radius-pill: 999px; --rule-hair: 1px;
+  --shadow-card: 0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent);
+  --shadow-field: 0 1px 0 color-mix(in oklab, var(--color-ink) 12%, transparent);
+  --shadow-bar: 0 1px 3px color-mix(in oklab, var(--color-ink) 10%, transparent);
+  --shadow-menu: 0 4px 16px color-mix(in oklab, var(--color-ink) 18%, transparent);
+}

@@ -1,0 +1,69 @@
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import { Link } from 'react-router'
+
+type Variant = 'primary' | 'default' | 'danger'
+
+export function Button({ variant = 'default', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+  return <button type="button" {...props} className={`btn btn--${variant}`} />
+}
+
+export function IconButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return <button type="button" {...props} aria-label={label} className="btn btn--icon">{children}</button>
+}
+
+export function LinkButton({ to, variant = 'default', children }: { to: string; variant?: Variant; children: ReactNode }) {
+  return <Link to={to} className={`btn btn--${variant}`}>{children}</Link>
+}
+
+export type Tone = 'neutral' | 'info' | 'warning' | 'success' | 'danger'
+
+export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
+  return <span className={`badge badge--${tone}`}>{children}</span>
+}
+
+export function Card({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <section className="card">
+      {title && <h2>{title}</h2>}
+      {children}
+    </section>
+  )
+}
+
+export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+  return (
+    <header className="page-header">
+      <title>{title}</title>
+      <div className="page-header__text">
+        <h1>{title}</h1>
+        {description && <p className="muted">{description}</p>}
+      </div>
+      {action}
+    </header>
+  )
+}
+
+export function Notice({ title, body, role, action }: { title: string; body?: string; role?: 'alert'; action?: ReactNode }) {
+  return (
+    <div className="notice" role={role}>
+      <h2>{title}</h2>
+      {body && <p className="muted">{body}</p>}
+      {action}
+    </div>
+  )
+}
+
+export function Field({ label, error, help, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; id: string; error?: string; help?: string }) {
+  const message = error ?? help
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <input id={id} className="input" aria-invalid={error ? true : undefined} aria-describedby={message ? `${id}-help` : undefined} {...props} />
+      <p id={`${id}-help`} className={error ? 'field__help field__help--error' : 'field__help'}>{message}</p>
+    </div>
+  )
+}
+
+export function Skeleton({ width = '100%' }: { width?: string }) {
+  return <span className="skeleton" style={{ width }} />
+}

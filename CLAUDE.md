@@ -1,0 +1,101 @@
+# Uddokta
+
+Bangla-first commerce SaaS for Bangladeshi sellers who take orders through Facebook and cash on delivery. It covers the feature set in `winningseller-analysis.md`, with Shopify-style navigation, a polished minimal design and a media gallery for each store.
+
+Use the analysis as a feature reference only. Write our own copy, guides and branding; never reuse WinningSeller's or Shopify's text, logos or assets.
+
+## Stack (decided, do not change without asking)
+
+| Layer | Choice |
+|---|---|
+| Language | TypeScript |
+| Dashboard | React + Vite single-page app, React Router |
+| API | Hono on Node.js |
+| Storefront | Hono rendering React to HTML on the server, JavaScript only where needed (cart, checkout) |
+| Page editor | Same React section components as the storefront |
+| Database | Managed PostgreSQL + Drizzle |
+| Background jobs | pg-boss |
+| Media | Cloudflare R2, images resized on delivery |
+| CDN, custom domains | Cloudflare, Cloudflare for SaaS |
+| Hosting | Docker containers on AWS (Mumbai or Singapore) |
+| UI primitives | Radix + our own design tokens |
+| Packages | npm workspaces |
+
+**Do not use:** Next.js, Vercel, Polaris (its license is for Shopify apps), microservices, Kubernetes or Kafka.
+
+**Add only when the need is measured:**
+- Redis: repeated reads slow the database
+- Read replicas: reports slow order processing
+- ClickHouse: analytics queries get slow on Postgres
+- Typesense: Postgres search fails, especially for Bangla
+- Separate services: one part needs its own team or scaling profile
+
+## Architecture rules
+
+- Every tenant table has `store_id`, enforced with Postgres row-level security.
+- API, storefront and workers are stateless and deploy separately.
+- Storefront pages are cached at the CDN and purged when a seller publishes.
+- Page views and ad events never share tables with orders.
+- Money is calculated by the system, never by AI.
+- Pages are versioned JSON, with draft and published states.
+- Each section declares a settings schema, and the editor form is generated from it.
+
+## Accounts and stores
+
+- `users`, `stores` and `store_members (user_id, store_id, role)`: many-to-many. Roles are owner, admin and staff.
+- A user can exist with no store. A store always has at least one owner: the store and its first owner are created in one transaction, and the database must reject removing or demoting the last owner.
+- Dashboard URLs are `/store/:handle/...`. Screens outside a store (`/stores`, `/stores/new`) use the account layout. Every store route and API call checks membership.
+- Rules live in `apps/dashboard/src/account.ts`, tested by `npm test`, and move to the API when accounts are built. Permission checks in the UI are never the real enforcement.
+
+## Store customization
+
+1. Style presets: one click sets colours, fonts and corners.
+2. Section editor: add, drag and configure sections with a live preview.
+3. Limited custom CSS on paid plans, later. No Liquid-style theme language.
+
+## Navigation
+
+Follow Shopify's approach: a black left sidebar with sub-items that expand under the active parent and Settings pinned at the bottom with the store and account menu under it. There is no top bar and no global search for now; phones get a small bar with the menu button.
+
+- **Home**
+- **Orders:** Incomplete orders, Fake-order protection
+- **Products:** Collections, Inventory, Purchase orders, Suppliers, Stock requests
+- **Customers:** Segments, Repeat sales
+- **Inbox:** AI salesman
+- **Marketing:** Auto follow-ups, Offers
+- **Discounts**
+- **Media**
+- **Analytics:** Expenses
+- **Team:** Tasks, Attendance
+- **Online store:** Themes, Pages, Menus
+- **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing, Referrals
+
+## Media gallery
+
+One picker used across products, pages, themes and the logo. It shows where each file is used, blocks deleting a file that is live, compresses images automatically and counts against a per-plan storage limit.
+
+## Design rules
+
+- Do not use the Hallmark skill or its linter in this project.
+- Blend of Shopify's admin and a modern analytics dashboard. From Shopify: black frame and sidebar, rounded content panel, dense tables with a filter bar. From the dashboard: large page title with a one-line description, green primary and active state, a stat row with sparklines and charts on Home.
+- Our own code, name and logo. Never Shopify's logo, assets or copy.
+- Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, 8px controls, 12px cards.
+- Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
+- Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
+- Colours, spacing and type come from tokens, never one-off values.
+- Bangla is chosen and tested first; English fits around it.
+- Plain seller language. Every empty state says what to do next.
+- **Never:** gradients, emoji icons, stat cards beyond one row, oversized rounded corners, decorative glass or glow effects, or anything that reads as generic AI output.
+
+## Build order
+
+1. Design system and app shell
+2. Store accounts, team and products, with the media gallery
+3. Storefront and COD checkout, with a few fixed layouts
+4. Orders
+5. Courier booking (Steadfast and Pathao first)
+6. Fake-order protection
+7. Repeat sales calls
+8. Analytics and profit
+9. Theme and page builder
+10. AI features

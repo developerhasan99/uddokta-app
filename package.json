@@ -1,0 +1,10 @@
+{
+  "name": "uddokta",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev -w dashboard",
+    "build": "npm run build -w dashboard",
+    "test": "npm test -w dashboard"
+  }
+}
