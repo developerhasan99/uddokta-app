@@ -70,5 +70,7 @@ export const media = pgTable('media', {
   width: integer('width').notNull(),
   height: integer('height').notNull(),
   sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  // What the seller uploaded; files are always stored as WebP. Null when it could not be worked out for older images.
+  sourceFormat: text('source_format'),
   createdAt: createdAt(),
 }, (t) => [index('media_store_created').on(t.storeId, t.createdAt)])

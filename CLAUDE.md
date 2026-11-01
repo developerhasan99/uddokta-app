@@ -91,6 +91,8 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Blend of Shopify's admin and a modern analytics dashboard. From Shopify: black frame and sidebar, rounded content panel, dense tables with a filter bar. From the dashboard: large page title with a one-line description, green primary and active state, a stat row with sparklines and charts on Home.
 - Our own code, name and logo. Never Shopify's logo, assets or copy.
 - Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, 8px controls, 12px cards.
+- Standard input field: the `.input` class. White, 32px, thin `--color-rule-strong` border, 8px corners, 13px text, no shadow, and a green outline on focus.
+- Small controls by default: buttons and inputs are 32px with 13px text. Only sign-in forms use 40px, and phones use 44px touch targets.
 - Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
 - Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
 - Colours, spacing and type come from tokens, never one-off values.

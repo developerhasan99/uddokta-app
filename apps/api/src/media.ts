@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import sharp from 'sharp'
@@ -21,6 +21,7 @@ const present = (row: typeof media.$inferSelect) => ({
   width: row.width,
   height: row.height,
   sizeBytes: row.sizeBytes,
+  sourceFormat: row.sourceFormat ?? 'webp',
   createdAt: row.createdAt,
   url: publicUrl(row.key),
   thumbUrl: publicUrl(row.thumbKey),
@@ -35,7 +36,7 @@ async function processImage(input: Buffer) {
     if (!format || !allowedFormats.includes(format)) throw fail(415, 'fileNotImage')
     const full = await sharp(input).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true })
     const thumb = await sharp(input).rotate().resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer()
-    return { full: full.data, width: full.info.width, height: full.info.height, thumb }
+    return { full: full.data, width: full.info.width, height: full.info.height, thumb, sourceFormat: format }
   } catch (err) {
     if (err instanceof Error && err.name === 'HTTPException') throw err
     throw fail(415, 'fileNotImage')
@@ -43,7 +44,7 @@ async function processImage(input: Buffer) {
 }
 
 // Stores the files, then the row; if the row is refused, the files are removed again.
-async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number }) {
+async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }) {
   const sizeBytes = image.full.length + image.thumb.length
   const id = randomUUID()
   const key = `${storeId}/${id}.webp`
@@ -57,7 +58,7 @@ async function saveImage(userId: string, storeId: string, name: string, image: {
       const used = await one<{ total: string }>(t, sql`select coalesce(sum(size_bytes), 0) as total from media where store_id = ${storeId}::uuid`)
       if (Number(used?.total ?? 0) + sizeBytes > storeLimitBytes) throw fail(413, 'storageFull')
       const [inserted] = await t.insert(media).values({
-        id, storeId, name: name.slice(0, 200) || 'image', key, thumbKey, width: image.width, height: image.height, sizeBytes,
+        id, storeId, name: name.slice(0, 200) || 'image', key, thumbKey, width: image.width, height: image.height, sizeBytes, sourceFormat: image.sourceFormat,
       }).returning()
       return inserted
     })
@@ -76,10 +77,13 @@ function croppedName(name: string) {
 export function registerMedia(app: Hono<Env>) {
   app.get('/stores/:handle/media', async (c) => {
     const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
+    const q = (c.req.query('q') ?? '').trim().slice(0, 200)
+    // Escaped so % and _ typed by a seller are searched for literally.
+    const pattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       // ponytail: offset paging; switch to a created_at cursor if galleries reach tens of thousands of files.
-      const rows = await t.select().from(media).where(eq(media.storeId, store.id)).orderBy(desc(media.createdAt), desc(media.id)).limit(pageSize + 1).offset(offset)
+      const rows = await t.select().from(media).where(and(eq(media.storeId, store.id), q ? or(ilike(media.name, pattern), ilike(media.alt, pattern)) : undefined)).orderBy(desc(media.createdAt), desc(media.id)).limit(pageSize + 1).offset(offset)
       const used = await one<{ total: string }>(t, sql`select coalesce(sum(size_bytes), 0) as total from media where store_id = ${store.id}::uuid`)
       return c.json({
         items: rows.slice(0, pageSize).map(present),
@@ -125,7 +129,7 @@ export function registerMedia(app: Hono<Env>) {
     const cropped = await sharp(await getFile(source.key)).extract({ left: x, top: y, width, height }).toBuffer()
     const thumb = await sharp(cropped).resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer()
     const full = await sharp(cropped).webp({ quality: 82 }).toBuffer()
-    const row = await saveImage(userId, source.storeId, croppedName(source.name), { full, thumb, width, height })
+    const row = await saveImage(userId, source.storeId, croppedName(source.name), { full, thumb, width, height, sourceFormat: 'webp' })
     return c.json(present(row), 201)
   })
 

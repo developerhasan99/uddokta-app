@@ -11,7 +11,7 @@
 
   --color-paper: oklch(100% 0 0); --color-paper-2: oklch(97.5% 0.002 155); --color-paper-3: oklch(94.5% 0.003 155);
   --color-ink: oklch(20% 0 0); --color-ink-2: oklch(36% 0 0); --color-muted: oklch(48% 0 0);
-  --color-rule: oklch(94% 0 0); --color-field: oklch(88% 0 0);
+  --color-rule: oklch(94% 0 0); --color-rule-strong: oklch(90% 0 0); --color-field: oklch(88% 0 0);
   --color-primary: oklch(45% 0.12 155); --color-primary-2: oklch(39% 0.11 155); --color-frame-active: oklch(80% 0.15 155); --color-primary-ink: oklch(100% 0 0); --color-focus: oklch(52% 0.13 155);
 
   --color-info: oklch(32% 0.08 235); --color-info-soft: oklch(87% 0.07 225);
@@ -27,7 +27,6 @@
   --shadow-btn-fill-pressed: inset 0 2px 3px oklch(0% 0 0 / 0.4), inset 0 0 0 1px oklch(0% 0 0 / 0.25);
   --radius-panel: 16px; --radius-card: 12px; --radius-control: 8px; --radius-pill: 999px; --rule-hair: 1px;
   --shadow-card: 0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent);
-  --shadow-field: 0 1px 0 color-mix(in oklab, var(--color-ink) 12%, transparent);
   --shadow-bar: 0 1px 3px color-mix(in oklab, var(--color-ink) 10%, transparent);
   --shadow-menu: 0 4px 16px color-mix(in oklab, var(--color-ink) 18%, transparent);
 }

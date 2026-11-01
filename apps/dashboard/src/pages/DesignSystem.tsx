@@ -1,5 +1,5 @@
 import { Pencil } from 'lucide-react'
-import { Badge, Button, Card, Field, IconButton, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Badge, Button, Card, Field, IconButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 
 const colors = ['frame', 'paper', 'paper-2', 'paper-3', 'rule', 'muted', 'ink-2', 'ink', 'success-soft', 'info-soft', 'warning-soft', 'error-soft']
 const sizes = ['sm', 'md', 'lg', 'xl', '2xl']
@@ -44,9 +44,21 @@ export function DesignSystem() {
       </Card>
       <Card title="Fields">
         <div className="stack">
+          <SearchInput label="নাম বা বর্ণনা দিয়ে খুঁজুন" />
           <Field id="ds-name" name="name" label="কাস্টমারের নাম" help="ডেলিভারির জন্য পুরো নাম দিন।" autoComplete="off" />
           <Field id="ds-phone" name="phone" label="মোবাইল নম্বর" type="tel" error="নম্বরটি ১১ সংখ্যার হতে হবে। যেমন 01700000000।" defaultValue="0170" autoComplete="off" />
           <Field id="ds-off" name="off" label="নিষ্ক্রিয় ঘর" disabled defaultValue="বদলানো যাবে না" />
+          <div className="field">
+            <label htmlFor="ds-role">ভূমিকা</label>
+            <select id="ds-role" name="role" className="input" defaultValue="staff">
+              <option value="admin">অ্যাডমিন</option>
+              <option value="staff">স্টাফ</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="ds-note">ছবির বর্ণনা</label>
+            <textarea id="ds-note" name="note" className="input input--area" rows={3} />
+          </div>
         </div>
       </Card>
       <Card title="Loading">

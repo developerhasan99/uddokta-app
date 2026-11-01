@@ -55,6 +55,7 @@ test('an upload is resized, converted and given a thumbnail', async () => {
   const up = await call('POST', `/stores/${handle}/media`, form(await png()))
   assert.equal(up.status, 201)
   assert.equal(up.json.name, 'photo.png')
+  assert.equal(up.json.sourceFormat, 'png')
   assert.deepEqual([up.json.width, up.json.height], [2000, 1000])
 
   const anon = client()
@@ -77,6 +78,7 @@ test('metadata such as GPS location is removed', async () => {
     .jpeg().withExif({ IFD3: { GPSLatitude: '23/1 45/1 0/1' } }).toBuffer()
   assert.ok((await sharp(withExif).metadata()).exif)
   const up = await call('POST', `/stores/${handle}/media`, form(withExif, 'a.jpg', 'image/jpeg'))
+  assert.equal(up.json.sourceFormat, 'jpeg')
   const stored = await client()('GET', up.json.url.replace('/api', ''))
   assert.equal((await sharp(stored.bytes!).metadata()).exif, undefined)
 })
@@ -150,6 +152,7 @@ test('cropping saves a new image and keeps the original', async () => {
   const crop = await call('POST', `/stores/${handle}/media/${up.json.id}/crop`, { x: 100, y: 50, width: 400, height: 300 })
   assert.equal(crop.status, 201)
   assert.equal(crop.json.name, 'photo-cropped.webp')
+  assert.equal(crop.json.sourceFormat, 'webp')
   assert.deepEqual([crop.json.width, crop.json.height], [400, 300])
   const stored = await client()('GET', crop.json.url.replace('/api', ''))
   const meta = await sharp(stored.bytes!).metadata()
@@ -168,6 +171,23 @@ test('a crop must stay inside the image and belong to the store', async () => {
   }
   assert.equal((await b.call('POST', url, { x: 0, y: 0, width: 10, height: 10 })).status, 404)
   assert.equal((await b.call('POST', `/stores/${b.handle}/media/${up.json.id}/crop`, { x: 0, y: 0, width: 10, height: 10 })).status, 404)
+})
+
+test('search matches name and description, inside one store only', async () => {
+  const { call, handle } = await storeOwner()
+  const other = await storeOwner()
+  await other.call('POST', `/stores/${other.handle}/media`, form(await png(20, 20), 'red-bag.png'))
+  const bag = await call('POST', `/stores/${handle}/media`, form(await png(20, 20), 'Red-Bag.png'))
+  const shoe = await call('POST', `/stores/${handle}/media`, form(await png(20, 20), 'shoe_100%.png'))
+  await call('PATCH', `/stores/${handle}/media/${shoe.json.id}`, { alt: 'লাল জুতা' })
+  const search = async (q: string) => (await call('GET', `/stores/${handle}/media?q=${encodeURIComponent(q)}`)).json
+  assert.deepEqual((await search('red')).items.map((i: any) => i.id), [bag.json.id])
+  assert.deepEqual((await search('জুতা')).items.map((i: any) => i.id), [shoe.json.id])
+  assert.deepEqual((await search('100%')).items.map((i: any) => i.id), [shoe.json.id])
+  assert.deepEqual((await search('%')).items.map((i: any) => i.id), [shoe.json.id])
+  assert.equal((await search('nothing')).items.length, 0)
+  const used = await search('red')
+  assert.equal(used.usedBytes, bag.json.sizeBytes + shoe.json.sizeBytes, 'storage counts the whole store')
 })
 
 test('crafted file paths cannot read outside the media folder', async () => {

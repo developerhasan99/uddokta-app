@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { Link } from 'react-router'
+import { Search } from 'lucide-react'
 
 type Variant = 'primary' | 'default' | 'danger'
 
@@ -63,6 +64,15 @@ export function Field({ label, error, help, id, trailing, ...props }: InputHTMLA
         {trailing}
       </div>
       {message && <p id={`${id}-help`} className={error ? 'field__help field__help--error' : 'field__help'}>{message}</p>}
+    </div>
+  )
+}
+
+export function SearchInput({ label, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  return (
+    <div className="search-field" role="search">
+      <Search size={16} aria-hidden="true" />
+      <input className="input" type="search" name="q" aria-label={label} placeholder={label} autoComplete="off" {...props} />
     </div>
   )
 }
