@@ -12,6 +12,8 @@ import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Members } from './pages/Members'
+import { CollectionEdit } from './pages/CollectionEdit'
+import { Collections } from './pages/Collections'
 import { Orders } from './pages/Orders'
 import { Placeholder, NotFound } from './pages/Placeholder'
 import { ProductEdit } from './pages/ProductEdit'
@@ -20,7 +22,7 @@ import { SettingsLayout } from './pages/Settings'
 import { DesignSystem } from './pages/DesignSystem'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders', '/products', '/media'])
+const built = new Set(['/', '/orders', '/products', '/products/collections', '/media'])
 const placeholders = [...nav, channels]
   .flatMap((item) => [item, ...(item.children ?? [])])
   .filter((item) => !built.has(item.path))
@@ -53,6 +55,9 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="orders" element={<Orders />} />
                 <Route path="media" element={<Media />} />
                 <Route path="products" element={<Products />} />
+                <Route path="products/collections" element={<Collections />} />
+                <Route path="products/collections/new" element={<CollectionEdit />} />
+                <Route path="products/collections/:id" element={<CollectionEdit />} />
                 <Route path="products/new" element={<ProductEdit />} />
                 <Route path="products/:id" element={<ProductEdit />} />
                 <Route path="orders/new" element={<Placeholder item="newOrder" />} />

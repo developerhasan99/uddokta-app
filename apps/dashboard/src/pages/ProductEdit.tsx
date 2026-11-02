@@ -5,15 +5,17 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { RichText } from '../components/RichText'
+import { SeoCard } from '../components/SeoCard'
 import { Badge, Button, Field, Notice, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
-import { maxVariants, parseAmount, productStatuses, searchDescription, seoDescriptionLimit, seoTitleLimit, slugify, statusInfo, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
+import { maxVariants, parseAmount, productStatuses, statusInfo, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
 
 type Saved = {
-  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; media: MediaItem[]
+  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; media: MediaItem[]
   variants: { id: string; options: string[]; price: number; comparePrice: number | null; cost: number | null; sku: string; stock: number | null; mediaId: string | null }[]
 }
-type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
+type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
+type CollectionOption = { id: string; name: string }
 type Suggestions = { types: string[]; brands: string[]; tags: string[] }
 type BulkField = 'price' | 'comparePrice' | 'cost' | 'stock'
 
@@ -21,7 +23,7 @@ const maxImages = 20
 const maxDescription = 50_000
 const maxTags = 30
 const text = (n: number | null) => (n === null ? '' : String(n))
-const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], handle: '', seoTitle: '', seoDescription: '', options: [], variants: variantsFor([], []), media: [] })
+const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], collections: [], handle: '', seoTitle: '', seoDescription: '', options: [], variants: variantsFor([], []), media: [] })
 const toForm = (p: Saved): Form => ({
   name: p.name,
   description: p.description,
@@ -29,6 +31,7 @@ const toForm = (p: Saved): Form => ({
   productType: p.productType,
   brand: p.brand,
   tags: p.tags,
+  collections: p.collections,
   handle: p.handle,
   seoTitle: p.seoTitle,
   seoDescription: p.seoDescription,
@@ -67,6 +70,7 @@ export function ProductEdit() {
   const [confirming, setConfirming] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [seoOpen, setSeoOpen] = useState(false)
+  const [collectionOptions, setCollectionOptions] = useState<CollectionOption[] | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestions>({ types: [], brands: [], tags: [] })
 
   const show = (next: Form) => {
@@ -104,6 +108,7 @@ export function ProductEdit() {
   // Only suggestions, so the form works without them.
   useEffect(() => {
     api<Suggestions>(`${base}/suggestions`).then(setSuggestions).catch(() => {})
+    api<CollectionOption[]>(`/stores/${current.store.handle}/collections/options`).then(setCollectionOptions).catch(() => {})
   }, [base])
 
   const dirty = form !== null && JSON.stringify(form) !== baseline
@@ -173,6 +178,7 @@ export function ProductEdit() {
         productType: form.productType,
         brand: form.brand,
         tags: form.tags,
+        collectionIds: form.collections.map((c) => c.id),
         handle: form.handle,
         seoTitle: form.seoTitle,
         seoDescription: form.seoDescription,
@@ -442,12 +448,17 @@ export function ProductEdit() {
           </section>
 
           <SeoCard
-            form={form}
+            section="products"
+            name={form.name}
+            description={form.description}
+            seoTitle={form.seoTitle}
+            seoDescription={form.seoDescription}
+            handle={form.handle}
             storeName={current.store.name}
             address={storeAddress(current.store.handle)}
             price={prices.length > 0 ? priceRange : null}
             open={seoOpen}
-            handleTaken={error === 'productHandleTaken'}
+            handleError={error === 'productHandleTaken' ? t('errProductHandleTaken') : undefined}
             onToggle={() => setSeoOpen(!seoOpen)}
             onChange={change}
           />
@@ -479,6 +490,35 @@ export function ProductEdit() {
               <datalist id="product-types">{suggestions.types.map((value) => <option key={value} value={value} />)}</datalist>
               <Field id="product-brand" name="brand" label={t('productBrand')} list="product-brands" maxLength={100} autoComplete="off" value={form.brand} onChange={(e) => change({ brand: e.target.value })} />
               <datalist id="product-brands">{suggestions.brands.map((value) => <option key={value} value={value} />)}</datalist>
+              <div className="field">
+                <label htmlFor="product-collections">{t('collections')}</label>
+                {form.collections.length > 0 && (
+                  <ul className="chip-list">
+                    {form.collections.map((collection) => (
+                      <li key={collection.id} className="chip">
+                        {collection.name}
+                        <button type="button" aria-label={t('productRemoveValue', { value: collection.name })} onClick={() => change({ collections: form.collections.filter((c) => c.id !== collection.id) })}><X size={12} aria-hidden="true" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {collectionOptions?.length === 0
+                  ? <p className="field__help"><Link to={path('/products/collections/new')} target="_blank">{t('productCollectionCreate')}</Link></p>
+                  : (
+                    <select
+                      id="product-collections"
+                      className="input"
+                      value=""
+                      onChange={(e) => {
+                        const picked = collectionOptions?.find((c) => c.id === e.target.value)
+                        if (picked) change({ collections: [...form.collections, picked] })
+                      }}
+                    >
+                      <option value="">{t('productCollectionAdd')}</option>
+                      {collectionOptions?.filter((c) => !form.collections.some((x) => x.id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+              </div>
               <div className="field">
                 <label htmlFor="product-tags">{t('productTags')}</label>
                 <ChipsInput id="product-tags" list="product-tag-list" maxLength={50} max={maxTags} placeholder={t('productTagsHint')} values={form.tags} onChange={(tags) => change({ tags })} />
@@ -535,54 +575,6 @@ export function ProductEdit() {
 }
 
 const baselineName = (baseline: string) => (JSON.parse(baseline) as Form).name
-
-// A preview of the search result, with the fields behind a pencil. Blank fields fall back to the product's name and description.
-function SeoCard({ form, storeName, address, price, open, handleTaken, onToggle, onChange }: { form: Form; storeName: string; address: string; price: string | null; open: boolean; handleTaken: boolean; onToggle: () => void; onChange: (changes: Partial<Form>) => void }) {
-  const { t, num } = useLang()
-  const title = form.seoTitle || form.name
-  const description = form.seoDescription || searchDescription(form.description)
-  const handle = slugify(form.handle) || slugify(form.name) || 'product'
-  const count = (n: number, max: number) => `${t('productSeoCount', { n: num(n), max: num(max) })}${n > max ? ` ${t('productSeoOver')}` : ''}`
-  return (
-    <section className="card card--flush seo-card">
-      <div className="seo-card__head">
-        <h2>{t('productSeo')}</h2>
-        <button type="button" className="media__dismiss" aria-expanded={open} aria-label={t(open ? 'productSeoClose' : 'productSeoEdit')} title={t(open ? 'productSeoClose' : 'productSeoEdit')} onClick={onToggle}>
-          {open ? <X size={16} aria-hidden="true" /> : <Pencil size={16} aria-hidden="true" />}
-        </button>
-      </div>
-      <div className="seo-preview">
-        <p className="seo-preview__store">{storeName}</p>
-        <p className="muted seo-preview__url">{address} › products › {handle}</p>
-        <p className="seo-preview__title">{title || t('productNew')}</p>
-        <p className="muted seo-preview__text">{description || t('productSeoNoDescription')}</p>
-        {price && <p className="muted">{price}</p>}
-      </div>
-      {open && (
-        <div className="seo-card__fields">
-          <Field id="seo-title" name="seoTitle" label={t('productSeoTitle')} maxLength={300} autoComplete="off" placeholder={form.name} value={form.seoTitle} help={count(title.length, seoTitleLimit)} onChange={(e) => onChange({ seoTitle: e.target.value })} />
-          <div className="field">
-            <label htmlFor="seo-description">{t('productSeoDescription')}</label>
-            <textarea id="seo-description" name="seoDescription" className="input input--area" rows={3} maxLength={1000} placeholder={searchDescription(form.description)} aria-describedby="seo-description-help" value={form.seoDescription} onChange={(e) => onChange({ seoDescription: e.target.value })} />
-            <p id="seo-description-help" className="field__help">{count(description.length, seoDescriptionLimit)}</p>
-          </div>
-          <div className="field">
-            <label htmlFor="seo-handle">{t('productHandle')}</label>
-            <div className={handleTaken ? 'input-affix input-affix--invalid' : 'input-affix'}>
-              <span aria-hidden="true">products/</span>
-              <input id="seo-handle" name="handle" maxLength={100} autoComplete="off" placeholder={slugify(form.name)} aria-invalid={handleTaken ? true : undefined} aria-describedby="seo-handle-help" value={form.handle} onChange={(e) => onChange({ handle: e.target.value })} onBlur={() => onChange({ handle: slugify(form.handle) })} />
-            </div>
-            <div id="seo-handle-help">
-              {handleTaken && <p className="field__help field__help--error">{t('errProductHandleTaken')}</p>}
-              <p className="field__help seo-card__url">{address}/products/{handle}</p>
-              <p className="field__help">{t('productHandleHelp')}</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
 
 // Sets one value on every ticked variant. Only the selling price has to have a value.
 function BulkBar({ count, seesCost, onApply, onClear }: { count: number; seesCost: boolean; onApply: (field: BulkField, value: string) => void; onClear: () => void }) {

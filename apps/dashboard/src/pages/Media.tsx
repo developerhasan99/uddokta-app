@@ -412,7 +412,7 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
   const { t } = useLang()
   const path = useStorePath()
   const panel = useRef<HTMLElement>(null)
-  const [usedIn, setUsedIn] = useState<{ id: string; name: string }[] | null>(null)
+  const [usedIn, setUsedIn] = useState<{ id: string; name: string; to: string }[] | null>(null)
   const [alt, setAlt] = useState(item.alt)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -430,8 +430,10 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
 
   useEffect(() => {
     let current = true
-    api<{ products: { id: string; name: string }[] }>(`${base}/${item.id}/usage`)
-      .then((result) => { if (current) setUsedIn(result.products) })
+    api<{ products: { id: string; name: string }[]; collections: { id: string; name: string }[] }>(`${base}/${item.id}/usage`)
+      .then((result) => {
+        if (current) setUsedIn([...result.products.map((p) => ({ ...p, to: `/products/${p.id}` })), ...result.collections.map((c) => ({ ...c, to: `/products/collections/${c.id}` }))])
+      })
       .catch(() => {})
     return () => { current = false }
   }, [base, item.id])
@@ -511,7 +513,7 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
             <span className="media-details__label">{t('mediaUsedIn')}</span>
             {usedIn.length === 0
               ? <p className="muted">{t('mediaNotUsed')}</p>
-              : <ul>{usedIn.map((p) => <li key={p.id}><Link to={path(`/products/${p.id}`)}>{p.name}</Link></li>)}</ul>}
+              : <ul>{usedIn.map((p) => <li key={p.id}><Link to={path(p.to)}>{p.name}</Link></li>)}</ul>}
           </div>
         )}
 

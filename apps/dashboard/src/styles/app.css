@@ -504,6 +504,26 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .media-details__usage a { overflow-wrap: anywhere; }
 .media-details__locked { margin-top: auto; font-size: var(--text-sm); }
 
+/* Collections */
+.chip-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); font-size: var(--text-sm); }
+.card-note { color: var(--color-muted); font-size: var(--text-sm); }
+.collection-products { display: grid; overflow: hidden; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
+.collection-products li { display: flex; align-items: center; gap: var(--space-xs); min-height: 52px; padding: var(--space-2xs) var(--space-xs); background: var(--color-paper); }
+.collection-products li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+.collection-products__grip { flex: none; color: var(--color-muted); cursor: grab; }
+.collection-products__name { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.collection-products__name:hover { text-decoration: underline; }
+.collection-products li .media__dismiss:disabled { opacity: 0.3; cursor: default; }
+.collection-products__price { flex: none; color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.collection-products li .media__dismiss { color: var(--color-muted); }
+.collection-image { display: grid; gap: var(--space-xs); }
+.collection-image img { display: block; width: 100%; aspect-ratio: 1; border-radius: var(--radius-control); outline: var(--rule-hair) solid var(--color-rule-strong); outline-offset: -1px; object-fit: cover; }
+.picker-rows { display: grid; }
+.picker-rows li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+.picker-row { display: flex; align-items: center; gap: var(--space-xs); min-height: 52px; padding-block: var(--space-2xs); cursor: pointer; }
+.picker-row input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
+.picker-row__name { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Media picker */
 .picker { display: none; width: min(34rem, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; border: 0; background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
 .picker[open] { display: flex; flex-direction: column; }

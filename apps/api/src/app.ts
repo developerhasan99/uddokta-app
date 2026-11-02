@@ -7,6 +7,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
+import { registerCollections } from './collections.ts'
 import { registerMedia } from './media.ts'
 import { registerProducts } from './products.ts'
 import { readLocalFile } from './storage.ts'
@@ -87,7 +88,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (databaseConstraint(err) === 'product_media_media_fk') return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (databaseConstraint(err) === 'product_media_media_fk' || databaseConstraint(err) === 'collections_media_fk') return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -281,3 +282,4 @@ app.post('/invites/:token/accept', async (c) => {
 
 registerMedia(app)
 registerProducts(app)
+registerCollections(app)

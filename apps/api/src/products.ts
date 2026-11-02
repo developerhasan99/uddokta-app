@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
 import { likePattern, present as presentMedia } from './media.ts'
-import { media, productMedia, products, productStatuses, productVariantCosts, productVariants, type ProductOption } from './schema.ts'
+import { collectionProducts, collections, media, productMedia, products, productStatuses, productVariantCosts, productVariants, type ProductOption } from './schema.ts'
 import { publicUrl } from './storage.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
@@ -16,10 +16,10 @@ const maxDescription = 50_000
 const maxTags = 30
 const descriptionTags: Record<string, string> = { p: 'p', div: 'p', br: 'br', b: 'strong', strong: 'strong', i: 'em', em: 'em', u: 'u', ul: 'ul', ol: 'ol', li: 'li', h2: 'h2' }
 
-const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+export const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 const isAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= maxAmount
 const isOptionalAmount = (v: unknown) => v === null || isAmount(v)
-const isName = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max
+export const isName = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max
 
 type VariantInput = { id?: string; options: string[]; price: number; comparePrice: number | null; cost?: number | null; sku: string; stock: number | null; mediaId: string | null }
 
@@ -91,6 +91,9 @@ function readProduct(body: any) {
   const seoTitle = body.seoTitle ?? ''
   const seoDescription = body.seoDescription ?? ''
   const handle = body.handle ?? ''
+  // Left out by callers that are not changing collections.
+  const collectionIds = body.collectionIds
+  if (collectionIds !== undefined && !(Array.isArray(collectionIds) && collectionIds.length <= 100 && collectionIds.every(isId) && new Set(collectionIds).size === collectionIds.length)) throw fail(400, 'invalidRequest')
   if (!shortText(seoTitle, 300) || !shortText(seoDescription, 1000) || !shortText(handle, 200)) throw fail(400, 'invalidRequest')
   if (typeof description !== 'string' || description.length > maxDescription || !productStatuses.includes(status) || !validIds || !shortText(productType) || !shortText(brand)) throw fail(400, 'invalidRequest')
   const options = readOptions(body.options ?? [])
@@ -99,21 +102,26 @@ function readProduct(body: any) {
   if (variants.some((v) => v.mediaId && !mediaIds.includes(v.mediaId))) throw fail(400, 'invalidRequest')
   return {
     name: body.name.trim() as string, description: cleanDescription(description), status: status as (typeof productStatuses)[number],
-    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, handle: slugify(handle), options, variants, mediaIds: mediaIds as string[],
+    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, handle: slugify(handle), collectionIds: collectionIds as string[] | undefined, options, variants, mediaIds: mediaIds as string[],
   }
 }
 
 const productFields = ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, options }: ReturnType<typeof readProduct>) => ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, options })
 
+export async function firstFreeHandle(base: string, isTaken: (handle: string) => Promise<boolean>) {
+  for (let n = 1; ; n++) {
+    const handle = n === 1 ? base : `${base}-${n}`
+    if (!await isTaken(handle)) return handle
+  }
+}
+
 // A handle the seller typed is used as it is, and refused if taken. Otherwise the name gives one, numbered if needed.
 async function chooseHandle(t: Tx, storeId: string, input: ReturnType<typeof readProduct>, productId?: string) {
   if (input.handle) return input.handle
-  const base = slugify(input.name) || 'product'
-  for (let n = 1; ; n++) {
-    const handle = n === 1 ? base : `${base}-${n}`
+  return firstFreeHandle(slugify(input.name) || 'product', async (handle) => {
     const [taken] = await t.select({ id: products.id }).from(products).where(and(eq(products.storeId, storeId), eq(products.handle, handle)))
-    if (!taken || taken.id === productId) return handle
-  }
+    return Boolean(taken) && taken.id !== productId
+  })
 }
 
 // The only unique value a save can break is the handle.
@@ -134,7 +142,8 @@ async function loadProduct(t: Tx, storeId: string, id: string) {
     .where(eq(productVariants.productId, id))
     .orderBy(asc(productVariants.position))
   const images = await t.select({ media }).from(productMedia).innerJoin(media, eq(media.id, productMedia.mediaId)).where(eq(productMedia.productId, id)).orderBy(asc(productMedia.position))
-  return { id: product.id, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, options: product.options, variants, media: images.map((row) => presentMedia(row.media)) }
+  const inCollections = await t.select({ id: collections.id, name: collections.name }).from(collectionProducts).innerJoin(collections, eq(collections.id, collectionProducts.collectionId)).where(eq(collectionProducts.productId, id)).orderBy(asc(collections.name))
+  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, options: product.options, variants, media: images.map((row) => presentMedia(row.media)) }
 }
 
 // Replaces the variants and images with what the seller sent. Variants keep their ids, so later orders can point at them.
@@ -166,6 +175,22 @@ async function saveDetails(t: Tx, storeId: string, productId: string, input: Ret
   await t.delete(productMedia).where(eq(productMedia.productId, productId))
   if (input.mediaIds.length > 0) {
     await t.insert(productMedia).values(input.mediaIds.map((mediaId, position) => ({ storeId, productId, mediaId, position })))
+  }
+
+  if (input.collectionIds) {
+    const wanted = input.collectionIds
+    if (wanted.length > 0) {
+      const found = await t.select({ id: collections.id }).from(collections).where(and(eq(collections.storeId, storeId), inArray(collections.id, wanted)))
+      if (found.length !== wanted.length) throw fail(400, 'invalidRequest')
+    }
+    await t.delete(collectionProducts).where(and(eq(collectionProducts.productId, productId), wanted.length > 0 ? notInArray(collectionProducts.collectionId, wanted) : undefined))
+    // Joining a collection adds the product at the end, and collections it was already in keep its place.
+    for (const collectionId of wanted) {
+      await t.execute(sql`
+        insert into collection_products (store_id, collection_id, product_id, position)
+        select ${storeId}::uuid, ${collectionId}::uuid, ${productId}::uuid, coalesce(max(position) + 1, 0) from collection_products where collection_id = ${collectionId}::uuid
+        on conflict do nothing`)
+    }
   }
 }
 

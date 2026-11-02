@@ -147,3 +147,32 @@ export const productMedia = pgTable('product_media', {
   foreignKey({ name: 'product_media_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
   index('product_media_media').on(t.storeId, t.mediaId),
 ])
+
+// Sellers choose a collection's products by hand. The image's foreign key is in the security migration: it must be deferred.
+export const collections = pgTable('collections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  handle: text('handle').notNull(),
+  seoTitle: text('seo_title').notNull().default(''),
+  seoDescription: text('seo_description').notNull().default(''),
+  mediaId: uuid('media_id'),
+  createdAt: createdAt(),
+}, (t) => [
+  index('collections_store_created').on(t.storeId, t.createdAt),
+  unique('collections_store_id').on(t.storeId, t.id),
+  unique('collections_store_handle').on(t.storeId, t.handle),
+])
+
+export const collectionProducts = pgTable('collection_products', {
+  storeId: uuid('store_id').notNull(),
+  collectionId: uuid('collection_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  position: integer('position').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.collectionId, t.productId] }),
+  foreignKey({ name: 'collection_products_collection', columns: [t.storeId, t.collectionId], foreignColumns: [collections.storeId, collections.id] }).onDelete('cascade'),
+  foreignKey({ name: 'collection_products_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
+  index('collection_products_product_idx').on(t.storeId, t.productId),
+])

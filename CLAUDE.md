@@ -97,6 +97,12 @@ One picker used across products, pages, themes and the logo. It shows where each
 - A variant image must be one of its product's images, enforced by a deferred foreign key to `product_media`.
 - `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.
 
+## Collections
+
+- Sellers pick a collection's products by hand and drag them into order. Automatic rules (by tag, price) come later if sellers ask.
+- A collection has no status of its own. The storefront shows only its active products, so unlisted and draft ones stay hidden even when they are in a collection.
+- Staff can add and edit collections; only owners and admins can delete them. Deleting one never deletes its products.
+
 ## Design rules
 
 - Do not use the Hallmark skill or its linter in this project.

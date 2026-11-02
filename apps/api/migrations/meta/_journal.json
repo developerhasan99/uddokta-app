@@ -71,6 +71,20 @@
       "when": 1793591537377,
       "tag": "0009_product_search_listing",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793593260458,
+      "tag": "0010_collections",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793593260782,
+      "tag": "0011_collections_security",
+      "breakpoints": true
     }
   ]
 }
