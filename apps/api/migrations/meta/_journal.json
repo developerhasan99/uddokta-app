@@ -50,6 +50,27 @@
       "when": 1793550603622,
       "tag": "0006_products_security",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793589221127,
+      "tag": "0007_product_organization",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793589221491,
+      "tag": "0008_product_form_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793591537377,
+      "tag": "0009_product_search_listing",
+      "breakpoints": true
     }
   ]
 }

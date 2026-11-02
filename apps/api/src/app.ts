@@ -24,7 +24,7 @@ const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 export const fail = (status: ContentfulStatusCode, error: string) =>
   new HTTPException(status, { res: Response.json({ error }, { status }) })
 
-function databaseCode(err: unknown) {
+export function databaseCode(err: unknown) {
   const e = err as { code?: string; cause?: { code?: string } }
   return e.cause?.code ?? e.code
 }

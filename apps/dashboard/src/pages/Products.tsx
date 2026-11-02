@@ -5,15 +5,15 @@ import { useStorePath, useCurrentStore } from '../account-context'
 import { api } from '../api'
 import { Badge, Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { useLang, type Key } from '../i18n'
+import { productStatuses, statusInfo, type ProductStatus } from '../product-form'
 import { useUrlSearch } from '../use-url-search'
 
-type Row = { id: string; name: string; status: 'active' | 'draft'; thumbUrl: string | null; variantCount: number; minPrice: number; maxPrice: number; stock: number | null }
-type Page = { items: Row[]; hasMore: boolean; counts: { active?: number; draft?: number } }
+type Row = { id: string; name: string; status: ProductStatus; thumbUrl: string | null; variantCount: number; minPrice: number; maxPrice: number; stock: number | null }
+type Page = { items: Row[]; hasMore: boolean; counts: Partial<Record<ProductStatus, number>> }
 
-const tabs: { value: '' | 'active' | 'draft'; label: Key }[] = [
+const tabs: { value: '' | ProductStatus; label: Key }[] = [
   { value: '', label: 'statusAll' },
-  { value: 'active', label: 'productStatusActive' },
-  { value: 'draft', label: 'productStatusDraft' },
+  ...productStatuses.map((value) => ({ value, label: statusInfo[value].label })),
 ]
 
 export function Products() {
@@ -58,11 +58,7 @@ export function Products() {
     return search ? `?${search}` : path('/products')
   }
 
-  const count = (value: string) => {
-    const active = page?.counts.active ?? 0
-    const draft = page?.counts.draft ?? 0
-    return value === 'active' ? active : value === 'draft' ? draft : active + draft
-  }
+  const count = (value: '' | ProductStatus) => (value ? page?.counts[value] ?? 0 : productStatuses.reduce((n, s) => n + (page?.counts[s] ?? 0), 0))
   const noProducts = page !== null && !query && count('') === 0
   const addButton = <LinkButton to={path('/products/new')} variant="primary"><Plus size={16} aria-hidden="true" />{t('productAdd')}</LinkButton>
   const priceText = (row: Row) => (row.minPrice === row.maxPrice ? money(row.minPrice) : `${money(row.minPrice)} – ${money(row.maxPrice)}`)
@@ -135,7 +131,7 @@ export function Products() {
                         </span>
                       </Link>
                     </td>
-                    <td className="data-table__meta"><Badge tone={row.status === 'active' ? 'success' : 'neutral'}>{t(row.status === 'active' ? 'productStatusActive' : 'productStatusDraft')}</Badge></td>
+                    <td className="data-table__meta"><Badge tone={statusInfo[row.status].tone}>{t(statusInfo[row.status].label)}</Badge></td>
                     <td className={row.stock === 0 ? 'data-table__meta data-table__meta--alert' : 'data-table__meta'}>{stockText(row)}</td>
                     <td className="data-table__meta data-table__wide">{num(row.variantCount)}</td>
                     <td className="data-table__meta data-table__meta--price">{priceText(row)}</td>

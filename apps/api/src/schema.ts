@@ -78,7 +78,8 @@ export const media = pgTable('media', {
   unique('media_store_id').on(t.storeId, t.id),
 ])
 
-export const productStatuses = ['draft', 'active'] as const
+// Unlisted: on sale through its direct link, but left out of store listings and search.
+export const productStatuses = ['draft', 'active', 'unlisted'] as const
 export type ProductOption = { name: string; values: string[] }
 
 export const products = pgTable('products', {
@@ -88,11 +89,19 @@ export const products = pgTable('products', {
   description: text('description').notNull().default(''),
   status: text('status', { enum: productStatuses }).notNull().default('active'),
   options: jsonb('options').$type<ProductOption[]>().notNull().default([]),
+  productType: text('product_type').notNull().default(''),
+  brand: text('brand').notNull().default(''),
+  tags: text('tags').array().notNull().default(sql`'{}'`),
+  // The product's address in the store. Blank search title or description means: use the name and description.
+  handle: text('handle').notNull(),
+  seoTitle: text('seo_title').notNull().default(''),
+  seoDescription: text('seo_description').notNull().default(''),
   createdAt: createdAt(),
 }, (t) => [
   index('products_store_created').on(t.storeId, t.createdAt),
   unique('products_store_id').on(t.storeId, t.id),
-  check('products_status', sql`${t.status} in ('draft', 'active')`),
+  unique('products_store_handle').on(t.storeId, t.handle),
+  check('products_status', sql`${t.status} in ('draft', 'active', 'unlisted')`),
 ])
 
 // Every product has at least one variant, so price and stock always live here.
@@ -108,6 +117,8 @@ export const productVariants = pgTable('product_variants', {
   sku: text('sku').notNull().default(''),
   // Null means stock is not tracked.
   stock: integer('stock'),
+  // One of the product's own images. The deferred foreign key to product_media is in a custom migration.
+  mediaId: uuid('media_id'),
 }, (t) => [
   foreignKey({ name: 'product_variants_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
   unique('product_variants_store_id').on(t.storeId, t.id),

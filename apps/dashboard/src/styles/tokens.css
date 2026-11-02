@@ -20,6 +20,8 @@
   --color-error: oklch(46% 0.17 27); --color-error-soft: oklch(92% 0.05 27);
 
   --font-body: "Inter Variable", "Noto Sans Bengali Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Only for the search result preview: the link blue of Google's results, so the preview looks like the real thing. */
+  --color-serp-link: #1a0dab;
   --color-danger: oklch(55% 0.21 27); --color-danger-2: oklch(49% 0.2 27);
   --shadow-btn: inset 0 -1px 0 0 oklch(72% 0 0), inset 0 0 0 1px oklch(0% 0 0 / 0.1), inset 0 1px 0 1px oklch(100% 0 0);
   --shadow-btn-pressed: inset 0 1px 2px oklch(0% 0 0 / 0.22), inset 0 0 0 1px oklch(0% 0 0 / 0.12);

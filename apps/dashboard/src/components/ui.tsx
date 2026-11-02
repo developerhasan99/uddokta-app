@@ -54,12 +54,13 @@ export function Notice({ title, body, role, action }: { title: string; body?: st
   )
 }
 
-export function Field({ label, error, help, id, trailing, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; id: string; error?: string; help?: string; trailing?: ReactNode }) {
+export function Field({ label, error, help, id, trailing, unit, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; id: string; error?: string; help?: string; trailing?: ReactNode; unit?: string }) {
   const message = error ?? help
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <div className="field__control">
+        {unit && <span className="field__unit" aria-hidden="true">{unit}</span>}
         <input id={id} className="input" aria-invalid={error ? true : undefined} aria-describedby={message ? `${id}-help` : undefined} {...props} />
         {trailing}
       </div>

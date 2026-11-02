@@ -94,6 +94,74 @@ test('saving keeps variant ids, removes dropped variants and leaves untouched bu
   assert.notEqual(edited.json.variants[1].id, l.id)
 })
 
+test('type, brand, tags and the unlisted status save, and the store suggests them back', async () => {
+  const owner = await storeOwner()
+  const made = await owner.call('POST', owner.base, simple({ status: 'unlisted', productType: ' শাড়ি ', brand: 'তাঁত', tags: ['ঈদ', 'ঈদ ', 'নতুন'] }))
+  assert.equal(made.status, 201)
+  assert.deepEqual([made.json.status, made.json.productType, made.json.brand, made.json.tags], ['unlisted', 'শাড়ি', 'তাঁত', ['ঈদ', 'নতুন']])
+  assert.deepEqual((await owner.call('GET', `${owner.base}?status=unlisted`)).json.counts, { unlisted: 1 })
+  assert.deepEqual((await owner.call('GET', `${owner.base}/suggestions`)).json, { types: ['শাড়ি'], brands: ['তাঁত'], tags: ['ঈদ', 'নতুন'] })
+  const other = await storeOwner()
+  assert.deepEqual((await other.call('GET', `${other.base}/suggestions`)).json, { types: [], brands: [], tags: [] })
+})
+
+test('descriptions keep basic formatting and lose everything that could run', async () => {
+  const owner = await storeOwner()
+  const save = async (description: string) => (await owner.call('POST', owner.base, simple({ description }))).json.description
+  assert.equal(await save('<div style="color:red"><b>সুতি</b> <i onclick="x()">নরম</i></div><ul><li>এক</li></ul>'), '<p><strong>সুতি</strong> <em>নরম</em></p><ul><li>এক</li></ul>')
+  assert.equal(await save('<script>alert(1)</script><img src=x onerror=alert(1)>'), 'alert(1)')
+  assert.equal(await save('<svg/onload=alert(1)>'), '')
+  assert.equal(await save('<b onclick="a>b">x</b>'), '<strong>b">x</strong>')
+  assert.equal(await save('<<img src=x onerror=alert(1)>b>'), '&lt;b>')
+  assert.equal(await save('<img src=x onerror=alert(1)'), '&lt;img src=x onerror=alert(1)')
+  assert.equal(await save('১ < ২'), '১ &lt; ২')
+  assert.equal(await save('<a class="x" href="https://a.com/?x=1&amp;y=2" onclick="x()">লিঙ্ক</a>'), '<a href="https://a.com/?x=1&amp;y=2">লিঙ্ক</a>')
+  assert.equal(await save('<a href="tel:+8801700000000">ফোন</a>'), '<a href="tel:+8801700000000">ফোন</a>')
+  for (const href of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', '&#106;avascript:alert(1)', 'java&#10;script:alert(1)', ' javascript:alert(1)', 'data:text/html,x', '//evil.test']) {
+    assert.equal(await save(`<a href="${href}">x</a>`), 'x</a>', href)
+  }
+  assert.equal(await save(`<a href='javascript:alert(1)' title=' href="https://a.com"'>x</a>`), '<a href="https://a.com">x</a>', 'only a real href counts, and only a safe one')
+})
+
+test('a variant image must be one of the product images, and stays blocked from deletion', async () => {
+  const owner = await storeOwner()
+  const [image, loose] = [await upload(owner), await upload(owner)]
+  const variants = (mediaId: string) => [{ options: ['M'], price: 500, mediaId }, { options: ['L'], price: 600 }]
+  assert.equal((await owner.call('POST', owner.base, sized({ mediaIds: [image.id], variants: variants(loose.id) }))).status, 400)
+  const made = await owner.call('POST', owner.base, sized({ mediaIds: [image.id], variants: variants(image.id) }))
+  assert.equal(made.json.variants[0].mediaId, image.id)
+  assert.equal(made.json.variants[1].mediaId, null)
+  const url = `${owner.base}/${made.json.id}`
+  const resaved = await owner.call('PUT', url, sized({ mediaIds: [loose.id, image.id], variants: made.json.variants.map((v: any) => ({ ...v, cost: undefined })) }))
+  assert.equal(resaved.json.variants[0].mediaId, image.id, 'survives the images being replaced')
+  assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${image.id}`)).status, 409)
+  assert.equal((await owner.call('DELETE', url)).status, 200, 'deleting the product clears both together')
+})
+
+test('handles come from the name, stay put, and are unique inside one store', async () => {
+  const owner = await storeOwner()
+  const first = (await owner.call('POST', owner.base, simple({ name: 'লাল শাড়ি, Red!' }))).json
+  assert.equal(first.handle, 'লাল-শাড়ি-red')
+  const second = (await owner.call('POST', owner.base, simple({ name: 'লাল শাড়ি, Red!' }))).json
+  assert.equal(second.handle, 'লাল-শাড়ি-red-2')
+  const url = `${owner.base}/${first.id}`
+  assert.equal((await owner.call('PUT', url, simple({ name: 'নতুন নাম', handle: first.handle }))).json.handle, first.handle, 'renaming keeps the address')
+  assert.equal((await owner.call('PUT', url, simple({ name: 'নতুন নাম', handle: 'My Own Page!' }))).json.handle, 'my-own-page')
+  const taken = await owner.call('PUT', url, simple({ handle: second.handle }))
+  assert.deepEqual([taken.status, taken.json.error], [409, 'productHandleTaken'])
+  assert.equal((await owner.call('POST', owner.base, simple({ handle: second.handle }))).status, 409)
+  const other = await storeOwner()
+  assert.equal((await other.call('POST', other.base, simple({ handle: second.handle }))).json.handle, second.handle, 'another store can use the same one')
+  assert.equal((await owner.call('POST', owner.base, simple({ name: '!!!' }))).json.handle, 'product')
+})
+
+test('search title and description save', async () => {
+  const owner = await storeOwner()
+  const made = (await owner.call('POST', owner.base, simple({ seoTitle: ' শিরোনাম ', seoDescription: 'বর্ণনা' }))).json
+  assert.deepEqual([made.seoTitle, made.seoDescription], ['শিরোনাম', 'বর্ণনা'])
+  assert.equal((await owner.call('POST', owner.base, simple({ seoTitle: 'x'.repeat(301) }))).status, 400)
+})
+
 test('bad products are refused', async () => {
   const owner = await storeOwner()
   const other = (await owner.call('POST', owner.base, simple())).json
@@ -108,6 +176,10 @@ test('bad products are refused', async () => {
     ['repeated option', sized({ options: [{ name: 'Size', values: ['M'] }, { name: 'Size', values: ['L'] }], variants: [{ options: ['M', 'L'], price: 1 }] })],
     ['bad status', simple({ status: 'live' })],
     ['bad image id', simple({ mediaIds: ['x'] })],
+    ['bad variant image id', simple({ variants: [{ options: [], price: 1, mediaId: 'x' }] })],
+    ['too many tags', simple({ tags: Array.from({ length: 31 }, (_, i) => `t${i}`) })],
+    ['blank tag', simple({ tags: [' '] })],
+    ['type too long', simple({ productType: 'x'.repeat(101) })],
     ['another product’s variant', simple({ variants: [{ id: other.variants[0].id, options: [], price: 1 }] })],
   ]
   for (const [label, body] of bad) assert.equal((await owner.call('POST', owner.base, body)).status, 400, label)

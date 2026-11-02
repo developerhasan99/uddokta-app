@@ -41,8 +41,10 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
     return () => clearTimeout(timer)
   }, [search, base])
 
+  // With room for one image, a new choice replaces the old one.
+  const add = (all: MediaItem[], item: MediaItem) => (max === 1 ? [item] : all.length < max ? [...all, item] : all)
   const toggle = (item: MediaItem) => {
-    setPicked((all) => all.some((x) => x.id === item.id) ? all.filter((x) => x.id !== item.id) : all.length < max ? [...all, item] : all)
+    setPicked((all) => all.some((x) => x.id === item.id) ? all.filter((x) => x.id !== item.id) : add(all, item))
   }
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -56,7 +58,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
       try {
         const item = await api<MediaItem>(base, { method: 'POST', form: body })
         setPage((p) => p && { ...p, items: [item, ...p.items] })
-        setPicked((all) => (all.length < max ? [...all, item] : all))
+        setPicked((all) => add(all, item))
       } catch (err) {
         setError(`${f.name}: ${t(errorLabel(errorCode(err)))}`)
       }
@@ -104,7 +106,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
               const isPicked = picked.some((x) => x.id === item.id)
               return (
                 <li key={item.id}>
-                  <button type="button" className="picker__tile" aria-pressed={isPicked} title={item.name} disabled={!isPicked && picked.length >= max} onClick={() => toggle(item)}>
+                  <button type="button" className="picker__tile" aria-pressed={isPicked} title={item.name} disabled={!isPicked && max > 1 && picked.length >= max} onClick={() => toggle(item)}>
                     <img src={item.thumbUrl} alt={item.alt || item.name} loading="lazy" />
                     {isPicked && <span className="picker__check"><Check size={14} aria-hidden="true" /></span>}
                   </button>
