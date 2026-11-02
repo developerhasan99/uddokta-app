@@ -10,7 +10,7 @@ export const statusInfo: Record<ProductStatus, { label: Key; help: Key; tone: To
 }
 
 export type Option = { name: string; values: string[] }
-export type VariantDraft = { id?: string; options: string[]; price: string; comparePrice: string; cost: string; sku: string; stock: string; mediaId?: string | null }
+export type VariantDraft = { id?: string; options: string[]; price: string; comparePrice: string; cost: string; sku: string; stocks: Record<string, string>; mediaId?: string | null }
 
 export const maxVariants = 100
 const banglaDigits = '০১২৩৪৫৬৭৮৯'
@@ -60,6 +60,12 @@ export function searchDescription(html: string) {
   return text.length > seoDescriptionLimit ? `${text.slice(0, seoDescriptionLimit - 3).trimEnd()}...` : text
 }
 
+// The total across warehouses. Null when no warehouse has a count, which means stock is not tracked.
+export function stockTotal(stocks: Record<string, string>) {
+  const counts = Object.values(stocks).map(parseAmount).filter((n) => n !== null)
+  return counts.length > 0 ? counts.reduce((a, b) => a + b, 0) : null
+}
+
 export const variantTotal = (options: Option[]) => options.reduce((n, o) => (o.values.length > 0 ? n * o.values.length : n), 1)
 
 // One variant per combination. Existing combinations are kept; new ones start with the first variant's prices.
@@ -75,6 +81,6 @@ export function variantsFor(options: Option[], previous: VariantDraft[]): Varian
     comparePrice: first?.comparePrice ?? '',
     cost: first?.cost ?? '',
     sku: '',
-    stock: '',
+    stocks: {},
   })
 }

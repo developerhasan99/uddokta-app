@@ -115,7 +115,7 @@ export const productVariants = pgTable('product_variants', {
   price: integer('price').notNull(),
   comparePrice: integer('compare_price'),
   sku: text('sku').notNull().default(''),
-  // Null means stock is not tracked.
+  // The total across warehouses, kept by a trigger. Null means stock is not tracked.
   stock: integer('stock'),
   // One of the product's own images. The deferred foreign key to product_media is in a custom migration.
   mediaId: uuid('media_id'),
@@ -175,4 +175,31 @@ export const collectionProducts = pgTable('collection_products', {
   foreignKey({ name: 'collection_products_collection', columns: [t.storeId, t.collectionId], foreignColumns: [collections.storeId, collections.id] }).onDelete('cascade'),
   foreignKey({ name: 'collection_products_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
   index('collection_products_product_idx').on(t.storeId, t.productId),
+])
+
+// Places a store keeps stock. Every store has at least one, made with the store.
+export const warehouses = pgTable('warehouses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  phone: text('phone').notNull().default(''),
+  address: text('address').notNull().default(''),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('warehouses_store_name').on(t.storeId, t.name),
+  unique('warehouses_store_id').on(t.storeId, t.id),
+])
+
+// A variant with no rows here is not tracked. A trigger keeps product_variants.stock equal to the total, so never write that column.
+export const warehouseStock = pgTable('warehouse_stock', {
+  storeId: uuid('store_id').notNull(),
+  warehouseId: uuid('warehouse_id').notNull(),
+  variantId: uuid('variant_id').notNull(),
+  quantity: integer('quantity').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.warehouseId, t.variantId] }),
+  foreignKey({ name: 'warehouse_stock_warehouse', columns: [t.storeId, t.warehouseId], foreignColumns: [warehouses.storeId, warehouses.id] }).onDelete('cascade'),
+  foreignKey({ name: 'warehouse_stock_variant', columns: [t.storeId, t.variantId], foreignColumns: [productVariants.storeId, productVariants.id] }).onDelete('cascade'),
+  index('warehouse_stock_variant_idx').on(t.variantId),
+  check('warehouse_stock_quantity', sql`${t.quantity} >= 0`),
 ])

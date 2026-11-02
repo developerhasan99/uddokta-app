@@ -8,10 +8,12 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerCollections } from './collections.ts'
+import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerProducts } from './products.ts'
+import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { readLocalFile } from './storage.ts'
-import { roles, storeInvites, storeMembers, stores, users, type Role } from './schema.ts'
+import { roles, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
 
 const sessionDays = 30
 const inviteDays = 7
@@ -196,6 +198,7 @@ app.post('/stores', async (c) => {
     await tx(userId, async (t) => {
       await t.insert(stores).values({ id, handle, name })
       await t.insert(storeMembers).values({ storeId: id, userId, role: 'owner' })
+      await t.insert(warehouses).values({ storeId: id, name: defaultWarehouseName })
     })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')
@@ -283,3 +286,5 @@ app.post('/invites/:token/accept', async (c) => {
 registerMedia(app)
 registerProducts(app)
 registerCollections(app)
+registerInventory(app)
+registerWarehouses(app)

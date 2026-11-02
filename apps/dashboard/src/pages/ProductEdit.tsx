@@ -8,14 +8,15 @@ import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
 import { Badge, Button, Field, Notice, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
-import { maxVariants, parseAmount, productStatuses, statusInfo, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
+import { maxVariants, parseAmount, productStatuses, statusInfo, stockTotal, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
 
 type Saved = {
   id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; media: MediaItem[]
-  variants: { id: string; options: string[]; price: number; comparePrice: number | null; cost: number | null; sku: string; stock: number | null; mediaId: string | null }[]
+  variants: { id: string; options: string[]; price: number; comparePrice: number | null; cost: number | null; sku: string; stock: number | null; stocks: Record<string, number>; mediaId: string | null }[]
 }
 type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
 type CollectionOption = { id: string; name: string }
+type WarehouseOption = { id: string; name: string }
 type Suggestions = { types: string[]; brands: string[]; tags: string[] }
 type BulkField = 'price' | 'comparePrice' | 'cost' | 'stock'
 
@@ -37,7 +38,7 @@ const toForm = (p: Saved): Form => ({
   seoDescription: p.seoDescription,
   options: p.options,
   media: p.media,
-  variants: p.variants.map((v) => ({ id: v.id, options: v.options, price: text(v.price), comparePrice: text(v.comparePrice), cost: text(v.cost), sku: v.sku, stock: text(v.stock), mediaId: v.mediaId })),
+  variants: p.variants.map((v) => ({ id: v.id, options: v.options, price: text(v.price), comparePrice: text(v.comparePrice), cost: text(v.cost), sku: v.sku, stocks: Object.fromEntries(Object.entries(v.stocks).map(([id, n]) => [id, String(n)])), mediaId: v.mediaId })),
 })
 // Blank is fine for everything except the selling price.
 const badAmount = (value: string, required = false) => (value.trim() === '' ? required : parseAmount(value) === null)
@@ -61,6 +62,9 @@ export function ProductEdit() {
   const [form, setForm] = useState<Form | null>(id ? null : blank())
   const [baseline, setBaseline] = useState(() => JSON.stringify(blank()))
   const [loadFailed, setLoadFailed] = useState(false)
+  const [warehouses, setWarehouses] = useState<WarehouseOption[] | null>(null)
+  const [warehousesFailed, setWarehousesFailed] = useState(false)
+  const [chosenWarehouse, setChosenWarehouse] = useState<string | null>(null)
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -105,6 +109,12 @@ export function ProductEdit() {
     return () => clearTimeout(timer)
   }, [justSaved])
 
+  const loadWarehouses = () => {
+    setWarehousesFailed(false)
+    api<WarehouseOption[]>(`/stores/${current.store.handle}/warehouses`).then(setWarehouses).catch(() => setWarehousesFailed(true))
+  }
+  useEffect(loadWarehouses, [current.store.handle])
+
   // Only suggestions, so the form works without them.
   useEffect(() => {
     api<Suggestions>(`${base}/suggestions`).then(setSuggestions).catch(() => {})
@@ -119,6 +129,13 @@ export function ProductEdit() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  if (warehousesFailed) {
+    return (
+      <div className="page">
+        <section className="card card--flush"><Notice role="alert" title={t('warehouseLoadFailed')} action={<Button onClick={loadWarehouses}>{t('retry')}</Button>} /></section>
+      </div>
+    )
+  }
   if (loadFailed) {
     return (
       <div className="page">
@@ -126,7 +143,7 @@ export function ProductEdit() {
       </div>
     )
   }
-  if (!form) {
+  if (!form || !warehouses) {
     return <div className="page" role="status" aria-label={t('loading')}><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
   }
 
@@ -159,7 +176,7 @@ export function ProductEdit() {
   const hasErrors = !form.name.trim()
     || descriptionLong
     || form.options.some(optionNameBad)
-    || form.variants.some((v) => badAmount(v.price, true) || badAmount(v.comparePrice) || badAmount(v.stock) || (seesCost && badAmount(v.cost)))
+    || form.variants.some((v) => badAmount(v.price, true) || badAmount(v.comparePrice) || Object.values(v.stocks).some((n) => badAmount(n)) || (seesCost && badAmount(v.cost)))
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -190,7 +207,7 @@ export function ProductEdit() {
           price: parseAmount(v.price),
           comparePrice: optional(v.comparePrice),
           sku: v.sku,
-          stock: optional(v.stock),
+          stocks: Object.fromEntries(Object.entries(v.stocks).map(([warehouseId, n]) => [warehouseId, optional(n)])),
           mediaId: v.mediaId ?? null,
           // Staff leave buying prices out, so their save does not touch them.
           ...(seesCost ? { cost: optional(v.cost) } : {}),
@@ -243,13 +260,27 @@ export function ProductEdit() {
   const discount = !oldPriceLow && typeof singleOld === 'number' && singleOld > 0 && typeof singlePrice === 'number' ? Math.round(((singleOld - singlePrice) / singleOld) * 100) : null
   const profit = seesCost && typeof singlePrice === 'number' && singlePrice > 0 && typeof singleCost === 'number' ? singlePrice - singleCost : null
   const prices = form.variants.map((v) => parseAmount(v.price)).filter((n) => n !== null)
-  const stockCounts = form.variants.map((v) => parseAmount(v.stock)).filter((n) => n !== null)
+  const stockCounts = form.variants.map((v) => stockTotal(v.stocks)).filter((n) => n !== null)
+  // Inputs show one warehouse at a time. Most stores have only one, and then there is nothing to choose.
+  const warehouseId = chosenWarehouse && warehouses.some((w) => w.id === chosenWarehouse) ? chosenWarehouse : warehouses[0].id
+  const stockAt = (v: VariantDraft) => v.stocks[warehouseId] ?? ''
+  const withStock = (v: VariantDraft, value: string) => ({ ...v, stocks: { ...v.stocks, [warehouseId]: value } })
+  // Counted in another warehouse, so blank here means none here, not untracked.
+  const stockPlaceholder = (v: VariantDraft) => (stockTotal(v.stocks) === null ? t('productUntracked') : '0')
+  const warehousePicker = warehouses.length > 1 && (
+    <label className="stock-at">
+      <span>{t('productStockAt')}</span>
+      <select className="input input--compact" value={warehouseId} onChange={(e) => setChosenWarehouse(e.target.value)}>
+        {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+      </select>
+    </label>
+  )
   const priceRange = prices.length === 0 ? '-' : Math.min(...prices) === Math.max(...prices) ? money(prices[0]) : `${money(Math.min(...prices))} – ${money(Math.max(...prices))}`
   const invalid = (bad: boolean) => (tried && bad ? t('productBadNumber') : undefined)
 
   const picked = form.variants.filter((v) => selected.includes(variantKey(v)))
   const toggleVariant = (v: VariantDraft) => setSelected(selected.includes(variantKey(v)) ? selected.filter((k) => k !== variantKey(v)) : [...selected, variantKey(v)])
-  const applyToSelected = (field: BulkField, value: string) => change({ variants: form.variants.map((v) => (selected.includes(variantKey(v)) ? { ...v, [field]: value } : v)) })
+  const applyToSelected = (field: BulkField, value: string) => change({ variants: form.variants.map((v) => (!selected.includes(variantKey(v)) ? v : field === 'stock' ? withStock(v, value) : { ...v, [field]: value })) })
 
   return (
     <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
@@ -334,12 +365,15 @@ export function ProductEdit() {
 
             {single && (
               <div className="form-section">
-                <h2>{t('productPriceStock')}</h2>
+                <div className="card__head">
+                  <h2>{t('productPriceStock')}</h2>
+                  {warehousePicker}
+                </div>
                 <div className={seesCost ? 'price-grid' : 'price-grid price-grid--two'}>
                   <Field id="price" label={t('productPrice')} unit="৳" inputMode="numeric" autoComplete="off" value={single.price} error={tried && badAmount(single.price, true) ? t('productPriceRequired') : undefined} onChange={(e) => setVariant(0, { price: e.target.value })} />
                   <Field id="compare-price" label={t('productOldPrice')} unit="৳" inputMode="numeric" autoComplete="off" placeholder={t('productOptional')} value={single.comparePrice} error={invalid(badAmount(single.comparePrice))} help={oldPriceLow ? t('productOldPriceLow') : undefined} trailing={discount !== null && <span className="field__hint">{t('productOldPriceOff', { n: num(discount) })}</span>} onChange={(e) => setVariant(0, { comparePrice: e.target.value })} />
                   {seesCost && <Field id="cost" label={t('productCost')} unit="৳" inputMode="numeric" autoComplete="off" placeholder={t('productOptional')} value={single.cost} error={invalid(badAmount(single.cost))} onChange={(e) => setVariant(0, { cost: e.target.value })} />}
-                  <Field id="stock" label={t('productStock')} inputMode="numeric" autoComplete="off" placeholder={t('productUntracked')} value={single.stock} error={invalid(badAmount(single.stock))} onChange={(e) => setVariant(0, { stock: e.target.value })} />
+                  <Field id="stock" label={t('productStock')} inputMode="numeric" autoComplete="off" placeholder={stockPlaceholder(single)} value={stockAt(single)} error={invalid(badAmount(stockAt(single)))} help={warehouses.length > 1 && stockTotal(single.stocks) !== null ? t('productStockAllWarehouses', { n: num(stockTotal(single.stocks)!) }) : undefined} onChange={(e) => setForm({ ...form, variants: [withStock(single, e.target.value)] })} />
                   <Field id="sku" label={t('productSku')} maxLength={100} autoComplete="off" placeholder={t('productOptional')} value={single.sku} onChange={(e) => setVariant(0, { sku: e.target.value })} />
                   {seesCost && (
                     <div className="field">
@@ -383,6 +417,7 @@ export function ProductEdit() {
               </div>
               {!single && (
                 <>
+                  {warehousePicker && <div className="stock-at-bar">{warehousePicker}</div>}
                   {picked.length > 0 && <BulkBar count={picked.length} seesCost={seesCost} onApply={applyToSelected} onClear={() => setSelected([])} />}
                   <div className="variant-table">
                     <table>
@@ -409,9 +444,9 @@ export function ProductEdit() {
                         {form.variants.map((v, i) => {
                           const label = v.options.join(' / ')
                           const image = form.media.find((m) => m.id === v.mediaId)
-                          const cell = (name: BulkField, title: string, bad: boolean, placeholder?: string) => (
+                          const cell = (name: 'price' | 'comparePrice' | 'cost', title: string, bad: boolean) => (
                             <td className="variant-table__num">
-                              <input className="input" inputMode="numeric" autoComplete="off" placeholder={placeholder} aria-label={`${label}: ${title}`} aria-invalid={tried && bad ? true : undefined} value={v[name]} onChange={(e) => setVariant(i, { [name]: e.target.value })} />
+                              <input className="input" inputMode="numeric" autoComplete="off" aria-label={`${label}: ${title}`} aria-invalid={tried && bad ? true : undefined} value={v[name]} onChange={(e) => setVariant(i, { [name]: e.target.value })} />
                             </td>
                           )
                           const startsGroup = i > 0 && form.options.length > 1 && v.options[0] !== form.variants[i - 1].options[0]
@@ -430,7 +465,9 @@ export function ProductEdit() {
                               {cell('price', t('productPrice'), badAmount(v.price, true))}
                               {cell('comparePrice', t('productOldPrice'), badAmount(v.comparePrice))}
                               {seesCost && cell('cost', t('productCost'), badAmount(v.cost))}
-                              {cell('stock', t('productStock'), badAmount(v.stock), t('productUntracked'))}
+                              <td className="variant-table__num">
+                                <input className="input" inputMode="numeric" autoComplete="off" placeholder={stockPlaceholder(v)} aria-label={`${label}: ${t('productStock')}`} aria-invalid={tried && badAmount(stockAt(v)) ? true : undefined} value={stockAt(v)} onChange={(e) => change({ variants: form.variants.map((x, n) => (n === i ? withStock(x, e.target.value) : x)) })} />
+                              </td>
                               <td><input className="input" maxLength={100} autoComplete="off" aria-label={`${label}: ${t('productSku')}`} value={v.sku} onChange={(e) => setVariant(i, { sku: e.target.value })} /></td>
                             </tr>
                           )

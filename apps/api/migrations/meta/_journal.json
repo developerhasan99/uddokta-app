@@ -85,6 +85,34 @@
       "when": 1793593260782,
       "tag": "0011_collections_security",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793594984379,
+      "tag": "0012_warehouses",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793594984709,
+      "tag": "0013_warehouses_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793595685025,
+      "tag": "0014_warehouse_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793595685352,
+      "tag": "0015_warehouse_stock_security",
+      "breakpoints": true
     }
   ]
 }

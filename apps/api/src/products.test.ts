@@ -266,3 +266,40 @@ test('deleting a store removes its products and images together', async () => {
   const left = await pool.query('select count(*)::int as n from products where store_id = $1', [owner.storeId])
   assert.equal(left.rows[0].n, 0)
 })
+
+test('inventory lists every variant, filters by stock and searches name and SKU', async () => {
+  const owner = await storeOwner()
+  const url = `/stores/${owner.handle}/inventory`
+  await owner.call('POST', owner.base, sized())
+  await owner.call('POST', owner.base, simple({ name: 'Untracked', variants: [{ options: [], price: 1, sku: 'U-1' }], status: 'draft' }))
+  const labels = async (query = '') => (await owner.call('GET', `${url}?${query}`)).json.items.map((i: any) => [i.productName, i.options.join('/')])
+  assert.deepEqual(await labels(), [['Untracked', ''], ['Shirt', 'M'], ['Shirt', 'L']])
+  assert.deepEqual(await labels('filter=out'), [['Shirt', 'L']])
+  assert.deepEqual(await labels('filter=in'), [['Shirt', 'M']])
+  assert.deepEqual(await labels('filter=untracked'), [['Untracked', '']])
+  assert.deepEqual(await labels('q=u-1'), [['Untracked', '']])
+  assert.deepEqual((await owner.call('GET', `${url}?q=shirt&filter=out`)).json.counts, { all: 2, in: 1, out: 1, untracked: 0 }, 'tab counts ignore the current tab')
+})
+
+test('inventory saves many stock counts together, all or nothing, without touching anything else', async () => {
+  const owner = await storeOwner()
+  const url = `/stores/${owner.handle}/inventory`
+  const made = (await owner.call('POST', owner.base, sized())).json
+  const [m, l] = made.variants
+  assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, stock: 9 }, { variantId: l.id, stock: null }] })).status, 200)
+  const after = (await owner.call('GET', `${owner.base}/${made.id}`)).json.variants
+  assert.deepEqual(after.map((v: any) => [v.stock, v.price]), [[9, 500], [null, 600]])
+
+  const bad: unknown[] = [{}, { changes: 'x' }, { changes: [{ variantId: 'x', stock: 1 }] }, { changes: [{ variantId: m.id, stock: -1 }] }, { changes: [{ variantId: m.id, stock: 1.5 }] }, { changes: [{ variantId: m.id }] }, { changes: [{ variantId: m.id, stock: 1 }, { variantId: m.id, stock: 2 }] }]
+  for (const body of bad) assert.equal((await owner.call('PATCH', url, body)).status, 400, JSON.stringify(body))
+
+  const other = await storeOwner()
+  const theirs = (await other.call('POST', other.base, simple())).json.variants[0]
+  assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, stock: 1 }, { variantId: theirs.id, stock: 1 }] })).status, 404)
+  assert.equal((await owner.call('GET', `${owner.base}/${made.id}`)).json.variants[0].stock, 9, 'the good change was undone too')
+  assert.equal((await other.call('GET', `${other.base}/${(await other.call('GET', other.base)).json.items[0].id}`)).json.variants[0].stock, 5)
+  assert.equal((await owner.call('GET', `/stores/${other.handle}/inventory`)).status, 404)
+
+  const staff = await staffOf(owner)
+  assert.equal((await staff('PATCH', url, { changes: [{ variantId: m.id, stock: 3 }] })).status, 200, 'staff can count stock')
+})

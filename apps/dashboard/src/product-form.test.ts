@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { linkAddress, parseAmount, searchDescription, slugify, variantsFor, variantTotal, type VariantDraft } from './product-form.ts'
+import { linkAddress, parseAmount, searchDescription, slugify, stockTotal, variantsFor, variantTotal, type VariantDraft } from './product-form.ts'
 
-const draft = (options: string[], price = '100', extra = {}): VariantDraft => ({ options, price, comparePrice: '', cost: '50', sku: '', stock: '', ...extra })
+const draft = (options: string[], price = '100', extra = {}): VariantDraft => ({ options, price, comparePrice: '', cost: '50', sku: '', stocks: {}, ...extra })
 
 test('amounts accept Bangla and English digits and nothing else', () => {
   assert.equal(parseAmount('১২০০'), 1200)
@@ -24,10 +24,10 @@ test('an option with no values yet does not change anything', () => {
 })
 
 test('existing variants stay as they are; new ones copy prices but not SKU or stock', () => {
-  const m = draft(['M'], '500', { id: 'a', sku: 'S-M', stock: '3' })
+  const m = draft(['M'], '500', { id: 'a', sku: 'S-M', stocks: { w: '3' } })
   const [kept, added] = variantsFor([{ name: 'Size', values: ['M', 'L'] }], [m])
   assert.equal(kept, m)
-  assert.deepEqual(added, { options: ['L'], price: '500', comparePrice: '', cost: '50', sku: '', stock: '' })
+  assert.deepEqual(added, { options: ['L'], price: '500', comparePrice: '', cost: '50', sku: '', stocks: {} })
 })
 
 test('links accept what sellers type and refuse anything that could run', () => {
@@ -50,4 +50,11 @@ test('the search description is plain text that fits', () => {
   const long = searchDescription(`<p>${'ক'.repeat(300)}</p>`)
   assert.equal(long.length, 160)
   assert.ok(long.endsWith('...'))
+})
+
+test('the stock total adds warehouses, and blank everywhere means not tracked', () => {
+  assert.equal(stockTotal({ a: '৩', b: '4', c: '' }), 7)
+  assert.equal(stockTotal({ a: '0' }), 0)
+  assert.equal(stockTotal({ a: '', b: '' }), null)
+  assert.equal(stockTotal({}), null)
 })

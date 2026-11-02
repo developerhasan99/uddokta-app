@@ -68,7 +68,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 
 - **Home**
 - **Orders:** Incomplete orders, Fake-order protection
-- **Products:** Collections, Inventory, Purchase orders, Suppliers, Stock requests
+- **Products:** Collections, Inventory, Warehouses
 - **Customers:** Segments, Repeat sales
 - **Inbox:** AI salesman
 - **Marketing:** Auto follow-ups, Offers
@@ -88,7 +88,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 ## Products
 
 - Every product has at least one variant, so price and stock always live on `product_variants`. Options generate one variant per combination, up to 100.
-- Amounts are whole taka in integer columns. Blank stock means it is not tracked.
+- Amounts are whole taka in integer columns. Blank stock everywhere means it is not tracked.
 - Buying prices live in `product_variant_costs`, which row-level security hides from staff. Staff saves leave the field out and keep the existing price.
 - Staff can add and edit products; only owners and admins can delete them.
 - Statuses: active (listed and on sale), unlisted (on sale through its direct link, never in listings or search), draft (hidden). The storefront must honour all three.
@@ -96,6 +96,13 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Each product has a `handle`, unique in its store and allowed to contain Bangla. Saves keep it when the name changes. A blank search title or description means the storefront uses the name and `searchDescription` from `apps/dashboard/src/product-form.ts`.
 - A variant image must be one of its product's images, enforced by a deferred foreign key to `product_media`.
 - `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.
+
+## Inventory
+
+- One list of every variant, with stock edited in place, one warehouse at a time, and saved together. There is no stock history.
+- Stock lives in `warehouse_stock`, one row per variant per warehouse. No rows means not tracked. A trigger keeps `product_variants.stock` equal to the total, so read that column for totals and never write it. Change stock through `setStock` in `apps/api/src/stock.ts`.
+- Every store has at least one warehouse, made with the store, and the API refuses to delete the last. Deleting a warehouse moves its stock to another.
+- Orders must change stock by adding or subtracting in the database, never by writing back a number read earlier, and must say which warehouse a sale ships from.
 
 ## Collections
 

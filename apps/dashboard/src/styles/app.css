@@ -380,7 +380,9 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .card__head .btn svg { flex: none; }
 
 /* Toast: pinned to the bottom of the scrolling panel, centred on the form. Takes up no room of its own. */
-.toast-anchor { position: sticky; bottom: calc(var(--space-lg) + var(--space-xs)); z-index: var(--z-dropdown); display: flex; align-items: flex-end; justify-content: center; height: 0; margin-top: calc(var(--space-md) * -1); pointer-events: none; }
+.toast-anchor { position: sticky; bottom: calc(var(--space-lg) + var(--space-xs)); z-index: var(--z-dropdown); display: flex; align-items: flex-end; justify-content: center; height: 0; margin-top: auto; pointer-events: none; }
+/* On a short page the toast still belongs at the bottom of the panel, not right under the content. */
+.page:has(> .toast-anchor) { display: flex; flex-direction: column; min-height: calc(100dvh - var(--frame-gap) * 2); }
 .toast { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: var(--color-frame); box-shadow: var(--shadow-menu); color: var(--color-frame-ink); font-size: var(--text-md); font-weight: 500; animation: toast 5s ease-in-out both; }
 .toast svg { flex: none; color: var(--color-frame-active); }
 /* One run covers the whole 5 seconds the form keeps it on screen, so it leaves as gently as it arrives. */
@@ -503,6 +505,24 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .media-details__usage ul { display: grid; gap: var(--space-3xs); }
 .media-details__usage a { overflow-wrap: anywhere; }
 .media-details__locked { margin-top: auto; font-size: var(--text-sm); }
+
+/* Inventory */
+.data-table__stock { width: 8rem; }
+.data-table td.data-table__stock { padding-block: var(--space-2xs); }
+.data-table th.data-table__stock { text-align: end; }
+.data-table__stock .input { font-variant-numeric: tabular-nums; text-align: end; }
+.data-table__sku { width: 10rem; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-bar { position: sticky; bottom: var(--space-md); z-index: var(--z-dropdown); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-menu); }
+@media (max-width: 40rem) { .data-table__sku { display: none; } .data-table__stock { width: 6.5rem; } }
+
+/* Warehouses */
+.stock-at { display: flex; align-items: center; gap: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); white-space: nowrap; }
+.stock-at-bar { display: flex; justify-content: flex-end; padding: var(--space-xs) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule-strong); }
+.data-table .data-table__total { text-align: end; }
+.warehouse-address { overflow: hidden; color: var(--color-muted); text-overflow: ellipsis; white-space: nowrap; }
+.warehouse-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.warehouse-form .picker__body { padding-top: var(--space-md); gap: var(--space-md); }
+@media (max-width: 40rem) { .warehouse-address { display: none; } }
 
 /* Collections */
 .chip-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); font-size: var(--text-sm); }

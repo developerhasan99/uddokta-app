@@ -21,9 +21,7 @@ export const nav: NavItem[] = [
     children: [
       { key: 'collections', path: '/products/collections' },
       { key: 'inventory', path: '/products/inventory' },
-      { key: 'purchaseOrders', path: '/products/purchase-orders' },
-      { key: 'suppliers', path: '/products/suppliers' },
-      { key: 'restock', path: '/products/stock-requests' },
+      { key: 'warehouses', path: '/products/warehouses' },
     ],
   },
   {

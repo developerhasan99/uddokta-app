@@ -3,6 +3,7 @@ import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
 import { likePattern, present as presentMedia } from './media.ts'
 import { collectionProducts, collections, media, productMedia, products, productStatuses, productVariantCosts, productVariants, type ProductOption } from './schema.ts'
+import { checkWarehouses, firstWarehouseId, setStock, stockByVariant } from './stock.ts'
 import { publicUrl } from './storage.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
@@ -17,11 +18,11 @@ const maxTags = 30
 const descriptionTags: Record<string, string> = { p: 'p', div: 'p', br: 'br', b: 'strong', strong: 'strong', i: 'em', em: 'em', u: 'u', ul: 'ul', ol: 'ol', li: 'li', h2: 'h2' }
 
 export const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
-const isAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= maxAmount
+export const isAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= maxAmount
 const isOptionalAmount = (v: unknown) => v === null || isAmount(v)
 export const isName = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max
 
-type VariantInput = { id?: string; options: string[]; price: number; comparePrice: number | null; cost?: number | null; sku: string; stock: number | null; mediaId: string | null }
+type VariantInput = { id?: string; options: string[]; price: number; comparePrice: number | null; cost?: number | null; sku: string; stock: number | null; stocks?: Record<string, number | null>; mediaId: string | null }
 
 // Descriptions are shown as HTML, so this is the safety boundary: afterwards every "<" starts a known tag,
 // and the only attribute left is a link's href, limited to schemes that cannot run code.
@@ -67,11 +68,12 @@ function readVariants(value: unknown, options: ProductOption[]): VariantInput[] 
   const variants = value.map((v) => {
     const fits = Array.isArray(v?.options) && v.options.length === options.length && options.every((o, i) => o.values.includes(v.options[i]))
     const valid = fits && (v.id === undefined || isId(v.id)) && isAmount(v.price) && isOptionalAmount(v.comparePrice ?? null) && isOptionalAmount(v.stock ?? null)
+      && (v.stocks === undefined || (typeof v.stocks === 'object' && v.stocks !== null && !Array.isArray(v.stocks) && Object.entries(v.stocks).every(([id, n]) => isId(id) && isOptionalAmount(n))))
       && (v.cost === undefined || isOptionalAmount(v.cost)) && (v.sku === undefined || (typeof v.sku === 'string' && v.sku.length <= 100))
       && (v.mediaId === undefined || v.mediaId === null || isId(v.mediaId))
     if (!valid) throw fail(400, 'invalidRequest')
     combinations.add(JSON.stringify(v.options))
-    return { id: v.id, options: v.options, price: v.price, comparePrice: v.comparePrice ?? null, cost: v.cost, sku: (v.sku ?? '').trim(), stock: v.stock ?? null, mediaId: v.mediaId ?? null }
+    return { id: v.id, options: v.options, price: v.price, comparePrice: v.comparePrice ?? null, cost: v.cost, sku: (v.sku ?? '').trim(), stock: v.stock ?? null, stocks: v.stocks, mediaId: v.mediaId ?? null }
   })
   // Every combination exactly once, so a buyer can always pick any mix of options.
   if (combinations.size !== variants.length || variants.length !== expected) throw fail(400, 'invalidRequest')
@@ -143,7 +145,8 @@ async function loadProduct(t: Tx, storeId: string, id: string) {
     .orderBy(asc(productVariants.position))
   const images = await t.select({ media }).from(productMedia).innerJoin(media, eq(media.id, productMedia.mediaId)).where(eq(productMedia.productId, id)).orderBy(asc(productMedia.position))
   const inCollections = await t.select({ id: collections.id, name: collections.name }).from(collectionProducts).innerJoin(collections, eq(collections.id, collectionProducts.collectionId)).where(eq(collectionProducts.productId, id)).orderBy(asc(collections.name))
-  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, options: product.options, variants, media: images.map((row) => presentMedia(row.media)) }
+  const stocks = await stockByVariant(t, variants.map((v) => v.id))
+  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, options: product.options, variants: variants.map((v) => ({ ...v, stocks: stocks.get(v.id) ?? {} })), media: images.map((row) => presentMedia(row.media)) }
 }
 
 // Replaces the variants and images with what the seller sent. Variants keep their ids, so later orders can point at them.
@@ -159,11 +162,15 @@ async function saveDetails(t: Tx, storeId: string, productId: string, input: Ret
 
   const kept = input.variants.flatMap((v) => v.id ?? [])
   await t.delete(productVariants).where(and(eq(productVariants.productId, productId), kept.length > 0 ? notInArray(productVariants.id, kept) : undefined))
-  for (const [position, { id, cost, ...fields }] of input.variants.entries()) {
+  await checkWarehouses(t, storeId, input.variants.flatMap((v) => Object.keys(v.stocks ?? {})))
+  // A plain stock number means the store's first warehouse, which is the only one most stores have.
+  const firstWarehouse = await firstWarehouseId(t, storeId)
+  for (const [position, { id, cost, stock, stocks, ...fields }] of input.variants.entries()) {
     const values = { ...fields, position }
     const [variant] = id
       ? await t.update(productVariants).set(values).where(eq(productVariants.id, id)).returning({ id: productVariants.id })
       : await t.insert(productVariants).values({ ...values, storeId, productId }).returning({ id: productVariants.id })
+    for (const [warehouseId, quantity] of Object.entries(stocks ?? { [firstWarehouse]: stock })) await setStock(t, storeId, warehouseId, variant.id, quantity)
     // Left out by staff, whose save must not touch buying prices. Row-level security refuses them if they send one.
     if (typeof cost === 'number') {
       await t.insert(productVariantCosts).values({ variantId: variant.id, storeId, cost }).onConflictDoUpdate({ target: productVariantCosts.variantId, set: { cost } })
