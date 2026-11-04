@@ -5,7 +5,7 @@ Railway no longer permits new services to opt into legacy `railway.json`/`railwa
 | Setting | admin | storefront |
 |---|---|---|
 | Source repository | developerhasan99/uddokta-app | same |
-| Source branch | codex/railway-beta | same |
+| Source branch | main | same |
 | Root directory | repository root (blank) | same |
 | Variable `RAILWAY_DOCKERFILE_PATH` | deploy/Dockerfile.admin | deploy/Dockerfile.storefront |
 | Start command | Dockerfile default | Dockerfile default |

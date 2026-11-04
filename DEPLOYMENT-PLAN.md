@@ -163,11 +163,13 @@ After the beta passes, prepare an isolated production environment with its own d
 - Admin service: `b6a329e9-34d0-4b5c-8ca6-b3152fedccd4`; storefront service: `3860adaf-9439-4ec0-9536-8882dac82516`.
 - Public routing, media custom domain, backup policy, DNS cutover, and live browser QA remain incomplete. Admin temporary domain `https://admin-beta-ebcf.up.railway.app` was generated with target port 8080; it has not yet been checked in the app browser. Never use placeholder smoke-test storage credentials in Railway.
 
+- November 4, 2026: `codex/railway-beta` was fast-forwarded into `main` (`ad97f20`), both Railway services now deploy from `main`, and the old branch was retired. Work directly on `main` while there are no real merchants.
+
 ## Resume checkpoint — November 4, 2026
 
 We stopped during domain setup, after the first application deployment succeeded. This is a private beta deployment in progress, not a completed public launch.
 
-1. Re-read this file and `deploy/SERVICES.md`, inspect the current Git status, then re-check Railway's current service/deployment state. Source branch is `codex/railway-beta`, deployed revision `967ae20`; do not switch to `main` accidentally. Local deployment-status documentation changes have not been committed yet.
+1. Re-read this file and `deploy/SERVICES.md`, inspect the current Git status, then re-check Railway's current service/deployment state. Railway deploys from `main`; work happens on `main` only during the beta. Local deployment-status documentation changes have not been committed yet.
 2. Finish adding `admin.uddokta.studio` to the admin service, port 8080. The UI was left in the custom-domain form with that hostname entered; port selection was not confirmed. Read fresh UI state before continuing. Obtain Railway's actual DNS record(s), then add them to the existing Hostinger `uddokta.studio` zone. Existing studio sites/subdomains must be preserved.
 3. Attach `*.uddokta.live` to the storefront and obtain the actual Railway routing and certificate-verification records. A temporary storefront Railway domain may also be generated; its hostname alone cannot identify a merchant. Confirm the storefront restart-policy update to three retries completed successfully.
 4. Prepare the Cloudflare DNS records for the storefront without overwriting the apex/www records unintentionally. The full Hostinger zone comparison is complete. Ask for the exact nameserver cutover confirmation, then replace only the live domain's nameservers with `malcolm.ns.cloudflare.com` and `rachel.ns.cloudflare.com`. Leave studio nameservers at Hostinger.
