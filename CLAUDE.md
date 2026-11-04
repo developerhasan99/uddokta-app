@@ -144,7 +144,8 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Our own code, name and logo. Never Shopify's logo, assets or copy.
 - Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, 8px controls, 12px cards.
 - Standard input field: the `.input` class. White, 32px, thin `--color-rule-strong` border, 8px corners, 13px text, no shadow, and a green outline on focus.
-- Small controls by default: buttons and inputs are 32px with 13px text. Only sign-in forms use 40px, and phones use 44px touch targets.
+- Small controls by default: buttons and inputs are 32px with 13px text. Sign-in forms use 40px.
+- Mobile components should be more compact than their desktop equivalents, following the page editor: reduce 16px text to 14px and 14px text to 13px, with tighter line spacing and padding. Use 32px buttons with 13px text and compact 32–36px icon buttons and list controls. Keep related actions on one row where they fit; icon-only buttons need accessible labels. Editable inputs stay at 16px text and 44px height to avoid iPhone focus zoom and keep typing comfortable. Apply these sizes to the dashboard controls; the storefront preview must retain the storefront's own responsive styles.
 - Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
 - Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
 - Colours, spacing and type come from tokens, never one-off values.

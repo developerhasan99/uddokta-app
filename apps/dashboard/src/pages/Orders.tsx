@@ -34,10 +34,17 @@ export function Orders() {
   const latest = useRef(0)
   const [page, setPage] = useState<Page | null>(null)
   const [failed, setFailed] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreFailed, setMoreFailed] = useState(false)
+  const moreRequest = useRef<number | null>(null)
 
   const load = useCallback(async () => {
     const request = ++latest.current
     setFailed(false)
+    setPage(null)
+    setMoreFailed(false)
+    setLoadingMore(false)
+    moreRequest.current = null
     try {
       const result = await api<Page>(list)
       if (request === latest.current) setPage(result)
@@ -48,12 +55,28 @@ export function Orders() {
 
   useEffect(() => {
     void load()
+    return () => { latest.current += 1 }
   }, [load])
 
   const more = async () => {
-    if (!page) return
-    const next = await api<Page>(`${list}&offset=${page.items.length}`)
-    setPage({ ...next, items: [...page.items, ...next.items] })
+    if (!page?.hasMore || moreRequest.current !== null) return
+    const request = latest.current
+    moreRequest.current = request
+    setLoadingMore(true)
+    setMoreFailed(false)
+    try {
+      const next = await api<Page>(`${list}&offset=${page.items.length}`)
+      if (request === latest.current) {
+        setPage({ ...next, items: [...page.items, ...next.items] })
+      }
+    } catch {
+      if (request === latest.current) setMoreFailed(true)
+    } finally {
+      if (moreRequest.current === request) {
+        moreRequest.current = null
+        setLoadingMore(false)
+      }
+    }
   }
 
   const withParams = (changes: Record<string, string>) => {
@@ -150,7 +173,8 @@ export function Orders() {
           </table>
         )}
       </section>
-      {page?.hasMore && <div className="media__more"><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></div>}
+      {moreFailed && <p className="form-error" role="alert">{t('ordersError')}</p>}
+      {page?.hasMore && <div className="media__more"><Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button></div>}
     </div>
   )
 }

@@ -7,6 +7,9 @@ export function useUrlSearch() {
   const query = params.get('q') ?? ''
   const [text, setText] = useState(query)
 
+  // Back/forward and links can change the query without typing in this input.
+  useEffect(() => { setText(query) }, [query])
+
   useEffect(() => {
     const value = text.trim()
     if (value === query) return

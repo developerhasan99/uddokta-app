@@ -1,8 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Monitor, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
+  ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { defOf, maxSections, newSection, sectionTypes, videoEmbed, type Content, type Field as SchemaField, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
@@ -208,6 +208,35 @@ function SectionForm({ section, onChange, onPick, media, products }: {
   )
 }
 
+function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (type: SectionType) => void }) {
+  const { t, lang } = useLang()
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const [search, setSearch] = useState('')
+  const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
+  useEffect(() => { dialog.current?.showModal() }, [])
+  return <dialog ref={dialog} className="modal editor-add-modal" aria-labelledby={titleId} onClose={onClose} onCancel={(e) => { e.preventDefault(); onClose() }} onClick={(e) => {
+    if (e.target !== e.currentTarget) return
+    const bounds = e.currentTarget.getBoundingClientRect()
+    if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) onClose()
+  }}>
+    <div className="modal__body">
+      <div className="picker__head">
+        <h2 id={titleId} className="editor__heading">{t('pageAddSection')}</h2>
+        <IconButton label={t('cancel')} onClick={onClose}><X size={16} aria-hidden="true" /></IconButton>
+      </div>
+      <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
+      <ul className="editor-add__choices">
+        {matches.map((type) => {
+          const Icon = sectionIcons[type]
+          return <li key={type}><button type="button" onClick={() => onAdd(type)}><Icon size={18} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}</button></li>
+        })}
+      </ul>
+      {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
+    </div>
+  </dialog>
+}
+
 function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; onLeave: () => void; onSave: () => void; busy: boolean }) {
   const { t } = useLang()
   const ref = useRef<HTMLDialogElement>(null)
@@ -246,10 +275,9 @@ export function PageEditor() {
   const [delivery, setDelivery] = useState({ inside: 0, outside: 0 })
   const [theme, setTheme] = useState<PresetId>('fresh')
   const [selected, setSelected] = useState<string | 'page' | null>(null)
-  const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>('preview')
+  const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>(() => window.matchMedia('(max-width: 860px)').matches ? 'sections' : 'preview')
   const [mobile, setMobile] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [sectionSearch, setSectionSearch] = useState('')
   const [leaving, setLeaving] = useState(false)
   const working = useRef(false)
   const [picking, setPicking] = useState<Pick | null>(null)
@@ -258,6 +286,8 @@ export function PageEditor() {
   const [toast, setToast] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const dragFrom = useRef<number | null>(null)
+  const [dragging, setDragging] = useState<number | null>(null)
+  const [dropAt, setDropAt] = useState<number | null>(null)
 
   const show = (saved: Saved) => {
     setPage(saved)
@@ -461,6 +491,32 @@ export function PageEditor() {
     next.splice(to, 0, item)
     setSections(next)
   }
+  const endDrag = () => {
+    dragFrom.current = null
+    setDragging(null)
+    setDropAt(null)
+  }
+  const finishDrop = () => {
+    if (dragFrom.current !== null && dropAt !== null) {
+      const to = dropAt > dragFrom.current ? dropAt - 1 : dropAt
+      if (to !== dragFrom.current) move(dragFrom.current, to)
+    }
+    endDrag()
+  }
+  const dropSpace = (at: number) => (
+    <li
+      aria-hidden="true"
+      data-drop-at={at}
+      className={`editor-sections__drop-space${dropAt === at ? ' editor-sections__drop-space--open' : ''}`}
+      onDragOver={(e) => {
+        if (dragFrom.current === null) return
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'move'
+        setDropAt(at)
+      }}
+    ><span /></li>
+  )
   const add = (type: SectionType) => {
     const section = newSection(type, newId())
     const at = sections.findIndex((s) => s.id === selected)
@@ -469,7 +525,6 @@ export function PageEditor() {
     setSections(next)
     setSelected(section.id)
     setAdding(false)
-    setSectionSearch('')
     setPane('edit')
   }
   const duplicate = (s: Section) => {
@@ -504,11 +559,9 @@ export function PageEditor() {
           <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
           <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={busy || past.length === 0} onClick={undo}><Undo2 size={16} aria-hidden="true" /></IconButton>
           <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={busy || future.length === 0} onClick={redo}><Redo2 size={16} aria-hidden="true" /></IconButton>
-          <div className="editor__devices" role="group">
-            <IconButton label={t('pageDesktop')} title={t('pageDesktop')} aria-pressed={!mobile} onClick={() => setMobile(false)}><Monitor size={16} aria-hidden="true" /></IconButton>
-            <IconButton label={t('pageMobile')} title={t('pageMobile')} aria-pressed={mobile} onClick={() => setMobile(true)}><Smartphone size={16} aria-hidden="true" /></IconButton>
+          <div className="editor__devices">
+            <IconButton label={t('pageMobile')} title={t(mobile ? 'pageDesktop' : 'pageMobile')} aria-pressed={mobile} onClick={() => setMobile((value) => !value)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
-          <button type="button" className="btn btn--icon editor__settings-toggle" aria-label={t('pageSettings')} title={t('pageSettings')} aria-pressed={selected === 'page'} onClick={() => choose('page')}><Settings2 size={16} aria-hidden="true" /></button>
           {page.isPublished && <a className="btn btn--icon" href={liveUrl} target="_blank" rel="noopener" aria-label={t('pageView')} title={t('pageView')}><ExternalLink size={16} aria-hidden="true" /></a>}
           <Button disabled={busy || !dirty} aria-busy={busy} onClick={() => void onSave()}>{t('pageSave')}</Button>
           <Button variant="primary" disabled={busy || (page.isPublished && !page.hasChanges && !dirty)} aria-busy={busy} onClick={() => void publish()}>{t('pagePublish')}</Button>
@@ -518,6 +571,7 @@ export function PageEditor() {
       <nav className="editor__panes" aria-label={t('pageSections')}>
         {(['sections', 'preview', 'edit'] as const).map((p) => (
           <button key={p} type="button" className="tab" aria-current={pane === p ? 'page' : undefined} onClick={() => setPane(p)}>
+            {p === 'sections' ? <LayoutTemplate size={20} aria-hidden="true" /> : p === 'preview' ? <Eye size={20} aria-hidden="true" /> : <Settings2 size={20} aria-hidden="true" />}
             {t(p === 'sections' ? 'pageSections' : p === 'preview' ? 'pagePreview' : 'pageEditTab')}
           </button>
         ))}
@@ -530,29 +584,86 @@ export function PageEditor() {
         </div>
       )}
 
+      <div className="editor__sidebar" data-editing={Boolean(section || selected === 'page')}>
       <aside className="editor__sections" inert={busy} aria-label={t('pageSections')}>
-        <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
         <button className="editor__page-settings" type="button" aria-pressed={selected === 'page'} onClick={() => choose('page')}><Settings2 size={16} aria-hidden="true" />{t('pageSettings')}</button>
+        <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
         {incompleteOrders.length > 0 && <div className="editor__readiness">
           <p>{t('pageOrderNotReady')}</p>
           {incompleteOrders.map((s) => <button key={s.id} type="button" onClick={() => choose(s.id)}>{L(defOf(s.type).label)}</button>)}
         </div>}
-        <ul className="editor-sections">
+        <ul className="editor-sections" onDragOver={(e) => {
+          if (dragFrom.current === null) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+        }} onDragLeave={(e) => {
+          const bounds = e.currentTarget.getBoundingClientRect()
+          if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) setDropAt(null)
+        }} onDrop={(e) => {
+          if (dragFrom.current === null) return
+          e.preventDefault()
+          finishDrop()
+        }}>
           {sections.map((s, i) => (
+            <Fragment key={s.id}>
+            {dropSpace(i)}
             <li
-              key={s.id}
-              className={`editor-sections__row${s.id === selected ? ' editor-sections__row--selected' : ''}${s.hidden ? ' editor-sections__row--hidden' : ''}`}
+              data-section-index={i}
+              className={`editor-sections__row${s.id === selected ? ' editor-sections__row--selected' : ''}${s.hidden ? ' editor-sections__row--hidden' : ''}${dragging === i ? ' editor-sections__row--dragging' : ''}`}
               draggable
-              onDragStart={() => { dragFrom.current = i }}
-              onDragEnd={() => { dragFrom.current = null }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', s.id)
+                dragFrom.current = i
+                setDragging(i)
+              }}
+              onDragEnd={endDrag}
+              onDragOver={(e) => {
+                if (dragFrom.current === null) return
                 e.preventDefault()
-                if (dragFrom.current !== null && dragFrom.current !== i) move(dragFrom.current, i)
-                dragFrom.current = null
+                const bounds = e.currentTarget.getBoundingClientRect()
+                setDropAt(e.clientY < bounds.top + bounds.height / 2 ? i : i + 1)
               }}
             >
-              <GripVertical className="collection-products__grip" size={16} aria-hidden="true" />
+              <button type="button" className="editor-sections__grip" aria-label={`${t('pageReorder')}: ${L(defOf(s.type).label)}`} title={t('pageReorder')}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    move(i, i + (e.key === 'ArrowUp' ? -1 : 1))
+                  }
+                }}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse') return
+                  e.preventDefault()
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  dragFrom.current = i
+                  setDragging(i)
+                  setDropAt(null)
+                }}
+                onPointerMove={(e) => {
+                  if (!e.currentTarget.hasPointerCapture(e.pointerId) || dragFrom.current === null) return
+                  const list = e.currentTarget.closest('.editor-sections')!
+                  const target = e.currentTarget.ownerDocument.elementFromPoint(e.clientX, e.clientY)
+                  const slot = target?.closest<HTMLElement>('[data-drop-at]')
+                  const row = target?.closest<HTMLElement>('[data-section-index]')
+                  if (slot && list.contains(slot)) setDropAt(Number(slot.dataset.dropAt))
+                  else if (row && list.contains(row)) {
+                    const bounds = row.getBoundingClientRect()
+                    setDropAt(Number(row.dataset.sectionIndex) + (e.clientY >= bounds.top + bounds.height / 2 ? 1 : 0))
+                  } else setDropAt(null)
+                  const scroller = list.closest('aside')!
+                  const bounds = scroller.getBoundingClientRect()
+                  if (e.clientY < bounds.top + 48) scroller.scrollBy(0, -12)
+                  else if (e.clientY > bounds.bottom - 48) scroller.scrollBy(0, 12)
+                }}
+                onPointerUp={(e) => {
+                  if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+                  finishDrop()
+                  e.currentTarget.releasePointerCapture(e.pointerId)
+                }}
+                onPointerCancel={endDrag}
+                onLostPointerCapture={endDrag}
+              ><GripVertical size={16} aria-hidden="true" /></button>
               <button type="button" className="editor-sections__name" title={short(s.settings.heading) || L(defOf(s.type).label)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
                 <span className="editor-sections__label">{(() => { const Icon = sectionIcons[s.type]; return <Icon size={15} aria-hidden="true" /> })()}{L(defOf(s.type).label)}</span>
               </button>
@@ -560,31 +671,13 @@ export function PageEditor() {
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
               </IconButton>
             </li>
+            </Fragment>
           ))}
+          {dropSpace(sections.length)}
         </ul>
         {sections.length === 0 && <p className="muted">{t('pageNoSections')}</p>}
-        {sections.length < maxSections && (
-          adding
-            ? (
-              <div className="editor-add">
-                <div className="editor-add__head">
-                  <strong>{t('pageAddSection')}</strong>
-                  <button type="button" className="media__dismiss" aria-label={t('cancel')} onClick={() => setAdding(false)}><X size={16} aria-hidden="true" /></button>
-                </div>
-                <SearchInput label={t('pageSearchSections')} value={sectionSearch} onChange={(e) => setSectionSearch(e.target.value)} autoFocus />
-                <ul>
-                  {sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(sectionSearch.toLowerCase().trim()))).map((type) => { const Icon = sectionIcons[type]; return <li key={type}><button type="button" onClick={() => add(type)}><Icon size={16} aria-hidden="true" />{L(defOf(type).label)}</button></li> })}
-                </ul>
-                {!sectionTypes.some((type) => defOf(type).label.some((label) => label.toLowerCase().includes(sectionSearch.toLowerCase().trim()))) && <p className="muted">{t('pageNoMatches')}</p>}
-              </div>
-            )
-            : <Button onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('pageAddSection')}</Button>
-        )}
+        {sections.length < maxSections && <Button onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('pageAddSection')}</Button>}
       </aside>
-
-      <section className="editor__preview" aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
-      </section>
 
       <aside className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
         {section && (
@@ -606,10 +699,10 @@ export function PageEditor() {
               {section.type === 'order' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings')} target="_blank">{t('sStore')}</Link></p>}
             </div>
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
-              <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /></IconButton>
-              <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" /></IconButton>
-              <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" /></IconButton>
-              <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null) }}><Trash2 size={16} aria-hidden="true" /></IconButton>
+              <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
+              <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveDown')}</span></IconButton>
+              <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageDuplicateSection')}</span></IconButton>
+              <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null); setPane('sections') }}><Trash2 size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageRemoveSection')}</span></IconButton>
             </div>
           </>
         )}
@@ -653,6 +746,13 @@ export function PageEditor() {
 
         {!section && selected !== 'page' && <p className="muted editor__empty">{t('pageSelectHint')}</p>}
       </aside>
+      </div>
+
+      <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
+        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
+      </section>
+
+      {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
 
       {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(path('/landing-pages'))} onSave={() => void run(async () => { if (await save()) navigate(path('/landing-pages')); else setLeaving(false) })} busy={busy} />}
 

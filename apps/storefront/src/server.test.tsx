@@ -522,3 +522,22 @@ test('a seller’s own domain shows their store through the domains proxy, and b
   const posted = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, name: 'ক্রেতা', phone: '01711111111', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', area: 'inside', quantity: '1' })
   assert.match(posted.headers.get('location') ?? '', /^\/[^/].*thanks\?receipt=/, 'an open checkout form still submits on the old address and gets its receipt')
 })
+
+
+test('product links expose escaped share metadata and a canonical URL without tracking queries', async () => {
+  const s = await publishedPage()
+  const made = await s.call('POST', `/stores/${s.handle}/products`, {
+    name: 'Gift set', status: 'active', description: '<p>A thoughtful gift.</p>',
+    seoTitle: 'Gift & care', seoDescription: 'Made for "you" <today>',
+    variants: [{ options: [], price: 500, stock: null }],
+  })
+  assert.equal(made.status, 201)
+  const path = `/products/${encodeURIComponent(made.json.handle)}`
+  const html = await (await app.request(`http://${s.handle}.localhost:8788${path}?utm_source=facebook`, { headers: { host: `${s.handle}.localhost:8788` } })).text()
+  assert.ok(html.includes(`<link rel="canonical" href="http://${s.handle}.localhost:8788${path}"`))
+  assert.ok(html.includes(`<meta property="og:url" content="http://${s.handle}.localhost:8788${path}"`))
+  assert.match(html, /<meta property="og:title" content="Gift &amp; care"/)
+  assert.match(html, /<meta property="og:description" content="Made for &quot;you&quot; &lt;today&gt;"/)
+  assert.match(html, /<meta property="og:locale" content="bn_BD"/)
+  assert.doesNotMatch(html, /property="og:image"/, 'a product without media has no broken share image')
+})

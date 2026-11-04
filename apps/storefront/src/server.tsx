@@ -125,7 +125,7 @@ const pageNumber = (c: Context) => Math.min(Math.max(Number(c.req.query('page'))
 
 const themeOf = (theme: string | undefined): PresetId => (isPreset(theme) ? theme : 'fresh')
 
-function Document({ title, description, noindex, canonical, theme, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; theme?: string; pixel?: string; children: React.ReactNode }) {
+function Document({ title, description, noindex, canonical, shareImage, theme, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; theme?: string; pixel?: string; children: React.ReactNode }) {
   return (
     <html lang="bn">
       <head>
@@ -135,6 +135,16 @@ function Document({ title, description, noindex, canonical, theme, pixel, childr
         {description && <meta name="description" content={description} />}
         {(noindex || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
         <meta property="og:title" content={title} />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content="bn_BD" />
+        {description && <meta property="og:description" content={description} />}
+        {canonical && <meta property="og:url" content={canonical} />}
+        {shareImage && <>
+          <meta property="og:image" content={shareImage.url} />
+          <meta property="og:image:alt" content={shareImage.alt} />
+          <meta property="og:image:width" content={String(shareImage.width)} />
+          <meta property="og:image:height" content={String(shareImage.height)} />
+        </>}
         {canonical && <link rel="canonical" href={canonical} />}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={presetFontsHref(themeOf(theme))} />
@@ -198,7 +208,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   // Description HTML was cleaned by cleanDescription when it was saved, which is what makes it safe to show here.
   const plain = item.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
   return html(c, (
-    <Document title={item.seo_title || item.name} description={item.seo_description || plain} noindex={item.status === 'unlisted'} theme={store.theme} pixel={pixel}>
+    <Document title={item.seo_title || item.name} description={item.seo_description || plain} canonical={`${c.get('origin')}${productPath(c)}`} shareImage={item.images[0]} noindex={item.status === 'unlisted'} theme={store.theme} pixel={pixel}>
       <StoreLayout storeName={store.name} links={store.links}>
         <div className="sf-wrap sf-product">
           <Gallery images={item.images} name={item.name} />
