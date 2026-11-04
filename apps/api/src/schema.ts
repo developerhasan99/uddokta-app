@@ -44,8 +44,12 @@ export const stores = pgTable('stores', {
   tiktokPixel: text('tiktok_pixel').notNull().default(''),
   // The storefront header's links: [{ label, href }], hrefs being paths in the store or https links. Empty means: list collections.
   menu: jsonb('menu').$type<{ label: string; href: string }[]>().notNull().default([]),
+  // The seller's own domain, bare and lowercase ("rinafashion.com"; www is served too). Set by owners and admins.
+  // Live once the domain check in domains.ts reached the store over HTTPS; the uddokta.live address then redirects to it.
+  domain: text('domain').unique(),
+  domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`)])
+}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
 
 export const storeMembers = pgTable('store_members', {
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),

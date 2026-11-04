@@ -100,28 +100,30 @@ Goal: a seller adds two records at their registrar and nothing else: `A @ → <f
 
 Why this design: Railway routes by Host and only knows our domains; Railway Pro allows 20 custom domains per service. Cloudflare Host-header override and apex proxying are Enterprise only. A fixed IPv4 is the only way to support the bare domain with one simple record, and neither Railway nor Cloudflare offers one within budget.
 
-Layout:
+Layout (as built):
 
 ```
-buyer → www.rinafashion.com → Fly.io fixed IPv4 → Caddy (on-demand Let's Encrypt certificate,
-        issued only if our API says the domain belongs to a store)
-      → https://{proxy}.uddokta.live on Railway, with X-Store-Host: <seller domain> and a shared secret
-      → storefront resolves the store from the header only when the secret matches
+buyer → rinafashion.com or www.rinafashion.com → Fly.io fixed IPv4 37.16.26.111 → Caddy
+        (on-demand Let's Encrypt certificate; Caddy first asks the storefront GET /_domains/allowed?domain=…)
+      → https://domains.uddokta.live on Railway (matches the *.uddokta.live wildcard; "domains" is a reserved store handle)
+        with Host and X-Forwarded-Host = domains.uddokta.live and X-Store-Host = the buyer's host
+      → storefront middleware maps X-Store-Host to a store (www redirects 301 to the bare domain)
 ```
 
-- Fly.io runs only this proxy (about $2/month for the IPv4 plus a small machine and a small volume for certificates). If it fails, `*.uddokta.live`, the dashboard and media keep working. Add a second machine for redundancy when sellers depend on it.
-- `{handle}.uddokta.live` stays permanent, like myshopify.com. Once a seller domain is live it becomes primary and the subdomain redirects to it.
-- Bare domain and `www` both point to the IP; the proxy redirects the bare domain to `www` (or the reverse; one canonical host per store).
+- Fly.io runs only this proxy (about $2/month for the IPv4 plus a small machine and a 1 GB volume for certificates). If it fails, `*.uddokta.live`, the dashboard and media keep working. Add a second machine for redundancy when sellers depend on it.
+- `{handle}.uddokta.live` stays permanent, like myshopify.com. Once a seller domain is live, GET requests on the subdomain redirect (302) to it; form POSTs do not, so open checkouts keep working.
+- The canonical host is the bare domain; `www` redirects to it. Both records point to the same IP.
+- No shared secret between proxy and storefront (changed from the first draft): every storefront page is public, so a spoofed `X-Store-Host` shows nothing a buyer could not see on that domain. Add a secret before a CDN cache sits in front of the storefront (noted in `server.tsx`).
 
-Build steps:
-1. Spike, no app code: Fly.io app with a dedicated IPv4 running Caddy with a static site for `shop.uddokta.studio` proxied to `demo.uddokta.live`. Prove the certificate is issued, Railway accepts the forwarded request, and the response is the storefront's.
-2. Database: `store_domains (store_id, hostname unique, status, verified_at, created_at)` with row-level security and a cross-store isolation test. Owners and admins manage it; one primary domain per store.
-3. API: add/remove/list domains; DNS check that both records point to the fixed IP; internal `GET /internal/domain-allowed?domain=` for Caddy's `ask`, protected by a secret.
-4. Storefront: resolve the store from `X-Store-Host` when the shared secret matches; canonical, sitemap, checkout and receipt links use the primary domain; `{handle}.uddokta.live` redirects to it.
-5. Dashboard: Settings › Domains with the two records, copy buttons, Bangla-first instructions, automatic status (waiting for records, issuing certificate, live, or a plain-language error).
-6. Switch the proxy to on-demand TLS with `ask`, deploy, and test with a real seller-style domain end to end.
+Build steps and status:
+1. Done: spike (details below).
+2. Done: database. One domain per store, so two columns on `stores` instead of a table: `domain` (unique, lowercase, format-checked, `www.` stripped) and `domain_live_at`. Existing `stores` row-level security applies: members read, owners/admins update. Migrations `0051_store_domain.sql` (columns) and `0052_store_domain_functions.sql` (`storefront_domain_store(host)` → handle, `storefront_live_domain(handle)` → domain once live; both SECURITY DEFINER, executable by `uddokta_app` only).
+3. Done: API in `apps/api/src/domains.ts`, registered in `app.ts`: `GET /stores/:handle/domain` → `{ domain, liveAt, ip }`; `PUT` `{ domain }` (input is cleaned by `readDomain`: scheme, path, `www.` and case removed, Bangla domains to punycode, our own domains refused; errors `domainInvalid` 400, `domainTaken` 409, `forbidden` 403); `DELETE`; `POST …/domain/check` resolves both A records (`ok`/`missing`/`wrong`), then fetches `https://{domain}/_health`, and sets or clears `domain_live_at`. The proxy IP comes from env `DOMAINS_IP` on the admin service (not set yet on Railway: the check returns 503 `domainsUnavailable` until it is). No background re-check yet (ponytail note in code: add a pg-boss job). Tests: `apps/api/src/domains.test.ts` (5).
+4. Done: storefront in `apps/storefront/src/server.tsx`: one middleware sets `handle` and `origin` for every request (skips `/_…` paths); canonical links use `origin`; `GET /_domains/allowed` for Caddy. Test: last test in `server.test.tsx`. Sitemap does not exist yet, so nothing to change there. Full suite: 124 tests passing.
+5. Next: dashboard Settings › Domains with the two records, copy buttons, Bangla-first instructions and the check button with plain status.
+6. Then: switch `deploy/proxy/Caddyfile` to a catch-all `https://` site with `on_demand_tls { ask https://domains.uddokta.live/_domains/allowed }`, set the headers above, `fly deploy`, set `DOMAINS_IP=37.16.26.111` on the admin service, and test with a real domain end to end.
 
-Spike files: `deploy/proxy/` (Dockerfile, Caddyfile, fly.toml; Fly app `uddokta-domains`, region `bom` near buyers). Spike passed on November 4, 2026: Fly app `uddokta-domains` (personal org, region `sin`; `bom` is no longer offered) with dedicated IPv4 `37.16.26.111` ($2/month), machine `683e763b156678`, volume `vol_r686967g32delzj4`. A second empty volume `vol_42kxnx2yxezde984` was left over from a capacity error and can be deleted. Test record `A shop.uddokta.studio → 37.16.26.111` at Hostinger (user-approved). Results: Let's Encrypt certificate issued by Caddy, `/_health` 200 and the storefront's Bangla 404 page served through `server: Caddy` → `railway-hikari`, HTTP redirects to HTTPS. TLS setup took about 1.2–1.4 s from the test machine; Railway's US West region adds a Pacific round trip, so consider moving Railway to Singapore.
+Spike files: `deploy/proxy/` (Dockerfile, Caddyfile, fly.toml). Spike passed on November 4, 2026: Fly app `uddokta-domains` (personal org, region `sin`; `bom` is no longer offered) with dedicated IPv4 `37.16.26.111` ($2/month), machine `683e763b156678`, volume `vol_r686967g32delzj4`. A second empty volume `vol_42kxnx2yxezde984` was left over from a capacity error and can be deleted. Test record `A shop.uddokta.studio → 37.16.26.111` at Hostinger (user-approved). Results: Let's Encrypt certificate issued by Caddy, `/_health` 200 and the storefront's Bangla 404 page served through `server: Caddy` → `railway-hikari`, HTTP redirects to HTTPS. TLS setup took about 1.2–1.4 s from the test machine; Railway's US West region adds a Pacific round trip, so consider moving Railway to Singapore.
 
 Later: let sellers buy a domain inside Uddokta so records are set automatically.
 

@@ -22,6 +22,7 @@ import { registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { registerTeam } from './team.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
+import { registerDomains } from './domains.ts'
 import { readLocalFile } from './storage.ts'
 import { roles, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
 
@@ -363,6 +364,7 @@ registerProducts(app)
 registerCollections(app)
 registerInventory(app)
 registerWarehouses(app)
+registerDomains(app)
 registerPages(app)
 registerOrders(app)
 registerRepeat(app)

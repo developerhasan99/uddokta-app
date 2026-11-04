@@ -13,8 +13,14 @@ import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLa
 import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
-// ponytail: custom domains need a lookup table from host to store; add it with Cloudflare for SaaS.
+// A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
 const domain = process.env.STOREFRONT_DOMAIN ?? 'localhost'
+const proxyHost = `domains.${domain}`
+
+// Set for every request by the middleware below: the store being shown, and the address its links and canonical URLs use.
+declare module 'hono' {
+  interface ContextVariableMap { handle: string | null; origin: string }
+}
 const hash = (script: string) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`
 const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
 // Each response allows exactly its own inline scripts by hash: the page script, and the store's pixel loader if it has one.
@@ -45,11 +51,17 @@ async function trackingFor(storeId: string) {
   return (await tx(null, (t) => t.execute<{ meta_pixel: string; tiktok_pixel: string }>(sql`select * from storefront_tracking(${storeId}::uuid)`))).rows[0]
 }
 
-function storeHandle(c: Context) {
-  const host = (c.req.header('x-forwarded-host') ?? c.req.header('host') ?? '').split(':')[0].toLowerCase()
+function subdomainHandle(host: string) {
   const handle = host.endsWith(`.${domain}`) ? host.slice(0, -domain.length - 1) : ''
   return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(handle) && handle.length <= 63 && !isReservedStoreHandle(handle) ? handle : null
 }
+
+const storeHandle = (c: Context) => c.get('handle')
+
+const domainStore = async (host: string) =>
+  (await tx(null, (t) => t.execute<{ handle: string | null }>(sql`select storefront_domain_store(${host}) as handle`))).rows[0].handle
+const liveDomain = async (handle: string) =>
+  (await tx(null, (t) => t.execute<{ domain: string | null }>(sql`select storefront_live_domain(${handle}) as domain`))).rows[0].domain
 
 type PageRow = { store_id: string; store_name: string; delivery_inside: number; delivery_outside: number; theme: string; page_id: string; title: string; seo_title: string; seo_description: string; content: Content }
 
@@ -160,7 +172,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     order,
   }
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${process.env.NODE_ENV === 'production' ? 'https:' : new URL(c.req.url).protocol}//${storeHandle(c)}.${domain}${process.env.NODE_ENV === 'production' ? '' : new URL(c.req.url).port ? `:${new URL(c.req.url).port}` : ''}${pagePath(c)}`} theme={page.theme} pixel={pixel}>
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} theme={page.theme} pixel={pixel}>
       <PageView content={page.content} ctx={ctx} storeName={page.store_name} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
     </Document>
@@ -227,6 +239,39 @@ async function thanks(c: Context, storeId: string, storeName: string, back: stri
 }
 
 export const app = new Hono()
+
+// Works out which store a request is for. Paths starting with /_ are the service's own (health, the proxy's certificate check).
+// Every storefront page is public, so trusting X-Store-Host shows nothing a buyer could not see on that store's own domain.
+// ponytail: put a shared secret on the proxy's headers before a CDN cache sits in front of the storefront.
+// ponytail: one database lookup per page for the live-domain redirect; cache it if it shows up in response times.
+app.use('*', async (c, next) => {
+  if (c.req.path.startsWith('/_')) return next()
+  const url = new URL(c.req.url)
+  const rest = `${url.pathname}${url.search}`
+  const host = (c.req.header('x-forwarded-host') ?? c.req.header('host') ?? '').split(':')[0].toLowerCase()
+  if (host === proxyHost) {
+    const asked = (c.req.header('x-store-host') ?? '').split(':')[0].toLowerCase()
+    const bare = asked.replace(/^www\./, '')
+    if (asked !== bare) return c.redirect(`https://${bare}${rest}`, 301)
+    c.set('handle', bare ? await domainStore(bare) : null)
+    c.set('origin', `https://${bare}`)
+    return next()
+  }
+  const handle = subdomainHandle(host)
+  // Once a store's own domain is live, its uddokta.live pages send buyers there. Form posts stay, so open checkouts still work.
+  const live = handle && c.req.method === 'GET' ? await liveDomain(handle) : null
+  if (live) return c.redirect(`https://${live}${rest}`, 302)
+  c.set('handle', handle)
+  c.set('origin', process.env.NODE_ENV === 'production' ? `https://${host}` : `${url.protocol}//${host}${url.port ? `:${url.port}` : ''}`)
+  return next()
+})
+
+// Caddy asks before getting a certificate, so only sellers' domains (and their www) get one.
+app.get('/_domains/allowed', async (c) => {
+  const asked = (c.req.query('domain') ?? '').toLowerCase().replace(/^www\./, '')
+  return asked && await domainStore(asked) ? c.text('ok') : c.text('unknown', 404)
+})
+
 app.get('/robots.txt', (c) => c.text(process.env.ROBOTS_NOINDEX === 'true' ? 'User-agent: *\nDisallow: /\n' : 'User-agent: *\nAllow: /\n'))
 app.get('/_health', async (c) => {
   c.header('Cache-Control', 'no-store')

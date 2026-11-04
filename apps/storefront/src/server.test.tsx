@@ -501,3 +501,27 @@ test('short campaign URLs preserve legacy links, checkout posts, and receipt red
   assert.match(page, /rel="canonical"/)
   assert.ok(page.includes(`action="${s.url}"`))
 })
+
+test('a seller’s own domain shows their store through the domains proxy, and becomes the main address once live', async () => {
+  const s = await publishedPage()
+  await s.call('PUT', `/stores/${s.handle}/domain`, { domain: 'www.rongin-shop.com' })
+  const proxied = (path: string, host: string, init: RequestInit = {}) =>
+    app.request(path, { ...init, headers: { host: 'domains.localhost', 'x-store-host': host, ...init.headers } })
+
+  const page = await proxied(s.url, 'rongin-shop.com')
+  assert.equal(page.status, 200)
+  assert.match(await page.text(), new RegExp(`<link rel="canonical" href="https://rongin-shop.com${s.url}"`))
+  const www = await proxied(`${s.url}?x=1`, 'www.rongin-shop.com')
+  assert.deepEqual([www.status, www.headers.get('location')], [301, `https://rongin-shop.com${s.url}?x=1`])
+  assert.equal((await proxied(s.url, 'not-a-seller.com')).status, 404)
+
+  assert.equal((await app.request('/_domains/allowed?domain=www.rongin-shop.com')).status, 200, 'the proxy may get a certificate')
+  assert.equal((await app.request('/_domains/allowed?domain=not-a-seller.com')).status, 404, 'strangers’ domains get none')
+
+  assert.equal((await visit(s.handle, s.url)).status, 200, 'the uddokta address keeps working until the domain is live')
+  await pool.query(`update stores set domain_live_at = now() where handle = '${s.handle}'`)
+  const moved = await visit(s.handle, s.url)
+  assert.deepEqual([moved.status, moved.headers.get('location')], [302, `https://rongin-shop.com${s.url}`])
+  const posted = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, name: 'ক্রেতা', phone: '01711111111', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', area: 'inside', quantity: '1' })
+  assert.match(posted.headers.get('location') ?? '', /^\/[^/].*thanks\?receipt=/, 'an open checkout form still submits on the old address and gets its receipt')
+})
