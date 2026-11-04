@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -37,6 +37,13 @@ export const stores = pgTable('stores', {
   // What buyers pay for delivery, added to every storefront order by the database.
   deliveryInside: integer('delivery_inside').notNull().default(70),
   deliveryOutside: integer('delivery_outside').notNull().default(130),
+  // A style preset from storefront/src/themes.ts.
+  theme: text('theme').notNull().default('fresh'),
+  // Ad pixel IDs. They are written into storefront scripts, so their format is checked by the database too.
+  metaPixel: text('meta_pixel').notNull().default(''),
+  tiktokPixel: text('tiktok_pixel').notNull().default(''),
+  // The storefront header's links: [{ label, href }], hrefs being paths in the store or https links. Empty means: list collections.
+  menu: jsonb('menu').$type<{ label: string; href: string }[]>().notNull().default([]),
   createdAt: createdAt(),
 }, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`)])
 
@@ -255,6 +262,8 @@ export const orders = pgTable('orders', {
   area: text('area', { enum: deliveryAreas }).notNull(),
   subtotal: integer('subtotal').notNull(),
   deliveryCharge: integer('delivery_charge').notNull(),
+  discount: integer('discount').notNull().default(0),
+  discountCode: text('discount_code').notNull().default(''),
   total: integer('total').notNull(),
   source: text('source').notNull(),
   pageId: uuid('page_id'),
@@ -269,7 +278,7 @@ export const orders = pgTable('orders', {
   index('orders_store_phone').on(t.storeId, t.phone),
   check('orders_status', sql`${t.status} in ('new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled')`),
   check('orders_area', sql`${t.area} in ('inside', 'outside')`),
-  check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.total} = ${t.subtotal} + ${t.deliveryCharge}`),
+  check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
 ])
 
 // Name, option and price are copied at the time of sale, so editing the product later never changes an old order.
@@ -288,4 +297,149 @@ export const orderItems = pgTable('order_items', {
   foreignKey({ name: 'order_items_order', columns: [t.storeId, t.orderId], foreignColumns: [orders.storeId, orders.id] }).onDelete('cascade'),
   index('order_items_order_idx').on(t.orderId),
   check('order_items_amounts', sql`${t.price} >= 0 and ${t.quantity} > 0`),
+])
+
+// Numbers a store refuses storefront orders from. Typed-in orders are still allowed: the team decided to take them.
+export const blockedPhones = pgTable('blocked_phones', {
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  reason: text('reason').notNull().default(''),
+  createdAt: createdAt(),
+}, (t) => [
+  primaryKey({ columns: [t.storeId, t.phone] }),
+  check('blocked_phones_lengths', sql`length(${t.phone}) between 1 and 20 and length(${t.reason}) <= 200`),
+])
+
+// What a buyer typed into an order form without finishing, saved once the phone number is valid, so the team can call.
+// One row per number per store; deleted after 90 days.
+export const checkoutDrafts = pgTable('checkout_drafts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  name: text('name').notNull().default(''),
+  address: text('address').notNull().default(''),
+  productName: text('product_name').notNull().default(''),
+  pageId: uuid('page_id'),
+  // open: not ordered yet; ordered: an order followed; dismissed: the team dealt with it.
+  status: text('status').notNull().default('open'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique('checkout_drafts_store_phone').on(t.storeId, t.phone),
+  index('checkout_drafts_store_updated').on(t.storeId, t.updatedAt),
+  check('checkout_drafts_status', sql`${t.status} in ('open', 'ordered', 'dismissed')`),
+  check('checkout_drafts_lengths', sql`length(${t.phone}) <= 20 and length(${t.name}) <= 100 and length(${t.address}) <= 500 and length(${t.productName}) <= 300`),
+])
+
+export const callOutcomes = ['ordered', 'later', 'no_answer', 'not_interested'] as const
+
+// The team's calls to past buyers. A buyer called recently drops off the repeat-sales list until it is due again.
+export const customerCalls = pgTable('customer_calls', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  outcome: text('outcome', { enum: callOutcomes }).notNull(),
+  note: text('note').notNull().default(''),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+}, (t) => [
+  index('customer_calls_store_phone').on(t.storeId, t.phone, t.createdAt),
+  check('customer_calls_outcome', sql`${t.outcome} in ('ordered', 'later', 'no_answer', 'not_interested')`),
+  check('customer_calls_note', sql`length(${t.note}) <= 1000`),
+])
+
+// The buying price of each sale, copied when the order is placed so later price changes never rewrite old profit.
+// Apart from order_items so row-level security can hide it from staff, like product_variant_costs.
+export const orderItemCosts = pgTable('order_item_costs', {
+  orderItemId: uuid('order_item_id').primaryKey().references(() => orderItems.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  cost: integer('cost').notNull(),
+}, (t) => [check('order_item_costs_amount', sql`${t.cost} >= 0`)])
+
+export const expenseCategories = ['ads', 'packaging', 'courier', 'salary', 'rent', 'other'] as const
+
+// Money spent running the store, for profit. Owners and admins only.
+export const expenses = pgTable('expenses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  spentOn: date('spent_on').notNull(),
+  category: text('category', { enum: expenseCategories }).notNull(),
+  amount: integer('amount').notNull(),
+  note: text('note').notNull().default(''),
+  createdAt: createdAt(),
+}, (t) => [
+  index('expenses_store_date').on(t.storeId, t.spentOn),
+  check('expenses_category', sql`${t.category} in ('ads', 'packaging', 'courier', 'salary', 'rent', 'other')`),
+  check('expenses_amount', sql`${t.amount} > 0 and ${t.amount} <= 100000000 and length(${t.note}) <= 500`),
+])
+
+export const couriers = ['steadfast'] as const
+
+// A store's courier login, encrypted with COURIER_KEY (see secrets.ts). The API never sends it back to the dashboard.
+// Members can read the row so staff can book parcels; only owners and admins can change it (security migration).
+export const courierAccounts = pgTable('courier_accounts', {
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  courier: text('courier', { enum: couriers }).notNull(),
+  credentials: text('credentials').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.storeId, t.courier] }), check('courier_accounts_courier', sql`${t.courier} in ('steadfast')`)])
+
+// The parcel booked for an order. One per order: a returned order that is sent again gets a new order.
+export const shipments = pgTable('shipments', {
+  orderId: uuid('order_id').primaryKey(),
+  storeId: uuid('store_id').notNull(),
+  courier: text('courier', { enum: couriers }).notNull(),
+  consignmentId: text('consignment_id').notNull(),
+  trackingCode: text('tracking_code').notNull().default(''),
+  courierStatus: text('courier_status').notNull().default(''),
+  createdAt: createdAt(),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ name: 'shipments_order', columns: [t.storeId, t.orderId], foreignColumns: [orders.storeId, orders.id] }).onDelete('cascade'),
+])
+
+export const discountKinds = ['percent', 'amount'] as const
+
+// Coupon codes buyers type at checkout. place_order checks and applies them; codes are stored in capitals.
+export const discounts = pgTable('discounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  kind: text('kind', { enum: discountKinds }).notNull(),
+  value: integer('value').notNull(),
+  minSubtotal: integer('min_subtotal').notNull().default(0),
+  maxUses: integer('max_uses'),
+  uses: integer('uses').notNull().default(0),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('discounts_store_code').on(t.storeId, t.code),
+  check('discounts_kind', sql`${t.kind} in ('percent', 'amount')`),
+  check('discounts_code', sql`${t.code} ~ '^[A-Z0-9]{2,30}$'`),
+  check('discounts_value', sql`${t.value} > 0 and (${t.kind} = 'amount' or ${t.value} <= 100) and ${t.minSubtotal} >= 0 and (${t.maxUses} is null or ${t.maxUses} > 0) and ${t.uses} >= 0`),
+])
+
+// The team's to-do list, such as "call back 01712… at 5pm". Any member adds, assigns and ticks off tasks.
+export const tasks = pgTable('tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  dueOn: date('due_on'),
+  assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  doneAt: timestamp('done_at', { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [index('tasks_store_done').on(t.storeId, t.doneAt), check('tasks_title', sql`length(${t.title}) between 1 and 300`)])
+
+// One row per shift. Members clock themselves in and out; nobody records time for someone else.
+export const shifts = pgTable('shifts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  endedAt: timestamp('ended_at', { withTimezone: true }),
+}, (t) => [
+  index('shifts_store_started').on(t.storeId, t.startedAt),
+  check('shifts_order', sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
 ])

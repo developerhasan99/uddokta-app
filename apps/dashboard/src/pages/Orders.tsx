@@ -19,7 +19,7 @@ export const statuses: Record<Status, { label: Key; tone: Tone }> = {
   cancelled: { label: 'statusCancelled', tone: 'neutral' },
 }
 
-type Row = { id: string; number: number; customerName: string; phone: string; address: string; status: Status; total: number; createdAt: string; items: string }
+type Row = { id: string; number: number; customerName: string; phone: string; address: string; status: Status; total: number; createdAt: string; items: string; duplicate: boolean; blocked: boolean }
 type Page = { items: Row[]; hasMore: boolean; counts: Partial<Record<Status, number>> }
 
 export function Orders() {
@@ -135,6 +135,8 @@ export function Orders() {
                   <th scope="row" className="num" data-label={t('colOrder')}><Link to={path(`/orders/${o.id}`)} onClick={(e) => e.stopPropagation()}>#{num(o.number).replace(/[,،]/g, '')}</Link></th>
                   <td data-label={t('colCustomer')}>
                     {o.customerName}
+                    {o.duplicate && <> <Badge tone="warning">{t('orderDuplicate')}</Badge></>}
+                    {o.blocked && <> <Badge tone="danger">{t('orderBlocked')}</Badge></>}
                     <span className="table__sub num">{o.phone}</span>
                     {o.items && <span className="table__sub">{o.items}</span>}
                   </td>

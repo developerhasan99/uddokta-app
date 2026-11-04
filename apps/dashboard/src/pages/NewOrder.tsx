@@ -20,7 +20,7 @@ export function NewOrder() {
   const [product, setProduct] = useState<Product | null>(null)
   const [picking, setPicking] = useState(false)
   const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
-  const [form, setForm] = useState({ variantId: '', quantity: '1', customerName: '', phone: '', address: '', area: 'inside', source: 'messenger', note: '' })
+  const [form, setForm] = useState({ variantId: '', quantity: '1', customerName: '', phone: '', address: '', area: 'inside', source: 'messenger', note: '', coupon: '' })
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -130,6 +130,7 @@ export function NewOrder() {
                 {sources.map((s) => <option key={s} value={s}>{t(`source_${s}` as Key)}</option>)}
               </select>
             </div>
+            <Field id="order-coupon" label={t('newOrderCoupon')} maxLength={30} autoComplete="off" value={form.coupon} onChange={(e) => set({ coupon: e.target.value.toUpperCase() })} />
             <div className="field">
               <label htmlFor="order-new-note">{t('orderNote')}</label>
               <textarea id="order-new-note" className="input input--area" rows={3} maxLength={2000} placeholder={t('orderNoteHint')} value={form.note} onChange={(e) => set({ note: e.target.value })} />

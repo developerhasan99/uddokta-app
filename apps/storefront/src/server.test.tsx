@@ -24,6 +24,12 @@ function client() {
 }
 
 let count = 0
+async function staffMember(token: string) {
+  const call = client()
+  await call('POST', '/auth/signup', { name: 'Staff', email: `sfstaff${++count}@example.com`, password: 'correct horse' })
+  await call('POST', `/invites/${token}/accept`)
+  return call
+}
 // A store with one published landing page selling a two-option product, 3 in stock of the first option.
 async function publishedPage(status = 'active') {
   const call = client()
@@ -184,4 +190,235 @@ test('the team types in an order from a chat, priced and stocked like a storefro
 
   const other = await publishedPage()
   assert.equal((await other.call('POST', `/stores/${other.handle}/orders`, fields)).json.error, 'notOnSale', 'another store’s product cannot be sold')
+})
+
+test('the store home and collections list only active products; unlisted ones open by link, drafts never', async () => {
+  const s = await publishedPage()
+  const make = async (name: string, status: string) => (await s.call('POST', `/stores/${s.handle}/products`, { name, status, variants: [{ options: [], price: 500, comparePrice: 700 }] })).json
+  const unlisted = await make('গোপন অফার', 'unlisted')
+  const draft = await make('খসড়া পণ্য', 'draft')
+  await s.call('POST', `/stores/${s.handle}/collections`, { name: 'ঈদ', productIds: [s.product.id, unlisted.id, draft.id] })
+
+  const home = await (await visit(s.handle, '/')).text()
+  assert.match(home, /পাঞ্জাবি/)
+  assert.doesNotMatch(home, /গোপন অফার|খসড়া পণ্য/)
+  assert.match(home, /href="\/collections\/%E0%A6%88%E0%A6%A6"/, 'collections with active products are in the menu')
+  await s.call('PUT', `/stores/${s.handle}/menu`, { items: [{ label: 'অফার', href: s.url }] })
+  const menued = await (await visit(s.handle, '/')).text()
+  assert.match(menued, />অফার<\/a>/)
+  assert.doesNotMatch(menued, /href="\/collections\//, 'a seller’s menu replaces the automatic one')
+  const collection = await (await visit(s.handle, '/collections/ঈদ')).text()
+  assert.match(collection, /পাঞ্জাবি/)
+  assert.doesNotMatch(collection, /গোপন অফার|খসড়া পণ্য/)
+
+  const hidden = await visit(s.handle, `/products/${encodeURIComponent(unlisted.handle)}`)
+  assert.equal(hidden.status, 200)
+  const body = await hidden.text()
+  assert.match(body, /<meta name="robots" content="noindex"/)
+  assert.match(body, /<s>৳৭০০<\/s>/)
+  assert.equal((await visit(s.handle, `/products/${encodeURIComponent(draft.handle)}`)).status, 404)
+  assert.equal((await visit(s.handle, '/collections/missing')).status, 404)
+})
+
+test('a product page takes orders like a landing page, marked as from the website', async () => {
+  const s = await publishedPage()
+  const url = `/products/${encodeURIComponent(s.product.handle)}`
+  assert.match(await (await visit(s.handle, url)).text(), /অর্ডার নিশ্চিত করুন/)
+  const res = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  assert.equal(res.status, 303)
+  assert.match(res.headers.get('location')!, /\/thanks\?order=1001&total=1260$/)
+  const [placed] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
+  assert.equal(placed.source, 'website')
+  const bad = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: '', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  assert.equal(bad.status, 422)
+})
+
+test('a blocked number cannot order from the storefront, and repeat orders are marked as duplicates', async () => {
+  const s = await publishedPage()
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01512345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  await order(s.handle, s.url, fields)
+  await order(s.handle, s.url, fields)
+  const [second, first] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
+  assert.deepEqual([first.duplicate, second.duplicate], [true, true])
+  assert.equal((await s.call('GET', `/stores/${s.handle}/orders/${first.id}`)).json.duplicate, true)
+
+  assert.equal((await s.call('POST', `/stores/${s.handle}/blocked`, { phone: '০১৫১২-৩৪৫৬৭৮', reason: 'দুবার পার্সেল ফেরত' })).status, 201)
+  assert.deepEqual((await s.call('GET', `/stores/${s.handle}/blocked`)).json.map((b: any) => [b.phone, b.reason]), [['01512345678', 'দুবার পার্সেল ফেরত']])
+  const refused = await order(s.handle, s.url, fields)
+  assert.equal(refused.status, 422)
+  assert.match(await refused.text(), /দোকানে ফোন করুন/)
+  assert.equal((await s.call('GET', `/stores/${s.handle}/orders/${first.id}`)).json.blocked, true)
+  const typed = await s.call('POST', `/stores/${s.handle}/orders`, { variantId: s.product.variants[1].id, quantity: 1, customerName: 'x', phone: '01512345678', address: 'বাসা', area: 'inside', source: 'phone' })
+  assert.equal(typed.status, 201, 'the team may still type in an order they decided to take')
+
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', `/stores/${s.handle}/blocked`)).status, 404)
+  assert.deepEqual((await other.call('GET', `/stores/${other.handle}/blocked`)).json, [])
+  await s.call('DELETE', `/stores/${s.handle}/blocked/01512345678`)
+  assert.equal((await order(s.handle, s.url, fields)).status, 303)
+})
+
+test('customers are grouped by phone number, with what they bought and returned', async () => {
+  const s = await publishedPage()
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01312345678', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  await order(s.handle, s.url, fields)
+  await order(s.handle, s.url, { ...fields, name: 'সাদিয়া ইসলাম' })
+  await order(s.handle, s.url, { ...fields, phone: '01412345678', name: 'রাফি' })
+  const base = `/stores/${s.handle}/orders`
+  const [, , first] = (await s.call('GET', base)).json.items
+  for (const status of ['confirmed', 'packed', 'courier', 'delivered']) await s.call('PATCH', `${base}/${first.id}`, { status })
+
+  const list = (await s.call('GET', `/stores/${s.handle}/customers`)).json.items
+  assert.deepEqual(list.map((c: any) => [c.phone, c.name, c.orders, c.delivered, c.spent]), [['01412345678', 'রাফি', 1, 0, 0], ['01312345678', 'সাদিয়া ইসলাম', 2, 1, 1360]])
+  assert.equal((await s.call('GET', `/stores/${s.handle}/customers?q=০১৩১২`)).json.items.length, 1)
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', `/stores/${s.handle}/customers`)).status, 404)
+})
+
+test('home sums the last 14 days of real orders, leaving cancelled ones out', async () => {
+  const s = await publishedPage()
+  const empty = (await s.call('GET', `/stores/${s.handle}/summary`)).json
+  assert.equal(empty.days.length, 14)
+  assert.deepEqual(empty.setup, { products: 1, livePages: 1, orders: 0 })
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01312345679', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  await order(s.handle, s.url, fields)
+  await order(s.handle, s.url, { ...fields, phone: '01312345670' })
+  const [latest] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
+  await s.call('PATCH', `/stores/${s.handle}/orders/${latest.id}`, { status: 'cancelled' })
+  const summary = (await s.call('GET', `/stores/${s.handle}/summary`)).json
+  assert.deepEqual([summary.days[13].sales, summary.days[13].orders], [1360, 1])
+  assert.deepEqual(summary.statuses, { new: 1, cancelled: 1 })
+  assert.equal(summary.setup.orders, 2)
+})
+
+test('a buyer who types a number but does not finish shows up to call, and leaves the list once they order', async () => {
+  const s = await publishedPage()
+  const draft = (fields: Record<string, string>) => visit(s.handle, '/drafts', { method: 'POST', body: new URLSearchParams(fields), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+  assert.equal((await draft({ phone: '0171', name: 'x' })).status, 204)
+  await draft({ phone: '01812345671', name: 'রাফি', address: 'মিরপুর', product: 'পাঞ্জাবি' })
+  await draft({ phone: '01812345671', name: 'রাফি আহমেদ', address: 'মিরপুর ১০', product: 'পাঞ্জাবি' })
+  const base = `/stores/${s.handle}/drafts`
+  const open = (await s.call('GET', base)).json
+  assert.deepEqual(open.items.map((d: any) => [d.phone, d.name, d.address, d.productName]), [['01812345671', 'রাফি আহমেদ', 'মিরপুর ১০', 'পাঞ্জাবি']], 'invalid numbers are not saved, and a later save replaces the first')
+
+  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01812345671', address: 'মিরপুর ১০, ঢাকা', area: 'inside' })
+  assert.equal((await s.call('GET', base)).json.items.length, 0)
+  assert.equal((await s.call('GET', `${base}?status=ordered`)).json.items.length, 1)
+
+  await draft({ phone: '01812345672', name: 'নুসরাত' })
+  const [waiting] = (await s.call('GET', base)).json.items
+  assert.equal((await s.call('PATCH', `${base}/${waiting.id}`, { status: 'dismissed' })).status, 200)
+  assert.deepEqual((await s.call('GET', base)).json.counts, { ordered: 1, dismissed: 1 })
+
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', base)).status, 404)
+  assert.equal((await other.call('PATCH', `/stores/${other.handle}/drafts/${waiting.id}`, { status: 'open' })).status, 404)
+})
+
+test('repeat sales lists buyers delivered long enough ago, until someone calls them or they order again', async () => {
+  const s = await publishedPage()
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01712340001', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  await order(s.handle, s.url, fields)
+  await order(s.handle, s.url, { ...fields, phone: '01712340002', name: 'রাফি' })
+  const base = `/stores/${s.handle}/orders`
+  for (const o of (await s.call('GET', base)).json.items) for (const status of ['confirmed', 'packed', 'courier', 'delivered']) await s.call('PATCH', `${base}/${o.id}`, { status })
+  const repeat = `/stores/${s.handle}/repeat?days=30`
+  assert.deepEqual((await s.call('GET', repeat)).json, [], 'delivered today is not due yet')
+
+  await pool.query(`update orders set updated_at = now() - interval '40 days' where phone in ('01712340001', '01712340002')`)
+  const due = (await s.call('GET', repeat)).json
+  assert.deepEqual(due.map((d: any) => [d.phone, d.product, d.deliveredOrders, d.spent]).sort(), [['01712340001', 'পাঞ্জাবি', 1, 1360], ['01712340002', 'পাঞ্জাবি', 1, 1360]])
+
+  assert.equal((await s.call('POST', `/stores/${s.handle}/calls`, { phone: '01712340001', outcome: 'later', note: 'বেতন পেলে নেবেন' })).status, 201)
+  assert.deepEqual((await s.call('GET', repeat)).json.map((d: any) => d.phone), ['01712340002'], 'a call hides them for a while')
+  const [call] = (await s.call('GET', `/stores/${s.handle}/calls`)).json
+  assert.deepEqual([call.phone, call.outcome, call.note, call.by], ['01712340001', 'later', 'বেতন পেলে নেবেন', 'Owner'])
+
+  await order(s.handle, s.url, { ...fields, phone: '01712340002', name: 'রাফি' })
+  assert.deepEqual((await s.call('GET', repeat)).json, [], 'ordering again takes them off the list')
+  assert.equal((await s.call('POST', `/stores/${s.handle}/calls`, { phone: '01712340001', outcome: 'maybe' })).status, 400)
+
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', repeat)).status, 404)
+  assert.equal((await other.call('POST', `/stores/${s.handle}/calls`, { phone: '01712340001', outcome: 'later' })).status, 404)
+})
+
+test('profit counts delivered orders at the buying price of the day of sale, less expenses, for owners only', async () => {
+  const s = await publishedPage()
+  const shop = `/stores/${s.handle}`
+  const m = s.product.variants[0]
+  await s.call('PUT', `${shop}/products/${s.product.id}`, { name: 'পাঞ্জাবি', options: [{ name: 'সাইজ', values: ['M', 'L'] }], variants: [{ id: m.id, options: ['M'], price: 1200, cost: 800, stock: 3 }, { id: s.product.variants[1].id, options: ['L'], price: 1300, stock: null }] })
+  await order(s.handle, s.url, { section: s.orderSection, variant: m.id, quantity: '2', name: 'রাফি', phone: '01712349991', address: 'বাসা ১২, ধানমন্ডি', area: 'outside' })
+  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01712349992', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  const [returned, delivered] = (await s.call('GET', `${shop}/orders`)).json.items
+  for (const status of ['confirmed', 'packed', 'courier', 'delivered']) await s.call('PATCH', `${shop}/orders/${delivered.id}`, { status })
+  for (const status of ['confirmed', 'packed', 'courier', 'returned']) await s.call('PATCH', `${shop}/orders/${returned.id}`, { status })
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' })
+  assert.equal((await s.call('POST', `${shop}/expenses`, { spentOn: today, category: 'ads', amount: 300, note: 'ফেসবুক বিজ্ঞাপন' })).status, 201)
+  assert.equal((await s.call('POST', `${shop}/expenses`, { spentOn: today, category: 'gifts', amount: 300 })).status, 400)
+
+  // A later change to the buying price must not rewrite the profit of a sale already made.
+  await s.call('PUT', `${shop}/products/${s.product.id}`, { name: 'পাঞ্জাবি', options: [{ name: 'সাইজ', values: ['M', 'L'] }], variants: [{ id: m.id, options: ['M'], price: 1200, cost: 1100, stock: 3 }, { id: s.product.variants[1].id, options: ['L'], price: 1300, stock: null }] })
+  const a = (await s.call('GET', `${shop}/analytics?days=30`)).json
+  assert.deepEqual([a.revenue, a.cost, a.expenses, a.profit, a.delivered, a.returned, a.missingCost], [2400, 1600, 300, 500, 1, 1, 0])
+  assert.deepEqual(a.top, [{ name: 'পাঞ্জাবি', quantity: 2, revenue: 2400 }])
+  assert.equal(a.series.length, 30)
+  assert.equal(a.series[29].profit, 500)
+
+  const invite = await s.call('POST', `${shop}/invites`, { role: 'staff' })
+  const staffCall = await staffMember(invite.json.token)
+  assert.equal((await staffCall('GET', `${shop}/analytics`)).status, 403)
+  assert.equal((await staffCall('GET', `${shop}/expenses`)).status, 403)
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', `${shop}/analytics`)).status, 404)
+})
+
+test('a coupon is priced by the database, counts its uses, and stops at its limit', async () => {
+  const s = await publishedPage()
+  const shop = `/stores/${s.handle}`
+  assert.equal((await s.call('POST', `${shop}/discounts`, { code: 'eid 10', kind: 'percent', value: 10 })).json.error, 'couponCodeInvalid')
+  assert.equal((await s.call('POST', `${shop}/discounts`, { code: 'eid10', kind: 'percent', value: 110 })).status, 400)
+  const eid = (await s.call('POST', `${shop}/discounts`, { code: 'eid10', kind: 'percent', value: 10, maxUses: 1 })).json
+  assert.equal(eid.code, 'EID10')
+  assert.equal((await s.call('POST', `${shop}/discounts`, { code: 'EID10', kind: 'amount', value: 50 })).json.error, 'couponCodeTaken')
+  await s.call('POST', `${shop}/discounts`, { code: 'BIG', kind: 'amount', value: 200, minSubtotal: 5000 })
+
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01711110001', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  const used = await order(s.handle, s.url, { ...fields, coupon: 'eid10' })
+  assert.match(used.headers.get('location')!, /total=1230$/, '1300 − 130 + 60')
+  const again = await order(s.handle, s.url, { ...fields, phone: '01711110002', coupon: 'EID10' })
+  assert.equal(again.status, 422, 'the one use is gone')
+  assert.match(await again.text(), /কুপন কোডটি চলছে না/)
+  assert.equal((await order(s.handle, s.url, { ...fields, phone: '01711110003', coupon: 'BIG' })).status, 422, 'below the minimum')
+  assert.equal((await order(s.handle, s.url, { ...fields, phone: '01711110004', coupon: '' })).status, 303)
+
+  const [first] = (await s.call('GET', `${shop}/orders`)).json.items.slice(-1)
+  const detail = (await s.call('GET', `${shop}/orders/${first.id}`)).json
+  assert.deepEqual([detail.subtotal, detail.discount, detail.discountCode, detail.deliveryCharge, detail.total], [1300, 130, 'EID10', 60, 1230])
+  assert.equal((await s.call('GET', `${shop}/discounts`)).json.find((d: any) => d.code === 'EID10').uses, 1)
+  await s.call('PATCH', `${shop}/discounts/${eid.id}`, { active: false })
+  const other = await publishedPage()
+  assert.equal((await other.call('GET', `${shop}/discounts`)).status, 404)
+  assert.equal((await other.call('PATCH', `/stores/${other.handle}/discounts/${eid.id}`, { active: true })).status, 404)
+})
+
+test('a store’s pixels load on its pages, are allowed by the page’s own policy, and report the order on thanks', async () => {
+  const plain = await publishedPage()
+  assert.doesNotMatch(await (await visit(plain.handle, plain.url)).text(), /fbq\(|ttq\./, 'no pixels unless the store sets them')
+
+  const s = await publishedPage()
+  await s.call('PUT', `/stores/${s.handle}/tracking`, { metaPixel: '123456789012345', tiktokPixel: 'C1ABC2DEF3' })
+  const res = await visit(s.handle, s.url)
+  const body = await res.text()
+  assert.match(body, /fbq\('init','123456789012345'\);fbq\('track','PageView'\)/)
+  assert.match(body, /ttq\.load\('C1ABC2DEF3'\)/)
+  const csp = res.headers.get('content-security-policy')!
+  assert.match(csp, /https:\/\/connect\.facebook\.net/)
+  for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+    assert.ok(csp.includes(`'sha256-${createHash('sha256').update(script).digest('base64')}'`), 'every inline script is allowed by hash')
+  }
+  const thanks = await (await visit(s.handle, `${s.url}/thanks?order=1001&total=1360`)).text()
+  assert.match(thanks, /fbq\('track','Purchase',\{value:1360,currency:'BDT'\}\)/)
+  assert.match(thanks, /ttq\.track\('PlaceAnOrder',\{value:1360,currency:'BDT'\}\)/)
+  assert.doesNotMatch(await (await visit(s.handle, `${s.url}/thanks`)).text(), /Purchase/, 'no order event without an order')
 })

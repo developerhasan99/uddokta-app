@@ -9,10 +9,12 @@ import { statuses, type Status } from './Orders'
 
 type Order = {
   id: string; number: number; status: Status; customerName: string; phone: string; address: string; area: 'inside' | 'outside'
-  subtotal: number; deliveryCharge: number; total: number; source: string; note: string; createdAt: string
+  subtotal: number; deliveryCharge: number; discount: number; discountCode: string; total: number; source: string; note: string; createdAt: string
   items: { id: string; productName: string; variantLabel: string; price: number; quantity: number }[]
   page: { id: string; title: string } | null; warehouse: { id: string; name: string } | null
   history: { total: number; delivered: number; returned: number; cancelled: number }
+  duplicate: boolean; blocked: boolean
+  shipment: { courier: string; consignmentId: string; trackingCode: string; courierStatus: string; checkedAt: string } | null
 }
 
 // Mirrors set_order_status in the database, which is what actually decides. This only chooses which buttons to show.
@@ -32,7 +34,8 @@ export function OrderDetail() {
   const { t, num, money, time } = useLang()
   const { id } = useParams()
   const path = useStorePath()
-  const base = `/stores/${useCurrentStore()!.store.handle}/orders/${id}`
+  const handle = useCurrentStore()!.store.handle
+  const base = `/stores/${handle}/orders/${id}`
   const [order, setOrder] = useState<Order | null>(null)
   const [failed, setFailed] = useState(false)
   const [note, setNote] = useState('')
@@ -79,6 +82,37 @@ export function OrderDetail() {
     }
   }
 
+  const courierCall = async (path: 'ship' | 'track', message?: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api(`${base}/${path}`, { method: 'POST' })
+      show(await api<Order>(base))
+      setToast(message ?? t('orderUpdated'))
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleBlock = async () => {
+    if (!order) return
+    setBusy(true)
+    setError(null)
+    try {
+      const blocked = `/stores/${handle}/blocked`
+      if (order.blocked) await api(`${blocked}/${order.phone}`, { method: 'DELETE' })
+      else await api(blocked, { method: 'POST', body: { phone: order.phone, reason: t('orderTitle', { n: String(order.number) }) } })
+      setOrder({ ...order, blocked: !order.blocked })
+      setToast(t('orderUpdated'))
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -107,6 +141,8 @@ export function OrderDetail() {
         <span className="muted">{t('orderPlaced')} {time(order.createdAt)}</span>
       </header>
 
+      {order.duplicate && <p className="notice-line notice-line--warning">{t('orderDuplicateNote')}</p>}
+      {order.blocked && <p className="notice-line notice-line--danger">{t('orderBlockedNote')}</p>}
       {error && <p className="form-error" role="alert">{t(error === 'copyFailed' ? 'errCopyFailed' : errorLabel(error))}</p>}
 
       <div className="detail-layout">
@@ -136,6 +172,26 @@ export function OrderDetail() {
               )}
           </section>
 
+          {(order.shipment || order.status === 'confirmed' || order.status === 'packed') && (
+            <section className="card">
+              <h2>{t('orderShipment')}</h2>
+              {order.shipment
+                ? (
+                  <>
+                    <p>{t('courierSteadfast')} · {t('orderTracking', { value: order.shipment.trackingCode })}</p>
+                    {order.shipment.courierStatus && <p className="muted">{t('orderCourierStatus', { value: order.shipment.courierStatus })} · {time(order.shipment.checkedAt)}</p>}
+                    {order.status === 'courier' && <div className="row"><Button disabled={busy} onClick={() => void courierCall('track')}>{t('orderTrack')}</Button></div>}
+                  </>
+                )
+                : (
+                  <div className="row">
+                    <Button variant="primary" disabled={busy} aria-busy={busy} onClick={() => void courierCall('ship', t('orderShipped'))}>{t('orderShip')}</Button>
+                    {error === 'courierNotConnected' && <Link to={path('/settings/couriers')}>{t('orderShipConnect')}</Link>}
+                  </div>
+                )}
+            </section>
+          )}
+
           <section className="card">
             <h2>{t('orderItems')}</h2>
             <ul className="order-items">
@@ -150,6 +206,7 @@ export function OrderDetail() {
             <dl className="order-totals">
               <div><dt>{t('orderSubtotal')}</dt><dd className="num">{money(order.subtotal)}</dd></div>
               <div><dt>{t('orderDelivery')} · {t(order.area === 'outside' ? 'orderOutside' : 'orderInside')}</dt><dd className="num">{money(order.deliveryCharge)}</dd></div>
+              {order.discount > 0 && <div><dt>{t('orderDiscount', { value: order.discountCode })}</dt><dd className="num">−{money(order.discount)}</dd></div>}
               <div className="order-totals__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(order.total)}</dd></div>
             </dl>
           </section>
@@ -174,6 +231,7 @@ export function OrderDetail() {
             </div>
             <p className="order-address">{order.address}</p>
             <p className="muted">{t(order.area === 'outside' ? 'orderOutside' : 'orderInside')}</p>
+            <div className="row"><Button variant={order.blocked ? 'default' : 'danger'} disabled={busy} onClick={() => void toggleBlock()}>{t(order.blocked ? 'orderUnblock' : 'orderBlock')}</Button></div>
           </section>
 
           <section className="card">

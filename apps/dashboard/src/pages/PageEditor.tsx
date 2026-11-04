@@ -5,7 +5,8 @@ import {
   ArrowDown, ArrowLeft, ArrowUp, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Monitor, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { defOf, maxSections, newSection, sectionTypes, videoEmbed, type Content, type Field as SchemaField, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
-import { css as storefrontCss, fontsHref, PageView, type Ctx, type Product } from 'storefront/sections'
+import { css as storefrontCss, PageView, type Ctx, type Product } from 'storefront/sections'
+import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
@@ -27,10 +28,10 @@ type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 const historyLimit = 100
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
 const newId = () => crypto.randomUUID().slice(0, 8)
-const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><link rel="stylesheet" href="${fontsHref}"><style>${storefrontCss}</style></head><body></body></html>`
+const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
-function Preview({ content, ctx, storeName, mobile, selected, onSelect }: { content: Content; ctx: Ctx; storeName: string; mobile: boolean; selected: string | null; onSelect: (id: string) => void }) {
+function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void }) {
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
   const select = useRef(onSelect)
@@ -64,6 +65,8 @@ function Preview({ content, ctx, storeName, mobile, selected, onSelect }: { cont
       <iframe title={t('pagePreview')} srcDoc={frameShell} onLoad={(e) => attach(e.currentTarget)} />
       {body && createPortal(
         <>
+          <link rel="stylesheet" href={presetFontsHref(theme)} />
+          <style>{presetCss(theme)}</style>
           <style>{`[data-section]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={ctx} storeName={storeName} />}
         </>,
@@ -217,6 +220,7 @@ export function PageEditor() {
   const [media, setMedia] = useState<Record<string, MediaItem>>({})
   const [products, setProducts] = useState<Record<string, PreviewProduct | null>>({})
   const [delivery, setDelivery] = useState({ inside: 0, outside: 0 })
+  const [theme, setTheme] = useState<PresetId>('fresh')
   const [selected, setSelected] = useState<string | 'page' | null>(null)
   const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>('preview')
   const [mobile, setMobile] = useState(false)
@@ -251,7 +255,10 @@ export function PageEditor() {
   }, [base])
 
   useEffect(() => {
-    api<StoreSettingsData>(`/stores/${current.store.handle}/settings`).then((s) => setDelivery({ inside: s.deliveryInside, outside: s.deliveryOutside })).catch(() => {})
+    api<StoreSettingsData>(`/stores/${current.store.handle}/settings`).then((s) => {
+      setDelivery({ inside: s.deliveryInside, outside: s.deliveryOutside })
+      if (isPreset(s.theme)) setTheme(s.theme)
+    }).catch(() => {})
   }, [current.store.handle])
 
   // Products shown by order forms, loaded once each for the preview.
@@ -534,7 +541,7 @@ export function PageEditor() {
       </aside>
 
       <section className="editor__preview" aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
+        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
       </section>
 
       <aside className="editor__settings" aria-label={t('pageEditTab')}>

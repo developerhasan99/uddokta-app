@@ -183,6 +183,160 @@
       "when": 1793762375841,
       "tag": "0025_manual_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793763970957,
+      "tag": "0026_storefront_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793763983504,
+      "tag": "0027_website_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793764125330,
+      "tag": "0028_blocked_phones",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793764125694,
+      "tag": "0029_blocked_phones_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793764391533,
+      "tag": "0030_checkout_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793764391873,
+      "tag": "0031_checkout_drafts_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793764535018,
+      "tag": "0032_customer_calls",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793764535368,
+      "tag": "0033_customer_calls_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793764631314,
+      "tag": "0034_profit",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793764631683,
+      "tag": "0035_profit_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793764829730,
+      "tag": "0036_couriers",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793764830086,
+      "tag": "0037_couriers_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793764996488,
+      "tag": "0038_store_theme",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793764996877,
+      "tag": "0039_store_theme_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793765148844,
+      "tag": "0040_discounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793765149197,
+      "tag": "0041_discounts_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793765342409,
+      "tag": "0042_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793765342768,
+      "tag": "0043_team_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793765516909,
+      "tag": "0044_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793765517285,
+      "tag": "0045_tracking_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793765655976,
+      "tag": "0046_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793765656350,
+      "tag": "0047_menu_functions",
+      "breakpoints": true
     }
   ]
 }

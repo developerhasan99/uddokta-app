@@ -1,0 +1,1 @@
+ALTER TABLE "stores" ADD COLUMN "menu" jsonb DEFAULT '[]'::jsonb NOT NULL;

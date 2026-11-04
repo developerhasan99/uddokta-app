@@ -5,7 +5,7 @@ import { api, errorCode } from '../api'
 import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 
-export type StoreSettingsData = { name: string; deliveryInside: number; deliveryOutside: number }
+export type StoreSettingsData = { name: string; deliveryInside: number; deliveryOutside: number; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[] }
 
 const toNumber = (text: string) => Math.min(Number(text.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '') || 0), 100_000)
 

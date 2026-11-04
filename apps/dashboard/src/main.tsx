@@ -11,25 +11,37 @@ import { AccountLayout, Shell } from './components/Shell'
 import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
+import { Menus } from './pages/Menus'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
+import { Incomplete } from './pages/Incomplete'
 import { Inventory } from './pages/Inventory'
 import { NewOrder } from './pages/NewOrder'
 import { OrderDetail } from './pages/OrderDetail'
+import { OnlineStore } from './pages/OnlineStore'
 import { Orders } from './pages/Orders'
+import { Protection } from './pages/Protection'
 import { PageEditor } from './pages/PageEditor'
 import { Pages } from './pages/Pages'
 import { Warehouses } from './pages/Warehouses'
 import { Placeholder, NotFound } from './pages/Placeholder'
 import { ProductEdit } from './pages/ProductEdit'
 import { Products } from './pages/Products'
+import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
+import { Attendance, Tasks, TeamToday } from './pages/Team'
+import { Tracking } from './pages/Tracking'
+import { Themes } from './pages/Themes'
 import { StoreSettings } from './pages/StoreSettings'
+import { Analytics, Expenses } from './pages/Analytics'
+import { Couriers } from './pages/Couriers'
+import { Customers } from './pages/Customers'
 import { DesignSystem } from './pages/DesignSystem'
+import { Discounts } from './pages/Discounts'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages'])
+const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages', '/online-store', '/orders/protection', '/customers', '/orders/incomplete', '/customers/repeat-sales', '/analytics', '/analytics/expenses', '/online-store/themes', '/discounts', '/team', '/team/tasks', '/team/attendance', '/online-store/menus'])
 const placeholders = [...nav, ...channels]
   .flatMap((item) => [item, ...(item.children ?? [])])
   .filter((item) => !built.has(item.path))
@@ -74,7 +86,20 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="products/new" element={<ProductEdit />} />
                 <Route path="products/:id" element={<ProductEdit />} />
                 <Route path="landing-pages" element={<Pages />} />
+                <Route path="customers" element={<Customers />} />
+                <Route path="discounts" element={<Discounts />} />
+                <Route path="team" element={<TeamToday />} />
+                <Route path="team/tasks" element={<Tasks />} />
+                <Route path="team/attendance" element={<Attendance />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="analytics/expenses" element={<Expenses />} />
+                <Route path="customers/repeat-sales" element={<RepeatSales />} />
+                <Route path="online-store" element={<OnlineStore />} />
+                <Route path="online-store/themes" element={<Themes />} />
+                <Route path="online-store/menus" element={<Menus />} />
                 <Route path="orders/new" element={<NewOrder />} />
+                <Route path="orders/protection" element={<Protection />} />
+                <Route path="orders/incomplete" element={<Incomplete />} />
                 <Route path="orders/:id" element={<OrderDetail />} />
                 {placeholders.map((item) => (
                   <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />
@@ -83,7 +108,7 @@ createRoot(document.getElementById('root')!).render(
                   {settingsNav.map((item) => (
                     item.key === 'sStore'
                       ? <Route key={item.path} index element={<StoreSettings />} />
-                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : <Placeholder item={item.key} />} />
+                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : item.key === 'couriers' ? <Couriers /> : item.key === 'tracking' ? <Tracking /> : <Placeholder item={item.key} />} />
                   ))}
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />

@@ -6,13 +6,19 @@ import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
+import { isPreset } from 'storefront/themes'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
+import { registerAnalytics } from './analytics.ts'
 import { registerCollections } from './collections.ts'
+import { registerCouriers } from './couriers.ts'
+import { registerDiscounts } from './discounts.ts'
 import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { registerProducts } from './products.ts'
+import { registerRepeat } from './repeat.ts'
+import { registerTeam } from './team.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { readLocalFile } from './storage.ts'
 import { roles, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
@@ -212,7 +218,49 @@ app.post('/stores', async (c) => {
 app.get('/stores/:handle/settings', async (c) => {
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
-    return c.json({ name: store.name, deliveryInside: store.deliveryInside, deliveryOutside: store.deliveryOutside })
+    return c.json({ name: store.name, deliveryInside: store.deliveryInside, deliveryOutside: store.deliveryOutside, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu })
+  })
+})
+
+// Header links. A link is a path inside the store or an https address, so a menu can never run script.
+export const isMenuHref = (v: unknown) => typeof v === 'string' && v.length <= 500 && (/^\/(?!\/)[^\s]*$/.test(v) || /^https:\/\/[^\s]+$/.test(v))
+app.put('/stores/:handle/menu', async (c) => {
+  const body = await readBody(c)
+  const items = body.items
+  if (!Array.isArray(items) || items.length > 12) throw fail(400, 'invalidRequest')
+  const menu = items.map((item) => ({ label: typeof item?.label === 'string' ? item.label.trim() : '', href: item?.href }))
+  if (menu.some((m) => !m.label || m.label.length > 40 || !isMenuHref(m.href))) throw fail(400, 'menuInvalid')
+  return tx(c.get('userId'), async (t) => {
+    const store = await storeByHandle(t, c.req.param('handle'))
+    const [row] = await t.update(stores).set({ menu }).where(eq(stores.id, store.id)).returning({ menu: stores.menu })
+    if (!row) throw fail(403, 'forbidden')
+    return c.json(row)
+  })
+})
+
+// Ad pixels for the storefront. Owners and admins only; the formats are the only thing that makes them safe to put in a script.
+app.put('/stores/:handle/tracking', async (c) => {
+  const body = await readBody(c)
+  const metaPixel = text(body, 'metaPixel')
+  const tiktokPixel = text(body, 'tiktokPixel').toUpperCase()
+  if (!/^([0-9]{5,20})?$/.test(metaPixel) || !/^([A-Z0-9]{5,30})?$/.test(tiktokPixel)) throw fail(400, 'pixelInvalid')
+  return tx(c.get('userId'), async (t) => {
+    const store = await storeByHandle(t, c.req.param('handle'))
+    const [row] = await t.update(stores).set({ metaPixel, tiktokPixel }).where(eq(stores.id, store.id)).returning({ metaPixel: stores.metaPixel, tiktokPixel: stores.tiktokPixel })
+    if (!row) throw fail(403, 'forbidden')
+    return c.json(row)
+  })
+})
+
+// The store's style preset. Owners and admins only, like the other store settings.
+app.put('/stores/:handle/theme', async (c) => {
+  const body = await readBody(c)
+  if (!isPreset(body.theme)) throw fail(400, 'invalidRequest')
+  return tx(c.get('userId'), async (t) => {
+    const store = await storeByHandle(t, c.req.param('handle'))
+    const [row] = await t.update(stores).set({ theme: body.theme as string }).where(eq(stores.id, store.id)).returning({ theme: stores.theme })
+    if (!row) throw fail(403, 'forbidden')
+    return c.json(row)
   })
 })
 
@@ -314,3 +362,8 @@ registerInventory(app)
 registerWarehouses(app)
 registerPages(app)
 registerOrders(app)
+registerRepeat(app)
+registerAnalytics(app)
+registerCouriers(app)
+registerDiscounts(app)
+registerTeam(app)

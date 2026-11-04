@@ -124,6 +124,17 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
 - Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.
 
+## Sales tools
+
+- Coupons (`discounts`) are applied inside `place_order`, which counts each use in the same statement that checks the limit. `place_order` returns the order number and the total; show that total, never one worked out in app code.
+- Incomplete orders: the page script saves what a buyer typed once the phone is valid (`save_checkout_draft`), one row per number, swept after 90 days. Ordering marks it ordered.
+- Fake-order protection: `blocked_phones` refuses storefront orders (typed-in orders still work). Repeat orders for the same product within 24 hours are marked, never refused.
+- Repeat sales: buyers whose last order was delivered `days` ago and who have not ordered since; a logged call hides them for 7 days, or 90 if not interested.
+- Profit (owners and admins only): delivered sales − buying price copied at sale (`order_item_costs`) − `expenses`. Delivery charges go to the courier and are left out.
+- Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in.
+- Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
+- Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
+
 ## Design rules
 
 - Do not use the Hallmark skill or its linter in this project.

@@ -104,7 +104,7 @@ export function registerCollections(app: Hono<Env>) {
   app.get('/stores/:handle/collections/options', async (c) => {
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      return c.json(await t.select({ id: collections.id, name: collections.name }).from(collections).where(eq(collections.storeId, store.id)).orderBy(asc(collections.name)).limit(maxOptions))
+      return c.json(await t.select({ id: collections.id, name: collections.name, handle: collections.handle }).from(collections).where(eq(collections.storeId, store.id)).orderBy(asc(collections.name)).limit(maxOptions))
     })
   })
 

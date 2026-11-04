@@ -125,9 +125,11 @@ export function Pages() {
               {rows.map((row) => (
                 <tr key={row.id} className="data-table__row" onClick={() => navigate(path(`/landing-pages/${row.id}`))}>
                   <td>
-                    <Link className="data-table__text" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
-                      <span className="data-table__name" title={row.title}>{row.title}</span>
-                      <span className="muted data-table__sub">/pages/{row.handle}</span>
+                    <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
+                      <span className="data-table__text">
+                        <span className="data-table__name" title={row.title}>{row.title}</span>
+                        <span className="table__sub">/pages/{row.handle}</span>
+                      </span>
                     </Link>
                   </td>
                   <td><PageStatus page={row} /></td>

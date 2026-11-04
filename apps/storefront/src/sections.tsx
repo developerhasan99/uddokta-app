@@ -6,7 +6,7 @@ import { videoEmbed, type Content, type Section } from './schema.ts'
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
 export type Product = { id: string; name: string; image: Img | null; variants: Variant[] }
-export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'area', string>>
+export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'area' | 'coupon', string>>
 
 export type Ctx = {
   image: (id: string | null) => Img | undefined
@@ -166,7 +166,9 @@ export const orderErrors: Record<string, string> = {
   area: 'ঢাকার ভেতরে না বাইরে, বেছে নিন।',
   variant: 'একটি অপশন বেছে নিন।',
   soldOut: 'দুঃখিত, এটি এখন স্টকে নেই। অন্য অপশন বেছে নিন।',
+  coupon: 'এই কুপন কোডটি চলছে না। কোডটি দেখে আবার লিখুন, অথবা ফাঁকা রাখুন।',
   tooMany: 'এই নম্বর থেকে অনেকগুলো অর্ডার এসেছে। একটু পরে চেষ্টা করুন, অথবা দোকানে ফোন করুন।',
+  blocked: 'এই নম্বর থেকে অনলাইনে অর্ডার নেওয়া যাচ্ছে না। অর্ডার করতে দোকানে ফোন করুন।',
   server: 'অর্ডারটি নেওয়া যায়নি। একটু পরে আবার চেষ্টা করুন।',
 }
 
@@ -194,7 +196,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
     <section className="sf-section sf-section--tint" id={s.id}>
       <div className="sf-wrap sf-narrow">
         <Heading text={str(s.settings.heading)} />
-        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-inside={inside} data-outside={outside}>
+        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-inside={inside} data-outside={outside} data-product={product.name}>
           <input type="hidden" name="section" value={s.id} />
           {/* Left empty by people, who never see it; form-filling bots tend to fill every field. */}
           <label className="sf-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
@@ -258,8 +260,12 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             </label>
           </fieldset>
 
+          <label className="sf-field">
+            <span>কুপন কোড (থাকলে)</span>
+            <input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} />
+          </label>
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
-          <p className="sf-note">পণ্য হাতে পেয়ে টাকা দিন।</p>
+          <p className="sf-note">কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
           <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0}>{str(s.settings.button) || 'অর্ডার করুন'}</button>
         </form>
@@ -351,10 +357,10 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
   )
 }
 
-// The only script on a page: keeps order totals and countdowns current. Forms work without it.
-export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var a=f.querySelector('input[name=area]:checked');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var t=(v?Number(v.dataset.price):0)*q+Number(a&&a.value==='outside'?f.dataset.outside:f.dataset.inside);f.querySelector('[data-total]').textContent='৳'+n.format(t)}f.addEventListener('input',u);f.addEventListener('change',u)})`
+// The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,
+// saves what the buyer typed so the store can call if they do not finish. Forms work without it.
+export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var a=f.querySelector('input[name=area]:checked');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var t=(v?Number(v.dataset.price):0)*q+Number(a&&a.value==='outside'?f.dataset.outside:f.dataset.inside);f.querySelector('[data-total]').textContent='৳'+n.format(t)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
 
-export const fontsHref = 'https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap'
 
 export const css = `
 :root{--sf-ink:#1d1d1f;--sf-muted:#5f6368;--sf-paper:#fff;--sf-tint:#f5f6f4;--sf-rule:#e3e5e1;--sf-accent:#1f7a4d;--sf-accent-ink:#fff;--sf-error:#b3261e;--sf-radius:10px}
@@ -401,12 +407,12 @@ h1,h2,h3,p{margin:0}
 .sf-order__product{display:flex;gap:12px;align-items:center;font-weight:600}
 .sf-order__product img{width:64px;height:64px;object-fit:cover;border-radius:6px}
 .sf-field{display:grid;gap:4px;font-weight:600;font-size:15px}
-.sf-field input,.sf-field textarea,.sf-field select{font:inherit;font-weight:400;min-height:48px;padding:10px 12px;border:1px solid #c9ccc7;border-radius:8px;background:#fff;color:inherit;width:100%}
+.sf-field input,.sf-field textarea,.sf-field select{font:inherit;font-weight:400;min-height:48px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--sf-ink) 25%,transparent);border-radius:8px;background:var(--sf-paper);color:inherit;width:100%}
 .sf-field input:focus,.sf-field textarea:focus,.sf-field select:focus,.sf-choice:focus-within{outline:2px solid var(--sf-accent);outline-offset:1px}
 .sf-field [aria-invalid]{border-color:var(--sf-error)}
 .sf-choices{border:0;margin:0;padding:0;display:grid;gap:8px}
 .sf-choices legend{font-weight:600;font-size:15px;margin-bottom:4px;padding:0}
-.sf-choice{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border:1px solid #c9ccc7;border-radius:8px;cursor:pointer}
+.sf-choice{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border:1px solid color-mix(in srgb,var(--sf-ink) 25%,transparent);border-radius:8px;cursor:pointer}
 .sf-choice span{flex:1}
 .sf-choice input{accent-color:var(--sf-accent);width:18px;height:18px;margin:0}
 .sf-total{display:flex;justify-content:space-between;font-size:18px;border-top:1px solid var(--sf-rule);padding-top:12px}

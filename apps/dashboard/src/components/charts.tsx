@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 
+// A series of all zeros still draws, as a flat line along the bottom.
 function scale(values: number[], width: number, height: number, top: number, max = Math.max(...values)) {
+  max = max > 0 ? max : 1
   const x = (i: number) => (i / (values.length - 1)) * width
   const y = (v: number) => top + (1 - v / max) * (height - top)
   return { x, y, line: values.map((v, i) => `${i ? 'L' : 'M'}${x(i)} ${y(v)}`).join(' ') }
@@ -34,7 +36,10 @@ export function AreaChart({ values, labels, format, label }: { values: number[];
 
   const plotWidth = Math.max(width - axisWidth, 1)
   const plotHeight = height - axisBottom
-  const top = Math.ceil(Math.max(...values) / 10000) * 10000
+  // Rounded up at the value's own size: ৳328 tops out at ৳400, ৳38,700 at ৳40,000.
+  const peak = Math.max(...values, 0)
+  const unit = peak > 0 ? 10 ** Math.floor(Math.log10(peak)) : 1
+  const top = Math.max(Math.ceil(peak / unit) * unit, 10)
   const { x, y, line } = scale(values, plotWidth, plotHeight, 8, top)
   const ticks = [0, 0.5, 1].map((f) => f * top)
   const step = Math.ceil(values.length / Math.max(Math.floor(plotWidth / 90), 2))
