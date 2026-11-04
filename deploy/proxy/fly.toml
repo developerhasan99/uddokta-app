@@ -1,0 +1,26 @@
+# Caddy terminates TLS itself, so Fly only passes raw TCP. Needs a dedicated IPv4: fly ips allocate-v4
+app = "uddokta-domains"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[mounts]
+  source = "caddy_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+  [[services.ports]]
+    port = 80
+
+[[services]]
+  internal_port = 443
+  protocol = "tcp"
+  [[services.ports]]
+    port = 443
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

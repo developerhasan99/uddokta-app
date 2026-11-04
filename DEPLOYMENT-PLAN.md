@@ -13,7 +13,7 @@ Prepared 4 November 2026. Status: deployment preparation underway. Railway proje
 | Products / collections | `/products/{handle}` and `/collections/{handle}` |
 | Public product images, proposed | `media.uddokta.live` |
 
-The first hosted environment is an invite-only beta for testing, using synthetic merchant/customer data. Do not open general registration or connect real ad pixels/courier booking credentials during initial smoke testing. Domain names are the agreed target addresses; their DNS configuration and availability for attachment still need verification. Merchant-owned custom domains are a later feature.
+The first hosted environment is an invite-only beta for testing, using synthetic merchant/customer data. Do not open general registration or connect real ad pixels/courier booking credentials during initial smoke testing. Domain names are the agreed target addresses; their DNS configuration and availability for attachment still need verification. Sellers' own domains are planned below (Fly.io fixed-IP proxy).
 
 ## Hosting layout
 
@@ -94,6 +94,37 @@ Use Railway-generated temporary addresses for service readiness checks. Merchant
 - Restart/redeploy both services; repeat login, media, publish and checkout checks.
 - Perform a backup/restore rehearsal on a separate disposable database before broader release.
 
+## Sellers' own domains (approved November 4, 2026)
+
+Goal: a seller adds two records at their registrar and nothing else: `A @ → <fixed IP>` and `A www → <fixed IP>`. No forwarding, no nameserver change. Budget agreed: up to $5–10 a month.
+
+Why this design: Railway routes by Host and only knows our domains; Railway Pro allows 20 custom domains per service. Cloudflare Host-header override and apex proxying are Enterprise only. A fixed IPv4 is the only way to support the bare domain with one simple record, and neither Railway nor Cloudflare offers one within budget.
+
+Layout:
+
+```
+buyer → www.rinafashion.com → Fly.io fixed IPv4 → Caddy (on-demand Let's Encrypt certificate,
+        issued only if our API says the domain belongs to a store)
+      → https://{proxy}.uddokta.live on Railway, with X-Store-Host: <seller domain> and a shared secret
+      → storefront resolves the store from the header only when the secret matches
+```
+
+- Fly.io runs only this proxy (about $2/month for the IPv4 plus a small machine and a small volume for certificates). If it fails, `*.uddokta.live`, the dashboard and media keep working. Add a second machine for redundancy when sellers depend on it.
+- `{handle}.uddokta.live` stays permanent, like myshopify.com. Once a seller domain is live it becomes primary and the subdomain redirects to it.
+- Bare domain and `www` both point to the IP; the proxy redirects the bare domain to `www` (or the reverse; one canonical host per store).
+
+Build steps:
+1. Spike, no app code: Fly.io app with a dedicated IPv4 running Caddy with a static site for `shop.uddokta.studio` proxied to `demo.uddokta.live`. Prove the certificate is issued, Railway accepts the forwarded request, and the response is the storefront's.
+2. Database: `store_domains (store_id, hostname unique, status, verified_at, created_at)` with row-level security and a cross-store isolation test. Owners and admins manage it; one primary domain per store.
+3. API: add/remove/list domains; DNS check that both records point to the fixed IP; internal `GET /internal/domain-allowed?domain=` for Caddy's `ask`, protected by a secret.
+4. Storefront: resolve the store from `X-Store-Host` when the shared secret matches; canonical, sitemap, checkout and receipt links use the primary domain; `{handle}.uddokta.live` redirects to it.
+5. Dashboard: Settings › Domains with the two records, copy buttons, Bangla-first instructions, automatic status (waiting for records, issuing certificate, live, or a plain-language error).
+6. Switch the proxy to on-demand TLS with `ask`, deploy, and test with a real seller-style domain end to end.
+
+Spike files: `deploy/proxy/` (Dockerfile, Caddyfile, fly.toml; Fly app `uddokta-domains`, region `bom` near buyers). Spike passed on November 4, 2026: Fly app `uddokta-domains` (personal org, region `sin`; `bom` is no longer offered) with dedicated IPv4 `37.16.26.111` ($2/month), machine `683e763b156678`, volume `vol_r686967g32delzj4`. A second empty volume `vol_42kxnx2yxezde984` was left over from a capacity error and can be deleted. Test record `A shop.uddokta.studio → 37.16.26.111` at Hostinger (user-approved). Results: Let's Encrypt certificate issued by Caddy, `/_health` 200 and the storefront's Bangla 404 page served through `server: Caddy` → `railway-hikari`, HTTP redirects to HTTPS. TLS setup took about 1.2–1.4 s from the test machine; Railway's US West region adds a Pacific round trip, so consider moving Railway to Singapore.
+
+Later: let sellers buy a domain inside Uddokta so records are set automatically.
+
 ## Rollback and promotion
 
 Record the exact source revision and deployed service versions. Keep migrations backward compatible where feasible. A code rollback does not undo a database migration; do not drop receipt/snapshot data to roll back. Restore only through a reviewed recovery procedure if necessary.
@@ -152,6 +183,11 @@ We stopped during domain setup, after the first application deployment succeeded
 - With user approval, `uddokta.live` nameservers at Hostinger were changed to `malcolm.ns.cloudflare.com` / `rachel.ns.cloudflare.com` (studio unchanged). At the end of the session the `.live` registry still served the old Hostinger nameservers; wait for propagation (up to 24h), then confirm the Cloudflare zone is Active and the Railway wildcard certificate is issued.
 - Why `uddokta.live` is on Cloudflare: an R2 custom domain (`media.uddokta.live`) only works on a zone in the same Cloudflare account, and storefront CDN caching, purge-on-publish and later Cloudflare for SaaS custom domains need it too. The studio zone only needs one CNAME, so it stays at Hostinger.
 - Storefront restart policy confirmed: On Failure, 3 retries.
-- Next: once the zone is Active, connect R2 bucket `uddokta-beta-media` to `media.uddokta.live`, then live QA (step 6).
+- Cloudflare zone `uddokta.live` is Active; Cloudflare and Google resolvers see the new nameservers. Railway still showed the wildcard as "Waiting for DNS update" at last check; traffic reaches Railway but served its `*.up.railway.app` certificate until verification completes.
+- With fresh user approval, R2 bucket `uddokta-beta-media` is connected to `media.uddokta.live` (HTTPS works; missing objects return 404). The r2.dev URL stays disabled. `media` is a reserved store handle. Storefront has `MEDIA_PUBLIC_URL` set.
+- Local inspection: `npm run db:studio` opens Drizzle Studio on the local database only. Inspect beta data in Railway's Postgres Database tab.
+- Cloudflare redirect rule "Root and www to uddokta.studio": `uddokta.live` and `www.uddokta.live` (any path, http or https) → 302 `https://uddokta.studio`. Temporary on purpose so the apex can be reused later. The apex A / www CNAME records stay proxied; they only exist so the rule can run.
+- Railway issued the `*.uddokta.live` certificate (expires Feb 2, 2027; Railway renews). Storefront `/_health` is 200 on merchant hosts, unknown and reserved store hosts return 404, `robots.txt` disallows all.
+- Next: live QA (step 6). The user signs up first at `https://admin.uddokta.studio`.
 
 Cloud account tabs may need signing in again when resuming. Secrets are already stored in Railway; do not request or paste them into chat. Re-check dashboard values rather than relying on old UI element IDs. Preserve the user's public-access approvals recorded above.

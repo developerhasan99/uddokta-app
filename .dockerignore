@@ -6,7 +6,6 @@
 **/*.log
 .pgdata
 .media
-qa-artifacts
 .codex
 .agents
 .aws

@@ -16,7 +16,8 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 | Database | Managed PostgreSQL + Drizzle |
 | Background jobs | pg-boss |
 | Media | Cloudflare R2, images resized at upload with sharp |
-| CDN, custom domains | Cloudflare, Cloudflare for SaaS |
+| CDN, store domains | Cloudflare (`uddokta.live` DNS, R2, CDN) |
+| Sellers' own domains | One Caddy proxy on Fly.io with a fixed IPv4; on-demand certificates approved by our API, forwarded to the storefront |
 | Hosting | Railway (app and Postgres). Its filesystem does not persist, so uploads never go on local disk in production |
 | UI primitives | Radix + our own design tokens |
 | Packages | npm workspaces |
