@@ -14,9 +14,9 @@ Railway no longer permits new services to opt into legacy `railway.json`/`railwa
 | Restart policy | On Failure, 3 retries | same |
 | Domain | admin.uddokta.studio | *.uddokta.live |
 
-Use private `DATABASE_URL=${{Postgres.DATABASE_URL}}` references in both services. Apply the rest of `beta.env.example` as appropriate; never use the fake storage values from local container smoke tests. Keep credentials in Railway variables, not in this file.
+Use private `DATABASE_URL=${{Postgres.DATABASE_URL}}` references in both services. Apply the rest of `production.env.example` as appropriate; never use the fake storage values from local container smoke tests. Keep credentials in Railway variables, not in this file.
 
-Start the admin service first so migrations complete before the storefront becomes ready. Keep the beta access allowlist active and `ROBOTS_NOINDEX=true` on the storefront.
+Start the admin service first so migrations complete before the storefront becomes ready. Sign-up is open (`SIGNUP_MODE=open`) and storefronts are indexed (no `ROBOTS_NOINDEX`).
 
 ## Domains proxy (Fly.io)
 

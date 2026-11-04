@@ -203,3 +203,11 @@ Cloud account tabs may need signing in again when resuming. Secrets are already 
 ## Scope cut (November 4, 2026)
 
 Removed at the user's request: Analytics › Expenses, the Team section (Team home, Tasks, Attendance) and Settings › Refer and earn. Pages, API routes (`team.ts`, the `/expenses` routes), tests and copy are gone; migration `0055_remove_expenses_team.sql` drops the `expenses`, `tasks` and `shifts` tables (beta data is synthetic). Profit is now delivered sales − buying price. Settings › Team and permissions stays.
+
+## Public launch (November 5, 2026)
+
+The user decided to drop the beta: anyone can sign up and use the app. Repo: `deploy/beta.env.example` is now `deploy/production.env.example` with `SIGNUP_MODE=open` and no `ROBOTS_NOINDEX`; the sign-up-closed message no longer mentions a beta. The allowlist and closed modes stay in code to restrict sign-up again if needed.
+
+Railway (done by the user, admin service and storefront variables): set `SIGNUP_MODE=open`, delete `SIGNUP_EMAIL_ALLOWLIST`, delete `ROBOTS_NOINDEX` on the storefront. Turn on Postgres backups before real sellers' orders arrive.
+
+Known gaps for a public app: no password reset (there is no email provider), no sign-up rate limit, no email verification, no billing (everything is free), courier booking only for Steadfast and untested with a real account.
