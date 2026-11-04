@@ -372,6 +372,20 @@
       "when": 1793805249820,
       "tag": "0052_store_domain_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793807797618,
+      "tag": "0053_store_domain_verified",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793807798123,
+      "tag": "0054_store_domain_verified_functions",
+      "breakpoints": true
     }
   ]
 }

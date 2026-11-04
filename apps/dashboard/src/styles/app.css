@@ -788,9 +788,22 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 :lang(bn) .steps { list-style-type: bengali; }
 .domain-records td { padding-block: var(--space-2xs); overflow-wrap: anywhere; }
 .domain-records__type { width: 4.5rem; }
-.domain-records__value { width: 10.5rem; }
-.domain-records__value code { white-space: nowrap; }
+.domain-records__value { width: 14rem; }
+.domain-records__value code { min-width: 0; word-break: break-all; }
+.domain-records__value .row { flex-wrap: nowrap; }
 .domain-records__status { width: 8.5rem; }
 @media (max-width: 40rem) { .domain-records__value { width: 8.5rem; } .domain-records__value .row { flex-wrap: wrap; gap: var(--space-2xs); } }
 .domain-records__phone-status { display: none; }
 @media (max-width: 40rem) { .domain-records__phone-status { display: block; margin-top: var(--space-2xs); } }
+
+/* Settings › Domains: the connected domain, the add form and the always-working uddokta.live address. */
+.domain-item { display: grid; gap: var(--space-sm); padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); }
+.domain-item__head { display: flex; align-items: flex-start; gap: var(--space-xs); }
+.domain-item__head > svg { flex: none; margin-top: 2px; }
+.domain-item__title { display: grid; flex: 1; min-width: 0; gap: var(--space-3xs); overflow-wrap: anywhere; }
+.domain-item__confirm { display: grid; gap: var(--space-xs); padding: var(--space-sm); border-radius: var(--radius-control); background: var(--color-error-soft); }
+.domain-item__note { flex-wrap: nowrap; align-items: flex-start; }
+.domain-item__lock { flex: none; margin-top: 2px; color: var(--color-success); }
+.domain-add .field__control { display: flex; gap: var(--space-xs); }
+.domain-add .input { flex: 1; min-width: 0; }
+.domain-old { padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }

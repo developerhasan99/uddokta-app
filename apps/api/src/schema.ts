@@ -45,11 +45,14 @@ export const stores = pgTable('stores', {
   // The storefront header's links: [{ label, href }], hrefs being paths in the store or https links. Empty means: list collections.
   menu: jsonb('menu').$type<{ label: string; href: string }[]>().notNull().default([]),
   // The seller's own domain, bare and lowercase ("rinafashion.com"; www is served too). Set by owners and admins.
-  // Live once the domain check in domains.ts reached the store over HTTPS; the uddokta.live address then redirects to it.
-  domain: text('domain').unique(),
+  // Any store may claim a domain; it serves only once verified, by a TXT record proving the claimant controls its DNS, and one store holds it then.
+  // Live once the domain check in domains.ts reached the store over HTTPS; the uddokta.live address then redirects to it while primary.
+  domain: text('domain'),
+  domainVerifiedAt: timestamp('domain_verified_at', { withTimezone: true }),
   domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
+  domainPrimary: boolean('domain_primary').notNull().default(true),
   createdAt: createdAt(),
-}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
+}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), uniqueIndex('stores_verified_domain').on(t.domain).where(sql`${t.domainVerifiedAt} is not null`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
 
 export const storeMembers = pgTable('store_members', {
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),

@@ -505,6 +505,7 @@ test('short campaign URLs preserve legacy links, checkout posts, and receipt red
 test('a seller’s own domain shows their store through the domains proxy, and becomes the main address once live', async () => {
   const s = await publishedPage()
   await s.call('PUT', `/stores/${s.handle}/domain`, { domain: 'www.rongin-shop.com' })
+  await pool.query(`update stores set domain_verified_at = now() where handle = '${s.handle}'`)
   const proxied = (path: string, host: string, init: RequestInit = {}) =>
     app.request(path, { ...init, headers: { host: 'domains.localhost', 'x-store-host': host, ...init.headers } })
 
