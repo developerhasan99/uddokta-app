@@ -199,3 +199,7 @@ We stopped during domain setup, after the first application deployment succeeded
 - Next: live QA (step 6). The user signs up first at `https://admin.uddokta.studio`.
 
 Cloud account tabs may need signing in again when resuming. Secrets are already stored in Railway; do not request or paste them into chat. Re-check dashboard values rather than relying on old UI element IDs. Preserve the user's public-access approvals recorded above.
+
+## Scope cut (November 4, 2026)
+
+Removed at the user's request: Analytics › Expenses, the Team section (Team home, Tasks, Attendance) and Settings › Refer and earn. Pages, API routes (`team.ts`, the `/expenses` routes), tests and copy are gone; migration `0055_remove_expenses_team.sql` drops the `expenses`, `tasks` and `shifts` tables (beta data is synthetic). Profit is now delivered sales − buying price. Settings › Team and permissions stays.

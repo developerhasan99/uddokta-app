@@ -1,5 +1,5 @@
 import {
-  ChartColumn, House, Image, LayoutTemplate, Megaphone, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, UserCheck, Users,
+  ChartColumn, House, Image, LayoutTemplate, Megaphone, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { Key } from './i18n'
@@ -44,17 +44,7 @@ export const nav: NavItem[] = [
   },
   { key: 'discounts', path: '/discounts', icon: Percent },
   { key: 'media', path: '/media', icon: Image },
-  {
-    key: 'analytics', path: '/analytics', icon: ChartColumn,
-    children: [{ key: 'expenses', path: '/analytics/expenses' }],
-  },
-  {
-    key: 'team', path: '/team', icon: UserCheck,
-    children: [
-      { key: 'tasks', path: '/team/tasks' },
-      { key: 'attendance', path: '/team/attendance' },
-    ],
-  },
+  { key: 'analytics', path: '/analytics', icon: ChartColumn },
 ]
 
 export const channels: NavItem[] = [
@@ -79,5 +69,4 @@ export const settingsNav: NavLeaf[] = [
   { key: 'domains', path: '/settings/domains' },
   { key: 'members', path: '/settings/members' },
   { key: 'billing', path: '/settings/billing' },
-  { key: 'referrals', path: '/settings/referrals' },
 ]

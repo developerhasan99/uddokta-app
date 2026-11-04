@@ -30,19 +30,18 @@ import { ProductEdit } from './pages/ProductEdit'
 import { Products } from './pages/Products'
 import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
-import { Attendance, Tasks, TeamToday } from './pages/Team'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
 import { Themes } from './pages/Themes'
 import { StoreSettings } from './pages/StoreSettings'
-import { Analytics, Expenses } from './pages/Analytics'
+import { Analytics } from './pages/Analytics'
 import { Couriers } from './pages/Couriers'
 import { Customers } from './pages/Customers'
 import { DesignSystem } from './pages/DesignSystem'
 import { Discounts } from './pages/Discounts'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages', '/online-store', '/orders/protection', '/customers', '/orders/incomplete', '/customers/repeat-sales', '/analytics', '/analytics/expenses', '/online-store/themes', '/discounts', '/team', '/team/tasks', '/team/attendance', '/online-store/menus'])
+const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages', '/online-store', '/orders/protection', '/customers', '/orders/incomplete', '/customers/repeat-sales', '/analytics', '/online-store/themes', '/discounts', '/online-store/menus'])
 const placeholders = [...nav, ...channels]
   .flatMap((item) => [item, ...(item.children ?? [])])
   .filter((item) => !built.has(item.path))
@@ -89,11 +88,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="landing-pages" element={<Pages />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="discounts" element={<Discounts />} />
-                <Route path="team" element={<TeamToday />} />
-                <Route path="team/tasks" element={<Tasks />} />
-                <Route path="team/attendance" element={<Attendance />} />
                 <Route path="analytics" element={<Analytics />} />
-                <Route path="analytics/expenses" element={<Expenses />} />
                 <Route path="customers/repeat-sales" element={<RepeatSales />} />
                 <Route path="online-store" element={<OnlineStore />} />
                 <Route path="online-store/themes" element={<Themes />} />

@@ -365,23 +365,6 @@ export const orderItemCosts = pgTable('order_item_costs', {
   cost: integer('cost').notNull(),
 }, (t) => [check('order_item_costs_amount', sql`${t.cost} >= 0`)])
 
-export const expenseCategories = ['ads', 'packaging', 'courier', 'salary', 'rent', 'other'] as const
-
-// Money spent running the store, for profit. Owners and admins only.
-export const expenses = pgTable('expenses', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  spentOn: date('spent_on').notNull(),
-  category: text('category', { enum: expenseCategories }).notNull(),
-  amount: integer('amount').notNull(),
-  note: text('note').notNull().default(''),
-  createdAt: createdAt(),
-}, (t) => [
-  index('expenses_store_date').on(t.storeId, t.spentOn),
-  check('expenses_category', sql`${t.category} in ('ads', 'packaging', 'courier', 'salary', 'rent', 'other')`),
-  check('expenses_amount', sql`${t.amount} > 0 and ${t.amount} <= 100000000 and length(${t.note}) <= 500`),
-])
-
 export const couriers = ['steadfast'] as const
 
 // A store's courier login, encrypted with COURIER_KEY (see secrets.ts). The API never sends it back to the dashboard.
@@ -427,30 +410,6 @@ export const discounts = pgTable('discounts', {
   check('discounts_kind', sql`${t.kind} in ('percent', 'amount')`),
   check('discounts_code', sql`${t.code} ~ '^[A-Z0-9]{2,30}$'`),
   check('discounts_value', sql`${t.value} > 0 and (${t.kind} = 'amount' or ${t.value} <= 100) and ${t.minSubtotal} >= 0 and (${t.maxUses} is null or ${t.maxUses} > 0) and ${t.uses} >= 0`),
-])
-
-// The team's to-do list, such as "call back 01712… at 5pm". Any member adds, assigns and ticks off tasks.
-export const tasks = pgTable('tasks', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  dueOn: date('due_on'),
-  assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
-  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-  doneAt: timestamp('done_at', { withTimezone: true }),
-  createdAt: createdAt(),
-}, (t) => [index('tasks_store_done').on(t.storeId, t.doneAt), check('tasks_title', sql`length(${t.title}) between 1 and 300`)])
-
-// One row per shift. Members clock themselves in and out; nobody records time for someone else.
-export const shifts = pgTable('shifts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
-  endedAt: timestamp('ended_at', { withTimezone: true }),
-}, (t) => [
-  index('shifts_store_started').on(t.storeId, t.startedAt),
-  check('shifts_order', sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
 ])
 
 // Opaque checkout receipts also hold the idempotency result. Public reads expose only number and total.

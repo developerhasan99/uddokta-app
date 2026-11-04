@@ -75,11 +75,10 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Marketing:** Auto follow-ups, Offers
 - **Discounts**
 - **Media**
-- **Analytics:** Expenses
-- **Team:** Tasks, Attendance
+- **Analytics**
 - **Landing pages** (first under Sales channels)
 - **Online store:** Themes, Pages, Menus
-- **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing, Referrals
+- **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing
 
 ## Media gallery
 
@@ -132,7 +131,8 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Incomplete orders: the page script saves what a buyer typed once the phone is valid (`save_checkout_draft`), one row per number, swept after 90 days. Ordering marks it ordered.
 - Fake-order protection: `blocked_phones` refuses storefront orders (typed-in orders still work). Repeat orders for the same product within 24 hours are marked, never refused.
 - Repeat sales: buyers whose last order was delivered `days` ago and who have not ordered since; a logged call hides them for 7 days, or 90 if not interested.
-- Profit (owners and admins only): delivered sales − buying price copied at sale (`order_item_costs`) − `expenses`. Delivery charges go to the courier and are left out.
+- Profit (owners and admins only): delivered sales − buying price copied at sale (`order_item_costs`). Delivery charges go to the courier and are left out.
+- Out of scope: expense tracking, team tasks, attendance and referral pages. We are not a bookkeeping, project or HR tool.
 - Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.

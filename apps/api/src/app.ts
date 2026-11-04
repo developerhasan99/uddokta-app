@@ -20,7 +20,6 @@ import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
-import { registerTeam } from './team.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { readLocalFile } from './storage.ts'
@@ -371,4 +370,3 @@ registerRepeat(app)
 registerAnalytics(app)
 registerCouriers(app)
 registerDiscounts(app)
-registerTeam(app)

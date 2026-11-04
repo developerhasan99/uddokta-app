@@ -386,6 +386,13 @@
       "when": 1793807798123,
       "tag": "0054_store_domain_verified_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793811337565,
+      "tag": "0055_remove_expenses_team",
+      "breakpoints": true
     }
   ]
 }

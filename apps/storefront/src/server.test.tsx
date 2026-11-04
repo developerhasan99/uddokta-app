@@ -345,7 +345,7 @@ test('repeat sales lists buyers delivered long enough ago, until someone calls t
   assert.equal((await other.call('POST', `/stores/${s.handle}/calls`, { phone: '01712340001', outcome: 'later' })).status, 404)
 })
 
-test('profit counts delivered orders at the buying price of the day of sale, less expenses, for owners only', async () => {
+test('profit counts delivered orders at the buying price of the day of sale, for owners only', async () => {
   const s = await publishedPage()
   const shop = `/stores/${s.handle}`
   const m = s.product.variants[0]
@@ -355,22 +355,18 @@ test('profit counts delivered orders at the buying price of the day of sale, les
   const [returned, delivered] = (await s.call('GET', `${shop}/orders`)).json.items
   for (const status of ['confirmed', 'packed', 'courier', 'delivered']) await s.call('PATCH', `${shop}/orders/${delivered.id}`, { status })
   for (const status of ['confirmed', 'packed', 'courier', 'returned']) await s.call('PATCH', `${shop}/orders/${returned.id}`, { status })
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' })
-  assert.equal((await s.call('POST', `${shop}/expenses`, { spentOn: today, category: 'ads', amount: 300, note: 'ফেসবুক বিজ্ঞাপন' })).status, 201)
-  assert.equal((await s.call('POST', `${shop}/expenses`, { spentOn: today, category: 'gifts', amount: 300 })).status, 400)
 
   // A later change to the buying price must not rewrite the profit of a sale already made.
   await s.call('PUT', `${shop}/products/${s.product.id}`, { name: 'পাঞ্জাবি', options: [{ name: 'সাইজ', values: ['M', 'L'] }], variants: [{ id: m.id, options: ['M'], price: 1200, cost: 1100, stock: 3 }, { id: s.product.variants[1].id, options: ['L'], price: 1300, stock: null }] })
   const a = (await s.call('GET', `${shop}/analytics?days=30`)).json
-  assert.deepEqual([a.revenue, a.cost, a.expenses, a.profit, a.delivered, a.returned, a.missingCost], [2400, 1600, 300, 500, 1, 1, 0])
+  assert.deepEqual([a.revenue, a.cost, a.profit, a.delivered, a.returned, a.missingCost], [2400, 1600, 800, 1, 1, 0])
   assert.deepEqual(a.top, [{ name: 'পাঞ্জাবি', quantity: 2, revenue: 2400 }])
   assert.equal(a.series.length, 30)
-  assert.equal(a.series[29].profit, 500)
+  assert.equal(a.series[29].profit, 800)
 
   const invite = await s.call('POST', `${shop}/invites`, { role: 'staff' })
   const staffCall = await staffMember(invite.json.token)
   assert.equal((await staffCall('GET', `${shop}/analytics`)).status, 403)
-  assert.equal((await staffCall('GET', `${shop}/expenses`)).status, 403)
   const other = await publishedPage()
   assert.equal((await other.call('GET', `${shop}/analytics`)).status, 404)
 })
