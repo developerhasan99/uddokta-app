@@ -65,7 +65,7 @@ test('a collection saves its products in the order given, and lists them', async
   const list = await owner.call('GET', `${owner.base}?q=ঈদ`)
   assert.deepEqual(list.json.items.map((c: any) => [c.name, c.productCount]), [['ঈদ', 2]])
   assert.deepEqual((await owner.call('GET', `${owner.base}?q=none`)).json.items, [])
-  assert.deepEqual((await owner.call('GET', `${owner.base}/options`)).json, [{ id: made.json.id, name: 'ঈদ' }])
+  assert.deepEqual((await owner.call('GET', `${owner.base}/options`)).json, [{ id: made.json.id, name: 'ঈদ', handle: made.json.handle }])
 })
 
 test('handles are unique inside one store', async () => {

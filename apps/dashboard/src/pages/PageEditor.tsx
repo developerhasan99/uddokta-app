@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Monitor, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
+  ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Monitor, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { defOf, maxSections, newSection, sectionTypes, videoEmbed, type Content, type Field as SchemaField, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product } from 'storefront/sections'
@@ -11,7 +11,7 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
-import { Button, Field, IconButton, Notice, PageTitle, Skeleton } from '../components/ui'
+import { Button, Field, IconButton, Notice, PageTitle, SearchInput, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import type { ProductStatus } from '../product-form'
 import type { StoreSettingsData } from './StoreSettings'
@@ -19,16 +19,17 @@ import { PageStatus } from './Pages'
 
 type Saved = {
   id: string; title: string; handle: string; seoTitle: string; seoDescription: string; draft: Content; revision: number
-  isPublished: boolean; hasChanges: boolean; media: Record<string, MediaItem>
+  publishedHandle: string | null; isPublished: boolean; hasChanges: boolean; media: Record<string, MediaItem>
 }
 type Doc = { title: string; handle: string; seoTitle: string; seoDescription: string; content: Content }
 type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
+const sectionIcons = { hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const historyLimit = 100
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
 const newId = () => crypto.randomUUID().slice(0, 8)
-const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><style>${storefrontCss}</style></head><body></body></html>`
+const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
 function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void }) {
@@ -57,6 +58,7 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
       const section = target.closest('[data-section]')
       if (section) select.current(section.getAttribute('data-section')!)
     })
+    doc.addEventListener('submit', (e) => e.preventDefault())
     setBody(doc.body)
   }
 
@@ -158,6 +160,7 @@ function SectionForm({ section, onChange, onPick, media, products }: {
 }) {
   const { t, lang, num } = useLang()
   const uid = useId()
+  const [expanded, setExpanded] = useState<Record<string, number | null>>({})
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   return (
     <>
@@ -177,12 +180,14 @@ function SectionForm({ section, onChange, onPick, media, products }: {
             {list.map((item, i) => {
               const name = `${L(field.item)} ${num(i + 1)}`
               return (
-                <fieldset key={i} className="editor-list__item">
-                  <legend className="visually-hidden">{name}</legend>
-                  <div className="editor-list__item-head">
-                    <strong>{name}</strong>
-                    <div className="row">
+                <details key={i} className="editor-list__item" open={expanded[field.key] === i}>
+                  <summary onClick={(e) => { e.preventDefault(); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? null : i })) }}><ChevronDown size={14} aria-hidden="true" /><span>{short(item.title || item.question || item.name) || name}</span></summary>
+                  <div className="editor-list__fields">
+                    <div className="editor-list__item-head">
+                      <strong>{name}</strong>
+                      <div className="row">
                       <IconButton label={`${t('pageMoveUp')}: ${name}`} disabled={i === 0} onClick={() => { const next = [...list]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setList(next) }}><ArrowUp size={16} aria-hidden="true" /></IconButton>
+                      <IconButton label={`${t('pageMoveDown')}: ${name}`} disabled={i === list.length - 1} onClick={() => { const next = [...list]; [next[i], next[i + 1]] = [next[i + 1], next[i]]; setList(next) }}><ArrowDown size={16} aria-hidden="true" /></IconButton>
                       <IconButton label={t('pageRemoveItem', { value: name })} onClick={() => setList(list.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /></IconButton>
                     </div>
                   </div>
@@ -190,15 +195,33 @@ function SectionForm({ section, onChange, onPick, media, products }: {
                     <LeafEditor key={sub.key} id={`${id}-${i}-${sub.key}`} field={sub} value={item[sub.key] ?? null} media={media} products={products} onPick={onPick}
                       onChange={(v, typing) => setList(list.map((x, j) => (j === i ? { ...x, [sub.key]: v as string | null } : x)), typing)} />
                   ))}
-                </fieldset>
+                  </div>
+                </details>
               )
             })}
-            {list.length < field.max && <Button onClick={() => setList([...list, { ...blank }])}><Plus size={16} aria-hidden="true" />{t('pageAddItem', { value: L(field.item) })}</Button>}
+            {list.length < field.max && <Button onClick={() => { setExpanded((v) => ({ ...v, [field.key]: list.length })); setList([...list, { ...blank }]) }}><Plus size={16} aria-hidden="true" />{t('pageAddItem', { value: L(field.item) })}</Button>}
           </div>
         )
       })}
     </>
   )
+}
+
+function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; onLeave: () => void; onSave: () => void; busy: boolean }) {
+  const { t } = useLang()
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => { ref.current?.showModal() }, [])
+  return <dialog ref={ref} className="modal" aria-labelledby="leave-title" onClose={onClose} onCancel={(e) => { e.preventDefault(); if (!busy) onClose() }}>
+    <div className="modal__body">
+      <h2 id="leave-title">{t('pageLeaveTitle')}</h2>
+      <p className="muted">{t('pageLeaveHelp')}</p>
+      <div className="row row--end">
+        <Button disabled={busy} onClick={onClose}>{t('cancel')}</Button>
+        <Button disabled={busy} onClick={onLeave}>{t('pageLeaveDiscard')}</Button>
+        <Button disabled={busy} variant="primary" onClick={onSave}>{t('pageLeaveSave')}</Button>
+      </div>
+    </div>
+  </dialog>
 }
 
 export function PageEditor() {
@@ -225,6 +248,9 @@ export function PageEditor() {
   const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>('preview')
   const [mobile, setMobile] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [sectionSearch, setSectionSearch] = useState('')
+  const [leaving, setLeaving] = useState(false)
+  const working = useRef(false)
   const [picking, setPicking] = useState<Pick | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -296,7 +322,7 @@ export function PageEditor() {
 
   // Typing into one field within a second counts as one step, so undo goes back a word or more, not a letter.
   const edit = (next: Doc, key = '') => {
-    if (!doc) return
+    if (!doc || working.current) return
     const now = Date.now()
     const merge = key !== '' && key === lastEdit.current.key && now - lastEdit.current.at < 1000
     lastEdit.current = { key, at: now }
@@ -306,14 +332,14 @@ export function PageEditor() {
     if (error === 'pageHandleTaken' && next.handle !== doc.handle) setError(null)
   }
   const undo = () => {
-    if (!doc || past.length === 0) return
+    if (!doc || working.current || past.length === 0) return
     setFuture((f) => [doc, ...f])
     setDoc(past[past.length - 1])
     setPast((p) => p.slice(0, -1))
     lastEdit.current = { key: '', at: 0 }
   }
   const redo = () => {
-    if (!doc || future.length === 0) return
+    if (!doc || working.current || future.length === 0) return
     setPast((p) => [...p, doc])
     setDoc(future[0])
     setFuture((f) => f.slice(1))
@@ -344,21 +370,25 @@ export function PageEditor() {
   }
 
   const run = async (work: () => Promise<void>) => {
+    if (working.current) return
+    working.current = true
     setBusy(true)
     try {
       await work()
     } finally {
+      working.current = false
       setBusy(false)
     }
   }
 
   const onSave = () => run(async () => {
-    if (await save()) setToast(t('pageSaved'))
+    if (await save()) setToast(t(page?.isPublished ? 'pageSaved' : 'pageDraftSaved'))
   })
   const publish = () => run(async () => {
-    if (dirty && !await save()) return
+    const saved = dirty ? await save() : page
+    if (!saved) return
     try {
-      show(await api<Saved>(`${base}/publish`, { method: 'POST' }))
+      show(await api<Saved>(`${base}/publish`, { method: 'POST', body: { revision: saved.revision } }))
       setToast(t('pagePublishedToast'))
     } catch (err) {
       setError(errorCode(err))
@@ -438,6 +468,7 @@ export function PageEditor() {
     setSections(next)
     setSelected(section.id)
     setAdding(false)
+    setSectionSearch('')
     setPane('edit')
   }
   const duplicate = (s: Section) => {
@@ -448,13 +479,15 @@ export function PageEditor() {
     setSelected(copy.id)
   }
   const choose = (sid: string) => {
+    setAdding(false)
     setSelected(sid)
     setPane('edit')
   }
 
   const section = sections.find((s) => s.id === selected)
   const index = section ? sections.indexOf(section) : -1
-  const liveUrl = `${storefrontUrl(current.store.handle)}/pages/${encodeURIComponent(page.handle)}`
+  const liveUrl = `${storefrontUrl(current.store.handle)}/pages/${encodeURIComponent(page.publishedHandle ?? page.handle)}`
+  const incompleteOrders = sections.filter((s) => !s.hidden && s.type === 'order' && (!s.settings.product || (typeof s.settings.product === 'string' && products[s.settings.product]?.status === 'draft')))
   const status = { isPublished: page.isPublished, hasChanges: page.isPublished && (page.hasChanges || dirty) }
 
   return (
@@ -462,18 +495,19 @@ export function PageEditor() {
       <PageTitle title={doc.title || t('pages')} />
       <header className="editor__bar">
         <div className="editor__title">
-          <Link className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
+          <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
           <h1 title={doc.title}>{doc.title || t('pages')}</h1>
           <PageStatus page={status} />
         </div>
         <div className="editor__tools">
-          <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={past.length === 0} onClick={undo}><Undo2 size={16} aria-hidden="true" /></IconButton>
-          <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={future.length === 0} onClick={redo}><Redo2 size={16} aria-hidden="true" /></IconButton>
+          <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
+          <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={busy || past.length === 0} onClick={undo}><Undo2 size={16} aria-hidden="true" /></IconButton>
+          <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={busy || future.length === 0} onClick={redo}><Redo2 size={16} aria-hidden="true" /></IconButton>
           <div className="editor__devices" role="group">
             <IconButton label={t('pageDesktop')} title={t('pageDesktop')} aria-pressed={!mobile} onClick={() => setMobile(false)}><Monitor size={16} aria-hidden="true" /></IconButton>
             <IconButton label={t('pageMobile')} title={t('pageMobile')} aria-pressed={mobile} onClick={() => setMobile(true)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
-          <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={selected === 'page'} onClick={() => choose('page')}><Settings2 size={16} aria-hidden="true" /></IconButton>
+          <button type="button" className="btn btn--icon editor__settings-toggle" aria-label={t('pageSettings')} title={t('pageSettings')} aria-pressed={selected === 'page'} onClick={() => choose('page')}><Settings2 size={16} aria-hidden="true" /></button>
           {page.isPublished && <a className="btn btn--icon" href={liveUrl} target="_blank" rel="noopener" aria-label={t('pageView')} title={t('pageView')}><ExternalLink size={16} aria-hidden="true" /></a>}
           <Button disabled={busy || !dirty} aria-busy={busy} onClick={() => void onSave()}>{t('pageSave')}</Button>
           <Button variant="primary" disabled={busy || (page.isPublished && !page.hasChanges && !dirty)} aria-busy={busy} onClick={() => void publish()}>{t('pagePublish')}</Button>
@@ -495,15 +529,21 @@ export function PageEditor() {
         </div>
       )}
 
-      <aside className="editor__sections" aria-label={t('pageSections')}>
-        <h2 className="editor__heading">{t('pageSections')}</h2>
+      <aside className="editor__sections" inert={busy} aria-label={t('pageSections')}>
+        <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
+        <button className="editor__page-settings" type="button" aria-pressed={selected === 'page'} onClick={() => choose('page')}><Settings2 size={16} aria-hidden="true" />{t('pageSettings')}</button>
+        {incompleteOrders.length > 0 && <div className="editor__readiness">
+          <p>{t('pageOrderNotReady')}</p>
+          {incompleteOrders.map((s) => <button key={s.id} type="button" onClick={() => choose(s.id)}>{L(defOf(s.type).label)}</button>)}
+        </div>}
         <ul className="editor-sections">
           {sections.map((s, i) => (
             <li
               key={s.id}
-              className={s.id === selected ? 'editor-sections__row editor-sections__row--selected' : 'editor-sections__row'}
+              className={`editor-sections__row${s.id === selected ? ' editor-sections__row--selected' : ''}${s.hidden ? ' editor-sections__row--hidden' : ''}`}
               draggable
               onDragStart={() => { dragFrom.current = i }}
+              onDragEnd={() => { dragFrom.current = null }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault()
@@ -512,9 +552,8 @@ export function PageEditor() {
               }}
             >
               <GripVertical className="collection-products__grip" size={16} aria-hidden="true" />
-              <button type="button" className="editor-sections__name" aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
-                <span>{L(defOf(s.type).label)}</span>
-                {short(s.settings.heading) && <span className="muted">{short(s.settings.heading)}</span>}
+              <button type="button" className="editor-sections__name" title={short(s.settings.heading) || L(defOf(s.type).label)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
+                <span className="editor-sections__label">{(() => { const Icon = sectionIcons[s.type]; return <Icon size={15} aria-hidden="true" /> })()}{L(defOf(s.type).label)}</span>
               </button>
               <IconButton label={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} title={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} onClick={() => updateSection(s.id, { hidden: !s.hidden })}>
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
@@ -531,9 +570,11 @@ export function PageEditor() {
                   <strong>{t('pageAddSection')}</strong>
                   <button type="button" className="media__dismiss" aria-label={t('cancel')} onClick={() => setAdding(false)}><X size={16} aria-hidden="true" /></button>
                 </div>
+                <SearchInput label={t('pageSearchSections')} value={sectionSearch} onChange={(e) => setSectionSearch(e.target.value)} autoFocus />
                 <ul>
-                  {sectionTypes.map((type) => <li key={type}><button type="button" onClick={() => add(type)}>{L(defOf(type).label)}</button></li>)}
+                  {sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(sectionSearch.toLowerCase().trim()))).map((type) => { const Icon = sectionIcons[type]; return <li key={type}><button type="button" onClick={() => add(type)}><Icon size={16} aria-hidden="true" />{L(defOf(type).label)}</button></li> })}
                 </ul>
+                {!sectionTypes.some((type) => defOf(type).label.some((label) => label.toLowerCase().includes(sectionSearch.toLowerCase().trim()))) && <p className="muted">{t('pageNoMatches')}</p>}
               </div>
             )
             : <Button onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('pageAddSection')}</Button>
@@ -544,12 +585,12 @@ export function PageEditor() {
         <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
       </section>
 
-      <aside className="editor__settings" aria-label={t('pageEditTab')}>
+      <aside className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
         {section && (
           <>
             <div className="editor__settings-head">
               <h2 className="editor__heading">{L(defOf(section.type).label)}</h2>
-              <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => setSelected(null)}><X size={16} aria-hidden="true" /></button>
+              <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
             </div>
             {section.hidden && <p className="muted">{t('pageHidden')}</p>}
             <div className="editor__form">
@@ -563,11 +604,11 @@ export function PageEditor() {
               />
               {section.type === 'order' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings')} target="_blank">{t('sStore')}</Link></p>}
             </div>
-            <div className="editor__section-actions">
-              <Button disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" />{t('pageMoveUp')}</Button>
-              <Button disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" />{t('pageMoveDown')}</Button>
-              <Button disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" />{t('pageDuplicateSection')}</Button>
-              <Button variant="danger" onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null) }}><Trash2 size={16} aria-hidden="true" />{t('pageRemoveSection')}</Button>
+            <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
+              <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /></IconButton>
+              <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" /></IconButton>
+              <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" /></IconButton>
+              <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null) }}><Trash2 size={16} aria-hidden="true" /></IconButton>
             </div>
           </>
         )}
@@ -576,7 +617,7 @@ export function PageEditor() {
           <>
             <div className="editor__settings-head">
               <h2 className="editor__heading">{t('pageSettings')}</h2>
-              <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => setSelected(null)}><X size={16} aria-hidden="true" /></button>
+              <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
             </div>
             <div className="editor__form">
               <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
@@ -611,6 +652,8 @@ export function PageEditor() {
 
         {!section && selected !== 'page' && <p className="muted editor__empty">{t('pageSelectHint')}</p>}
       </aside>
+
+      {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(path('/landing-pages'))} onSave={() => void run(async () => { if (await save()) navigate(path('/landing-pages')); else setLeaving(false) })} busy={busy} />}
 
       {picking?.kind === 'image' && (
         <MediaPicker selected={[]} max={1} onClose={() => setPicking(null)} onDone={(items) => {

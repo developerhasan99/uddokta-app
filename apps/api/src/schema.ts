@@ -225,6 +225,7 @@ export const pages = pgTable('pages', {
   seoDescription: text('seo_description').notNull().default(''),
   draft: jsonb('draft').notNull(),
   published: jsonb('published'),
+  publishedMeta: jsonb('published_meta').$type<{ title: string; handle: string; seoTitle: string; seoDescription: string }>(),
   revision: integer('revision').notNull().default(1),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -443,3 +444,13 @@ export const shifts = pgTable('shifts', {
   index('shifts_store_started').on(t.storeId, t.startedAt),
   check('shifts_order', sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
 ])
+
+// Opaque checkout receipts also hold the idempotency result. Public reads expose only number and total.
+export const checkoutReceipts = pgTable('checkout_receipts', {
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  token: uuid('token').notNull(),
+  fingerprint: text('fingerprint').notNull(),
+  number: integer('number').notNull(),
+  total: integer('total').notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.storeId, t.token] })])

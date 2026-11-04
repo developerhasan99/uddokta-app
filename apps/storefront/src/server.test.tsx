@@ -44,8 +44,8 @@ async function publishedPage(status = 'active') {
   })).json
   const page = (await call('POST', `/stores/${handle}/pages`, { title: 'ঈদ অফার' })).json
   const sections = page.draft.sections.map((s: any) => (s.type === 'order' ? { ...s, settings: { ...s.settings, product: product.id } } : s))
-  await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: page.title, handle: page.handle, draft: { version: 1, sections }, revision: page.revision })
-  await call('POST', `/stores/${handle}/pages/${page.id}/publish`)
+  const savedPage = await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: page.title, handle: page.handle, draft: { version: 1, sections }, revision: page.revision })
+  await call('POST', `/stores/${handle}/pages/${page.id}/publish`, { revision: savedPage.json.revision })
   const orderSection = sections.find((s: any) => s.type === 'order').id
   return { call, handle, product, page, orderSection, url: `/pages/${encodeURIComponent(page.handle)}` }
 }

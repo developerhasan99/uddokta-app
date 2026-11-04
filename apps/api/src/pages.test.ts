@@ -62,12 +62,12 @@ test('a new page starts with a landing page layout, and only publishing puts it 
   assert.equal(made.json.isPublished, false)
   assert.equal(await storefrontPage(owner.handle, 'ঈদ-অফার'), undefined, 'a draft is never public')
 
-  const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`)
+  const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })
   assert.equal(published.json.isPublished, true)
   assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 7)
 
   const draft = { version: 1, sections: [made.json.draft.sections[0]] }
-  const saved = await save(owner, made.json, { draft })
+  const saved = await save(owner, published.json, { draft })
   assert.equal(saved.status, 200)
   assert.equal(saved.json.hasChanges, true)
   assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 7, 'the storefront keeps the published version until the next publish')
@@ -130,7 +130,7 @@ test('staff can make and publish pages but not delete them', async () => {
   await staff('POST', `/invites/${invite.json.token}/accept`)
   const made = await staff('POST', owner.base, { title: 'S' })
   assert.equal(made.status, 201)
-  assert.equal((await staff('POST', `${owner.base}/${made.json.id}/publish`)).status, 200)
+  assert.equal((await staff('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })).status, 200)
   assert.equal((await staff('DELETE', `${owner.base}/${made.json.id}`)).status, 403)
   assert.equal((await owner.call('DELETE', `${owner.base}/${made.json.id}`)).status, 200)
 })
@@ -144,7 +144,7 @@ test('one store cannot reach another store’s pages, images or products', async
   assert.equal((await a.call('GET', b.base)).status, 404)
   assert.equal((await a.call('GET', `${a.base}/${theirs.id}`)).status, 404)
   assert.equal((await save(a, theirs)).status, 404)
-  assert.equal((await a.call('POST', `${a.base}/${theirs.id}/publish`)).status, 404)
+  assert.equal((await a.call('POST', `${a.base}/${theirs.id}/publish`, { revision: theirs.revision })).status, 404)
   assert.equal((await a.call('DELETE', `${a.base}/${theirs.id}`)).status, 403)
 
   const mine = (await a.call('POST', a.base, { title: 'A' })).json
@@ -162,4 +162,19 @@ test('one store cannot reach another store’s pages, images or products', async
     tx(me.json.user.id, (t) => t.insert(pages).values({ storeId: b.storeId, title: 'x', handle: 'x', draft: {} })),
     'the database refuses writing into another store',
   )
+})
+
+test('publishing checks the exact revision and invalidates older editor copies', async () => {
+  const owner = await storeOwner()
+  const page = (await owner.call('POST', owner.base, { title: 'Campaign' })).json
+  const saved = (await save(owner, page, { title: 'Updated campaign' })).json
+  const url = `${owner.base}/${page.id}/publish`
+  assert.equal((await owner.call('POST', url, { revision: page.revision })).status, 409)
+  assert.equal(await storefrontPage(owner.handle, page.handle), undefined)
+  const published = await owner.call('POST', url, { revision: saved.revision })
+  assert.equal(published.status, 200)
+  assert.equal(published.json.revision, saved.revision + 1)
+  assert.equal((await owner.call('POST', url, { revision: saved.revision })).status, 409)
+  assert.equal((await save(owner, saved)).status, 409)
+  assert.equal((await owner.call('POST', url)).status, 400)
 })

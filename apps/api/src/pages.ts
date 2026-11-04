@@ -30,11 +30,15 @@ function readPage(body: any) {
 }
 
 async function chooseHandle(t: Tx, storeId: string, title: string, handle: string, pageId?: string) {
-  if (handle) return handle
-  return firstFreeHandle(slugify(title) || 'page', async (h) => {
-    const [taken] = await t.select({ id: pages.id }).from(pages).where(and(eq(pages.storeId, storeId), eq(pages.handle, h)))
-    return Boolean(taken) && taken.id !== pageId
-  })
+  const taken = async (h: string) => {
+    const [found] = await t.select({ id: pages.id }).from(pages).where(and(eq(pages.storeId, storeId), sql`(${pages.handle} = ${h} or (${pages.published} is not null and ${pages.publishedMeta}->>'handle' = ${h}))`, pageId ? sql`${pages.id} <> ${pageId}::uuid` : undefined))
+    return Boolean(found)
+  }
+  if (handle) {
+    if (await taken(handle)) throw fail(409, 'pageHandleTaken')
+    return handle
+  }
+  return firstFreeHandle(slugify(title) || 'page', taken)
 }
 
 const refuseTakenHandle = (err: unknown) => {
@@ -68,8 +72,9 @@ async function loadPage(t: Tx, storeId: string, id: string) {
   return {
     id: row.id, title: row.title, handle: row.handle, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     draft: row.draft as Content, revision: row.revision, publishedAt: row.publishedAt, updatedAt: row.updatedAt,
+    publishedHandle: row.published !== null ? row.publishedMeta?.handle ?? null : null,
     isPublished: row.published !== null,
-    hasChanges: row.published !== null && JSON.stringify(row.published) !== JSON.stringify(row.draft),
+    hasChanges: row.published !== null && (JSON.stringify(row.published) !== JSON.stringify(row.draft) || row.publishedMeta?.title !== row.title || row.publishedMeta?.handle !== row.handle || row.publishedMeta?.seoTitle !== row.seoTitle || row.publishedMeta?.seoDescription !== row.seoDescription),
     media: Object.fromEntries(used.map((u) => [u.media.id, presentMedia(u.media)])),
   }
 }
@@ -88,7 +93,7 @@ export function registerPages(app: Hono<Env>) {
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       const rows = await t.execute<{ id: string; title: string; handle: string; is_published: boolean; has_changes: boolean; updated_at: string }>(sql`
-        select id, title, handle, published is not null as is_published, published is not null and published <> draft as has_changes, updated_at
+        select id, title, handle, published is not null as is_published, published is not null and (published <> draft or published_meta is distinct from jsonb_build_object('title', title, 'handle', handle, 'seoTitle', seo_title, 'seoDescription', seo_description)) as has_changes, updated_at
         from pages where store_id = ${store.id}::uuid order by updated_at desc, id desc limit ${maxPages}`)
       return c.json(rows.rows.map((r) => ({ id: r.id, title: r.title, handle: r.handle, isPublished: r.is_published, hasChanges: r.has_changes, updatedAt: r.updated_at })))
     })
@@ -117,6 +122,7 @@ export function registerPages(app: Hono<Env>) {
   app.put('/stores/:handle/pages/:id', async (c) => {
     const input = readPage(await c.req.json().catch(() => null))
     return pageRoute(async (c, t, storeId, id) => {
+      await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
       await checkReferences(t, storeId, input.draft)
       const [row] = await t.update(pages)
         .set({ title: input.title, handle: await chooseHandle(t, storeId, input.title, input.handle, id), seoTitle: input.seoTitle, seoDescription: input.seoDescription, draft: input.draft, revision: sql`${pages.revision} + 1`, updatedAt: sql`now()` })
@@ -132,15 +138,24 @@ export function registerPages(app: Hono<Env>) {
   })
 
   // ponytail: no CDN in front of the storefront yet; purge the page's URL here once Cloudflare caches it.
-  app.post('/stores/:handle/pages/:id/publish', pageRoute(async (c, t, storeId, id) => {
-    const [row] = await t.update(pages).set({ published: sql`${pages.draft}`, publishedAt: sql`now()` }).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ draft: pages.draft })
-    if (!row) throw fail(404, 'notFound')
-    await syncMedia(t, storeId, id, row.draft as Content, null)
-    return c.json(await loadPage(t, storeId, id))
-  }))
+  app.post('/stores/:handle/pages/:id/publish', async (c) => {
+    const body = await c.req.json().catch(() => null)
+    if (!body || !Number.isInteger(body.revision)) throw fail(400, 'invalidRequest')
+    return pageRoute(async (c, t, storeId, id) => {
+      await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
+      const [row] = await t.update(pages).set({ published: sql`${pages.draft}`, publishedMeta: sql`jsonb_build_object('title', ${pages.title}, 'handle', ${pages.handle}, 'seoTitle', ${pages.seoTitle}, 'seoDescription', ${pages.seoDescription})`, publishedAt: sql`now()`, revision: sql`${pages.revision} + 1` })
+        .where(and(eq(pages.storeId, storeId), eq(pages.id, id), eq(pages.revision, body.revision))).returning({ draft: pages.draft })
+      if (!row) {
+        const [exists] = await t.select({ id: pages.id }).from(pages).where(and(eq(pages.storeId, storeId), eq(pages.id, id)))
+        throw exists ? fail(409, 'pageChanged') : fail(404, 'notFound')
+      }
+      await syncMedia(t, storeId, id, row.draft as Content, null)
+      return c.json(await loadPage(t, storeId, id))
+    })(c)
+  })
 
   app.post('/stores/:handle/pages/:id/unpublish', pageRoute(async (c, t, storeId, id) => {
-    const [row] = await t.update(pages).set({ published: null, publishedAt: null }).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ draft: pages.draft })
+    const [row] = await t.update(pages).set({ published: null, publishedMeta: null, publishedAt: null }).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ draft: pages.draft })
     if (!row) throw fail(404, 'notFound')
     await syncMedia(t, storeId, id, row.draft as Content, null)
     return c.json(await loadPage(t, storeId, id))
