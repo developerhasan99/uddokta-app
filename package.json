@@ -8,6 +8,7 @@
     "db:start": "sh scripts/db.sh start",
     "db:stop": "sh scripts/db.sh stop",
     "db:migrate": "npm run migrate -w api",
+    "db:studio": "npm run db:studio -w api",
     "dev": "npm run dev -w api & npm run dev -w storefront & npm run dev -w dashboard & wait",
     "build": "npm run typecheck -w api && npm run typecheck -w storefront && npm run build -w dashboard",
     "test": "npm test -w api && npm test -w storefront && npm test -w dashboard"

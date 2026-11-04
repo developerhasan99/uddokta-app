@@ -7,6 +7,7 @@
     "start": "node src/index.ts",
     "migrate": "node --env-file=.env src/migrate.ts",
     "db:generate": "drizzle-kit generate",
+    "db:studio": "node --env-file=.env ../../node_modules/drizzle-kit/bin.cjs studio",
     "typecheck": "tsc --noEmit",
     "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media node --test --test-concurrency=1 src/*.test.ts",
     "migrate:deploy": "node src/migrate.ts"

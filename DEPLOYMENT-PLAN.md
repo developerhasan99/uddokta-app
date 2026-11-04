@@ -145,4 +145,13 @@ We stopped during domain setup, after the first application deployment succeeded
 7. Railway's Backups page says creating backups, automated schedules, and point-in-time recovery require Pro; no backup was configured or upgrade purchased. Agree on an alternative backup/restore process or an authorized plan upgrade before broader release.
 8. Rotate the 30-day R2 credential before December 4, 2026, update both services, and verify uploads. Do not create a reminder unless requested.
 
+### Progress, November 4, 2026 (second session)
+
+- `admin.uddokta.studio` is attached to the admin service on port 8080. Railway asks for these records in the Hostinger `uddokta.studio` zone (no existing `admin` records): CNAME `admin` → `xtzhzsn6.up.railway.app`; TXT `_railway-verify.admin` → `railway-verify=1ecf1487eb2477d31ce0832bba433dcf8f783312d991ef358fd558907792f84c`. Added with user approval. `https://admin.uddokta.studio` is live: health 200, deep links return dashboard HTML, unknown `/api/*` returns JSON 401.
+- `*.uddokta.live` is attached to the storefront on port 8080. Records added to the Cloudflare `uddokta.live` zone, all DNS-only (grey cloud) so Railway can issue the wildcard certificate: CNAME `*` → `ekor3bbb.up.railway.app`; CNAME `_acme-challenge` → `ekor3bbb.authorize.railwaydns.net`; TXT `_railway-verify` → `railway-verify=ef75dfa4c163a6935247cbd5e6c02b1ab59e6711e0e71a61866163551b58be5c`. Apex A and www CNAME untouched.
+- With user approval, `uddokta.live` nameservers at Hostinger were changed to `malcolm.ns.cloudflare.com` / `rachel.ns.cloudflare.com` (studio unchanged). At the end of the session the `.live` registry still served the old Hostinger nameservers; wait for propagation (up to 24h), then confirm the Cloudflare zone is Active and the Railway wildcard certificate is issued.
+- Why `uddokta.live` is on Cloudflare: an R2 custom domain (`media.uddokta.live`) only works on a zone in the same Cloudflare account, and storefront CDN caching, purge-on-publish and later Cloudflare for SaaS custom domains need it too. The studio zone only needs one CNAME, so it stays at Hostinger.
+- Storefront restart policy confirmed: On Failure, 3 retries.
+- Next: once the zone is Active, connect R2 bucket `uddokta-beta-media` to `media.uddokta.live`, then live QA (step 6).
+
 Cloud account tabs may need signing in again when resuming. Secrets are already stored in Railway; do not request or paste them into chat. Re-check dashboard values rather than relying on old UI element IDs. Preserve the user's public-access approvals recorded above.
