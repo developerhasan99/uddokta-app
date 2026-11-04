@@ -11,5 +11,8 @@
     "dev": "npm run dev -w api & npm run dev -w storefront & npm run dev -w dashboard & wait",
     "build": "npm run typecheck -w api && npm run typecheck -w storefront && npm run build -w dashboard",
     "test": "npm test -w api && npm test -w storefront && npm test -w dashboard"
+  },
+  "engines": {
+    "node": ">=26.8.1 <27"
   }
 }

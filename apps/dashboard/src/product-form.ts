@@ -41,7 +41,7 @@ export function linkAddress(text: string) {
 export const slugify = (text: string) => text.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}\u200c\u200d]+/gu, '-').slice(0, 100).replace(/^-+|-+$/g, '')
 
 // ponytail: the storefront domain is not decided yet; change it here once stores have real addresses, and use a custom domain when the store has one.
-export const storeAddress = (storeHandle: string) => `https://${storeHandle}.uddokta.com`
+export const storeAddress = (storeHandle: string) => `https://${storeHandle}.${import.meta.env?.VITE_STOREFRONT_DOMAIN || 'uddokta.live'}`
 
 export const seoTitleLimit = 70
 export const seoDescriptionLimit = 160

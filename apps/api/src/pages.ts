@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
+import { isReservedPageHandle } from 'storefront/paths'
 import { readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia } from './media.ts'
@@ -35,10 +36,11 @@ async function chooseHandle(t: Tx, storeId: string, title: string, handle: strin
     return Boolean(found)
   }
   if (handle) {
+    if (isReservedPageHandle(handle)) throw fail(409, 'pageHandleReserved')
     if (await taken(handle)) throw fail(409, 'pageHandleTaken')
     return handle
   }
-  return firstFreeHandle(slugify(title) || 'page', taken)
+  return firstFreeHandle(slugify(title) || 'page', async (h) => isReservedPageHandle(h) || await taken(h))
 }
 
 const refuseTakenHandle = (err: unknown) => {

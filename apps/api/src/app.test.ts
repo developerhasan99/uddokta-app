@@ -242,3 +242,26 @@ test('owners and admins set the store name and delivery charges; staff can only 
   const other = await storeWithOwner()
   assert.equal((await other.owner.call('PUT', base, { name: 'x', deliveryInside: 0, deliveryOutside: 0 })).status, 404)
 })
+
+test('merchant handles cannot claim infrastructure hosts', async () => {
+  const { call } = await signUp()
+  for (const handle of ['media', 'admin', 'www', 'api', 'a'.repeat(64)]) {
+    assert.equal((await call('POST', '/stores', { name: 'Shop', handle })).json.error, 'handleInvalid')
+  }
+})
+
+test('beta registration is enforced by the API', async () => {
+  const oldMode = process.env.SIGNUP_MODE
+  const oldList = process.env.SIGNUP_EMAIL_ALLOWLIST
+  try {
+    process.env.SIGNUP_MODE = 'allowlist'
+    process.env.SIGNUP_EMAIL_ALLOWLIST = 'allowed@example.test'
+    const denied = await client()('POST', '/auth/signup', { name: 'Denied', email: 'denied@example.test', password: 'correct horse' })
+    assert.equal(denied.status, 403)
+    assert.equal(denied.json.error, 'signupClosed')
+    assert.equal((await client()('POST', '/auth/signup', { name: 'Allowed', email: 'allowed@example.test', password: 'correct horse' })).status, 201)
+  } finally {
+    if (oldMode === undefined) delete process.env.SIGNUP_MODE; else process.env.SIGNUP_MODE = oldMode
+    if (oldList === undefined) delete process.env.SIGNUP_EMAIL_ALLOWLIST; else process.env.SIGNUP_EMAIL_ALLOWLIST = oldList
+  }
+})

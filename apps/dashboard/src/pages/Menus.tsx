@@ -1,3 +1,4 @@
+import { pageHref } from 'storefront/paths'
 import { useEffect, useState } from 'react'
 import { ArrowUp, CircleCheck, Plus, X } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
@@ -28,7 +29,7 @@ export function Menus() {
       setSaved(JSON.stringify(s.menu))
     }).catch((err) => setError(errorCode(err)))
     api<{ name: string; handle: string }[]>(`/stores/${handle}/collections/options`).then((r) => setCollections(r.map((c) => ({ label: c.name, href: `/collections/${encodeURIComponent(c.handle)}` })))).catch(() => {})
-    api<PageRow[]>(`/stores/${handle}/pages`).then((r) => setPages(r.filter((p) => p.isPublished).map((p) => ({ label: p.title, href: `/pages/${encodeURIComponent(p.handle)}` })))).catch(() => {})
+    api<PageRow[]>(`/stores/${handle}/pages`).then((r) => setPages(r.filter((p) => p.isPublished).map((p) => ({ label: p.title, href: pageHref(p.handle) })))).catch(() => {})
   }, [handle])
 
   useEffect(() => {

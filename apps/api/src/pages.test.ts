@@ -212,3 +212,14 @@ test('public metadata and live address reservations are isolated by store', asyn
   }
   assert.notEqual((await storefrontPage(a.handle, 'campaign')).store_id, (await storefrontPage(b.handle, 'campaign')).store_id)
 })
+
+test('campaign handles cannot take system paths, while generated handles avoid them', async () => {
+  const owner = await storeOwner()
+  for (const handle of ['products', 'collections', 'api', 'checkout', 'pages', 'thanks']) {
+    const result = await owner.call('POST', owner.base, { title: 'Campaign', handle })
+    assert.equal(result.status, 409)
+    assert.equal(result.json.error, 'pageHandleReserved')
+  }
+  const generated = await owner.call('POST', owner.base, { title: 'Products' })
+  assert.equal(generated.json.handle, 'products-2')
+})

@@ -48,7 +48,7 @@ async function publishedPage(status = 'active') {
   const savedPage = await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: page.title, handle: page.handle, draft: { version: 1, sections }, revision: page.revision })
   await call('POST', `/stores/${handle}/pages/${page.id}/publish`, { revision: savedPage.json.revision })
   const orderSection = sections.find((s: any) => s.type === 'order').id
-  return { call, handle, product, page, orderSection, url: `/pages/${encodeURIComponent(page.handle)}` }
+  return { call, handle, product, page, orderSection, url: `/${encodeURIComponent(page.handle)}` }
 }
 
 const visit = (store: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { host: `${store}.localhost:8788`, ...init.headers } })
@@ -477,4 +477,27 @@ test('confirmation amounts come from a store-scoped receipt, never URL parameter
   const otherUser = (await other.call('GET', '/me')).json.user.id
   assert.equal((await tx(otherUser, (t) => t.execute(sql`select * from checkout_receipts where token = ${fields.checkout}::uuid`))).rowCount, 0, 'another store member cannot read the receipt row')
 
+})
+
+test('short campaign URLs preserve legacy links, checkout posts, and receipt redirects', async () => {
+  const s = await publishedPage()
+  const legacy = `/pages/${encodeURIComponent(s.page.handle)}`
+  const redirected = await visit(s.handle, `${legacy}?utm_source=qa`)
+  assert.equal(redirected.status, 308)
+  assert.equal(redirected.headers.get('location'), `${s.url}?utm_source=qa`)
+  const placed = await order(s.handle, legacy, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' })
+  assert.equal(placed.status, 303)
+  assert.ok(placed.headers.get('location')!.startsWith(`${s.url}/thanks?receipt=`))
+  const receipt = new URL(placed.headers.get('location')!, 'http://test').search
+  const oldThanks = await visit(s.handle, `${legacy}/thanks${receipt}`)
+  assert.equal(oldThanks.headers.get('location'), `${s.url}/thanks${receipt}`)
+  assert.equal((await visit(s.handle, '/api')).status, 404)
+  assert.equal((await visit(s.handle, '/products')).status, 404)
+  assert.equal((await visit(s.handle, '/missing-page')).status, 404)
+  assert.equal((await visit('media', s.url)).status, 404)
+  assert.equal((await visit('nested.store', s.url)).status, 404)
+  assert.equal((await visit('healthcheck', '/_health')).status, 200)
+  const page = await (await visit(s.handle, s.url)).text()
+  assert.match(page, /rel="canonical"/)
+  assert.ok(page.includes(`action="${s.url}"`))
 })

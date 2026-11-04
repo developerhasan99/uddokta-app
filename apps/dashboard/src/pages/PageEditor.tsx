@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import {
   ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Monitor, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
+import { pageHref } from 'storefront/paths'
 import { defOf, maxSections, newSection, sectionTypes, videoEmbed, type Content, type Field as SchemaField, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product } from 'storefront/sections'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
@@ -486,7 +487,7 @@ export function PageEditor() {
 
   const section = sections.find((s) => s.id === selected)
   const index = section ? sections.indexOf(section) : -1
-  const liveUrl = `${storefrontUrl(current.store.handle)}/pages/${encodeURIComponent(page.publishedHandle ?? page.handle)}`
+  const liveUrl = `${storefrontUrl(current.store.handle)}${pageHref(page.publishedHandle ?? page.handle)}`
   const incompleteOrders = sections.filter((s) => !s.hidden && s.type === 'order' && (!s.settings.product || (typeof s.settings.product === 'string' && products[s.settings.product]?.status === 'draft')))
   const status = { isPublished: page.isPublished, hasChanges: page.isPublished && (page.hasChanges || dirty) }
 
@@ -621,7 +622,7 @@ export function PageEditor() {
             </div>
             <div className="editor__form">
               <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
-              <Field id="page-handle" label={t('pageAddress')} unit="/pages/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />
+              <Field id="page-handle" label={t('pageAddress')} unit="/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />
               <p className="muted editor__url">
                 {page.isPublished ? <a href={liveUrl} target="_blank" rel="noopener">{liveUrl}</a> : t('pageNotLive')}
               </p>

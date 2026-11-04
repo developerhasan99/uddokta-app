@@ -6,6 +6,8 @@ import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
+import { isReservedStoreHandle } from 'storefront/paths'
+import { registrationAllowed } from './runtime.ts'
 import { isPreset } from 'storefront/themes'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerAnalytics } from './analytics.ts'
@@ -111,6 +113,7 @@ app.post('/auth/signup', async (c) => {
   const password = typeof body.password === 'string' ? body.password : ''
   if (!name) throw fail(400, 'nameRequired')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, 'emailInvalid')
+  if (!registrationAllowed(email)) throw fail(403, 'signupClosed')
   if (password.length < 8) throw fail(400, 'weakPassword')
 
   const id = randomUUID()
@@ -198,7 +201,7 @@ app.post('/stores', async (c) => {
   const name = text(body, 'name')
   const handle = text(body, 'handle').toLowerCase()
   if (!name) throw fail(400, 'nameRequired')
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(handle)) throw fail(400, 'handleInvalid')
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(handle) || handle.length > 63 || isReservedStoreHandle(handle)) throw fail(400, 'handleInvalid')
 
   const id = randomUUID()
   const userId = c.get('userId')

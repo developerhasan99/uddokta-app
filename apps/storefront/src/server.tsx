@@ -5,6 +5,8 @@ import { Hono, type Context } from 'hono'
 import { renderToString } from 'react-dom/server'
 import { tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
+import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
+import { validateRuntime } from '../../api/src/runtime.ts'
 import { readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
 import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type MenuLink } from './catalog.tsx'
@@ -45,7 +47,8 @@ async function trackingFor(storeId: string) {
 
 function storeHandle(c: Context) {
   const host = (c.req.header('x-forwarded-host') ?? c.req.header('host') ?? '').split(':')[0].toLowerCase()
-  return host.endsWith(`.${domain}`) ? host.slice(0, -domain.length - 1) : null
+  const handle = host.endsWith(`.${domain}`) ? host.slice(0, -domain.length - 1) : ''
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(handle) && handle.length <= 63 && !isReservedStoreHandle(handle) ? handle : null
 }
 
 type PageRow = { store_id: string; store_name: string; delivery_inside: number; delivery_outside: number; theme: string; page_id: string; title: string; seo_title: string; seo_description: string; content: Content }
@@ -110,7 +113,7 @@ const pageNumber = (c: Context) => Math.min(Math.max(Number(c.req.query('page'))
 
 const themeOf = (theme: string | undefined): PresetId => (isPreset(theme) ? theme : 'fresh')
 
-function Document({ title, description, noindex, theme, pixel, children }: { title: string; description: string; noindex?: boolean; theme?: string; pixel?: string; children: React.ReactNode }) {
+function Document({ title, description, noindex, canonical, theme, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; theme?: string; pixel?: string; children: React.ReactNode }) {
   return (
     <html lang="bn">
       <head>
@@ -118,8 +121,9 @@ function Document({ title, description, noindex, theme, pixel, children }: { tit
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         {description && <meta name="description" content={description} />}
-        {noindex && <meta name="robots" content="noindex" />}
+        {(noindex || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
         <meta property="og:title" content={title} />
+        {canonical && <link rel="canonical" href={canonical} />}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={presetFontsHref(themeOf(theme))} />
         <style dangerouslySetInnerHTML={{ __html: css + catalogCss + presetCss(themeOf(theme)) }} />
@@ -141,7 +145,7 @@ function notFound(c: Context) {
   ), 404)
 }
 
-const pagePath = (c: Context) => `/pages/${encodeURIComponent(c.req.param('handle')!)}`
+const pagePath = (c: Context) => pageHref(c.req.param('handle')!)
 const productPath = (c: Context) => `/products/${encodeURIComponent(c.req.param('handle')!)}`
 
 async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
@@ -156,7 +160,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     order,
   }
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} theme={page.theme} pixel={pixel}>
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${process.env.NODE_ENV === 'production' ? 'https:' : new URL(c.req.url).protocol}//${storeHandle(c)}.${domain}${process.env.NODE_ENV === 'production' ? '' : new URL(c.req.url).port ? `:${new URL(c.req.url).port}` : ''}${pagePath(c)}`} theme={page.theme} pixel={pixel}>
       <PageView content={page.content} ctx={ctx} storeName={page.store_name} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
     </Document>
@@ -223,6 +227,12 @@ async function thanks(c: Context, storeId: string, storeName: string, back: stri
 }
 
 export const app = new Hono()
+app.get('/robots.txt', (c) => c.text(process.env.ROBOTS_NOINDEX === 'true' ? 'User-agent: *\nDisallow: /\n' : 'User-agent: *\nAllow: /\n'))
+app.get('/_health', async (c) => {
+  c.header('Cache-Control', 'no-store')
+  try { await tx(null, (t) => t.execute(sql`select 1`)); return c.json({ status: 'ok' }) }
+  catch { return c.json({ status: 'unavailable' }, 503) }
+})
 
 // Development stand-in for the public R2 bucket, as in the API.
 app.get('/api/media-files/:store/:file', async (c) => {
@@ -283,10 +293,13 @@ app.get('/products/:handle', async (c) => {
   return store && item ? renderProduct(c, store, item) : notFound(c)
 })
 
+// Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.
 app.get('/pages/:handle', async (c) => {
   const store = storeHandle(c)
-  const page = store && await loadPage(store, c.req.param('handle'))
-  return page ? renderPage(c, page) : notFound(c)
+  const handle = c.req.param('handle')
+  const page = store && await loadPage(store, handle)
+  if (!page) return notFound(c)
+  return isReservedPageHandle(handle) ? renderPage(c, page) : c.redirect(`${pageHref(handle)}${new URL(c.req.url).search}`, 308)
 })
 
 const isCheckoutToken = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
@@ -333,9 +346,9 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   }
 }
 
-app.post('/pages/:handle', async (c) => {
+const submitLandingPage = async (c: Context) => {
   const store = storeHandle(c)
-  const page = store && await loadPage(store, c.req.param('handle'))
+  const page = store && await loadPage(store, c.req.param('handle')!)
   if (!page) return notFound(c)
   const form = await c.req.raw.clone().formData().catch(() => null)
   const section = page.content.sections.find((s) => s.id === form?.get('section') && s.type === 'order' && !s.hidden)
@@ -345,7 +358,8 @@ app.post('/pages/:handle', async (c) => {
     storeId: page.store_id, pageId: page.page_id, source: 'landing_page', product, sectionId: section.id,
     back: pagePath(c), reject: (order) => renderPage(c, page, order),
   })
-})
+}
+app.post('/pages/:handle', submitLandingPage)
 
 app.post('/products/:handle', async (c) => {
   const handle = storeHandle(c)
@@ -374,8 +388,10 @@ app.post('/drafts', async (c) => {
 // An opaque, store-scoped receipt supplies the confirmed number and total. URL amounts are never trusted.
 app.get('/pages/:handle/thanks', async (c) => {
   const store = storeHandle(c)
-  const page = store && await loadPage(store, c.req.param('handle'))
-  return page ? thanks(c, page.store_id, page.store_name, pagePath(c), page.theme) : notFound(c)
+  const handle = c.req.param('handle')!
+  const page = store && await loadPage(store, handle)
+  if (!page) return notFound(c)
+  return isReservedPageHandle(handle) ? thanks(c, page.store_id, page.store_name, pagePath(c), page.theme) : c.redirect(`${pageHref(handle)}/thanks${new URL(c.req.url).search}`, 308)
 })
 
 app.get('/products/:handle/thanks', async (c) => {
@@ -384,9 +400,26 @@ app.get('/products/:handle/thanks', async (c) => {
   return store ? thanks(c, store.id, store.name, productPath(c), store.theme) : notFound(c)
 })
 
+// Specific catalog, media and system routes above always take precedence.
+app.get('/:handle', async (c) => {
+  const handle = c.req.param('handle')
+  if (isReservedPageHandle(handle) || handle.includes('.')) return notFound(c)
+  const store = storeHandle(c)
+  const page = store && await loadPage(store, handle)
+  return page ? renderPage(c, page) : notFound(c)
+})
+app.post('/:handle', async (c) => isReservedPageHandle(c.req.param('handle')) ? notFound(c) : submitLandingPage(c))
+app.get('/:handle/thanks', async (c) => {
+  const handle = c.req.param('handle')
+  if (isReservedPageHandle(handle)) return notFound(c)
+  const store = storeHandle(c)
+  const page = store && await loadPage(store, handle)
+  return page ? thanks(c, page.store_id, page.store_name, pagePath(c), page.theme) : notFound(c)
+})
 app.notFound(notFound)
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const port = Number(process.env.STOREFRONT_PORT ?? 8788)
-  serve({ fetch: app.fetch, port }, () => console.log(`Storefront on http://{store}.${domain}:${port}`))
+  validateRuntime('storefront')
+  const port = Number(process.env.PORT ?? process.env.STOREFRONT_PORT ?? 8788)
+  serve({ fetch: app.fetch, hostname: '0.0.0.0', port }, () => console.log(`Storefront on http://{store}.${domain}:${port}`))
 }

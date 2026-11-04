@@ -5,7 +5,8 @@
   "exports": {
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
-    "./themes": "./src/themes.ts"
+    "./themes": "./src/themes.ts",
+    "./paths": "./src/paths.ts"
   },
   "scripts": {
     "dev": "tsx watch --env-file=../api/.env src/server.tsx",

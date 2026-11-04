@@ -128,7 +128,7 @@ export function Pages() {
                     <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                       <span className="data-table__text">
                         <span className="data-table__name" title={row.title}>{row.title}</span>
-                        <span className="table__sub">/pages/{row.handle}</span>
+                        <span className="table__sub">/{row.handle}</span>
                       </span>
                     </Link>
                   </td>

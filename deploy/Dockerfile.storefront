@@ -1,0 +1,19 @@
+FROM node:26.8.1-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY apps/storefront/package.json apps/storefront/package.json
+RUN npm ci
+COPY apps ./apps
+ARG VITE_STOREFRONT_DOMAIN=uddokta.live
+ENV VITE_STOREFRONT_DOMAIN=$VITE_STOREFRONT_DOMAIN
+RUN npm run build && npm prune --omit=dev
+
+FROM node:26.8.1-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production
+ENV TSX_TSCONFIG_PATH=/app/apps/storefront/tsconfig.json
+COPY --from=build --chown=node:node /app /app
+USER node
+CMD ["node", "--import=tsx", "apps/storefront/src/server.tsx"]
