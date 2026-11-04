@@ -100,12 +100,11 @@ Record the exact source revision and deployed service versions. Keep migrations 
 
 After the beta passes, prepare an isolated production environment with its own database, R2 bucket, keys, backup policy and access settings. Agree on domain cutover and handling/removal of synthetic beta data before routing real merchants. Broad launch still depends on the remaining product gates in `QA-REVIEW.md`, especially draft recovery, publishing preflight and account recovery.
 
-## Account details still needed
+## Remaining account setup
 
-- Railway workspace/project destination and authorization to connect the repository.
-- Cloudflare account and R2 bucket readiness.
-- Current authoritative DNS provider and existing records for both domains.
-- Testers who should be allowed into the first beta.
+- Hostinger sign-in and the `uddokta.live` record comparison are complete.
+- Public beta HTTPS routing (including temporary Railway URLs) and public media access were explicitly approved. Finish configuring them.
+- Obtain confirmation for the exact Hostinger nameserver change before applying the cutover.
 
 ## References
 
@@ -119,13 +118,31 @@ After the beta passes, prepare an isolated production environment with its own d
 
 - Railway project: `c161cef9-e5f2-4107-82bf-dc1c6b139b97` ([open beta](https://railway.com/project/c161cef9-e5f2-4107-82bf-dc1c6b139b97?environmentId=c078cf24-7e67-4761-9a62-9b67afda8aa0)).
 - Beta environment: `c078cf24-7e67-4761-9a62-9b67afda8aa0`. Isolated Postgres is provisioned; no merchant data has been imported.
-- Cloudflare account exists; R2 activation is being completed by the user because it accepts subscription terms. DNS is currently managed by Hostinger.
+- R2 is activated. Private bucket `uddokta-beta-media` uses a bucket-scoped object read/write credential stored in both Railway services. The credential expires December 4, 2026 and must be rotated before then. No secrets are stored in this repository.
+- Cloudflare Free zone `uddokta.live` is prepared with scanned apex A and www CNAME records. Bot Preference Sync was disabled with explicit approval. Hostinger's full record list was inspected and matches: apex A `2.57.91.91` (TTL 50), www CNAME `uddokta.live` (TTL 300). Cloudflare imported them with automatic TTL and proxy enabled; review proxy behavior before activation. Hostinger's DNSSEC page showed only the blank add-record form, with no existing DS entries displayed. Nameservers remain at Hostinger. Assigned Cloudflare nameservers: `malcolm.ns.cloudflare.com`, `rachel.ns.cloudflare.com`.
 - Keep `uddokta.studio` DNS at Hostinger. Onboard `uddokta.live` to Cloudflare, preserve its existing records, then change nameservers only after verifying the copy. Reserve `media.uddokta.live` for R2.
 - First beta signup is restricted to the user-provided email in `deploy/beta.env.example`. General registration is closed by default in production. `ROBOTS_NOINDEX=true` discourages indexing of beta storefronts.
 - Added `deploy/Dockerfile.admin`, `deploy/Dockerfile.storefront`, and `deploy/SERVICES.md` with the per-service settings; keep the source root at the repository root. The live Railway dashboard and current documentation confirm that new services cannot use legacy Railway JSON configuration, so configure Dockerfile paths, health checks, and migration commands directly in service settings.
 - Admin serves the dashboard build and same-origin API, provides readiness checks, and validates production configuration. Migrations run only in the admin service's pre-deploy command.
 - Public campaign URLs now use `/{handle}`. Legacy GET links redirect, legacy checkout POSTs remain supported, and reserved existing handles retain their legacy URL until renamed. Generated links and canonical links use the new paths.
 - Production merchant URLs default to `uddokta.live` and can be changed using `VITE_STOREFRONT_DOMAIN` at build time; storefront host routing uses `STOREFRONT_DOMAIN` at runtime.
-- Verification: 118 regression tests passed. Both Docker images built from a clean Linux dependency installation. Admin container checks confirmed readiness 200, dashboard/deep-link HTML 200, and API errors remain JSON. The first storefront container test caught a JSX configuration issue when launched from the workspace root; its Dockerfile now explicitly selects the storefront tsconfig, and the corrected image is being verified.
+- Verification: 118 regression tests passed. Both Docker images built from a clean Linux dependency installation. Admin container checks confirmed readiness 200, dashboard/deep-link HTML 200, and API errors remain JSON. The first storefront container test caught a JSX configuration issue when launched from the workspace root; its Dockerfile now explicitly selects the storefront tsconfig, and the corrected image passed its smoke checks.
 
-Cloud resource changes still require completing R2 activation/credentials, connecting the tested source branch, setting service variables, and verifying the DNS records before cutover. Never use placeholder smoke-test storage credentials in Railway.
+- Source revision `967ae20` on `codex/railway-beta` is deployed to both Railway application services. Admin migrations completed and both applications report Online after readiness checks; Postgres is also Online.
+- Admin service: `b6a329e9-34d0-4b5c-8ca6-b3152fedccd4`; storefront service: `3860adaf-9439-4ec0-9536-8882dac82516`.
+- Public routing, media custom domain, backup policy, DNS cutover, and live browser QA remain incomplete. Admin temporary domain `https://admin-beta-ebcf.up.railway.app` was generated with target port 8080; it has not yet been checked in the app browser. Never use placeholder smoke-test storage credentials in Railway.
+
+## Resume checkpoint — November 4, 2026
+
+We stopped during domain setup, after the first application deployment succeeded. This is a private beta deployment in progress, not a completed public launch.
+
+1. Re-read this file and `deploy/SERVICES.md`, inspect the current Git status, then re-check Railway's current service/deployment state. Source branch is `codex/railway-beta`, deployed revision `967ae20`; do not switch to `main` accidentally. Local deployment-status documentation changes have not been committed yet.
+2. Finish adding `admin.uddokta.studio` to the admin service, port 8080. The UI was left in the custom-domain form with that hostname entered; port selection was not confirmed. Read fresh UI state before continuing. Obtain Railway's actual DNS record(s), then add them to the existing Hostinger `uddokta.studio` zone. Existing studio sites/subdomains must be preserved.
+3. Attach `*.uddokta.live` to the storefront and obtain the actual Railway routing and certificate-verification records. A temporary storefront Railway domain may also be generated; its hostname alone cannot identify a merchant. Confirm the storefront restart-policy update to three retries completed successfully.
+4. Prepare the Cloudflare DNS records for the storefront without overwriting the apex/www records unintentionally. The full Hostinger zone comparison is complete. Ask for the exact nameserver cutover confirmation, then replace only the live domain's nameservers with `malcolm.ns.cloudflare.com` and `rachel.ns.cloudflare.com`. Leave studio nameservers at Hostinger.
+5. Once the live zone is active, connect the R2 bucket to `media.uddokta.live` and verify public image delivery. User already approved public media read access and public beta HTTPS routing; do not ask for the same approval again unless scope changes. Keep credentials private and the development r2.dev URL disabled unless needed and approved.
+6. Verify HTTPS and the live login page. Let the user create their password/account using `developerhasan99@gmail.com`; do not enter a new password for them. Test signup restrictions, session cookies, login/logout, page-editor save/publish, short merchant URLs, uploads, COD checkout, receipts, tenant isolation, and mobile layout. No end-to-end live QA has been completed yet.
+7. Railway's Backups page says creating backups, automated schedules, and point-in-time recovery require Pro; no backup was configured or upgrade purchased. Agree on an alternative backup/restore process or an authorized plan upgrade before broader release.
+8. Rotate the 30-day R2 credential before December 4, 2026, update both services, and verify uploads. Do not create a reminder unless requested.
+
+Cloud account tabs may need signing in again when resuming. Secrets are already stored in Railway; do not request or paste them into chat. Re-check dashboard values rather than relying on old UI element IDs. Preserve the user's public-access approvals recorded above.
