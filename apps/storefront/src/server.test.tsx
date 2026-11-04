@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { after, before, test } from 'node:test'
+import { createContext, runInContext } from 'node:vm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app as api } from '../../api/src/app.ts'
@@ -52,7 +53,7 @@ async function publishedPage(status = 'active') {
 
 const visit = (store: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { host: `${store}.localhost:8788`, ...init.headers } })
 const order = (store: string, path: string, fields: Record<string, string>) =>
-  visit(store, path, { method: 'POST', body: new URLSearchParams(fields), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+  visit(store, path, { method: 'POST', body: new URLSearchParams({ checkout: randomUUID(), ...fields }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
 
 test('a published page renders on its store’s address, and nowhere else', async () => {
   const s = await publishedPage()
@@ -75,13 +76,14 @@ test('an order is priced by the system, takes stock from a warehouse, and gets t
   const m = s.product.variants[0].id
   const res = await order(s.handle, s.url, { section: s.orderSection, variant: m, quantity: '2', name: 'রাফি', phone: '০১৭১২-৩৪৫৬৭৮', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', area: 'outside' })
   assert.equal(res.status, 303)
-  assert.match(res.headers.get('location')!, /\/thanks\?order=1001&total=2520$/)
+  assert.match(res.headers.get('location')!, /\/thanks\?receipt=[0-9a-f-]{36}$/)
+  assert.match(await (await visit(s.handle, res.headers.get('location')!)).text(), /৳২,৫২০/)
   const placed = await pool.query('select o.number, o.phone, o.subtotal, o.delivery_charge, o.total, o.warehouse_id is not null as has_warehouse, i.price, i.quantity, i.variant_label from orders o join order_items i on i.order_id = o.id')
   assert.deepEqual(placed.rows, [{ number: 1001, phone: '01712345678', subtotal: 2400, delivery_charge: 120, total: 2520, has_warehouse: true, price: 1200, quantity: 2, variant_label: 'M' }])
   assert.equal((await pool.query('select stock from product_variants where id = $1', [m])).rows[0].stock, 1)
 
   const second = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01812345678', address: 'আগ্রাবাদ, চট্টগ্রাম', area: 'inside' })
-  assert.match(second.headers.get('location')!, /order=1002&total=1360$/, 'untracked stock is never refused')
+  assert.match(await (await visit(s.handle, second.headers.get('location')!)).text(), /৳১,৩৬০/, 'untracked stock is never refused')
 })
 
 test('the buyer is told what to fix, and nothing is saved', async () => {
@@ -226,7 +228,7 @@ test('a product page takes orders like a landing page, marked as from the websit
   assert.match(await (await visit(s.handle, url)).text(), /অর্ডার নিশ্চিত করুন/)
   const res = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
   assert.equal(res.status, 303)
-  assert.match(res.headers.get('location')!, /\/thanks\?order=1001&total=1260$/)
+  assert.match(await (await visit(s.handle, res.headers.get('location')!)).text(), /৳১,২৬০/)
   const [placed] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
   assert.equal(placed.source, 'website')
   const bad = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: '', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
@@ -293,7 +295,7 @@ test('home sums the last 14 days of real orders, leaving cancelled ones out', as
 
 test('a buyer who types a number but does not finish shows up to call, and leaves the list once they order', async () => {
   const s = await publishedPage()
-  const draft = (fields: Record<string, string>) => visit(s.handle, '/drafts', { method: 'POST', body: new URLSearchParams(fields), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+  const draft = (fields: Record<string, string>) => visit(s.handle, '/drafts', { method: 'POST', body: new URLSearchParams({ checkout: randomUUID(), ...fields }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
   assert.equal((await draft({ phone: '0171', name: 'x' })).status, 204)
   await draft({ phone: '01812345671', name: 'রাফি', address: 'মিরপুর', product: 'পাঞ্জাবি' })
   await draft({ phone: '01812345671', name: 'রাফি আহমেদ', address: 'মিরপুর ১০', product: 'পাঞ্জাবি' })
@@ -385,7 +387,7 @@ test('a coupon is priced by the database, counts its uses, and stops at its limi
 
   const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01711110001', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
   const used = await order(s.handle, s.url, { ...fields, coupon: 'eid10' })
-  assert.match(used.headers.get('location')!, /total=1230$/, '1300 − 130 + 60')
+  assert.match(await (await visit(s.handle, used.headers.get('location')!)).text(), /৳১,২৩০/, '1300 − 130 + 60')
   const again = await order(s.handle, s.url, { ...fields, phone: '01711110002', coupon: 'EID10' })
   assert.equal(again.status, 422, 'the one use is gone')
   assert.match(await again.text(), /কুপন কোডটি চলছে না/)
@@ -417,8 +419,62 @@ test('a store’s pixels load on its pages, are allowed by the page’s own poli
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
     assert.ok(csp.includes(`'sha256-${createHash('sha256').update(script).digest('base64')}'`), 'every inline script is allowed by hash')
   }
-  const thanks = await (await visit(s.handle, `${s.url}/thanks?order=1001&total=1360`)).text()
-  assert.match(thanks, /fbq\('track','Purchase',\{value:1360,currency:'BDT'\}\)/)
-  assert.match(thanks, /ttq\.track\('PlaceAnOrder',\{value:1360,currency:'BDT'\}\)/)
+  const placed = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' })
+  const thanks = await (await visit(s.handle, placed.headers.get('location')!)).text()
+  assert.match(thanks, /fbq\('track','Purchase',\{value:1360,currency:'BDT'\},\{eventID:'[0-9a-f-]{36}'\}\)/)
+  assert.match(thanks, /ttq\.track\('PlaceAnOrder',\{value:1360,currency:'BDT'\},\{event_id:'[0-9a-f-]{36}'\}\)/)
   assert.doesNotMatch(await (await visit(s.handle, `${s.url}/thanks`)).text(), /Purchase/, 'no order event without an order')
+  const memory = new Map<string, string>()
+  const browser: any = {
+    document: { createElement: () => ({}), getElementsByTagName: () => [{ parentNode: { insertBefore() {} } }] },
+    sessionStorage: { getItem: (key: string) => memory.get(key), setItem: (key: string, value: string) => memory.set(key, value) },
+  }
+  browser.window = browser
+  const runtime = createContext(browser)
+  const script = thanks.match(/<script>([\s\S]*?)<\/script>/)![1]
+  runInContext(script, runtime)
+  runInContext(script, runtime)
+  assert.equal(browser.fbq.queue.filter((args: any) => args[1] === 'Purchase').length, 1, 'refresh does not queue another Meta purchase in this session')
+  assert.equal(browser.ttq.filter((args: any) => args[1] === 'PlaceAnOrder').length, 1, 'refresh does not queue another TikTok order in this session')
+
+})
+
+test('a checkout retry returns one receipt, takes stock and counts its coupon only once', async () => {
+  const s = await publishedPage()
+  assert.equal((await s.call('POST', `/stores/${s.handle}/discounts`, { code: 'ONCE', kind: 'amount', value: 100, maxUses: 1 })).status, 201)
+  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '3', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside', coupon: 'ONCE' }
+  const [a, b] = await Promise.all([order(s.handle, s.url, fields), order(s.handle, s.url, fields)])
+  assert.equal(a.status, 303)
+  assert.equal(b.status, 303)
+  assert.equal(a.headers.get('location'), b.headers.get('location'))
+  assert.equal((await pool.query('select count(*)::int as n from orders where store_id = (select id from stores where handle = $1)', [s.handle])).rows[0].n, 1)
+  assert.equal((await pool.query('select stock from product_variants where id = $1', [fields.variant])).rows[0].stock, 0)
+  assert.equal((await pool.query('select uses from discounts where store_id = (select id from stores where handle = $1)', [s.handle])).rows[0].uses, 1)
+  const retried = await order(s.handle, s.url, fields)
+  assert.equal(retried.status, 303, 'replay still succeeds after all stock is taken')
+  assert.equal((await order(s.handle, s.url, { ...fields, quantity: '1' })).status, 422, 'a used token cannot place a different order')
+})
+
+test('confirmation amounts come from a store-scoped receipt, never URL parameters', async () => {
+  const s = await publishedPage()
+  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' }
+  const page = await (await visit(s.handle, s.url)).text()
+  assert.match(page, /name="checkout" value="[0-9a-f-]{36}"/)
+  const placed = await order(s.handle, s.url, fields)
+  const receiptUrl = placed.headers.get('location')!
+  const confirmed = await (await visit(s.handle, `${receiptUrl}&order=9999&total=1`)).text()
+  assert.match(confirmed, /৳১,২৬০/)
+  assert.doesNotMatch(confirmed, /QA|01712345678|Dhaka test address/)
+  const other = await publishedPage()
+  const leaked = await (await visit(other.handle, `${other.url}/thanks?receipt=${fields.checkout}`)).text()
+  assert.doesNotMatch(leaked, /অর্ডার নম্বর|পণ্য হাতে পেয়ে দেবেন/)
+  const fabricated = await (await visit(s.handle, `${s.url}/thanks?order=9999&total=999999`)).text()
+  assert.doesNotMatch(fabricated, /অর্ডার নম্বর|পণ্য হাতে পেয়ে দেবেন|Purchase/)
+  assert.equal((await order(s.handle, s.url, { ...fields, checkout: 'invalid' })).status, 422)
+  const { tx } = await import('../../api/src/db.ts')
+  const { sql } = await import('drizzle-orm')
+  assert.equal((await tx(null, (t) => t.execute(sql`select * from checkout_receipts`))).rowCount, 0, 'anonymous direct reads are hidden by RLS')
+  const otherUser = (await other.call('GET', '/me')).json.user.id
+  assert.equal((await tx(otherUser, (t) => t.execute(sql`select * from checkout_receipts where token = ${fields.checkout}::uuid`))).rowCount, 0, 'another store member cannot read the receipt row')
+
 })

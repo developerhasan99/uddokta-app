@@ -351,6 +351,13 @@
       "when": 1793771392723,
       "tag": "0049_publish_checkout_security",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793771542237,
+      "tag": "0050_sturdy_mach_iv",
+      "breakpoints": true
     }
   ]
 }

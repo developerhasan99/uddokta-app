@@ -6,7 +6,7 @@ import { videoEmbed, type Content, type Section } from './schema.ts'
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
 export type Product = { id: string; name: string; image: Img | null; variants: Variant[] }
-export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'area' | 'coupon', string>>
+export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'area' | 'coupon' | 'checkout', string>>
 
 export type Ctx = {
   image: (id: string | null) => Img | undefined
@@ -15,6 +15,7 @@ export type Ctx = {
   preview: boolean
   // The store's delivery charges, from Settings. The database adds them again itself when the order is placed.
   delivery: { inside: number; outside: number }
+  checkoutToken?: string
   orderAction?: string
   order?: { sectionId: string; error: string; values: OrderValues }
 }
@@ -169,6 +170,7 @@ export const orderErrors: Record<string, string> = {
   coupon: 'এই কুপন কোডটি চলছে না। কোডটি দেখে আবার লিখুন, অথবা ফাঁকা রাখুন।',
   tooMany: 'এই নম্বর থেকে অনেকগুলো অর্ডার এসেছে। একটু পরে চেষ্টা করুন, অথবা দোকানে ফোন করুন।',
   blocked: 'এই নম্বর থেকে অনলাইনে অর্ডার নেওয়া যাচ্ছে না। অর্ডার করতে দোকানে ফোন করুন।',
+  checkout: 'এই অর্ডার ফর্মটি আগে ব্যবহার হয়েছে। আবার অর্ডার করতে পেজটি নতুন করে খুলুন।',
   server: 'অর্ডারটি নেওয়া যায়নি। একটু পরে আবার চেষ্টা করুন।',
 }
 
@@ -198,6 +200,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
         <Heading text={str(s.settings.heading)} />
         <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-inside={inside} data-outside={outside} data-product={product.name}>
           <input type="hidden" name="section" value={s.id} />
+          {!ctx.preview && <input type="hidden" name="checkout" value={ctx.checkoutToken} />}
           {/* Left empty by people, who never see it; form-filling bots tend to fill every field. */}
           <label className="sf-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
           <div className="sf-order__product">

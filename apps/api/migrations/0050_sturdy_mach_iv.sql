@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "pages_store_published_handle" ON "pages" USING btree ("store_id",("published_meta"->>'handle')) WHERE "pages"."published" is not null;

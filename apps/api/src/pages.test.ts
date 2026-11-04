@@ -178,3 +178,37 @@ test('publishing checks the exact revision and invalidates older editor copies',
   assert.equal((await save(owner, saved)).status, 409)
   assert.equal((await owner.call('POST', url)).status, 400)
 })
+
+test('draft metadata stays private until publish and live addresses remain reserved', async () => {
+  const owner = await storeOwner()
+  const original = (await owner.call('POST', owner.base, { title: 'Original', seoTitle: 'Live SEO', seoDescription: 'Live description' })).json
+  const live = (await owner.call('POST', `${owner.base}/${original.id}/publish`, { revision: original.revision })).json
+  const saved = (await save(owner, live, { title: 'New title', handle: 'new-url', seoTitle: 'Draft SEO', seoDescription: 'Draft description' })).json
+  assert.equal(saved.hasChanges, true)
+  assert.equal(saved.publishedHandle, original.handle)
+  const publicPage = await storefrontPage(owner.handle, original.handle)
+  assert.equal(publicPage.title, 'Original')
+  assert.equal(publicPage.seo_title, 'Live SEO')
+  assert.equal(publicPage.seo_description, 'Live description')
+  assert.equal(await storefrontPage(owner.handle, 'new-url'), undefined)
+  assert.equal((await owner.call('GET', owner.base)).json[0].hasChanges, true)
+  assert.equal((await owner.call('POST', owner.base, { title: 'Other', handle: original.handle })).status, 409)
+  const other = (await owner.call('POST', owner.base, { title: 'Other' })).json
+  assert.equal((await save(owner, other, { handle: original.handle })).status, 409)
+  const published = (await owner.call('POST', `${owner.base}/${original.id}/publish`, { revision: saved.revision })).json
+  assert.equal(published.hasChanges, false)
+  assert.equal(published.publishedHandle, 'new-url')
+  assert.equal((await storefrontPage(owner.handle, 'new-url')).seo_title, 'Draft SEO')
+  assert.equal(await storefrontPage(owner.handle, original.handle), undefined)
+  assert.equal((await owner.call('POST', owner.base, { title: 'Reuse', handle: original.handle })).status, 201)
+})
+
+test('public metadata and live address reservations are isolated by store', async () => {
+  const a = await storeOwner()
+  const b = await storeOwner()
+  for (const owner of [a, b]) {
+    const page = (await owner.call('POST', owner.base, { title: 'Same', handle: 'campaign' })).json
+    assert.equal((await owner.call('POST', `${owner.base}/${page.id}/publish`, { revision: page.revision })).status, 200)
+  }
+  assert.notEqual((await storefrontPage(a.handle, 'campaign')).store_id, (await storefrontPage(b.handle, 'campaign')).store_id)
+})

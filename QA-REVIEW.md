@@ -28,13 +28,13 @@ The architecture is well suited to this scope: React/Vite dashboard, Hono API, P
 - Tightened the phone toolbar and preserved the one-pane-at-a-time workflow. Closing settings returns to the section navigator.
 - Corrected an existing collection test assertion that omitted the handle returned by the options API.
 
-No new dependencies or database migrations were introduced. API and dashboard must be deployed together because publishing now requires a revision in its request body.
+No new dependencies were introduced. Follow-up QA added migrations 0048–0050 for published metadata, checkout receipts, tenant security, and a unique published-address index. Run the migrations before deploying the API, storefront, and dashboard together. Publishing requires a revision; storefront checkout forms now require a receipt token, so pre-deployment forms need a refresh.
 
 ## Verification
 
 ### Automated
 
-`npm test`: **107 passed** — 75 API, 18 storefront, 14 dashboard tests. Coverage includes tenancy boundaries, page draft/public separation, stale saves and publishes, media ownership, stock adjustments, order pricing, coupons, blocked phones, and courier behavior against a stand-in.
+`npm test`: **111 passed** — 77 API, 20 storefront, 14 dashboard tests. Coverage includes tenancy boundaries, page draft/public separation, stale saves and publishes, media ownership, stock adjustments, order pricing, coupons, blocked phones, and courier behavior against a stand-in.
 
 `npm run build`: passes API and storefront type checking and the dashboard production build. The build still warns about a dashboard JavaScript chunk of approximately 710 kB before gzip; route-level code splitting is a follow-up performance improvement.
 
@@ -69,9 +69,8 @@ Browser QA was focused on the landing-page sales loop. Courier booking, media up
 
 | Priority | Finding and evidence | Recommended acceptance criterion |
 |---|---|---|
-| P1 | Page metadata is not a published snapshot. `apps/api/src/pages.ts` saves title, handle, and SEO fields immediately; public reads use those fields. A saved URL change can move an already-live page before Publish. `hasChanges` compares section JSON only. | Version public metadata with content; saving never changes the live URL/SEO, and publishing clearly reports metadata-only changes. Add an old-URL redirect when an address changes. |
-| P1 | Checkout has no durable idempotency key in `apps/storefront/src/server.tsx` or its form. Duplicate detection marks a repeated order; it does not stop a double submission from consuming stock twice. | Retrying the same checkout submission returns the original order and takes stock only once, including concurrent retries. |
-| P1 | The thank-you page trusts `order` and `total` query parameters and uses them to generate the purchase pixel. A manually changed URL can display a fabricated amount or generate a purchase event. | Resolve confirmation and tracking from a signed/opaque order receipt; refreshing should not generate duplicate purchase events. Never expose buyer data through a guessable order number. |
+| P2 | Publishing a changed address now happens only on Publish, but the previous address does not redirect after publication. | Add a store-scoped redirect history if sellers need to preserve previously shared campaign URLs; do not redirect unpublished pages. |
+| P2 | Purchase events have stable receipt IDs and session-level replay suppression. If browser storage is blocked or a receipt is opened in a new session, a browser call may repeat. Real ad-account delivery was not exercised. | Verify receipt event IDs in Meta/TikTok test tools and add durable server-side event delivery/deduplication when implementing CAPI. |
 | P1 | Unsaved draft recovery is incomplete. The new prompt covers the editor back link and unload warnings cover full navigation, but browser history navigation within the SPA and browser crashes do not have durable recovery. | Add a recovery draft scoped to account/store/page and revision, plus navigation blocking that includes browser Back. A conflict must preserve both copies rather than silently overwrite. |
 | P1 | An incomplete order form can still be published. The new warning catches missing and draft product selections but does not validate every launch condition, including all-out-of-stock products and failed product loads. | For sales pages, show a preflight checklist with an actionable error per affected section; distinguish intentional informational pages. Enforce required checks at the API boundary. |
 | P1 | Production readiness is not demonstrated by this local run. Custom-domain lookup and CDN invalidation are explicitly deferred in storefront/page code. | Prove managed Postgres backups and restore, R2 persistence, HTTPS store subdomains, secrets, health checks, error monitoring, and correct publish/unpublish behavior on the deployed environment. Custom domains can wait if hosted subdomains are reliable. |
@@ -108,3 +107,21 @@ Next editor iteration: section naming, focused settings groups, keyboard movemen
 After the launch gates: a few useful Bangla campaign templates; recovery/version history and restore; page duplication in the list (the API already supports it); reusable sections; share image and link preview; richer section layout controls; page-level conversion analytics and UTM attribution; server-side ad events with deduplication; custom domains; scheduled publishing; then experiments/A-B testing once traffic makes results meaningful.
 
 Broader platform work can follow seller demand: Pathao, courier reconciliation, notifications, abandoned-checkout follow-ups with appropriate preferences, customer segments, repeat-sales workflows, and bulk operations. AI copy assistance and AI sales should follow reliable publishing and fulfillment rather than delay this release.
+
+## Follow-up QA: publishing and checkout reliability
+
+Completed in the second pass on 4 November 2026:
+
+- Public title, address, SEO title, and description now come from a published metadata snapshot. Draft saves leave the live page untouched. Metadata-only changes mark the page as having unpublished changes, and the editor's live link continues to use the published address.
+- Live addresses remain reserved even when their draft has moved to a different address. This is scoped to each store, serialized during page writes, and backed by a unique index for published addresses.
+- Added `checkout_receipts`, with tenant row-level security and narrow public database functions. Identical retries serialize before pricing, stock, coupon usage, or order creation. A different payload cannot reuse a completed checkout token.
+- Successful checkout redirects with an opaque UUID receipt. The thank-you page reads only the confirmed order number and total from the database and ignores forged `order`/`total` query parameters. Receipt reads are store-scoped and expose no buyer name, phone, or address.
+- Purchase tracking uses the receipt as a stable event ID and suppresses repeated event queueing in the same browser session. Tests execute the generated script twice and assert only one Meta purchase and TikTok order are queued. This does not claim exactly-once delivery to third-party ad platforms.
+- Browser QA saved a new draft address and SEO title while the old public URL/title remained intact. Publishing then changed the public title. A new COD order returned #1002 for ৳1,270; adding forged query parameters kept the original number and total.
+- Concurrent regression tests submit the same checkout twice with the last three stock units and a one-use coupon: one order, zero remaining stock, one coupon use, and matching receipt redirects. A later retry still succeeds after stock is exhausted. Cross-store and anonymous direct receipt reads are refused/hidden as intended.
+
+Applied migrations to the local development database and verified the existing QA store remained accessible. Production migrations and deployment are still outstanding. Already-open old checkout forms need to be refreshed after deployment. Receipts currently remain stored for retry safety; add an explicit retention policy as order volume grows.
+
+Screenshot: [verified checkout receipt](qa-artifacts/checkout-receipt.png).
+
+Tracking references: [TikTok's official event-ID example](https://ads.us.tiktok.com/resources/help/article/tiktok-adobe-eapi-implementation-guide?lang=en), [TikTok event deduplication](https://ads.tiktok.com/help/article/event-deduplication?lang=en). Real ad-account verification remains a release check.

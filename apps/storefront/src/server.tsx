@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { serve } from '@hono/node-server'
 import { sql } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
@@ -24,18 +24,19 @@ const cspFor = (pixel: string) => [
 
 // Meta and TikTok's standard loaders. The IDs were checked when saved and are checked again here, since they go into a script.
 // ponytail: browser pixels only; add server-side events (Meta Conversions API) when sellers bring an access token.
-function pixelScript(tracking: { meta_pixel: string; tiktok_pixel: string } | undefined, order?: { total: number }) {
+function pixelScript(tracking: { meta_pixel: string; tiktok_pixel: string } | undefined, order?: { total: number; receipt: string }) {
   const meta = /^[0-9]{5,20}$/.test(tracking?.meta_pixel ?? '') ? tracking!.meta_pixel : ''
   const tiktok = /^[A-Z0-9]{5,30}$/.test(tracking?.tiktok_pixel ?? '') ? tracking!.tiktok_pixel : ''
   const value = order && Number.isInteger(order.total) && order.total > 0 ? order.total : 0
   const parts: string[] = []
   if (meta) {
-    parts.push(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${meta}');fbq('track','PageView');${order ? `fbq('track','Purchase',{value:${value},currency:'BDT'});` : ''}`)
+    parts.push(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${meta}');fbq('track','PageView');${order ? `if(purchaseOnce('meta:${order.receipt}'))fbq('track','Purchase',{value:${value},currency:'BDT'},{eventID:'${order.receipt}'});` : ''}`)
   }
   if (tiktok) {
-    parts.push(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load('${tiktok}');ttq.page();${order ? `ttq.track('PlaceAnOrder',{value:${value},currency:'BDT'});` : ''}}(window,document,'ttq');`)
+    parts.push(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load('${tiktok}');ttq.page();${order ? `if(purchaseOnce('tiktok:${order.receipt}'))ttq.track('PlaceAnOrder',{value:${value},currency:'BDT'},{event_id:'${order.receipt}'});` : ''}}(window,document,'ttq');`)
   }
-  return parts.join('')
+  const once = order ? "function purchaseOnce(k){try{if(sessionStorage.getItem(k))return false;sessionStorage.setItem(k,'1')}catch(e){}return true}" : ''
+  return once + parts.join('')
 }
 
 async function trackingFor(storeId: string) {
@@ -151,6 +152,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     image: (id) => (id ? page.images.get(id) : undefined),
     product: (id) => (id ? page.products.get(id) : undefined),
     orderAction: pagePath(c),
+    checkoutToken: order?.values.checkout || randomUUID(),
     order,
   }
   return html(c, (
@@ -172,6 +174,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
     image: () => undefined,
     product: (id) => (id === item.id ? item.product : undefined),
     orderAction: productPath(c),
+    checkoutToken: order?.values.checkout || randomUUID(),
     order,
   }
   const prices = item.product.variants.map((v) => v.price)
@@ -198,10 +201,11 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
 }
 
 async function thanks(c: Context, storeId: string, storeName: string, back: string, theme: string) {
-  const number = Number(c.req.query('order'))
-  const total = Number(c.req.query('total'))
-  // The order event fires only after a real redirect from an order form, which carries the number.
-  const pixel = pixelScript(await trackingFor(storeId), Number.isInteger(number) && number > 0 ? { total } : undefined)
+  const token = c.req.query('receipt') ?? ''
+  const receipt = isCheckoutToken(token) ? (await tx(null, (t) => t.execute<{ number: number; total: number }>(sql`select * from storefront_receipt(${storeId}::uuid, ${token}::uuid)`))).rows[0] : undefined
+  const number = receipt?.number ?? 0
+  const total = receipt?.total ?? 0
+  const pixel = pixelScript(await trackingFor(storeId), receipt ? { total, receipt: token } : undefined)
   return html(c, (
     <Document title="অর্ডার হয়েছে" description="" theme={theme} pixel={pixel}>
       <div className="sf-page">
@@ -285,6 +289,8 @@ app.get('/pages/:handle', async (c) => {
   return page ? renderPage(c, page) : notFound(c)
 })
 
+const isCheckoutToken = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+
 const databaseCode = (err: unknown) => (err as { code?: string; cause?: { code?: string } }).cause?.code ?? (err as { code?: string }).code
 
 // Both order forms post here as plain forms, so they work with JavaScript off and on slow phones.
@@ -294,14 +300,17 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   // A bot that filled the hidden field is shown success, so it has no reason to try again, and nothing is saved.
   if (form.website) return c.redirect(`${o.back}/thanks`, 303)
   const values: OrderValues = {}
-  for (const key of ['variant', 'quantity', 'name', 'phone', 'address', 'area', 'coupon'] as const) values[key] = typeof form[key] === 'string' ? (form[key] as string).trim() : ''
+  for (const key of ['variant', 'quantity', 'name', 'phone', 'address', 'area', 'coupon', 'checkout'] as const) values[key] = typeof form[key] === 'string' ? (form[key] as string).trim() : ''
   const reject = (error: string) => o.reject({ sectionId: o.sectionId, error, values })
 
   const variant = o.product.variants.find((v) => v.id === values.variant)
   const quantity = Number(values.quantity || 1)
   const phone = readPhone(values.phone ?? '')
   if (!variant) return reject('variant')
-  if (!variant.available) return reject('soldOut')
+  if (!isCheckoutToken(values.checkout)) {
+    values.checkout = ''
+    return reject('checkout')
+  }
   if (!values.name || values.name.length > 100) return reject('name')
   if (!phone) return reject('phone')
   if (!values.address || values.address.length < 5 || values.address.length > 500) return reject('address')
@@ -310,10 +319,11 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   if ((values.coupon ?? '').length > 30) return reject('coupon')
 
   try {
-    const placed = await tx(null, async (t) => (await t.execute<{ number: number; total: number }>(sql`
-      select * from place_order(${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.area}, ${o.source}, ${values.coupon ?? ''})`)).rows[0])
-    return c.redirect(`${o.back}/thanks?order=${placed.number}&total=${placed.total}`, 303)
+    await tx(null, async (t) => (await t.execute<{ number: number; total: number }>(sql`
+      select * from place_checkout(${values.checkout}::uuid, ${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.area}, ${o.source}, ${values.coupon ?? ''})`)).rows[0])
+    return c.redirect(`${o.back}/thanks?receipt=${values.checkout}`, 303)
   } catch (err) {
+    if (databaseCode(err) === 'UD017') return reject('checkout')
     if (databaseCode(err) === 'UD011') return reject('soldOut')
     if (databaseCode(err) === 'UD014') return reject('tooMany')
     if (databaseCode(err) === 'UD015') return reject('blocked')
@@ -361,7 +371,7 @@ app.post('/drafts', async (c) => {
   return c.body(null, 204)
 })
 
-// Shows only what the redirect carried; nothing about the order is read back from the database here.
+// An opaque, store-scoped receipt supplies the confirmed number and total. URL amounts are never trusted.
 app.get('/pages/:handle/thanks', async (c) => {
   const store = storeHandle(c)
   const page = store && await loadPage(store, c.req.param('handle'))

@@ -113,7 +113,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 ## Landing pages
 
-- `pages` holds a `draft` and a `published` JSON copy. Saving changes only the draft; Publish copies it. Saves send `revision`, and a stale one gets 409 `pageChanged` instead of overwriting.
+- `pages` holds a `draft` and a `published` JSON copy, plus `published_meta` for the public title, handle and SEO fields. Draft metadata never changes a live page; publishing snapshots it with the content. Live and draft handles share a store-scoped reservation namespace. Saving changes only the draft; Publish copies it. Saves send `revision`, and a stale one gets 409 `pageChanged` instead of overwriting.
 - Sections live in `apps/storefront`: `schema.ts` (settings schemas, `readContent` validation, no JSX so the API imports it) and `sections.tsx` (stateless components). The storefront renders them to HTML; the editor renders the same components into an iframe preview. The editor's forms are generated from the schemas.
 - Images a page uses are kept in `page_media` (draft and published), which blocks deleting them.
 - The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
@@ -122,6 +122,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 - Every order, from the storefront or typed in by the team, goes through `place_order`. It prices the order from the variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. App code never sends an amount.
 - Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
+- Public forms carry a random checkout UUID. `place_checkout` serializes retries, calls `place_order` once, and records the number/total in tenant-scoped `checkout_receipts`. Reusing a completed token with different values is refused. Confirmation reads an opaque receipt through `storefront_receipt`, never an amount from the URL.
 - Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.
 
 ## Sales tools

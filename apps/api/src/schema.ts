@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -234,6 +234,7 @@ export const pages = pgTable('pages', {
   index('pages_store_updated').on(t.storeId, t.updatedAt),
   unique('pages_store_id').on(t.storeId, t.id),
   unique('pages_store_handle').on(t.storeId, t.handle),
+  uniqueIndex('pages_store_published_handle').on(t.storeId, sql`(${t.publishedMeta}->>'handle')`).where(sql`${t.published} is not null`),
 ])
 
 // Images used by a page's draft or published version. The deferred foreign key to media, which blocks deleting them, is in the security migration.
