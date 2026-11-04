@@ -5,7 +5,7 @@ import { useAccount, useCurrentStore, useStorePath } from '../account-context'
 import { AreaChart, Sparkline } from '../components/charts'
 import { api } from '../api'
 import { statuses, type Status } from './Orders'
-import { Badge, Button, LinkButton, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Badge, Button, LinkButton, Notice, PageHeader, PageTitle, Skeleton } from '../components/ui'
 import { useLang, type Key } from '../i18n'
 
 type Summary = {
@@ -36,7 +36,7 @@ function Onboarding({ setup }: { setup: Summary['setup'] }) {
   return (
     <div className="page page--onboarding">
       <header className="welcome">
-        <title>{t('home')}</title>
+        <PageTitle title={t('home')} />
         <h1>{t('welcomeTitle', { name: me.name.split(' ')[0] })}</h1>
         <p className="muted">{t('welcomeD', { store: current.store.name })}</p>
       </header>

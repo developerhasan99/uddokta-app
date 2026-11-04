@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Phone } from 'lucide-react'
-import { useCurrentStore } from '../account-context'
+import { useCurrentStore, useStorePath } from '../account-context'
 import { api } from '../api'
-import { Button, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Button, LinkButton, Notice, PageHeader, Skeleton } from '../components/ui'
 import { useLang, type Key } from '../i18n'
 
 type Draft = { id: string; phone: string; name: string; address: string; productName: string; status: string; updatedAt: string }
@@ -15,10 +15,13 @@ const tabs: { status: string; label: Key }[] = [
 
 export function Incomplete() {
   const { t, num, time } = useLang()
+  const path = useStorePath()
   const base = `/stores/${useCurrentStore()!.store.handle}/drafts`
   const [status, setStatus] = useState('open')
   const [page, setPage] = useState<Page | null>(null)
   const [failed, setFailed] = useState(false)
+  const [moving, setMoving] = useState<string | null>(null)
+  const [moveFailed, setMoveFailed] = useState(false)
 
   const load = useCallback(async () => {
     setFailed(false)
@@ -34,8 +37,21 @@ export function Incomplete() {
   }, [load])
 
   const move = async (draft: Draft, next: 'open' | 'dismissed') => {
-    await api(`${base}/${draft.id}`, { method: 'PATCH', body: { status: next } })
-    await load()
+    setMoving(draft.id)
+    setMoveFailed(false)
+    try {
+      await api(`${base}/${draft.id}`, { method: 'PATCH', body: { status: next } })
+      await load()
+    } catch {
+      setMoveFailed(true)
+    } finally {
+      setMoving(null)
+    }
+  }
+
+  const recoveryPath = (draft: Draft) => {
+    const query = new URLSearchParams({ name: draft.name, phone: draft.phone, address: draft.address, product: draft.productName })
+    return path(`/orders/new?${query}`)
   }
 
   return (
@@ -52,6 +68,7 @@ export function Incomplete() {
           </nav>
         </div>
         {failed && <Notice role="alert" title={t('draftsLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
+        {moveFailed && <Notice role="alert" title={t('draftsMoveFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
         {!failed && !page && <div className="skeleton-rows" role="status" aria-label={t('loading')}><div className="skeleton-row"><Skeleton width="10rem" /><Skeleton width="8rem" /></div></div>}
         {page && page.items.length === 0 && <Notice title={status === 'open' ? t('draftsEmpty') : t('draftsEmptyOther')} />}
         {page && page.items.length > 0 && (
@@ -73,12 +90,13 @@ export function Incomplete() {
                   </td>
                   <td data-label={t('newOrderProduct')}>{d.productName}</td>
                   <td className="muted" data-label={t('colTime')}>{time(d.updatedAt)}</td>
-                  <td>
+                  <td data-label={t('orderNext')}>
                     <div className="row row--end">
                       {status === 'open' && <a className="btn" href={`tel:${d.phone}`}><Phone size={16} aria-hidden="true" />{t('orderCall')}</a>}
                       {status === 'open' && <a className="btn" href={`https://wa.me/88${d.phone}`} target="_blank" rel="noopener">{t('orderWhatsApp')}</a>}
-                      {status === 'open' && <Button onClick={() => void move(d, 'dismissed')}>{t('draftsDismiss')}</Button>}
-                      {status === 'dismissed' && <Button onClick={() => void move(d, 'open')}>{t('draftsReopen')}</Button>}
+                      {status === 'open' && <LinkButton to={recoveryPath(d)}>{t('draftsCreateOrder')}</LinkButton>}
+                      {status === 'open' && <Button disabled={moving === d.id} aria-busy={moving === d.id} onClick={() => void move(d, 'dismissed')}>{t('draftsDismiss')}</Button>}
+                      {status === 'dismissed' && <Button disabled={moving === d.id} aria-busy={moving === d.id} onClick={() => void move(d, 'open')}>{t('draftsReopen')}</Button>}
                     </div>
                   </td>
                 </tr>

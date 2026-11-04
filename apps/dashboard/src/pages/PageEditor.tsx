@@ -11,7 +11,7 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
-import { Button, Field, IconButton, Notice, Skeleton } from '../components/ui'
+import { Button, Field, IconButton, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import type { ProductStatus } from '../product-form'
 import type { StoreSettingsData } from './StoreSettings'
@@ -459,7 +459,7 @@ export function PageEditor() {
 
   return (
     <div className="editor" data-pane={pane}>
-      <title>{doc.title || t('pages')}</title>
+      <PageTitle title={doc.title || t('pages')} />
       <header className="editor__bar">
         <div className="editor__title">
           <Link className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>

@@ -7,7 +7,7 @@ import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
 import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
-import { Badge, Button, Field, Notice, Skeleton } from '../components/ui'
+import { Badge, Button, Field, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import { statusInfo, storeAddress } from '../product-form'
 
@@ -155,7 +155,7 @@ export function CollectionEdit() {
 
   return (
     <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
-      <title>{form.name || t('collectionNew')}</title>
+      <PageTitle title={form.name || t('collectionNew')} />
       <header className="detail-head">
         <div className="detail-head__title">
           <Link className="detail-head__back" to={path('/products/collections')} aria-label={t('collectionBack')} title={t('collectionBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>

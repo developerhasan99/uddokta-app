@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { useSession, type Role } from '../account-context'
 import { api, errorCode } from '../api'
 import { roleLabels } from '../components/AppMenu'
-import { Button, Field, LinkButton, Notice } from '../components/ui'
+import { Button, Field, LinkButton, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 
 // Only same-site paths, so a crafted link cannot send someone to another website after login.
@@ -20,7 +20,7 @@ function AuthLayout({ title, description, children }: { title: string; descripti
   const { t, lang, setLang } = useLang()
   return (
     <div className="auth-page">
-      <title>{title}</title>
+      <PageTitle title={title} />
       <aside className="auth-page__brand">
         <div className="brand">
           <img src="/favicon.svg" width="28" height="28" alt="" />

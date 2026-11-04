@@ -6,7 +6,7 @@ import { api, errorCode, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
-import { Badge, Button, Field, Notice, Skeleton } from '../components/ui'
+import { Badge, Button, Field, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import { maxVariants, parseAmount, productStatuses, statusInfo, stockTotal, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
 
@@ -284,7 +284,7 @@ export function ProductEdit() {
 
   return (
     <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
-      <title>{form.name || t('productNew')}</title>
+      <PageTitle title={form.name || t('productNew')} />
       <header className="detail-head">
         <div className="detail-head__title">
           <Link className="detail-head__back" to={path('/products')} aria-label={t('productBack')} title={t('productBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>

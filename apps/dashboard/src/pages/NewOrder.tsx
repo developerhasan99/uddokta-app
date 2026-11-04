@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { readPhone } from 'storefront/schema'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
 import { ProductPicker } from '../components/ProductPicker'
-import { Button, Field } from '../components/ui'
+import { Button, Field, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import type { StoreSettingsData } from './StoreSettings'
 
@@ -15,12 +15,17 @@ const sources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagra
 export function NewOrder() {
   const { t, money, num } = useLang()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const path = useStorePath()
   const handle = useCurrentStore()!.store.handle
   const [product, setProduct] = useState<Product | null>(null)
   const [picking, setPicking] = useState(false)
   const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
-  const [form, setForm] = useState({ variantId: '', quantity: '1', customerName: '', phone: '', address: '', area: 'inside', source: 'messenger', note: '', coupon: '' })
+  const [form, setForm] = useState(() => ({
+    variantId: '', quantity: '1', customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
+    address: searchParams.get('address')?.slice(0, 500) ?? '', area: 'inside', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '',
+  }))
+  const recoveryProduct = searchParams.get('product')?.slice(0, 300) ?? ''
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,7 +67,7 @@ export function NewOrder() {
 
   return (
     <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
-      <title>{t('newOrder')}</title>
+      <PageTitle title={t('newOrder')} />
       <header className="detail-head">
         <div className="detail-head__title">
           <Link className="detail-head__back" to={path('/orders')} aria-label={t('orderBack')} title={t('orderBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
@@ -73,6 +78,7 @@ export function NewOrder() {
         </div>
       </header>
       <p className="muted">{t('newOrderD')}</p>
+      {recoveryProduct && <Notice title={t('draftsRecoveryTitle')} body={t('draftsRecoveryProduct', { product: recoveryProduct })} />}
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
 
       <div className="detail-layout">

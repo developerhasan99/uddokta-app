@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router'
 import { ArrowLeft, CircleCheck, Copy, Phone } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
-import { Badge, Button, Notice, Skeleton } from '../components/ui'
+import { Badge, Button, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import { statuses, type Status } from './Orders'
 
@@ -131,7 +131,7 @@ export function OrderDetail() {
 
   return (
     <div className="page page--detail">
-      <title>{t('orderTitle', { n: orderNo })}</title>
+      <PageTitle title={t('orderTitle', { n: orderNo })} />
       <header className="detail-head">
         <div className="detail-head__title">
           <Link className="detail-head__back" to={path('/orders')} aria-label={t('orderBack')} title={t('orderBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>

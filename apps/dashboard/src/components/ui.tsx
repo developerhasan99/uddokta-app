@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Search } from 'lucide-react'
 
@@ -34,13 +34,22 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
 export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
     <header className="page-header">
-      <title>{title}</title>
+      <PageTitle title={title} />
       <div className="page-header__text">
         <h1>{title}</h1>
         {description && <p className="muted">{description}</p>}
       </div>
       {action}
     </header>
+  )
+}
+
+export function PageTitle({ title }: { title: string }) {
+  useEffect(() => {
+    document.title = title
+  }, [title])
+  return (
+    null
   )
 }
 
