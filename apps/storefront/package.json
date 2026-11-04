@@ -1,0 +1,28 @@
+{
+  "name": "storefront",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema.ts",
+    "./sections": "./src/sections.tsx"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=../api/.env src/server.tsx",
+    "start": "tsx src/server.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media tsx --test --test-concurrency=1 src/*.test.ts*"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.16",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "7.0.2"
+  }
+}

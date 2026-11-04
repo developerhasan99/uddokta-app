@@ -51,7 +51,7 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 
 ## Development
 
-- `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, Postgres on 5433).
+- `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, storefront on 8788 at `http://{store}.localhost:8788`, Postgres on 5433).
 - `npm test` runs API tests against the `uddokta_test` database. `npm run build` type-checks both apps and builds the dashboard.
 - Schema changes: edit `apps/api/src/schema.ts`, then `npm run db:generate -w api`. Row-level security and triggers go in custom migrations.
 - For small UI changes, run the build and check the affected screen. Do not run long full-app browser tests unless the change is broad.
@@ -76,6 +76,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Media**
 - **Analytics:** Expenses
 - **Team:** Tasks, Attendance
+- **Landing pages** (first under Sales channels)
 - **Online store:** Themes, Pages, Menus
 - **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing, Referrals
 
@@ -109,6 +110,19 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Sellers pick a collection's products by hand and drag them into order. Automatic rules (by tag, price) come later if sellers ask.
 - A collection has no status of its own. The storefront shows only its active products, so unlisted and draft ones stay hidden even when they are in a collection.
 - Staff can add and edit collections; only owners and admins can delete them. Deleting one never deletes its products.
+
+## Landing pages
+
+- `pages` holds a `draft` and a `published` JSON copy. Saving changes only the draft; Publish copies it. Saves send `revision`, and a stale one gets 409 `pageChanged` instead of overwriting.
+- Sections live in `apps/storefront`: `schema.ts` (settings schemas, `readContent` validation, no JSX so the API imports it) and `sections.tsx` (stateless components). The storefront renders them to HTML; the editor renders the same components into an iframe preview. The editor's forms are generated from the schemas.
+- Images a page uses are kept in `page_media` (draft and published), which blocks deleting them.
+- The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
+
+## Orders
+
+- Every order, from the storefront or typed in by the team, goes through `place_order`. It prices the order from the variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. App code never sends an amount.
+- Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
+- Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.
 
 ## Design rules
 

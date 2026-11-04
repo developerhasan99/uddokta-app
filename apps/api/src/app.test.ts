@@ -213,3 +213,19 @@ test('invites are single use, can expire and can be revoked', async () => {
   await pool.query(`update store_invites set expires_at = now() - interval '1 minute' where id = $1`, [expired.json.id])
   assert.equal((await second.call('POST', `/invites/${expired.json.token}/accept`)).status, 404)
 })
+
+test('owners and admins set the store name and delivery charges; staff can only read them', async () => {
+  const { owner, handle } = await storeWithOwner()
+  const admin = await join(handle, owner, 'admin')
+  const staff = await join(handle, owner, 'staff')
+  const base = `/stores/${handle}/settings`
+  assert.deepEqual((await owner.call('GET', base)).json, { name: 'Shop', deliveryInside: 70, deliveryOutside: 130 })
+  assert.equal((await admin.call('PUT', base, { name: 'নতুন নাম', deliveryInside: 60, deliveryOutside: 120 })).status, 200)
+  assert.deepEqual((await staff.call('GET', base)).json, { name: 'নতুন নাম', deliveryInside: 60, deliveryOutside: 120 })
+  assert.equal((await staff.call('PUT', base, { name: 'x', deliveryInside: 0, deliveryOutside: 0 })).status, 403)
+  for (const bad of [{ name: '', deliveryInside: 1, deliveryOutside: 1 }, { name: 'x', deliveryInside: -1, deliveryOutside: 1 }, { name: 'x', deliveryInside: 1.5, deliveryOutside: 1 }]) {
+    assert.equal((await owner.call('PUT', base, bad)).status, 400)
+  }
+  const other = await storeWithOwner()
+  assert.equal((await other.owner.call('PUT', base, { name: 'x', deliveryInside: 0, deliveryOutside: 0 })).status, 404)
+})

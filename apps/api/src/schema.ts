@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { bigint, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -34,8 +34,11 @@ export const stores = pgTable('stores', {
   id: uuid('id').primaryKey().defaultRandom(),
   handle: text('handle').notNull().unique(),
   name: text('name').notNull(),
+  // What buyers pay for delivery, added to every storefront order by the database.
+  deliveryInside: integer('delivery_inside').notNull().default(70),
+  deliveryOutside: integer('delivery_outside').notNull().default(130),
   createdAt: createdAt(),
-}, (t) => [check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`)])
+}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`)])
 
 export const storeMembers = pgTable('store_members', {
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
@@ -202,4 +205,87 @@ export const warehouseStock = pgTable('warehouse_stock', {
   foreignKey({ name: 'warehouse_stock_variant', columns: [t.storeId, t.variantId], foreignColumns: [productVariants.storeId, productVariants.id] }).onDelete('cascade'),
   index('warehouse_stock_variant_idx').on(t.variantId),
   check('warehouse_stock_quantity', sql`${t.quantity} >= 0`),
+])
+
+// Landing pages. Content is versioned JSON (see storefront/src/schema.ts); sellers edit the draft and publishing copies it.
+// The revision goes up on every save, so two people editing one page cannot silently overwrite each other.
+export const pages = pgTable('pages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  handle: text('handle').notNull(),
+  seoTitle: text('seo_title').notNull().default(''),
+  seoDescription: text('seo_description').notNull().default(''),
+  draft: jsonb('draft').notNull(),
+  published: jsonb('published'),
+  revision: integer('revision').notNull().default(1),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+}, (t) => [
+  index('pages_store_updated').on(t.storeId, t.updatedAt),
+  unique('pages_store_id').on(t.storeId, t.id),
+  unique('pages_store_handle').on(t.storeId, t.handle),
+])
+
+// Images used by a page's draft or published version. The deferred foreign key to media, which blocks deleting them, is in the security migration.
+export const pageMedia = pgTable('page_media', {
+  storeId: uuid('store_id').notNull(),
+  pageId: uuid('page_id').notNull(),
+  mediaId: uuid('media_id').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.pageId, t.mediaId] }),
+  foreignKey({ name: 'page_media_page', columns: [t.storeId, t.pageId], foreignColumns: [pages.storeId, pages.id] }).onDelete('cascade'),
+  index('page_media_media').on(t.storeId, t.mediaId),
+])
+
+export const orderStatuses = ['new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled'] as const
+export const deliveryAreas = ['inside', 'outside'] as const
+
+// Amounts are worked out by the database when the order is placed (see place_order), never sent by the buyer.
+// The foreign keys to pages, warehouses and variants are in the security migration: they set only their own column to null.
+export const orders = pgTable('orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  number: integer('number').notNull(),
+  status: text('status', { enum: orderStatuses }).notNull().default('new'),
+  customerName: text('customer_name').notNull(),
+  phone: text('phone').notNull(),
+  address: text('address').notNull(),
+  area: text('area', { enum: deliveryAreas }).notNull(),
+  subtotal: integer('subtotal').notNull(),
+  deliveryCharge: integer('delivery_charge').notNull(),
+  total: integer('total').notNull(),
+  source: text('source').notNull(),
+  pageId: uuid('page_id'),
+  warehouseId: uuid('warehouse_id'),
+  note: text('note').notNull().default(''),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique('orders_store_number').on(t.storeId, t.number),
+  unique('orders_store_id').on(t.storeId, t.id),
+  index('orders_store_created').on(t.storeId, t.createdAt),
+  index('orders_store_phone').on(t.storeId, t.phone),
+  check('orders_status', sql`${t.status} in ('new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled')`),
+  check('orders_area', sql`${t.area} in ('inside', 'outside')`),
+  check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.total} = ${t.subtotal} + ${t.deliveryCharge}`),
+])
+
+// Name, option and price are copied at the time of sale, so editing the product later never changes an old order.
+export const orderItems = pgTable('order_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull(),
+  orderId: uuid('order_id').notNull(),
+  variantId: uuid('variant_id'),
+  productName: text('product_name').notNull(),
+  variantLabel: text('variant_label').notNull(),
+  price: integer('price').notNull(),
+  quantity: integer('quantity').notNull(),
+  // True when the sale took stock from the order's warehouse, so cancelling or a return puts exactly that back.
+  stockTaken: boolean('stock_taken').notNull().default(false),
+}, (t) => [
+  foreignKey({ name: 'order_items_order', columns: [t.storeId, t.orderId], foreignColumns: [orders.storeId, orders.id] }).onDelete('cascade'),
+  index('order_items_order_idx').on(t.orderId),
+  check('order_items_amounts', sql`${t.price} >= 0 and ${t.quantity} > 0`),
 ])

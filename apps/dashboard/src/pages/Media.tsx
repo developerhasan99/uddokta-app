@@ -430,9 +430,9 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
 
   useEffect(() => {
     let current = true
-    api<{ products: { id: string; name: string }[]; collections: { id: string; name: string }[] }>(`${base}/${item.id}/usage`)
+    api<{ products: { id: string; name: string }[]; collections: { id: string; name: string }[]; pages: { id: string; name: string }[] }>(`${base}/${item.id}/usage`)
       .then((result) => {
-        if (current) setUsedIn([...result.products.map((p) => ({ ...p, to: `/products/${p.id}` })), ...result.collections.map((c) => ({ ...c, to: `/products/collections/${c.id}` }))])
+        if (current) setUsedIn([...result.products.map((p) => ({ ...p, to: `/products/${p.id}` })), ...result.collections.map((c) => ({ ...c, to: `/products/collections/${c.id}` })), ...result.pages.map((p) => ({ ...p, to: `/landing-pages/${p.id}` }))])
       })
       .catch(() => {})
     return () => { current = false }

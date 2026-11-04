@@ -1,5 +1,5 @@
 import {
-  ChartColumn, House, Image, Megaphone, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, UserCheck, Users,
+  ChartColumn, House, Image, LayoutTemplate, Megaphone, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, UserCheck, Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { Key } from './i18n'
@@ -57,14 +57,17 @@ export const nav: NavItem[] = [
   },
 ]
 
-export const channels: NavItem = {
-  key: 'onlineStore', path: '/online-store', icon: Store,
-  children: [
-    { key: 'themes', path: '/online-store/themes' },
-    { key: 'pages', path: '/online-store/pages' },
-    { key: 'menus', path: '/online-store/menus' },
-  ],
-}
+export const channels: NavItem[] = [
+  { key: 'landingPages', path: '/landing-pages', icon: LayoutTemplate },
+  {
+    key: 'onlineStore', path: '/online-store', icon: Store,
+    children: [
+      { key: 'themes', path: '/online-store/themes' },
+      { key: 'pages', path: '/online-store/pages' },
+      { key: 'menus', path: '/online-store/menus' },
+    ],
+  },
+]
 
 export const settingsItem: NavItem = { key: 'settings', path: '/settings', icon: Settings }
 export const settingsNav: NavLeaf[] = [

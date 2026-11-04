@@ -48,7 +48,7 @@ function Sidebar({ menuContainer }: { menuContainer?: HTMLElement | null }) {
       </ul>
       <h2 className="nav-heading">{t('salesChannels')}</h2>
       <ul className="nav-list">
-        <NavRow item={channels} />
+        {channels.map((item) => <NavRow key={item.path} item={item} />)}
       </ul>
       <div className="nav-bottom">
         <ul className="nav-list">
@@ -97,7 +97,7 @@ function StoreShell() {
 }
 
 // Everything under /store/:handle needs a membership in that store.
-export function Shell() {
+export function Shell({ bare = false }: { bare?: boolean }) {
   const { t } = useLang()
   const current = useCurrentStore()
   const handle = current?.store.handle
@@ -106,7 +106,7 @@ export function Shell() {
     if (handle) rememberStore(handle)
   }, [handle])
 
-  if (current) return <StoreShell />
+  if (current) return bare ? <Outlet /> : <StoreShell />
   return (
     <AccountLayout>
       <div className="page page--narrow">

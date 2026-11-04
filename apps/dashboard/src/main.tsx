@@ -15,17 +15,22 @@ import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
 import { Inventory } from './pages/Inventory'
+import { NewOrder } from './pages/NewOrder'
+import { OrderDetail } from './pages/OrderDetail'
 import { Orders } from './pages/Orders'
+import { PageEditor } from './pages/PageEditor'
+import { Pages } from './pages/Pages'
 import { Warehouses } from './pages/Warehouses'
 import { Placeholder, NotFound } from './pages/Placeholder'
 import { ProductEdit } from './pages/ProductEdit'
 import { Products } from './pages/Products'
 import { SettingsLayout } from './pages/Settings'
+import { StoreSettings } from './pages/StoreSettings'
 import { DesignSystem } from './pages/DesignSystem'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media'])
-const placeholders = [...nav, channels]
+const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages'])
+const placeholders = [...nav, ...channels]
   .flatMap((item) => [item, ...(item.children ?? [])])
   .filter((item) => !built.has(item.path))
 
@@ -52,6 +57,10 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="stores/new" element={<NewStore />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
+              {/* The page editor fills the screen, like Shopify's: no sidebar. */}
+              <Route path="store/:handle" element={<Shell bare />}>
+                <Route path="landing-pages/:id" element={<PageEditor />} />
+              </Route>
               <Route path="store/:handle" element={<Shell />}>
                 <Route index element={<Home />} />
                 <Route path="orders" element={<Orders />} />
@@ -64,14 +73,16 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="products/collections/:id" element={<CollectionEdit />} />
                 <Route path="products/new" element={<ProductEdit />} />
                 <Route path="products/:id" element={<ProductEdit />} />
-                <Route path="orders/new" element={<Placeholder item="newOrder" />} />
+                <Route path="landing-pages" element={<Pages />} />
+                <Route path="orders/new" element={<NewOrder />} />
+                <Route path="orders/:id" element={<OrderDetail />} />
                 {placeholders.map((item) => (
                   <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />
                 ))}
                 <Route path="settings" element={<SettingsLayout />}>
                   {settingsNav.map((item) => (
                     item.key === 'sStore'
-                      ? <Route key={item.path} index element={<Placeholder item={item.key} />} />
+                      ? <Route key={item.path} index element={<StoreSettings />} />
                       : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : <Placeholder item={item.key} />} />
                   ))}
                 </Route>

@@ -25,3 +25,6 @@ export async function api<T = unknown>(path: string, options: { method?: string;
 }
 
 export const errorCode = (err: unknown) => (err instanceof ApiError ? err.code : 'server')
+
+// Where a store's storefront answers. In development that is the local storefront server on {handle}.localhost:8788.
+export const storefrontUrl = (storeHandle: string) => (import.meta.env.DEV ? `http://${storeHandle}.localhost:8788` : `https://${storeHandle}.uddokta.com`)

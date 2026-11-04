@@ -4,7 +4,7 @@ import type { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import sharp from 'sharp'
 import { one, tx } from './db.ts'
-import { collections, media, productMedia, products } from './schema.ts'
+import { collections, media, pageMedia, pages, productMedia, products } from './schema.ts'
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
 
@@ -149,7 +149,13 @@ export function registerMedia(app: Hono<Env>) {
         .from(collections)
         .where(and(eq(collections.storeId, store.id), eq(collections.mediaId, c.req.param('id'))))
         .orderBy(asc(collections.name))
-      return c.json({ products: used, collections: usedCollections })
+      const usedPages = await t
+        .select({ id: pages.id, name: pages.title })
+        .from(pageMedia)
+        .innerJoin(pages, eq(pages.id, pageMedia.pageId))
+        .where(and(eq(pageMedia.storeId, store.id), eq(pageMedia.mediaId, c.req.param('id'))))
+        .orderBy(asc(pages.title))
+      return c.json({ products: used, collections: usedCollections, pages: usedPages })
     })
   })
 

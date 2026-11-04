@@ -10,6 +10,8 @@ import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerCollections } from './collections.ts'
 import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
+import { registerOrders } from './orders.ts'
+import { registerPages } from './pages.ts'
 import { registerProducts } from './products.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { readLocalFile } from './storage.ts'
@@ -90,7 +92,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (databaseConstraint(err) === 'product_media_media_fk' || databaseConstraint(err) === 'collections_media_fk') return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -207,6 +209,28 @@ app.post('/stores', async (c) => {
   return c.json({ id, handle, name, role: 'owner' }, 201)
 })
 
+app.get('/stores/:handle/settings', async (c) => {
+  return tx(c.get('userId'), async (t) => {
+    const store = await storeByHandle(t, c.req.param('handle'))
+    return c.json({ name: store.name, deliveryInside: store.deliveryInside, deliveryOutside: store.deliveryOutside })
+  })
+})
+
+// Owners and admins only: row-level security updates nothing for staff, which is answered as forbidden.
+app.put('/stores/:handle/settings', async (c) => {
+  const body = await readBody(c)
+  const name = text(body, 'name')
+  const charge = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100_000
+  if (!name || name.length > 100) throw fail(400, 'nameRequired')
+  if (!charge(body.deliveryInside) || !charge(body.deliveryOutside)) throw fail(400, 'invalidRequest')
+  return tx(c.get('userId'), async (t) => {
+    const store = await storeByHandle(t, c.req.param('handle'))
+    const [row] = await t.update(stores).set({ name, deliveryInside: body.deliveryInside as number, deliveryOutside: body.deliveryOutside as number }).where(eq(stores.id, store.id)).returning()
+    if (!row) throw fail(403, 'forbidden')
+    return c.json({ name: row.name, deliveryInside: row.deliveryInside, deliveryOutside: row.deliveryOutside })
+  })
+})
+
 app.get('/stores/:handle/members', async (c) => {
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
@@ -288,3 +312,5 @@ registerProducts(app)
 registerCollections(app)
 registerInventory(app)
 registerWarehouses(app)
+registerPages(app)
+registerOrders(app)
