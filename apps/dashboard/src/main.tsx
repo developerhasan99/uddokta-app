@@ -32,6 +32,7 @@ import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
 import { Attendance, Tasks, TeamToday } from './pages/Team'
 import { Tracking } from './pages/Tracking'
+import { Domains } from './pages/Domains'
 import { Themes } from './pages/Themes'
 import { StoreSettings } from './pages/StoreSettings'
 import { Analytics, Expenses } from './pages/Analytics'
@@ -108,7 +109,7 @@ createRoot(document.getElementById('root')!).render(
                   {settingsNav.map((item) => (
                     item.key === 'sStore'
                       ? <Route key={item.path} index element={<StoreSettings />} />
-                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : item.key === 'couriers' ? <Couriers /> : item.key === 'tracking' ? <Tracking /> : <Placeholder item={item.key} />} />
+                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : item.key === 'couriers' ? <Couriers /> : item.key === 'tracking' ? <Tracking /> : item.key === 'domains' ? <Domains /> : <Placeholder item={item.key} />} />
                   ))}
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />

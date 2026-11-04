@@ -1,8 +1,23 @@
-# Sellers' own domains. Spike: one fixed test host proxied to the Railway storefront.
-# Step 6 of the plan replaces this with on-demand TLS approved by the API.
-shop.uddokta.studio {
-	reverse_proxy https://demo.uddokta.live {
-		header_up Host demo.uddokta.live
+# Sellers' own domains. Every domain gets a certificate on its first visit, but only after the storefront
+# says it belongs to a store (seller domains and their www).
+{
+	on_demand_tls {
+		ask https://domains.uddokta.live/_domains/allowed
+	}
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	# Railway routes by Host, and *.uddokta.live already reaches the storefront; it reads the buyer's host from X-Store-Host.
+	reverse_proxy https://domains.uddokta.live {
+		header_up Host domains.uddokta.live
+		header_up X-Forwarded-Host domains.uddokta.live
 		header_up X-Store-Host {host}
 	}
+}
+
+http:// {
+	redir https://{host}{uri} 308
 }

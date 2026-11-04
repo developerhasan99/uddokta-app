@@ -17,3 +17,8 @@ Railway no longer permits new services to opt into legacy `railway.json`/`railwa
 Use private `DATABASE_URL=${{Postgres.DATABASE_URL}}` references in both services. Apply the rest of `beta.env.example` as appropriate; never use the fake storage values from local container smoke tests. Keep credentials in Railway variables, not in this file.
 
 Start the admin service first so migrations complete before the storefront becomes ready. Keep the beta access allowlist active and `ROBOTS_NOINDEX=true` on the storefront.
+
+## Domains proxy (Fly.io)
+
+Sellers' own domains go through a separate Caddy proxy, not Railway: Fly app `uddokta-domains` (personal org, region `sin`), dedicated IPv4 `37.16.26.111`, files in `deploy/proxy/`. Deploy with `cd deploy/proxy && fly deploy --app uddokta-domains --ha=false`. It needs no secrets. Caddy gets a certificate only for domains the storefront approves at `https://domains.uddokta.live/_domains/allowed`, so deploy storefront changes to that route before proxy changes that depend on them. The admin service needs `DOMAINS_IP=37.16.26.111` to show sellers the records.
+

@@ -782,3 +782,15 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .menu-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--space-xs); align-items: center; }
 .menu-row__url { grid-column: 1 / 3; }
 @media (max-width: 640px) { .menu-row { grid-template-columns: 1fr; } .menu-row__url { grid-column: auto; } }
+
+/* Numbered instructions, such as the domain setup steps. */
+.steps { display: grid; gap: var(--space-2xs); padding-inline-start: var(--space-lg); list-style: decimal; }
+:lang(bn) .steps { list-style-type: bengali; }
+.domain-records td { padding-block: var(--space-2xs); overflow-wrap: anywhere; }
+.domain-records__type { width: 4.5rem; }
+.domain-records__value { width: 10.5rem; }
+.domain-records__value code { white-space: nowrap; }
+.domain-records__status { width: 8.5rem; }
+@media (max-width: 40rem) { .domain-records__value { width: 8.5rem; } .domain-records__value .row { flex-wrap: wrap; gap: var(--space-2xs); } }
+.domain-records__phone-status { display: none; }
+@media (max-width: 40rem) { .domain-records__phone-status { display: block; margin-top: var(--space-2xs); } }
