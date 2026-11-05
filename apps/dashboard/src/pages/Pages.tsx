@@ -14,7 +14,7 @@ export function PageStatus({ page }: { page: Pick<PageRow, 'isPublished' | 'hasC
   return page.hasChanges ? <Badge tone="warning">{t('pageHasChanges')}</Badge> : <Badge tone="success">{t('pageLive')}</Badge>
 }
 
-// Asks only for a name; the page starts with a full landing page layout to edit.
+// New pages start on an empty canvas. Premade templates can be added to this flow later.
 function NewPageDialog({ onClose }: { onClose: () => void }) {
   const { t } = useLang()
   const navigate = useNavigate()
@@ -39,7 +39,7 @@ function NewPageDialog({ onClose }: { onClose: () => void }) {
     setBusy(true)
     setError(null)
     try {
-      const page = await api<{ id: string }>(base, { method: 'POST', body: { title } })
+      const page = await api<{ id: string }>(base, { method: 'POST', body: { title, blank: true } })
       navigate(path(`/landing-pages/${page.id}`))
     } catch (err) {
       setError(errorCode(err))

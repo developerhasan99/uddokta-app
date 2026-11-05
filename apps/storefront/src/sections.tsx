@@ -1,7 +1,9 @@
 // The section components, rendered to HTML by the storefront and live inside the editor's preview frame.
 // They hold no state and use no hooks, so both places draw exactly the same page.
-import type { ReactNode } from 'react'
-import { videoEmbed, type Content, type Section } from './schema.ts'
+import type { CSSProperties, ReactNode } from 'react'
+import { IconBadge } from './icons/Icon.tsx'
+import { iconCatalog, isIconName } from './icons/catalog.ts'
+import { videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -50,12 +52,13 @@ const firstOrderId = (content: Content) => content.sections.find((s) => s.type =
 function Hero({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   const image = ctx.image(s.settings.image as string | null)
   return (
-    <section className="sf-section sf-hero">
+    <section className="sf-section sf-hero" data-layout={str(s.settings.layout) || 'split'}>
       <div className="sf-wrap sf-hero__grid">
         <div className="sf-hero__text">
+          {str(s.settings.eyebrow) && <p className="sf-eyebrow">{str(s.settings.eyebrow)}</p>}
           {str(s.settings.heading) && <h1>{str(s.settings.heading)}</h1>}
           <Lines text={str(s.settings.text)} className="sf-lead" />
-          {str(s.settings.button) && orderId && <a className="sf-button" href={`#${orderId}`}>{str(s.settings.button)}</a>}
+          <SectionButton s={s} orderId={orderId} />
         </div>
         {image ? <Picture img={image} eager className="sf-hero__image" /> : <Hint ctx={ctx}>ছবি দিলে এখানে দেখাবে</Hint>}
       </div>
@@ -95,7 +98,7 @@ function Features({ s }: { s: Section }) {
         <ul className="sf-features">
           {items(s.settings.items).map((item, i) => (
             <li key={i}>
-              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {item.icon === undefined ? <svg className="sf-legacy-check" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : <IconBadge name={item.icon ?? ''} surface={s.style?.iconSurface} />}
               <div>
                 <h3>{item.title}</h3>
                 {item.text && <p>{item.text}</p>}
@@ -110,7 +113,7 @@ function Features({ s }: { s: Section }) {
 
 function Video({ s, ctx }: { s: Section; ctx: Ctx }) {
   const src = videoEmbed(str(s.settings.url))
-  if (!src) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>ইউটিউব বা ফেসবুক ভিডিওর লিংক দিন</Hint></div></section> : null
+  if (!src) return ctx.preview ? <section className="sf-section"><div className="sf-wrap sf-narrow"><Heading text={str(s.settings.heading)} /><div className="sf-video sf-video-placeholder"><span aria-hidden="true">▶</span><p>ইউটিউব বা ফেসবুক ভিডিওর লিংক দিন</p></div></div></section> : null
   return (
     <section className="sf-section">
       <div className="sf-wrap sf-narrow">
@@ -196,14 +199,14 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
 
   return (
     <section className="sf-section sf-section--tint" id={s.id}>
-      <div className="sf-wrap sf-narrow">
+      <div className={`sf-wrap ${s.settings.layout === 'split' ? '' : 'sf-narrow'}`}>
         <Heading text={str(s.settings.heading)} />
-        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-inside={inside} data-outside={outside} data-product={product.name}>
+        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-layout={str(s.settings.layout)} data-choices={str(s.settings.choices)} data-inside={inside} data-outside={outside} data-product={product.name}>
           <input type="hidden" name="section" value={s.id} />
           {!ctx.preview && <input type="hidden" name="checkout" value={ctx.checkoutToken} />}
           {/* Left empty by people, who never see it; form-filling bots tend to fill every field. */}
           <label className="sf-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
-          <div className="sf-order__product">
+          <div className="sf-order__selection"><div className="sf-order__product">
             <Picture img={product.image ?? undefined} />
             <p>{product.name}</p>
           </div>
@@ -237,7 +240,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             <span>পরিমাণ</span>
             <input type="number" min={1} max={20} inputMode="numeric" {...field('quantity')} defaultValue={String(quantity)} />
           </label>
-          <label className="sf-field">
+          </div><div className="sf-order__customer"><label className="sf-field">
             <span>আপনার নাম</span>
             <input autoComplete="name" maxLength={100} required {...field('name')} />
           </label>
@@ -270,7 +273,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
           <p className="sf-note">কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
-          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0}>{str(s.settings.button) || 'অর্ডার করুন'}</button>
+          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
         </form>
       </div>
     </section>
@@ -331,8 +334,121 @@ function Contact({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
+
+function SectionButton({ s, orderId }: { s: Section; orderId?: string }) {
+  const href = str(s.settings.link) || (orderId ? `#${orderId}` : '')
+  return str(s.settings.button) && href ? <a className="sf-button" href={href}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button)}</a> : null
+}
+
+function LandingHeader({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
+  return <section className="sf-section sf-custom-header"><div className="sf-wrap sf-header-row">
+    <div className="sf-brand"><Picture img={ctx.image(s.settings.image as string | null)} /><strong>{str(s.settings.brand)}</strong></div>
+    <nav className="sf-section-links" aria-label="পেজ নেভিগেশন">{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
+    <SectionButton s={s} orderId={orderId} />
+  </div></section>
+}
+
+function LandingFooter({ s }: { s: Section }) {
+  return <section className="sf-section sf-custom-footer"><div className="sf-wrap">
+    <Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" />
+    <nav className="sf-section-links" aria-label="ফুটার লিংক">{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
+  </div></section>
+}
+
+function ImageText({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
+  return <section className="sf-section sf-story" data-layout={str(s.settings.layout)}><div className="sf-wrap sf-story__grid">
+    <div><Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} /></div>
+    {ctx.image(s.settings.image as string | null) ? <Picture img={ctx.image(s.settings.image as string | null)} className="sf-story__image" /> : <Hint ctx={ctx}>একটি ছবি বেছে নিন</Hint>}
+  </div></section>
+}
+
+function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const rows = items(s.settings.items)
+  return <section className={`sf-section sf-info sf-info--${s.type}`} data-layout={str(s.settings.layout)}><div className="sf-wrap">
+    <Heading text={str(s.settings.heading)} />
+    <ol className="sf-info-grid">{rows.map((item, i) => <li key={i}>
+      {item.icon && <IconBadge name={item.icon} surface={s.style?.iconSurface} />}
+      {s.type === 'steps' && !item.icon && <span className="sf-step-number">{number.format(i + 1).padStart(2, '০')}</span>}
+      {s.type === 'cards' && (ctx.image(item.image) ? <Picture img={ctx.image(item.image)} className="sf-card-image" /> : <Hint ctx={ctx}>কার্ডে ছবি দিন</Hint>)}
+      <div className="sf-info-copy"><h3>{item.title}</h3>{item.text && <p>{item.text}</p>}</div>
+    </li>)}</ol>
+  </div></section>
+}
+
+function StandaloneIcon({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const name = str(s.settings.icon)
+  if (!isIconName(name)) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি আইকন বেছে নিন</Hint></div></section> : null
+  const label = str(s.settings.label)
+  const href = str(s.settings.link)
+  return <section className="sf-section sf-standalone-icon"><div className="sf-wrap">
+    {href ? <a className="sf-icon-link" href={href} aria-label={label || iconCatalog[name].label[0]}><IconBadge name={name} surface={s.style?.iconSurface} /></a> : <IconBadge name={name} surface={s.style?.iconSurface} label={label} />}
+  </div></section>
+}
+
+function Specifications({ s }: { s: Section }) {
+  return <section className="sf-section"><div className="sf-wrap sf-narrow"><Heading text={str(s.settings.heading)} />
+    <dl className="sf-specifications">{items(s.settings.items).map((item, i) => <div key={i}><dt>{item.title}</dt><dd>{item.text}</dd></div>)}</dl>
+  </div></section>
+}
+
+function Comparison({ s }: { s: Section }) {
+  return <section className="sf-section"><div className="sf-wrap"><Heading text={str(s.settings.heading)} />
+    <div className="sf-table-scroll" role="region" aria-label={str(s.settings.heading) || 'পণ্যের তুলনা'} tabIndex={0}><table className="sf-comparison"><thead><tr><th scope="col">বৈশিষ্ট্য</th><th scope="col">{str(s.settings.left)}</th><th scope="col">{str(s.settings.right)}</th></tr></thead>
+      <tbody>{items(s.settings.items).map((item, i) => <tr key={i}><th scope="row">{item.title}</th><td>{item.left}</td><td>{item.right}</td></tr>)}</tbody>
+    </table></div>
+  </div></section>
+}
+
+function CallToAction({ s, orderId }: { s: Section; orderId?: string }) {
+  return <section className={`sf-section sf-cta ${s.type === 'announcement' ? 'sf-announcement' : ''}`}><div className="sf-wrap">
+    <Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} />
+  </div></section>
+}
+
+// Only these typed settings become CSS variables; arbitrary CSS is never interpolated.
+export function sectionStyle(style?: SectionStyle): CSSProperties {
+  const out: Record<string, string | number> = {}
+  const lengths: Record<string, string> = { iconSize: 'icon-size', iconRadius: 'icon-radius', maxWidth: 'width', headingSize: 'heading', mobileHeadingSize: 'mobile-heading', bodySize: 'body', buttonSize: 'button-size', paddingTop: 'pt', paddingBottom: 'pb', paddingX: 'px', paddingLeft: 'pl', paddingRight: 'pr', marginLeft: 'ml', marginRight: 'mr', mobilePaddingLeft: 'mobile-pl', mobilePaddingRight: 'mobile-pr', mobileMarginTop: 'mobile-mt', mobileMarginRight: 'mobile-mr', mobileMarginBottom: 'mobile-mb', mobileMarginLeft: 'mobile-ml', mobilePaddingTop: 'mobile-pt', mobilePaddingBottom: 'mobile-pb', marginTop: 'mt', marginBottom: 'mb', gap: 'gap', borderWidth: 'border-width', radius: 'radius', sectionRadius: 'section-radius', buttonRadius: 'button-radius' }
+  const colors: Record<string, string[]> = { iconColor: ['--section-icon-color'], iconBackground: ['--section-icon-background'], background: ['--section-background'], color: ['--sf-ink', '--sf-muted'], accent: ['--sf-accent'], buttonText: ['--sf-accent-ink'], cardBackground: ['--section-card'], borderColor: ['--section-border'] }
+  for (const [key, value] of Object.entries(style ?? {})) {
+    if (lengths[key] && typeof value === 'number') out[`--section-${lengths[key]}`] = `${value}px`
+    if (colors[key] && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) for (const variable of colors[key]) out[variable] = value
+  }
+  if (style?.iconStroke) out['--section-icon-stroke'] = style.iconStroke
+  if (style?.align) out['--section-align'] = style.align
+  if (style?.columns) out['--section-columns'] = style.columns
+  if (style?.mobileColumns) out['--section-mobile-columns'] = style.mobileColumns
+  if (style?.headingWeight) out['--section-weight'] = style.headingWeight
+  if (style?.borderStyle) out['--section-border-style'] = style.borderStyle
+  if (style?.imageFit) out['--section-image-fit'] = style.imageFit
+  if (style?.imageRatio) out['--section-image-ratio'] = style.imageRatio
+  if (style?.font) out['--section-font'] = style.font === 'serif' ? '"Tiro Bangla", Georgia, serif' : '"Noto Sans Bengali", system-ui, sans-serif'
+  if (style?.radius !== undefined) out['--sf-radius'] = `${style.radius}px`
+  if (style?.shadow) out['--section-shadow'] = ({ none: 'none', soft: '0 6px 24px #00000012', strong: '0 12px 40px #00000029' } as Record<string, string>)[style.shadow] ?? 'none'
+  return out as CSSProperties
+}
+
+export function SectionFrame({ s, children }: { s: Section; children: ReactNode }) {
+  return <div id={s.type === 'order' ? undefined : s.id} data-section={s.id} className={s.style ? 'sf-section-frame sf-styled' : 'sf-section-frame'} style={sectionStyle(s.style)} data-visibility={s.style?.visibility} data-align={s.style?.align} data-body-size={s.style?.bodySize} data-image-ratio={s.style?.imageRatio} data-background={s.style?.background}>
+    {children}
+  </div>
+}
+
 export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   switch (s.type) {
+    case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
+    case 'iconCards':
+    case 'iconList': return <InfoItems s={s} ctx={ctx} />
+    case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
+    case 'footer': return <LandingFooter s={s} />
+    case 'announcement':
+    case 'cta': return <CallToAction s={s} orderId={orderId} />
+    case 'imageText': return <ImageText s={s} ctx={ctx} orderId={orderId} />
+    case 'trust':
+    case 'steps':
+    case 'cards': return <InfoItems s={s} ctx={ctx} />
+    case 'specifications': return <Specifications s={s} />
+    case 'comparison': return <Comparison s={s} />
     case 'hero': return <Hero s={s} ctx={ctx} orderId={orderId} />
     case 'text': return <TextSection s={s} />
     case 'image': return <ImageSection s={s} ctx={ctx} />
@@ -349,13 +465,16 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
 
 export function PageView({ content, ctx, storeName }: { content: Content; ctx: Ctx; storeName: string }) {
   const orderId = firstOrderId(content)
+  const fonts = new Set(content.sections.filter((s) => !s.hidden).map((s) => s.style?.font).filter(Boolean))
   return (
     <div className="sf-page">
-      <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>
+      {fonts.has('serif') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap" />}
+      {fonts.has('sans') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" />}
+      {content.canvas?.header !== false && <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>}
       <main>
-        {content.sections.filter((s) => !s.hidden).map((s) => <div key={s.id} data-section={s.id}><SectionView s={s} ctx={ctx} orderId={orderId} /></div>)}
+        {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
       </main>
-      <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>
+      {content.canvas?.footer !== false && <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>}
     </div>
   )
 }
@@ -445,4 +564,88 @@ h1,h2,h3,p{margin:0}
   .sf-features,.sf-reviews{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
   .sf-gallery{grid-template-columns:repeat(3,1fr);gap:12px}
 }
+.sf-video-placeholder{display:grid;place-content:center;text-align:center;gap:12px;color:white}.sf-video-placeholder span{font-size:40px}.sf-video-placeholder p{font-size:15px}
+.sf-section-frame :is(h1,h2,h3,p,blockquote){overflow-wrap:anywhere}.sf-hero__grid>*,.sf-story__grid>*{min-width:0}
+/* New section families and optional per-section overrides. Legacy pages retain their defaults. */
+.sf-section-frame{min-width:0;margin-top:var(--section-mt,0);margin-bottom:var(--section-mb,0);margin-left:var(--section-ml,0);margin-right:var(--section-mr,0);color:var(--sf-ink);font-family:var(--section-font,inherit)}
+.sf-styled>.sf-section{padding:var(--section-pt,40px) 0 var(--section-pb,40px);border:var(--section-border-width,0px) var(--section-border-style,solid) var(--section-border,var(--sf-rule));border-radius:var(--section-section-radius,0);box-shadow:var(--section-shadow,none)}
+.sf-section-frame[data-background]>.sf-section{background:var(--section-background)}
+.sf-styled .sf-wrap{max-width:var(--section-width,1080px);padding-left:var(--section-pl,var(--section-px,16px));padding-right:var(--section-pr,var(--section-px,16px))}
+.sf-styled .sf-narrow{max-width:var(--section-width,680px)}
+.sf-styled .sf-heading{font-size:var(--section-heading,24px);font-weight:var(--section-weight,700)}
+.sf-styled .sf-hero h1{font-size:var(--section-heading,30px);font-weight:var(--section-weight,700)}
+.sf-section-frame[data-align]>.sf-section{text-align:var(--section-align)}
+.sf-section-frame[data-align] :is(.sf-heading,.sf-hero__text,.sf-body,.sf-info-grid li){text-align:var(--section-align)}
+.sf-section-frame[data-body-size] :is(p,blockquote,dd,td){font-size:var(--section-body)}
+.sf-styled .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
+.sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){gap:var(--section-gap,12px)}
+.sf-styled :is(.sf-features li,.sf-reviews li,.sf-info-grid li,.sf-order){background:var(--section-card,var(--sf-paper))}
+.sf-section-frame :is(.sf-hero__image,.sf-story__image,.sf-card-image,.sf-figure img,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
+.sf-section-frame[data-image-ratio] :is(.sf-hero__image,.sf-story__image,.sf-card-image,.sf-figure img,.sf-gallery img){aspect-ratio:var(--section-image-ratio);width:100%;height:auto}
+.sf-eyebrow{color:var(--sf-accent);font-size:13px;letter-spacing:1px;margin-bottom:16px}
+.sf-hero[data-layout=center] .sf-hero__grid,.sf-story[data-layout=center] .sf-story__grid{grid-template-columns:1fr;text-align:center;max-width:var(--section-width,800px)}
+.sf-story__grid{display:grid;gap:var(--section-gap,32px);align-items:center}.sf-story__image{width:100%;border-radius:var(--sf-radius)}
+.sf-story .sf-heading{text-align:inherit}.sf-story .sf-body{line-height:1.8}
+.sf-header-row{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}.sf-brand{display:flex;align-items:center;gap:12px;font-size:22px}.sf-brand img{width:auto;max-width:160px;height:44px;object-fit:contain}
+.sf-section-links{display:flex;flex-wrap:wrap;gap:20px;align-items:center}.sf-section-links a{color:inherit;text-underline-offset:4px}.sf-custom-header .sf-button{margin:0}.sf-custom-header{padding:20px 0}.sf-custom-footer{text-align:center}.sf-custom-footer .sf-section-links{justify-content:center;margin-top:24px}
+.sf-info-grid{display:grid;grid-template-columns:1fr;list-style:none;padding:0;margin:0;gap:var(--section-gap,20px)}
+.sf-info-grid li{min-width:0;border:1px solid var(--sf-rule);border-radius:var(--sf-radius);padding:24px;background:var(--section-card,var(--sf-paper))}.sf-info-grid h3{font-size:20px;margin-bottom:8px}.sf-info-grid p{color:var(--sf-muted)}
+.sf-info--trust .sf-info-grid li{padding:16px;border:0;background:transparent}.sf-info--trust h3{font-size:17px}.sf-info--trust p{font-size:14px}.sf-info--trust{border-block:1px solid var(--sf-rule);padding:20px 0}
+.sf-step-number{display:block;color:var(--sf-accent);font-size:22px;margin-bottom:20px}.sf-info[data-layout=list] .sf-info-grid{grid-template-columns:1fr}.sf-info[data-layout=list] li{position:relative;padding-inline-start:74px}.sf-info[data-layout=list] .sf-step-number{position:absolute;inset-inline-start:24px;top:24px}
+.sf-card-image{width:100%;aspect-ratio:4/3;border-radius:var(--sf-radius);margin-bottom:20px}
+.sf-specifications{margin:0}.sf-specifications>div{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:18px 0;border-bottom:1px solid var(--sf-rule)}.sf-specifications dt{font-weight:600}.sf-specifications dd{margin:0;color:var(--sf-muted);overflow-wrap:anywhere}
+.sf-table-scroll{overflow-x:auto;max-width:100%}.sf-comparison{width:100%;border-collapse:collapse;table-layout:fixed}.sf-comparison :is(th,td){padding:18px;text-align:start;border-bottom:1px solid var(--sf-rule);overflow-wrap:anywhere}.sf-comparison thead th{font-weight:700}.sf-comparison :is(th,td):nth-child(2){background:var(--section-card,var(--sf-tint))}
+.sf-cta{text-align:center}.sf-cta .sf-wrap{max-width:var(--section-width,800px)}.sf-announcement{padding:14px 0}.sf-announcement .sf-wrap{max-width:var(--section-width,1080px);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px}.sf-announcement .sf-body p{margin:0}.sf-announcement .sf-button{margin:0;min-height:36px;font-size:14px}
+.sf-order__selection,.sf-order__customer{display:grid;gap:14px;align-content:start;min-width:0}.sf-order[data-choices=cards] .sf-order__selection .sf-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-order[data-choices=cards] .sf-order__selection legend{grid-column:1/-1}.sf-order[data-choices=cards] .sf-order__selection .sf-choice{flex-wrap:wrap;padding:16px}.sf-choice:has(input:checked){border-color:var(--sf-accent);box-shadow:inset 0 0 0 1px var(--sf-accent)}
+.sf-button:focus-visible,.sf-section-links a:focus-visible,.sf-faq summary:focus-visible,.sf-table-scroll:focus-visible{outline:3px solid var(--sf-accent);outline-offset:4px}
+@media(min-width:720px){
+ .sf-info-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .sf-story__grid{grid-template-columns:1fr 1fr}.sf-hero[data-layout=reverse] .sf-hero__text,.sf-story[data-layout=reverse] .sf-story__grid>div:first-child{order:2}
+ .sf-styled>.sf-section{padding-top:var(--section-pt,56px);padding-bottom:var(--section-pb,56px)}
+ .sf-styled .sf-heading{font-size:var(--section-heading,28px)}.sf-styled .sf-hero h1{font-size:var(--section-heading,40px)}
+ .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){grid-template-columns:repeat(var(--section-columns,3),minmax(0,1fr))}
+ .sf-styled .sf-info[data-layout=list] .sf-info-grid{grid-template-columns:1fr}
+ .sf-order[data-layout=split]{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+ .sf-section-frame[data-visibility=mobile]{display:none}
+}
+@media(max-width:719px){
+ .sf-styled>.sf-section{padding-top:var(--section-mobile-pt,var(--section-pt,40px));padding-bottom:var(--section-mobile-pb,var(--section-pb,40px))}
+ .sf-styled .sf-heading{font-size:var(--section-mobile-heading,var(--section-heading,24px))}
+ .sf-styled .sf-hero h1{font-size:var(--section-mobile-heading,var(--section-heading,30px))}
+ .sf-styled :is(.sf-features,.sf-reviews,.sf-info-grid){grid-template-columns:repeat(var(--section-mobile-columns,1),minmax(0,1fr))}
+ .sf-styled .sf-gallery{grid-template-columns:repeat(var(--section-mobile-columns,2),minmax(0,1fr))}
+ .sf-section-frame[data-visibility=desktop]{display:none}
+ .sf-comparison :is(th,td){padding:12px 8px;font-size:14px}.sf-header-row{gap:16px}.sf-header-row .sf-section-links{width:100%;order:3;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.sf-styled .sf-hero__grid{gap:var(--section-gap,24px)}
+.sf-styled>.sf-custom-header,.sf-styled>.sf-info--trust{padding-top:var(--section-pt,20px);padding-bottom:var(--section-pb,20px)}
+.sf-styled>.sf-announcement{padding-top:var(--section-pt,14px);padding-bottom:var(--section-pb,14px)}
+@media(min-width:720px){.sf-styled .sf-hero__grid{gap:var(--section-gap,40px)}}
+@media(max-width:719px){
+ .sf-styled>.sf-custom-header,.sf-styled>.sf-info--trust{padding-top:var(--section-mobile-pt,var(--section-pt,20px));padding-bottom:var(--section-mobile-pb,var(--section-pb,20px))}
+ .sf-styled>.sf-announcement{padding-top:var(--section-mobile-pt,var(--section-pt,14px));padding-bottom:var(--section-mobile-pb,var(--section-pb,14px))}
+}
+
+@media(max-width:719px){
+ .sf-section-frame{margin-top:var(--section-mobile-mt,var(--section-mt,0));margin-right:var(--section-mobile-mr,var(--section-mr,0));margin-bottom:var(--section-mobile-mb,var(--section-mb,0));margin-left:var(--section-mobile-ml,var(--section-ml,0))}
+ .sf-styled .sf-wrap{padding-left:var(--section-mobile-pl,var(--section-pl,var(--section-px,16px)));padding-right:var(--section-mobile-pr,var(--section-pr,var(--section-px,16px)))}
+}
+
+/* Curated marketing icons are inline SVG, rendered on the server. */
+.sf-icon-badge{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;vertical-align:middle;color:var(--section-icon-color,var(--sf-accent));line-height:1}
+.sf-icon-badge>.sf-marketing-icon{width:var(--section-icon-size,28px);height:var(--section-icon-size,28px);stroke-width:var(--section-icon-stroke,2);flex-shrink:0;margin:0;color:inherit}
+.sf-icon-badge:not([data-icon-surface=plain]){padding:12px;border-radius:var(--section-icon-radius,12px)}
+.sf-icon-badge[data-icon-surface=soft]{background:var(--section-icon-background,color-mix(in srgb,var(--sf-accent) 10%,transparent))}
+.sf-icon-badge[data-icon-surface=outline]{border:1px solid currentColor;background:var(--section-icon-background,transparent)}
+.sf-icon-badge[data-icon-surface=solid]{background:var(--section-icon-background,var(--sf-accent));color:var(--section-icon-color,var(--sf-accent-ink))}
+.sf-features .sf-icon-badge{align-self:flex-start;margin-top:2px}.sf-features .sf-legacy-check{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px);color:var(--section-icon-color,var(--sf-accent))}.sf-legacy-check path{stroke-width:var(--section-icon-stroke,2)}
+.sf-info-grid li>.sf-icon-badge{margin-bottom:18px}.sf-info--trust .sf-icon-badge{margin-bottom:10px}
+.sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}
+.sf-info--iconList .sf-info-grid li{display:flex;gap:var(--section-gap,16px);align-items:flex-start;background:transparent;border:0;padding:16px 0;border-bottom:1px solid var(--sf-rule);border-radius:0}
+.sf-info--iconList .sf-info-grid li>.sf-icon-badge{margin:0}.sf-info-copy{min-width:0}
+.sf-standalone-icon{text-align:center}.sf-icon-link{display:inline-flex;color:inherit}.sf-icon-link:focus-visible{outline:2px solid var(--sf-accent);outline-offset:6px}
+.sf-button{gap:10px}.sf-button>.sf-icon-badge>.sf-marketing-icon{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px)}.sf-button>.sf-icon-badge[data-icon-surface=plain]{color:var(--section-icon-color,inherit)}
+
 `

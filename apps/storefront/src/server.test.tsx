@@ -7,6 +7,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app as api } from '../../api/src/app.ts'
 import { pool } from '../../api/src/db.ts'
 import { app } from './server.tsx'
+import { blankContent, newSection } from './schema.ts'
 
 before(async () => {
   await pool.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public')
@@ -54,6 +55,39 @@ async function publishedPage(status = 'active') {
 const visit = (store: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { host: `${store}.localhost:8788`, ...init.headers } })
 const order = (store: string, path: string, fields: Record<string, string>) =>
   visit(store, path, { method: 'POST', body: new URLSearchParams({ checkout: randomUUID(), ...fields }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+
+test('saved icon IDs publish as inline SVG on the public page without an icon font or client library', async () => {
+  const s = await publishedPage()
+  const base = `/stores/${s.handle}/pages/${s.page.id}`
+  const current = (await s.call('GET', base)).json
+  const cards = newSection('iconCards', 'icon-cards')
+  cards.style = { iconSize: 36, iconStroke: '1.5', iconSurface: 'soft', iconColor: '#285a3f' }
+  const symbol = newSection('icon', 'phone')
+  symbol.settings = { icon: 'phone', label: 'Call our team', link: 'tel:+8801700000000' }
+  const cta = newSection('cta', 'buy')
+  cta.settings.buttonIcon = 'shopping-bag'
+  cta.settings.link = '#icon-cards'
+  const draft = { ...blankContent(), sections: [cards, newSection('iconList', 'icon-list'), symbol, cta] }
+  const saved = await s.call('PUT', base, { title: current.title, handle: current.handle, revision: current.revision, draft })
+  assert.equal(saved.status, 200)
+  assert.deepEqual(saved.json.draft, draft)
+  assert.deepEqual((await s.call('GET', base)).json.draft, draft)
+  assert.doesNotMatch(await (await visit(s.handle, s.url)).text(), /data-icon=/, 'saving a draft does not change the published page')
+  assert.equal((await s.call('POST', `${base}/publish`, { revision: saved.json.revision })).status, 200)
+  const res = await visit(s.handle, s.url)
+  assert.equal(res.status, 200)
+  const html = await res.text()
+  for (const id of ['truck', 'shield-check', 'headphones', 'check', 'phone', 'shopping-bag']) assert.ok(html.includes(`data-icon="${id}"`))
+  assert.match(html, /<svg[^>]*data-icon="truck"[^>]*><path/)
+  assert.match(html, /--section-icon-size:36px/)
+  assert.match(html, /data-icon-surface="soft"/)
+  assert.match(html, /href="tel:\+8801700000000" aria-label="Call our team"/)
+  assert.doesNotMatch(html, /iconNodes|iconCatalog|lucide-react|fontawesome|font-awesome|data-icon="rocket"|<use\b/)
+  assert.doesNotMatch(html.match(/<script>([\s\S]*?)<\/script>/)![1], /data-icon|lucide|iconNodes/)
+  const invalid = structuredClone(draft)
+  invalid.sections[2].settings.icon = '<svg onload=alert(1)>'
+  assert.equal((await s.call('PUT', base, { title: saved.json.title, handle: saved.json.handle, revision: saved.json.revision, draft: invalid })).status, 400)
+})
 
 test('a published page renders on its store’s address, and nowhere else', async () => {
   const s = await publishedPage()

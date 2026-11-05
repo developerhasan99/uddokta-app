@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { isReservedPageHandle } from 'storefront/paths'
-import { readContent, references, starterContent, type Content } from 'storefront/schema'
+import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
@@ -104,6 +104,7 @@ export function registerPages(app: Hono<Env>) {
   app.post('/stores/:handle/pages', async (c) => {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
+    if (body.blank !== undefined && typeof body.blank !== 'boolean') throw fail(400, 'invalidRequest')
     const settings = readSettings(body)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
@@ -112,7 +113,7 @@ export function registerPages(app: Hono<Env>) {
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
       if (count >= maxPages) throw fail(409, 'pageLimit')
       const [row] = await t.insert(pages).values({
-        storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft: starterContent(sectionId),
+        storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft: body.blank === true ? blankContent() : starterContent(sectionId),
       }).returning({ id: pages.id })
       return c.json(await loadPage(t, store.id, row.id), 201)
     }).catch(refuseTakenHandle)

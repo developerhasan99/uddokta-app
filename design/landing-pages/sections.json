@@ -1,0 +1,67 @@
+[
+  {
+    "type": "hero",
+    "file": "section-hero.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "trust",
+    "file": "section-trust.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "features",
+    "file": "section-features.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "story",
+    "file": "section-story.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "packages",
+    "file": "section-packages.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "reviews",
+    "file": "section-reviews.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "faq",
+    "file": "section-faq.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "order",
+    "file": "section-order.html",
+    "theme": "shikor"
+  },
+  {
+    "type": "bundle",
+    "file": "section-bundle.html",
+    "theme": "pantry"
+  },
+  {
+    "type": "offer",
+    "file": "section-offer.html",
+    "theme": "pantry"
+  },
+  {
+    "type": "steps",
+    "file": "section-steps.html",
+    "theme": "mithai"
+  },
+  {
+    "type": "comparison",
+    "file": "section-comparison.html",
+    "theme": "mithai"
+  },
+  {
+    "type": "specs",
+    "file": "section-specs.html",
+    "theme": "nirvor"
+  }
+]

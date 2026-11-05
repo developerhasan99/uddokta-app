@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { blankContent, newSection, sectionTypes, type Content } from './schema.ts'
+import { PageView, type Ctx } from './sections.tsx'
+
+const ctx: Ctx = { preview: true, delivery: { inside: 60, outside: 120 }, image: () => undefined, product: () => undefined }
+const render = (content: Content) => renderToStaticMarkup(<PageView content={content} ctx={ctx} storeName="Legacy store" />)
+
+test('legacy pages retain store chrome; blank pages omit it and accept custom header/footer sections', () => {
+  assert.match(render({ version: 1, sections: [] }), /sf-bar/)
+  assert.match(render({ version: 1, sections: [] }), /sf-foot/)
+  const blank = render(blankContent())
+  assert.doesNotMatch(blank, /sf-bar|sf-foot/)
+  const custom = render({ ...blankContent(), sections: [newSection('header', 'top'), newSection('footer', 'bottom')] })
+  assert.match(custom, /sf-custom-header/)
+  assert.match(custom, /sf-custom-footer/)
+  assert.doesNotMatch(custom, /class="sf-bar"|class="sf-foot"/)
+})
+
+test('section order, hiding, escaped text, mobile styling and custom call-to-action links render together', () => {
+  const story = newSection('imageText', 'story')
+  story.settings.heading = '<script>alert(1)</script>'
+  story.style = { background: '#112233', mobileHeadingSize: 28, paddingTop: 0, paddingLeft: 16, mobilePaddingLeft: 8, marginRight: 12, mobileMarginRight: 4, radius: 0, visibility: 'mobile' }
+  const cta = newSection('cta', 'action')
+  cta.settings.link = '#story'
+  const hidden = { ...newSection('trust', 'hidden'), hidden: true }
+  const html = render({ ...blankContent(), sections: [story, hidden, cta] })
+  assert.match(html, /--section-background:#112233/)
+  assert.match(html, /--section-mobile-heading:28px/)
+  assert.match(html, /--section-pt:0px/)
+  assert.match(html, /--section-pl:16px/)
+  assert.match(html, /--section-mobile-pl:8px/)
+  assert.match(html, /--section-mr:12px/)
+  assert.match(html, /--section-mobile-mr:4px/)
+  assert.match(html, /data-visibility="mobile"/)
+  assert.match(html, /&lt;script&gt;/)
+  assert.doesNotMatch(html, /<script>|data-section="hidden"/)
+  assert.ok(html.indexOf('data-section="story"') < html.indexOf('data-section="action"'))
+  assert.match(html, /href="#story"/)
+  assert.match(html, /id="story" data-section="story"/)
+})
+
+test('all section families render through the public shared renderer without requiring configured media', () => {
+  for (const type of sectionTypes) assert.doesNotThrow(() => render({ ...blankContent(), sections: [newSection(type, `section-${type}`)] }))
+})
+
+test('split checkout retains a single real form with product variants, price data and server action', () => {
+  const order = newSection('order', 'checkout')
+  order.settings.product = 'product'
+  order.settings.layout = 'split'
+  order.settings.choices = 'cards'
+  const live: Ctx = { ...ctx, preview: false, orderAction: '/my-page', checkoutToken: 'token', product: () => ({ id: 'product', name: 'Product', image: null, variants: [{ id: 'small', label: 'Small', price: 450, comparePrice: null, available: true }, { id: 'large', label: 'Large', price: 850, comparePrice: null, available: false }] }) }
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [order] }} ctx={live} storeName="Store" />)
+  assert.equal((html.match(/<form /g) ?? []).length, 1)
+  assert.match(html, /<form[^>]*method="post"/)
+  assert.match(html, /<form[^>]*action="\/my-page"/)
+  assert.match(html, /data-layout="split" data-choices="cards"/)
+  assert.match(html, /name="checkout" value="token"/)
+  assert.match(html, /data-price="450"/)
+  assert.match(html, /<input[^>]*disabled=""[^>]*value="large"/)
+  assert.match(html, /type="submit"/)
+})

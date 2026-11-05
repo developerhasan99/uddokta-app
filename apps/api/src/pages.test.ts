@@ -223,3 +223,35 @@ test('campaign handles cannot take system paths, while generated handles avoid t
   const generated = await owner.call('POST', owner.base, { title: 'Products' })
   assert.equal(generated.json.handle, 'products-2')
 })
+
+test('blank canvas, new section styles and links survive save/reload and stay private until publish', async () => {
+  const owner = await storeOwner()
+  const made = await owner.call('POST', owner.base, { title: 'Canvas', blank: true })
+  assert.equal(made.status, 201)
+  assert.deepEqual(made.json.draft, { version: 1, sections: [], canvas: { header: false, footer: false } })
+  const draft = { ...made.json.draft, sections: [{ id: 'story', type: 'imageText', hidden: false, settings: { heading: 'Our story', text: 'Origin', image: null, layout: 'reverse', button: 'Details', link: '#details' }, style: { background: '#123456', paddingTop: 0, paddingLeft: 16, paddingRight: 24, mobilePaddingLeft: 8, marginRight: 12, headingSize: 48, mobileHeadingSize: 28, borderWidth: 2, radius: 16 } }] }
+  const saved = await save(owner, made.json, { draft })
+  assert.equal(saved.status, 200)
+  assert.deepEqual(saved.json.draft, draft)
+  assert.deepEqual((await owner.call('GET', `${owner.base}/${made.json.id}`)).json.draft, draft)
+  assert.equal(await storefrontPage(owner.handle, made.json.handle), undefined)
+  const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: saved.json.revision })
+  assert.equal(published.status, 200)
+  assert.deepEqual((await storefrontPage(owner.handle, made.json.handle)).content, draft)
+  const changed = structuredClone(draft)
+  changed.sections[0].style.background = '#654321'
+  const next = await save(owner, published.json, { draft: changed })
+  assert.equal(next.status, 200)
+  assert.equal((await storefrontPage(owner.handle, made.json.handle)).content.sections[0].style.background, '#123456')
+  changed.sections[0].style.background = 'url(https://evil.test/image)'
+  assert.equal((await save(owner, next.json, { draft: changed })).status, 400)
+})
+
+test('new card sections enforce store ownership for nested images', async () => {
+  const owner = await storeOwner()
+  const other = await storeOwner()
+  const image = await upload(other)
+  const page = (await owner.call('POST', owner.base, { title: 'Cards', blank: true })).json
+  const draft = { ...page.draft, sections: [{ id: 'bundle', type: 'cards', hidden: false, settings: { heading: 'Included', items: [{ title: 'Item', text: 'Details', image: image.id }] } }] }
+  assert.equal((await save(owner, page, { draft })).status, 400)
+})

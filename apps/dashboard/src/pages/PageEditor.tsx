@@ -2,14 +2,17 @@ import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
-import { defOf, maxSections, newSection, sectionTypes, videoEmbed, type Content, type Field as SchemaField, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { defOf, isSectionLink, maxSections, newSection, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product } from 'storefront/sections'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
+import { IconField } from '../components/IconField'
+import { SectionDesignControls } from '../components/SectionDesignControls'
+import { SectionThumbnail } from '../components/SectionThumbnail'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
 import { Button, Field, IconButton, Notice, PageTitle, SearchInput, Skeleton } from '../components/ui'
@@ -26,7 +29,7 @@ type Doc = { title: string; handle: string; seoTitle: string; seoDescription: st
 type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
-const sectionIcons = { hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const sectionIcons = { icon: Sparkles, iconCards: LayoutTemplate, iconList: ListChecks, announcement: MessageSquare, header: LayoutTemplate, footer: LayoutTemplate, imageText: Image, trust: CircleCheck, steps: ListChecks, specifications: ListChecks, comparison: ListChecks, cards: Images, cta: ShoppingBag, hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const historyLimit = 100
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
 const newId = () => crypto.randomUUID().slice(0, 8)
@@ -82,12 +85,27 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
 const short = (text: unknown) => (typeof text === 'string' ? text.trim().split('\n')[0].slice(0, 60) : '')
 
 function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
-  field: Exclude<SchemaField, { kind: 'list' }>; value: Value; id: string; onChange: (v: Value, typing?: boolean) => void; onPick: (p: Pick) => void
+  field: Leaf; value: Value; id: string; onChange: (v: Value, typing?: boolean) => void; onPick: (p: Pick) => void
   media: Record<string, MediaItem>; products: Record<string, PreviewProduct | null>
 }) {
   const { t, lang } = useLang()
   const label = field.label[lang === 'bn' ? 0 : 1]
   switch (field.kind) {
+    case 'icon':
+      return <IconField label={label} value={typeof value === 'string' ? value : field.defaultIcon ?? ''} onChange={onChange} />
+    case 'select':
+      return <div className="field"><label htmlFor={id}>{label}</label><select className="input" id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{lang === 'bn' ? 'স্বাভাবিক / ডিফল্ট' : 'Inherit / default'}</option>
+        {field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}
+      </select></div>
+    case 'number':
+      return <Field id={id} type="number" label={label} min={field.min} max={field.max} step={1} placeholder={lang === 'bn' ? 'ডিফল্ট' : 'Inherit'} value={value === null ? '' : String(value)} onChange={(e) => onChange(e.target.value === '' ? '' : Math.max(field.min, Math.min(field.max, Math.round(Number(e.target.value) || 0))), true)} />
+    case 'color': {
+      const color = String(value ?? '')
+      return <Field id={id} label={label} maxLength={7} placeholder={lang === 'bn' ? 'ডিফল্ট রং' : 'Inherit color'} value={color} error={color && !/^#[0-9a-f]{6}$/i.test(color) ? (lang === 'bn' ? '#RRGGBB ফরম্যাটে দিন' : 'Use #RRGGBB') : undefined} onChange={(e) => onChange(e.target.value, true)} trailing={<input type="color" className="editor-color" aria-label={`${label}: ${lang === 'bn' ? 'রং বাছাই' : 'Choose color'}`} value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff'} onChange={(e) => onChange(e.target.value)} />} />
+    }
+    case 'link':
+      return <Field id={id} label={label} placeholder="https://… / #section-id" maxLength={500} value={String(value ?? '')} error={!isSectionLink(value ?? '') ? (lang === 'bn' ? 'https://, #সেকশন, tel: বা mailto: লিংক দিন।' : 'Use https://, #section, tel: or mailto: links.') : undefined} onChange={(e) => onChange(e.target.value.trim(), true)} />
     case 'text':
       return <Field id={id} label={label} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
     case 'textarea':
@@ -155,8 +173,8 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
   }
 }
 
-function SectionForm({ section, onChange, onPick, media, products }: {
-  section: Section; onChange: (key: string, v: Value, typing?: boolean) => void; onPick: (p: Pick) => void
+function SectionForm({ section, onChange, onPick, media, products, group = 'content' }: {
+  section: Section; group?: 'content' | 'layout'; onChange: (key: string, v: Value, typing?: boolean) => void; onPick: (p: Pick) => void
   media: Record<string, MediaItem>; products: Record<string, PreviewProduct | null>
 }) {
   const { t, lang, num } = useLang()
@@ -165,10 +183,10 @@ function SectionForm({ section, onChange, onPick, media, products }: {
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   return (
     <>
-      {defOf(section.type).fields.map((field) => {
-        const value = section.settings[field.key] ?? null
+      {defOf(section.type).fields.filter((field) => (('group' in field ? field.group : undefined) ?? 'content') === group).map((field) => {
+        const value = section.settings[field.key] ?? defOf(section.type).defaults[field.key] ?? null
         const id = `${uid}-${section.id}-${field.key}`
-        if (field.kind !== 'list') return <LeafEditor key={field.key} id={id} field={field} value={value} onChange={(v, typing) => onChange(field.key, v, typing)} onPick={onPick} media={media} products={products} />
+        if (field.kind !== 'list') return <LeafEditor key={field.key} id={id} field={field} value={value} onChange={(v, typing) => onChange(field.key, field.kind === 'select' && v === '' ? defOf(section.type).defaults[field.key] ?? '' : v, typing)} onPick={onPick} media={media} products={products} />
         const list = Array.isArray(value) ? value : []
         const setList = (next: typeof list, typing?: boolean) => onChange(field.key, next, typing)
         const blank = Object.fromEntries(field.fields.map((f) => [f.key, f.kind === 'image' ? null : '']))
@@ -214,7 +232,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
   const titleId = useId()
   const [search, setSearch] = useState('')
   const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
-  useEffect(() => { dialog.current?.showModal() }, [])
+  useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
   return <dialog ref={dialog} className="modal editor-add-modal" aria-labelledby={titleId} onClose={onClose} onCancel={(e) => { e.preventDefault(); onClose() }} onClick={(e) => {
     if (e.target !== e.currentTarget) return
     const bounds = e.currentTarget.getBoundingClientRect()
@@ -229,7 +247,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
       <ul className="editor-add__choices">
         {matches.map((type) => {
           const Icon = sectionIcons[type]
-          return <li key={type}><button type="button" onClick={() => onAdd(type)}><Icon size={18} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}</button></li>
+          return <li key={type}><button type="button" onClick={() => onAdd(type)}><SectionThumbnail type={type} /><span className="editor-section-label"><Icon size={16} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}<Plus size={14} aria-hidden="true" /></span></button></li>
         })}
       </ul>
       {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
@@ -274,7 +292,10 @@ export function PageEditor() {
   const [products, setProducts] = useState<Record<string, PreviewProduct | null>>({})
   const [delivery, setDelivery] = useState({ inside: 0, outside: 0 })
   const [theme, setTheme] = useState<PresetId>('fresh')
+  const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | 'page' | null>(null)
+  const settingsPanel = useRef<HTMLElement>(null)
+  useEffect(() => { settingsPanel.current?.scrollTo({ top: 0 }) }, [selected, settingsTab])
   const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>(() => window.matchMedia('(max-width: 860px)').matches ? 'sections' : 'preview')
   const [mobile, setMobile] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -524,6 +545,7 @@ export function PageEditor() {
     next.splice(at === -1 ? next.length : at + 1, 0, section)
     setSections(next)
     setSelected(section.id)
+    setSettingsTab('content')
     setAdding(false)
     setPane('edit')
   }
@@ -535,10 +557,12 @@ export function PageEditor() {
     setSelected(copy.id)
   }
   const choose = (sid: string) => {
+    setSettingsTab('content')
     setAdding(false)
     setSelected(sid)
     setPane('edit')
   }
+
 
   const section = sections.find((s) => s.id === selected)
   const index = section ? sections.indexOf(section) : -1
@@ -679,7 +703,7 @@ export function PageEditor() {
         {sections.length < maxSections && <Button onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('pageAddSection')}</Button>}
       </aside>
 
-      <aside className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
+      <aside ref={settingsPanel} className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
         {section && (
           <>
             <div className="editor__settings-head">
@@ -687,16 +711,37 @@ export function PageEditor() {
               <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
             </div>
             {section.hidden && <p className="muted">{t('pageHidden')}</p>}
+            <div className="editor-setting-tabs" role="group" aria-label={L(['সেকশন সেটিংস', 'Section settings'])}>
+              {(['content', 'layout', 'style'] as const).map((tab) => <button key={tab} type="button" aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+            </div>
             <div className="editor__form">
-              <SectionForm
-                key={section.id}
+              {settingsTab !== 'style' && <div className={settingsTab === 'layout' ? 'design-structure' : undefined}><SectionForm
+                key={`${section.id}:${settingsTab}`}
+                group={settingsTab === 'layout' ? 'layout' : 'content'}
                 section={section}
                 media={media}
                 products={products}
                 onPick={setPicking}
                 onChange={(key, value, typing) => updateSection(section.id, { settings: { ...section.settings, [key]: value } }, typing ? `${section.id}:${key}` : undefined)}
-              />
-              {section.type === 'order' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings')} target="_blank">{t('sStore')}</Link></p>}
+              /></div>}
+
+              {settingsTab !== 'content' && <>
+                <SectionDesignControls key={`${section.id}:${settingsTab}`} section={section} tab={settingsTab} theme={theme} onPatch={(patch, typingKey) => {
+                  const style = { ...section.style }
+                  for (const [key, value] of Object.entries(patch)) {
+                    if (value === undefined || value === '') delete style[key]
+                    else style[key] = value
+                  }
+                  updateSection(section.id, { style: Object.keys(style).length ? style : undefined }, typingKey ? `${section.id}:style:${typingKey}` : undefined)
+                }} />
+                {settingsTab === 'layout' && <details className="design-group design-anchor"><summary><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
+                <Button onClick={() => {
+                  const style = { ...section.style }
+                  for (const field of styleFieldsFor(section.type).filter((f) => f.group === settingsTab)) delete style[field.key]
+                  updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
+                }}>{L(settingsTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
+              </>}
+              {section.type === 'order' && settingsTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings')} target="_blank">{t('sStore')}</Link></p>}
             </div>
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
               <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
@@ -714,6 +759,10 @@ export function PageEditor() {
               <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
             </div>
             <div className="editor__form">
+              <fieldset className="editor-canvas"><legend>{L(['পেজ ক্যানভাস', 'Page canvas'])}</legend>
+                <p className="muted">{L(['নিজের হেডার ও ফুটার যোগ করতে দোকানের বার বন্ধ রাখুন।', 'Turn off store bars to add your own header and footer sections.'])}</p>
+                {(['header', 'footer'] as const).map((key) => <label key={key}><input type="checkbox" checked={doc.content.canvas?.[key] !== false} onChange={(e) => edit({ ...doc, content: { ...doc.content, canvas: { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, [key]: e.target.checked } } })} />{L(key === 'header' ? ['দোকানের হেডার দেখান', 'Show store header'] : ['দোকানের ফুটার দেখান', 'Show store footer'])}</label>)}
+              </fieldset>
               <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
               <Field id="page-handle" label={t('pageAddress')} unit="/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />
               <p className="muted editor__url">

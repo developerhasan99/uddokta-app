@@ -6,7 +6,9 @@
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
     "./themes": "./src/themes.ts",
-    "./paths": "./src/paths.ts"
+    "./paths": "./src/paths.ts",
+    "./icons": "./src/icons/catalog.ts",
+    "./icon": "./src/icons/Icon.tsx"
   },
   "scripts": {
     "dev": "tsx watch --env-file=../api/.env src/server.tsx",
