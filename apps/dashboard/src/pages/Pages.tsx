@@ -119,11 +119,10 @@ export function Pages() {
             <nav className="tabs" aria-label={t('pageStatus')}>
               {([{ value: '', label: 'statusAll' }, { value: 'live', label: 'pageLive' }, { value: 'draft', label: 'pageDraft' }, { value: 'changes', label: 'pagesFilterChanges' }] as const).map((tab) => <button type="button" key={tab.value} className="tab" aria-current={status === tab.value ? 'page' : undefined} onClick={() => setFilter('status', tab.value)}>{t(tab.label)} <span className="tab__count">{num(rows.filter((row) => matchesStatus(row, tab.value)).length)}</span></button>)}
             </nav>
-            <SearchInput label={t('pagesSearch')} value={query} onChange={(e) => setFilter('q', e.target.value)} />
-          </div>
-          <div className="pages-tools">
-            <p className="muted" role="status">{t('pagesShowing', { n: num(visible.length), total: num(rows.length) })}</p>
-            <label className="pages-tools__sort">{t('pagesSort')}<select className="input" value={sort} onChange={(e) => setFilter('sort', e.target.value)}><option value="updated">{t('pagesSortUpdated')}</option><option value="title">{t('pagesSortTitle')}</option></select></label>
+            <div className="pages-bar__tools">
+              <SearchInput label={t('pagesSearch')} value={query} onChange={(e) => setFilter('q', e.target.value)} />
+            <label className="pages-sort"><span className="visually-hidden">{t('pagesSort')}</span><select className="input" value={sort} onChange={(e) => setFilter('sort', e.target.value)}><option value="updated">{t('pagesSortUpdated')}</option><option value="title">{t('pagesSortTitle')}</option></select></label>
+            </div>
           </div>
           {copyFailed && <p className="form-error pages-feedback" role="alert">{t('pagesCopyFailed')}</p>}
           <span className="visually-hidden" role="status">{copied ? t('pagesCopied') : ''}</span>
@@ -157,6 +156,7 @@ export function Pages() {
               ))}
             </tbody>
           </table>}
+          <footer className="data-list__footer"><span role="status">{t('pagesShowing', { n: num(visible.length), total: num(rows.length) })}</span></footer>
         </section>
       )}
 
