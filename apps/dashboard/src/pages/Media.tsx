@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Check, Crop, ImagePlus, Link2, Trash2, Upload, X } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, type MediaItem as Item } from '../api'
-import { Button, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
+import { Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { centered, moved, resized, toPixels, type Corner, type Rect } from '../crop'
 import { errorLabel, useLang } from '../i18n'
 import { useUrlSearch } from '../use-url-search'
 import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 
-type Page = { items: Item[]; hasMore: boolean; usedBytes: number; limitBytes: number }
+type Page = { items: Item[]; hasMore: boolean; usedBytes: number; limitBytes: number; formats: Record<string, number> }
 type Upload = { id: number; name: string; error?: string }
 
 const formatLabels: Record<string, string> = { jpeg: 'JPG', png: 'PNG', webp: 'WebP', avif: 'AVIF' }
@@ -40,17 +40,28 @@ export function Media() {
     return `${num(Math.round((bytes / 1024 ** 3) * 10) / 10)} GB`
   }
 
+  const [params] = useSearchParams()
+  const path = useStorePath()
+  const format = params.get('format') ?? ''
+  const list = `${base}?q=${encodeURIComponent(query)}&format=${encodeURIComponent(format)}`
+  const formatLink = (value: string) => {
+    const next = new URLSearchParams(params)
+    if (value) next.set('format', value)
+    else next.delete('format')
+    return `${path('/media')}${next.size ? `?${next}` : ''}`
+  }
+
   const load = useCallback(async () => {
     const request = ++latestLoad.current
     setLoadFailed(false)
     try {
-      const result = await api<Page>(`${base}?q=${encodeURIComponent(query)}`)
+      const result = await api<Page>(list)
       // A slower, older search must not replace newer results.
       if (request === latestLoad.current) setPage(result)
     } catch {
       if (request === latestLoad.current) setLoadFailed(true)
     }
-  }, [base, query])
+  }, [list])
 
   useEffect(() => {
     void load()
@@ -58,7 +69,7 @@ export function Media() {
 
   const loadMore = async () => {
     if (!page) return
-    const more = await api<Page>(`${base}?q=${encodeURIComponent(query)}&offset=${page.items.length}`)
+    const more = await api<Page>(`${list}&offset=${page.items.length}`)
     setPage({ ...more, items: [...page.items, ...more.items] })
   }
 
@@ -186,7 +197,7 @@ export function Media() {
         </div>
           )}
 
-          {page && page.items.length === 0 && pending.length === 0 && !query && (
+          {page && page.items.length === 0 && pending.length === 0 && !query && !format && (
             <button type="button" className="media__empty" onClick={() => picker.current?.click()}>
               <ImagePlus size={32} strokeWidth={1.5} aria-hidden="true" />
               <strong>{t('mediaEmptyTitle')}</strong>
@@ -194,14 +205,16 @@ export function Media() {
             </button>
           )}
 
-          {page && (page.usedBytes > 0 || query || pending.length > 0) && (
+          {page && (page.usedBytes > 0 || query || format || pending.length > 0) && (
             <section className="data-list">
               <div className="filter-bar">
-                <div className="tabs" />
+                <nav className="tabs" aria-label={t('mediaFormat')}>
+                  {['', ...Object.keys(page.formats)].map((value) => <Link key={value} className="tab" to={formatLink(value)} aria-current={format === value ? 'page' : undefined}>{value ? formatLabel(value) : t('statusAll')}<span className="tab__count">{num(value ? page.formats[value] : Object.values(page.formats).reduce((a, b) => a + b, 0))}</span></Link>)}
+                </nav>
                 <SearchInput label={t('mediaSearch')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
               </div>
               {canDelete && <BulkBar selection={picked} failedText={picked.result ? t('bulkMediaFailed', { n: num(picked.result.failed) }) : undefined}><BulkDelete selection={picked} onDelete={() => void removePicked()} /></BulkBar>}
-              {page.items.length === 0 && pending.length === 0 && query && <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<Button onClick={() => setSearchText('')}>{t('clearFilters')}</Button>} />}
+              {page.items.length === 0 && pending.length === 0 && (query || format) && <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<LinkButton to={path('/media')}>{t('clearFilters')}</LinkButton>} />}
               {(page.items.length > 0 || pending.length > 0) && <>
           <table className="data-table">
             <thead>

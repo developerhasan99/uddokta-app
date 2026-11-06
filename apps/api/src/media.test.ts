@@ -72,6 +72,16 @@ test('an upload is resized, converted and given a thumbnail', async () => {
   assert.equal(list.json.usedBytes, up.json.sizeBytes)
 })
 
+test('the list filters by original file type and counts each type', async () => {
+  const { call, handle } = await storeOwner()
+  await call('POST', `/stores/${handle}/media`, form(await png(40, 40)))
+  await call('POST', `/stores/${handle}/media`, form(await sharp({ create: { width: 40, height: 40, channels: 3, background: '#a72' } }).jpeg().toBuffer(), 'shot.jpg', 'image/jpeg'))
+  const pngs = await call('GET', `/stores/${handle}/media?format=png`)
+  assert.deepEqual(pngs.json.items.map((i: any) => i.sourceFormat), ['png'])
+  assert.deepEqual(pngs.json.formats, { png: 1, jpeg: 1 })
+  assert.equal((await call('GET', `/stores/${handle}/media?format=x'y`)).status, 400)
+})
+
 test('metadata such as GPS location is removed', async () => {
   const { call, handle } = await storeOwner()
   const withExif = await sharp({ create: { width: 100, height: 100, channels: 3, background: '#000' } })

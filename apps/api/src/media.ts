@@ -82,16 +82,22 @@ export function registerMedia(app: Hono<Env>) {
     const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
     const q = (c.req.query('q') ?? '').trim().slice(0, 200)
     const pattern = likePattern(q)
+    // Older rows have no source format; they were stored as WebP.
+    const format = c.req.query('format') ?? ''
+    if (format && !/^[a-z0-9]{1,10}$/.test(format)) throw fail(400, 'invalidRequest')
+    const sourceFormat = sql`coalesce(${media.sourceFormat}, 'webp')`
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       // ponytail: offset paging; switch to a created_at cursor if galleries reach tens of thousands of files.
-      const rows = await t.select().from(media).where(and(eq(media.storeId, store.id), q ? or(ilike(media.name, pattern), ilike(media.alt, pattern)) : undefined)).orderBy(desc(media.createdAt), desc(media.id)).limit(pageSize + 1).offset(offset)
+      const rows = await t.select().from(media).where(and(eq(media.storeId, store.id), q ? or(ilike(media.name, pattern), ilike(media.alt, pattern)) : undefined, format ? sql`${sourceFormat} = ${format}` : undefined)).orderBy(desc(media.createdAt), desc(media.id)).limit(pageSize + 1).offset(offset)
       const used = await one<{ total: string }>(t, sql`select coalesce(sum(size_bytes), 0) as total from media where store_id = ${store.id}::uuid`)
+      const formats = await t.execute<{ format: string; count: number }>(sql`select coalesce(source_format, 'webp') as format, count(*)::int as count from media where store_id = ${store.id}::uuid group by 1 order by 2 desc`)
       return c.json({
         items: rows.slice(0, pageSize).map(present),
         hasMore: rows.length > pageSize,
         usedBytes: Number(used?.total ?? 0),
         limitBytes: storeLimitBytes,
+        formats: Object.fromEntries(formats.rows.map((r) => [r.format, r.count])),
       })
     })
   })
