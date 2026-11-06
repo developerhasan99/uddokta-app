@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, Minus, Plus, Search, UserRound, X } from 'lucide-react'
+import { ArrowLeft, Minus, Pencil, Plus, Search, UserRound, X } from 'lucide-react'
 import { readPhone } from 'storefront/schema'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
@@ -32,6 +32,8 @@ export function NewOrder() {
   const [couponOpen, setCouponOpen] = useState(false)
   const [known, setKnown] = useState<Customer | null>(null)
   const [filled, setFilled] = useState(false)
+  const [picked, setPicked] = useState(false)
+  const [editing, setEditing] = useState(false)
   const recoveryProduct = searchParams.get('product')?.slice(0, 300) ?? ''
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -183,17 +185,36 @@ export function NewOrder() {
         <aside className="detail-side">
           <section className="card card--form" aria-labelledby="order-customer-title">
             <h2 id="order-customer-title">{t('orderCustomer')}</h2>
-            <Field id="order-phone" label={t('newOrderPhone')} type="tel" inputMode="tel" maxLength={20} placeholder="01XXXXXXXXX" value={form.phone} error={tried && problems.phone ? t('errPhoneInvalid') : undefined} onChange={(e) => set({ phone: e.target.value })} />
-            {known && <p className={known.returned > 0 ? 'customer-known customer-known--warn' : 'customer-known'}>
+            {picked && !editing
+              ? <div className="customer-picked">
+                  <div className="customer-picked__head">
+                    <strong>{form.customerName}</strong>
+                    <span className="row">
+                      <button type="button" className="btn btn--icon customer-picked__action" aria-label={t('newOrderEditCustomer')} onClick={() => setEditing(true)}><Pencil size={14} aria-hidden="true" /></button>
+                      <button type="button" className="btn btn--icon customer-picked__action" aria-label={t('newOrderRemoveCustomer')} onClick={() => { setPicked(false); set({ customerName: '', phone: '', address: '' }) }}><X size={16} aria-hidden="true" /></button>
+                    </span>
+                  </div>
+                  <span className="num">{form.phone}</span>
+                  <span className="muted">{form.address}</span>
+                  {known && <p className={known.returned > 0 ? 'customer-known customer-known--warn' : 'customer-known'}>
+              <UserRound size={14} aria-hidden="true" />
+              <span>{t('newOrderReturning', { orders: num(known.orders), delivered: num(known.delivered), returned: num(known.returned) })}</span>
+            </p>}
+                </div>
+              : <>
+                  {!picked && <CustomerSearch handle={handle} onPick={(c) => { setForm((current) => ({ ...current, customerName: c.name, phone: c.phone, address: c.address })); setPicked(true); setEditing(false) }} />}
+                  <Field id="order-phone" label={t('newOrderPhone')} type="tel" inputMode="tel" maxLength={20} placeholder="01XXXXXXXXX" value={form.phone} error={tried && problems.phone ? t('errPhoneInvalid') : undefined} onChange={(e) => set({ phone: e.target.value })} />
+                  <Field id="order-name" label={t('newOrderName')} maxLength={100} autoComplete="off" value={form.customerName} error={tried && problems.name ? t('errNameRequired') : undefined} onChange={(e) => set({ customerName: e.target.value })} />
+                  <div className="field">
+                    <label htmlFor="order-address">{t('newOrderAddress')}</label>
+                    <textarea id="order-address" className="input input--area" rows={3} maxLength={500} aria-invalid={tried && problems.address ? true : undefined} value={form.address} onChange={(e) => set({ address: e.target.value })} />
+                    {tried && problems.address && <p className="field__help field__help--error">{t('errAddressRequired')}</p>}
+                  </div>
+                  {known && <p className={known.returned > 0 ? 'customer-known customer-known--warn' : 'customer-known'}>
               <UserRound size={14} aria-hidden="true" />
               <span>{t('newOrderReturning', { orders: num(known.orders), delivered: num(known.delivered), returned: num(known.returned) })}{filled && <> {t('newOrderFilled')}</>}</span>
             </p>}
-            <Field id="order-name" label={t('newOrderName')} maxLength={100} autoComplete="off" value={form.customerName} error={tried && problems.name ? t('errNameRequired') : undefined} onChange={(e) => set({ customerName: e.target.value })} />
-            <div className="field">
-              <label htmlFor="order-address">{t('newOrderAddress')}</label>
-              <textarea id="order-address" className="input input--area" rows={3} maxLength={500} aria-invalid={tried && problems.address ? true : undefined} value={form.address} onChange={(e) => set({ address: e.target.value })} />
-              {tried && problems.address && <p className="field__help field__help--error">{t('errAddressRequired')}</p>}
-            </div>
+                </>}
           </section>
 
           <section className="card card--form" aria-labelledby="order-details-title">
@@ -215,4 +236,52 @@ export function NewOrder() {
       {picking && <ProductPicker sellableOnly selected={[]} max={maxLines - lines.length} onClose={() => setPicking(false)} onDone={(rows) => { setPicking(false); void add(rows) }} />}
     </form>
   )
+}
+
+// Past customers, found by name or number from earlier orders.
+function CustomerSearch({ handle, onPick }: { handle: string; onPick: (customer: Customer) => void }) {
+  const { t, num } = useLang()
+  const [text, setText] = useState('')
+  const [results, setResults] = useState<Customer[] | null>(null)
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const query = text.trim()
+
+  useEffect(() => {
+    if (query.length < 2) { setResults(null); return }
+    let live = true
+    const timer = setTimeout(() => {
+      api<{ items: Customer[] }>(`/stores/${handle}/customers?q=${encodeURIComponent(query)}`)
+        .then(({ items }) => { if (live) { setResults(items.slice(0, 6)); setActive(0) } })
+        .catch(() => { if (live) setResults([]) })
+    }, 250)
+    return () => { live = false; clearTimeout(timer) }
+  }, [query, handle])
+
+  const pick = (customer: Customer) => { onPick(customer); setText(''); setOpen(false) }
+  const shown = open && results !== null
+  return <div className="customer-search">
+    <div className="search-field">
+      <Search size={16} aria-hidden="true" />
+      <input className="input" type="search" role="combobox" aria-expanded={shown} aria-controls="customer-results" aria-autocomplete="list"
+        aria-activedescendant={shown && results.length ? `customer-result-${active}` : undefined}
+        aria-label={t('newOrderFindCustomer')} placeholder={t('newOrderFindCustomer')} autoComplete="off" value={text}
+        onChange={(e) => { setText(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
+        onKeyDown={(e) => {
+          if (!shown || !results.length) return
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((active + 1) % results.length) }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((active - 1 + results.length) % results.length) }
+          else if (e.key === 'Enter') { e.preventDefault(); pick(results[active]) }
+          else if (e.key === 'Escape') setOpen(false)
+        }} />
+    </div>
+    {shown && <ul id="customer-results" className="customer-search__list" role="listbox" aria-label={t('newOrderFindCustomer')}>
+      {results.length === 0 && <li className="customer-search__empty">{t('newOrderNoCustomer')}</li>}
+      {results.map((c, i) => <li key={c.phone} id={`customer-result-${i}`} role="option" aria-selected={i === active} className="customer-search__option"
+        onMouseDown={(e) => { e.preventDefault(); pick(c) }} onMouseEnter={() => setActive(i)}>
+        <span className="customer-search__name">{c.name}</span>
+        <span className="muted num">{c.phone} · {t('newOrderCustomerOrders', { n: num(c.orders) })}</span>
+      </li>)}
+    </ul>}
+  </div>
 }

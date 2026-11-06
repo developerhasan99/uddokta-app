@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 const bn = {
+  newOrderFindCustomer: 'আগের ক্রেতা খুঁজুন: নাম বা নম্বর',
+  newOrderNoCustomer: 'এমন কোনো ক্রেতা নেই। নিচে নতুন ক্রেতার তথ্য দিন।',
+  newOrderCustomerOrders: '{n}টি অর্ডার',
+  newOrderEditCustomer: 'ক্রেতার তথ্য বদলান',
+  newOrderRemoveCustomer: 'ক্রেতা সরান',
   newOrderCouponShort: 'কুপন',
   newOrderAddProducts: 'পণ্য খুঁজে যোগ করুন',
   newOrderNoLines: 'ক্রেতা যে পণ্যগুলো চান সেগুলো যোগ করুন।',
@@ -901,6 +906,11 @@ const bn = {
 export type Key = keyof typeof bn
 
 const en: Record<Key, string> = {
+  newOrderFindCustomer: 'Find a past customer by name or number',
+  newOrderNoCustomer: 'No past customer matches. Fill in a new one below.',
+  newOrderCustomerOrders: '{n} orders',
+  newOrderEditCustomer: 'Edit customer',
+  newOrderRemoveCustomer: 'Remove customer',
   newOrderCouponShort: 'Coupon',
   newOrderAddProducts: 'Search and add products',
   newOrderNoLines: 'Add the products the customer wants.',
