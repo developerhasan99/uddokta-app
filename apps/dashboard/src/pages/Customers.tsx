@@ -67,7 +67,7 @@ export function Customers() {
   const none = page !== null && !query && page.items.length === 0
 
   return (
-    <div className="page">
+    <div className="page customers-page">
       <PageHeader title={t('customers')} description={t('customers.d')} />
       {failed && <section className="card card--flush"><Notice role="alert" title={t('customersLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section>}
       {!failed && none && (
@@ -87,7 +87,7 @@ export function Customers() {
           {!page && <div role="status" aria-label={t('loading')}>{Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="16rem" /><Skeleton width="5rem" /></div>)}</div>}
           {page && page.items.length === 0 && <Notice title={t('customersNoMatch')} body={t('productNoMatchBody')} action={<Button onClick={() => setText('')}>{t('clearFilters')}</Button>} />}
           {page && page.items.length > 0 && (
-            <table className="data-table">
+            <table className="data-table customers-table">
               <thead>
                 <tr>
                   <th scope="col">{t('colCustomer')}</th>
@@ -106,6 +106,13 @@ export function Customers() {
                         <span className="data-table__text">
                           <span className="data-table__name">{row.name}</span>
                           <span className="table__sub num">{row.phone} · {row.address}</span>
+                          <span className="customer-summary">
+                            <span>{t('colOrders')}: <strong>{num(row.orders)}</strong></span>
+                            <span>{t('colDelivered')}: <strong>{num(row.delivered)}</strong></span>
+                            <span>{t('colReturned')}: <strong>{num(row.returned)}</strong></span>
+                            <span>{t('colSpent')}: <strong>{money(row.spent)}</strong></span>
+                            <span className="customer-summary__date">{t('colLastOrder')}: {time(row.lastOrder)}</span>
+                          </span>
                         </span>
                       </Link>
                     </td>

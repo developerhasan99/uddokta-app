@@ -211,3 +211,7 @@ The user decided to drop the beta: anyone can sign up and use the app. Repo: `de
 Railway (done by the user, admin service and storefront variables): set `SIGNUP_MODE=open`, delete `SIGNUP_EMAIL_ALLOWLIST`, delete `ROBOTS_NOINDEX` on the storefront. Turn on Postgres backups before real sellers' orders arrive.
 
 Known gaps for a public app: no password reset (there is no email provider), no sign-up rate limit, no email verification, no billing (everything is free), courier booking only for Steadfast and untested with a real account.
+
+## Orders page and mobile sizing (November 6, 2026)
+
+Orders now uses the shared `PageHeader` (title, one-line description, Export and New order), status tabs with counts across the top of the list (replacing the four-stat overview strip; the status chip is gone because the tab shows it), and the buyer's phone under the name in rows and phone cards. Mobile sizing fixed at the root: the global 40rem rule no longer makes `.btn` 44px or body text 16px. Buttons stay 32px/13px; inputs and selects are 36px with 16px text (no iPhone zoom). The per-page patches that undid the old rule (pages, campaign dialog, planned features, orders, saved views) are removed. CLAUDE.md updated to match.

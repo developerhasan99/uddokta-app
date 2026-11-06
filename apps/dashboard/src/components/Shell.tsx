@@ -20,12 +20,13 @@ function NavRow({ item }: { item: NavItem }) {
       <NavLink to={to} end={item.path === '/'} className="nav-link">
         <Icon size={16} aria-hidden="true" />
         {t(item.key)}
+        {item.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}
       </NavLink>
       {isOpen && item.children && (
         <ul className="nav-sub">
           {item.children.map((child) => (
             <li key={child.path}>
-              <NavLink to={path(child.path)} className="nav-link nav-link--sub">{t(child.key)}</NavLink>
+              <NavLink to={path(child.path)} className="nav-link nav-link--sub">{t(child.key)}{child.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}</NavLink>
             </li>
           ))}
         </ul>

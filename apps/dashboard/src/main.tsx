@@ -6,7 +6,7 @@ import '@fontsource-variable/noto-sans-bengali'
 import './styles/app.css'
 import { AccountProvider, lastStoreHandle, RequireAccount, useAccount } from './account-context'
 import { LangProvider } from './i18n'
-import { channels, nav, settingsNav } from './nav'
+import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
 import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
@@ -41,10 +41,8 @@ import { DesignSystem } from './pages/DesignSystem'
 import { Discounts } from './pages/Discounts'
 import { NewStore, Stores } from './pages/Stores'
 
-const built = new Set(['/', '/orders', '/products', '/products/collections', '/products/inventory', '/products/warehouses', '/media', '/landing-pages', '/online-store', '/orders/protection', '/customers', '/orders/incomplete', '/customers/repeat-sales', '/analytics', '/online-store/themes', '/discounts', '/online-store/menus'])
-const placeholders = [...nav, ...channels]
-  .flatMap((item) => [item, ...(item.children ?? [])])
-  .filter((item) => !built.has(item.path))
+// Planned destinations are explicit; working routes below keep their real screens.
+const plannedPages = [...nav, ...channels].flatMap((item) => [item, ...(item.children ?? [])]).filter((item) => item.planned)
 
 // Back to the last store used, otherwise the store list (which also covers users with no store).
 function Start() {
@@ -97,15 +95,14 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="orders/protection" element={<Protection />} />
                 <Route path="orders/incomplete" element={<Incomplete />} />
                 <Route path="orders/:id" element={<OrderDetail />} />
-                {placeholders.map((item) => (
-                  <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />
-                ))}
+                {plannedPages.map((item) => <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />)}
                 <Route path="settings" element={<SettingsLayout />}>
-                  {settingsNav.map((item) => (
-                    item.key === 'sStore'
-                      ? <Route key={item.path} index element={<StoreSettings />} />
-                      : <Route key={item.path} path={item.path.slice('/settings/'.length)} element={item.key === 'members' ? <Members /> : item.key === 'couriers' ? <Couriers /> : item.key === 'tracking' ? <Tracking /> : item.key === 'domains' ? <Domains /> : <Placeholder item={item.key} />} />
-                  ))}
+                  <Route index element={<StoreSettings />} />
+                  <Route path="couriers" element={<Couriers />} />
+                  <Route path="tracking" element={<Tracking />} />
+                  <Route path="domains" element={<Domains />} />
+                  <Route path="members" element={<Members />} />
+                  {settingsNav.filter((item) => item.planned).map((item) => <Route key={item.path} path={item.path.slice('/settings/'.length)} element={<Placeholder item={item.key} />} />)}
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />
                 <Route path="*" element={<NotFound />} />

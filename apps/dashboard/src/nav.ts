@@ -1,10 +1,10 @@
 import {
-  ChartColumn, House, Image, LayoutTemplate, Megaphone, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, Users,
+  ChartColumn, House, Image, LayoutTemplate, MessageCircle, Percent, Settings, ShoppingBag, Store, Tag, Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { Key } from './i18n'
 
-export type NavLeaf = { key: Key; path: string }
+export type NavLeaf = { key: Key; path: string; planned?: boolean }
 export type NavItem = NavLeaf & { icon: LucideIcon; children?: NavLeaf[] }
 
 export const nav: NavItem[] = [
@@ -27,20 +27,13 @@ export const nav: NavItem[] = [
   {
     key: 'customers', path: '/customers', icon: Users,
     children: [
-      { key: 'segments', path: '/customers/segments' },
+      { key: 'segments', path: '/customers/segments', planned: true },
       { key: 'repeatSales', path: '/customers/repeat-sales' },
     ],
   },
   {
-    key: 'inbox', path: '/inbox', icon: MessageCircle,
-    children: [{ key: 'salesman', path: '/inbox/salesman' }],
-  },
-  {
-    key: 'marketing', path: '/marketing', icon: Megaphone,
-    children: [
-      { key: 'followups', path: '/marketing/follow-ups' },
-      { key: 'offers', path: '/marketing/offers' },
-    ],
+    key: 'inbox', path: '/inbox', icon: MessageCircle, planned: true,
+    children: [{ key: 'salesman', path: '/inbox/salesman', planned: true }],
   },
   { key: 'discounts', path: '/discounts', icon: Percent },
   { key: 'media', path: '/media', icon: Image },
@@ -53,7 +46,7 @@ export const channels: NavItem[] = [
     key: 'onlineStore', path: '/online-store', icon: Store,
     children: [
       { key: 'themes', path: '/online-store/themes' },
-      { key: 'pages', path: '/online-store/pages' },
+      { key: 'pages', path: '/online-store/pages', planned: true },
       { key: 'menus', path: '/online-store/menus' },
     ],
   },
@@ -63,10 +56,10 @@ export const settingsItem: NavItem = { key: 'settings', path: '/settings', icon:
 export const settingsNav: NavLeaf[] = [
   { key: 'sStore', path: '/settings' },
   { key: 'couriers', path: '/settings/couriers' },
-  { key: 'payments', path: '/settings/payments' },
-  { key: 'sms', path: '/settings/sms' },
+  { key: 'payments', path: '/settings/payments', planned: true },
+  { key: 'sms', path: '/settings/sms', planned: true },
   { key: 'tracking', path: '/settings/tracking' },
   { key: 'domains', path: '/settings/domains' },
   { key: 'members', path: '/settings/members' },
-  { key: 'billing', path: '/settings/billing' },
+  { key: 'billing', path: '/settings/billing', planned: true },
 ]

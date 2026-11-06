@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { LayoutTemplate, Plus, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Copy, CopyPlus, ExternalLink, LayoutTemplate, Plus } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
-import { api, errorCode } from '../api'
-import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
+import { pageHref } from 'storefront/paths'
+import { api, errorCode, storefrontUrl } from '../api'
+import { Badge, Button, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
+import { NewCampaignDialog } from './NewCampaignDialog'
 
-export type PageRow = { id: string; title: string; handle: string; isPublished: boolean; hasChanges: boolean; updatedAt: string }
+export type PageRow = { id: string; title: string; handle: string; publishedHandle: string | null; isPublished: boolean; hasChanges: boolean; updatedAt: string }
 
 export function PageStatus({ page }: { page: Pick<PageRow, 'isPublished' | 'hasChanges'> }) {
   const { t } = useLang()
@@ -14,87 +16,87 @@ export function PageStatus({ page }: { page: Pick<PageRow, 'isPublished' | 'hasC
   return page.hasChanges ? <Badge tone="warning">{t('pageHasChanges')}</Badge> : <Badge tone="success">{t('pageLive')}</Badge>
 }
 
-// New pages start on an empty canvas. Premade templates can be added to this flow later.
-function NewPageDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useLang()
-  const navigate = useNavigate()
-  const path = useStorePath()
-  const base = `/stores/${useCurrentStore()!.store.handle}/pages`
-  const dialog = useRef<HTMLDialogElement>(null)
-  const [title, setTitle] = useState('')
-  const [tried, setTried] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    dialog.current?.showModal()
-    // showModal focuses the first control, which is the close button; the name is what the seller wants first.
-    dialog.current?.querySelector('input')?.focus()
-  }, [])
-
-  const create = async (e: FormEvent) => {
-    e.preventDefault()
-    setTried(true)
-    if (!title.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      const page = await api<{ id: string }>(base, { method: 'POST', body: { title, blank: true } })
-      navigate(path(`/landing-pages/${page.id}`))
-    } catch (err) {
-      setError(errorCode(err))
-      setBusy(false)
-    }
-  }
-
-  return (
-    <dialog ref={dialog} className="modal" aria-labelledby="new-page-title" onClose={onClose}>
-      <form className="modal__body" onSubmit={(e) => void create(e)} noValidate>
-        <div className="picker__head">
-          <h2 id="new-page-title">{t('pageAdd')}</h2>
-          <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={onClose}><X size={18} aria-hidden="true" /></button>
-        </div>
-        <Field id="new-page-name" label={t('pageTitle')} placeholder={t('pageTitleHint')} help={t('pageTitleHelp')} maxLength={200} autoComplete="off" value={title} error={tried && !title.trim() ? t('errNameRequired') : undefined} onChange={(e) => setTitle(e.target.value)} />
-        {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
-        <div className="row row--end">
-          <Button onClick={onClose}>{t('cancel')}</Button>
-          <Button type="submit" variant="primary" aria-busy={busy} disabled={busy}>{t('pageCreate')}</Button>
-        </div>
-      </form>
-    </dialog>
-  )
-}
-
 export function Pages() {
-  const { t, time } = useLang()
+  const { t, time, num, lang } = useLang()
+  const [params, setParams] = useSearchParams()
+  const query = params.get('q') ?? ''
+  const status = ['live', 'draft', 'changes'].includes(params.get('status') ?? '') ? params.get('status')! : ''
+  const sort = params.get('sort') === 'title' ? 'title' : 'updated'
+  const setFilter = (key: string, value: string) => {
+    setParams((previous) => {
+      const next = new URLSearchParams(previous)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      return next
+    }, { replace: true })
+  }
+  const latest = useRef(0)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [copyFailed, setCopyFailed] = useState(false)
   const path = useStorePath()
   const navigate = useNavigate()
-  const base = `/stores/${useCurrentStore()!.store.handle}/pages`
+  const handle = useCurrentStore()!.store.handle
+  const base = `/stores/${handle}/pages`
   const [rows, setRows] = useState<PageRow[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [duplicating, setDuplicating] = useState<string | null>(null)
+  const duplicateRequest = useRef(false)
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    const request = ++latest.current
     setFailed(false)
+    setRows(null)
+    setCopied(null)
+    setCopyFailed(false)
     try {
-      setRows(await api<PageRow[]>(base))
+      const result = await api<PageRow[]>(base)
+      if (request === latest.current) setRows(result)
     } catch {
-      setFailed(true)
+      if (request === latest.current) setFailed(true)
     }
   }, [base])
 
   useEffect(() => {
     void load()
+    return () => { latest.current += 1 }
   }, [load])
 
   const addButton = <Button variant="primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" />{t('pageAdd')}</Button>
   const none = rows !== null && rows.length === 0
+  const matchesStatus = (row: PageRow, value: string) => value === 'live' ? row.isPublished : value === 'draft' ? !row.isPublished : value === 'changes' ? row.hasChanges : true
+  const visible = (rows ?? []).filter((row) => matchesStatus(row, status) && `${row.title} ${row.handle} ${row.publishedHandle ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    .sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, lang) : b.updatedAt.localeCompare(a.updatedAt))
+  const liveUrl = (row: PageRow) => `${storefrontUrl(handle)}${pageHref(row.publishedHandle ?? row.handle)}`
+  const copyLink = async (row: PageRow) => {
+    setCopied(null)
+    setCopyFailed(false)
+    try {
+      await navigator.clipboard.writeText(liveUrl(row))
+      setCopied(row.id)
+    } catch { setCopyFailed(true) }
+  }
+
+  const duplicate = async (row: PageRow) => {
+    if (duplicateRequest.current) return
+    duplicateRequest.current = true
+    setDuplicating(row.id)
+    setDuplicateError(null)
+    try {
+      const page = await api<{ id: string }>(`${base}/${row.id}/duplicate`, { method: 'POST', body: { title: `${row.title.slice(0, 180)} (${t('campaignCopySuffix')})` } })
+      navigate(path(`/landing-pages/${page.id}`))
+    } catch (err) { setDuplicateError(errorCode(err)) }
+    finally { duplicateRequest.current = false; setDuplicating(null) }
+  }
 
   return (
-    <div className="page">
+    <div className="page pages-manager">
       <PageHeader title={t('landingPages')} description={t('landingPages.d')} action={none ? undefined : addButton} />
 
       {failed && <section className="card card--flush"><Notice role="alert" title={t('pagesLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section>}
+
+      {duplicateError && <p className="form-error" role="alert">{t(errorLabel(duplicateError))}</p>}
 
       {!failed && none && (
         <section className="empty-card">
@@ -111,18 +113,31 @@ export function Pages() {
         </div>
       )}
 
-      {rows && rows.length > 0 && (
-        <div className="data-list">
-          <table className="data-table">
+      {!failed && rows && rows.length > 0 && (
+        <section className="data-list">
+          <div className="filter-bar">
+            <nav className="tabs" aria-label={t('pageStatus')}>
+              {([{ value: '', label: 'statusAll' }, { value: 'live', label: 'pageLive' }, { value: 'draft', label: 'pageDraft' }, { value: 'changes', label: 'pagesFilterChanges' }] as const).map((tab) => <button type="button" key={tab.value} className="tab" aria-current={status === tab.value ? 'page' : undefined} onClick={() => setFilter('status', tab.value)}>{t(tab.label)} <span className="tab__count">{num(rows.filter((row) => matchesStatus(row, tab.value)).length)}</span></button>)}
+            </nav>
+            <SearchInput label={t('pagesSearch')} value={query} onChange={(e) => setFilter('q', e.target.value)} />
+          </div>
+          <div className="pages-tools">
+            <p className="muted" role="status">{t('pagesShowing', { n: num(visible.length), total: num(rows.length) })}</p>
+            <label className="pages-tools__sort">{t('pagesSort')}<select className="input" value={sort} onChange={(e) => setFilter('sort', e.target.value)}><option value="updated">{t('pagesSortUpdated')}</option><option value="title">{t('pagesSortTitle')}</option></select></label>
+          </div>
+          {copyFailed && <p className="form-error pages-feedback" role="alert">{t('pagesCopyFailed')}</p>}
+          <span className="visually-hidden" role="status">{copied ? t('pagesCopied') : ''}</span>
+          {visible.length === 0 ? <Notice title={t('pagesNoMatch')} body={t('pagesNoMatchHelp')} action={<Button onClick={() => setParams({}, { replace: true })}>{t('pagesClearFilters')}</Button>} /> : <table className="data-table pages-table">
             <thead>
               <tr>
                 <th scope="col">{t('pageTitle')}</th>
-                <th scope="col">{t('pageStatus')}</th>
+                <th scope="col" className="pages-table__status">{t('pageStatus')}</th>
                 <th scope="col" className="data-table__meta">{t('pageUpdated')}</th>
+                <th scope="col" className="pages-table__actions"><span className="visually-hidden">{t('pagesActions')}</span></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visible.map((row) => (
                 <tr key={row.id} className="data-table__row" onClick={() => navigate(path(`/landing-pages/${row.id}`))}>
                   <td>
                     <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
@@ -132,16 +147,19 @@ export function Pages() {
                       </span>
                     </Link>
                   </td>
-                  <td><PageStatus page={row} /></td>
+                  <td className="pages-table__status"><PageStatus page={row} /></td>
                   <td className="data-table__meta">{time(row.updatedAt)}</td>
+                  <td className="pages-table__actions" onClick={(e) => e.stopPropagation()}>
+                    <div className="row">{row.isPublished && <><a className="btn btn--default" href={liveUrl(row)} target="_blank" rel="noopener" aria-label={t('pagesViewNamed', { title: row.title })}><ExternalLink size={14} aria-hidden="true" />{t('pagesView')}</a><button type="button" className="btn btn--default" onClick={() => void copyLink(row)} aria-label={t('pagesCopyNamed', { title: row.title })}><Copy size={14} aria-hidden="true" />{t(copied === row.id ? 'pagesCopied' : 'mediaCopyLink')}</button></>}<button type="button" className="btn btn--default" disabled={duplicating !== null} aria-busy={duplicating === row.id} aria-label={t('campaignDuplicateNamed', { title: row.title })} title={t('campaignDuplicateHelp')} onClick={() => void duplicate(row)}><CopyPlus size={14} aria-hidden="true" />{t(duplicating === row.id ? 'loading' : 'campaignDuplicate')}</button></div>
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </table>}
+        </section>
       )}
 
-      {creating && <NewPageDialog onClose={() => setCreating(false)} />}
+      {creating && <NewCampaignDialog key={handle} onClose={() => setCreating(false)} />}
     </div>
   )
 }

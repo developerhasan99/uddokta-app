@@ -1,3 +1,4 @@
+import { orderStatusValues, type OrderFilters } from 'storefront/order-filters'
 import { sql } from 'drizzle-orm'
 import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
@@ -255,7 +256,7 @@ export const pageMedia = pgTable('page_media', {
   index('page_media_media').on(t.storeId, t.mediaId),
 ])
 
-export const orderStatuses = ['new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled'] as const
+export const orderStatuses = orderStatusValues
 export const deliveryAreas = ['inside', 'outside'] as const
 
 // Amounts are worked out by the database when the order is placed (see place_order), never sent by the buyer.
@@ -421,3 +422,16 @@ export const checkoutReceipts = pgTable('checkout_receipts', {
   total: integer('total').notNull(),
   createdAt: createdAt(),
 }, (t) => [primaryKey({ columns: [t.storeId, t.token] })])
+
+// Personal saved order filters sync between devices and remain tenant-isolated.
+export const orderViews = pgTable('order_views', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  filters: jsonb('filters').$type<OrderFilters>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex('order_views_name').on(t.storeId, t.userId, sql`lower(${t.name})`),
+  check('order_views_name_length', sql`char_length(btrim(${t.name})) between 1 and 80`),
+])

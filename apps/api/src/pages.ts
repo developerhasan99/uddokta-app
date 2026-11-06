@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { isReservedPageHandle } from 'storefront/paths'
+import { campaignContent, isCampaignTemplate } from 'storefront/campaigns'
 import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
-import { media, pageMedia, pages, products } from './schema.ts'
+import { media, pageMedia, pages, productMedia, products, productVariants } from './schema.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // ponytail: one cap for every store; read it from the store's plan once plans exist (Starter allows 3).
@@ -94,10 +95,10 @@ export function registerPages(app: Hono<Env>) {
   app.get('/stores/:handle/pages', async (c) => {
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      const rows = await t.execute<{ id: string; title: string; handle: string; is_published: boolean; has_changes: boolean; updated_at: string }>(sql`
-        select id, title, handle, published is not null as is_published, published is not null and (published <> draft or published_meta is distinct from jsonb_build_object('title', title, 'handle', handle, 'seoTitle', seo_title, 'seoDescription', seo_description)) as has_changes, updated_at
+      const rows = await t.execute<{ id: string; title: string; handle: string; published_handle: string | null; is_published: boolean; has_changes: boolean; updated_at: string }>(sql`
+        select id, title, handle, case when published is not null then published_meta->>'handle' end as published_handle, published is not null as is_published, published is not null and (published <> draft or published_meta is distinct from jsonb_build_object('title', title, 'handle', handle, 'seoTitle', seo_title, 'seoDescription', seo_description)) as has_changes, updated_at
         from pages where store_id = ${store.id}::uuid order by updated_at desc, id desc limit ${maxPages}`)
-      return c.json(rows.rows.map((r) => ({ id: r.id, title: r.title, handle: r.handle, isPublished: r.is_published, hasChanges: r.has_changes, updatedAt: r.updated_at })))
+      return c.json(rows.rows.map((r) => ({ id: r.id, title: r.title, handle: r.handle, publishedHandle: r.published_handle, isPublished: r.is_published, hasChanges: r.has_changes, updatedAt: r.updated_at })))
     })
   })
 
@@ -105,6 +106,9 @@ export function registerPages(app: Hono<Env>) {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
     if (body.blank !== undefined && typeof body.blank !== 'boolean') throw fail(400, 'invalidRequest')
+    const guided = body.template !== undefined
+    if (guided && (!isCampaignTemplate(body.template) || !isId(body.productId) || body.blank === true || !['bn', 'en'].includes(body.lang ?? 'bn'))) throw fail(400, 'invalidRequest')
+    if (!guided && body.productId !== undefined) throw fail(400, 'invalidRequest')
     const settings = readSettings(body)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
@@ -112,9 +116,21 @@ export function registerPages(app: Hono<Env>) {
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${store.id}`}))`)
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
       if (count >= maxPages) throw fail(409, 'pageLimit')
+      let draft = body.blank === true ? blankContent() : starterContent(sectionId)
+      if (guided) {
+        const [product] = await t.select({ id: products.id, name: products.name, status: products.status }).from(products).where(and(eq(products.storeId, store.id), eq(products.id, body.productId)))
+        if (!product) throw fail(404, 'notFound')
+        if (product.status === 'draft') throw fail(400, 'notOnSale')
+        const [available] = await t.select({ id: productVariants.id }).from(productVariants).where(and(eq(productVariants.productId, product.id), sql`(${productVariants.stock} is null or ${productVariants.stock} > 0)`)).limit(1)
+        if (!available) throw fail(409, 'soldOut')
+        const images = await t.select({ id: productMedia.mediaId }).from(productMedia).where(eq(productMedia.productId, product.id)).orderBy(productMedia.position)
+        draft = campaignContent(body.template, { ...product, images: images.map((image) => image.id) }, body.lang ?? 'bn', sectionId)
+        await checkReferences(t, store.id, draft)
+      }
       const [row] = await t.insert(pages).values({
-        storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft: body.blank === true ? blankContent() : starterContent(sectionId),
+        storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft,
       }).returning({ id: pages.id })
+      await syncMedia(t, store.id, row.id, draft, null)
       return c.json(await loadPage(t, store.id, row.id), 201)
     }).catch(refuseTakenHandle)
   })
@@ -165,12 +181,14 @@ export function registerPages(app: Hono<Env>) {
   }))
 
   app.post('/stores/:handle/pages/:id/duplicate', pageRoute(async (c, t, storeId, id) => {
+    const body = await c.req.json().catch(() => ({}))
+    if (!body || typeof body !== 'object' || (body.title !== undefined && !isName(body.title, 200))) throw fail(400, 'invalidRequest')
+    await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
     const [source] = await t.select().from(pages).where(and(eq(pages.storeId, storeId), eq(pages.id, id)))
     if (!source) throw fail(404, 'notFound')
-    await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
     const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, storeId))
     if (count >= maxPages) throw fail(409, 'pageLimit')
-    const title = `${source.title} (কপি)`.slice(0, 200)
+    const title = body.title === undefined ? `${source.title} (কপি)`.slice(0, 200) : body.title.trim() as string
     const [row] = await t.insert(pages).values({ storeId, title, handle: await chooseHandle(t, storeId, title, ''), seoTitle: source.seoTitle, seoDescription: source.seoDescription, draft: source.draft }).returning({ id: pages.id })
     await syncMedia(t, storeId, row.id, source.draft as Content, null)
     return c.json(await loadPage(t, storeId, row.id), 201)

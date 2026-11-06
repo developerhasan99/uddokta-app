@@ -3,6 +3,9 @@ import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
 import { likePattern } from './media.ts'
 import { readPhone } from 'storefront/schema'
+import { manualOrderSources, readOrderFilters } from 'storefront/order-filters'
+import { csvCell, orderWhere } from './order-query.ts'
+import { registerOrderViews } from './order-views.ts'
 import { isId } from './products.ts'
 import { blockedPhones, checkoutDrafts, orderItems, shipments, orders, orderStatuses, pages, warehouses } from './schema.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
@@ -14,7 +17,8 @@ const duplicateOf = (o: ReturnType<typeof sql.raw>) => sql`exists (
   select 1 from orders d join order_items di on di.order_id = d.id join order_items oi on oi.order_id = ${o}.id and oi.variant_id = di.variant_id
   where d.store_id = ${o}.store_id and d.phone = ${o}.phone and d.id <> ${o}.id and abs(extract(epoch from d.created_at - ${o}.created_at)) < 86400)`
 const isBlocked = (o: ReturnType<typeof sql.raw>) => sql`exists (select 1 from blocked_phones b where b.store_id = ${o}.store_id and b.phone = ${o}.phone)`
-export const manualSources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagram', 'shop', 'other'] as const
+export const manualSources = manualOrderSources
+export const maxOrderExport = 10_000
 
 async function loadOrder(t: Tx, storeId: string, id: string) {
   const [order] = await t.select().from(orders).where(and(eq(orders.storeId, storeId), eq(orders.id, id)))
@@ -42,22 +46,19 @@ const orderRoute = (c: { req: { param: (k: string) => string } }) => {
 }
 
 export function registerOrders(app: Hono<Env>) {
+  registerOrderViews(app)
   app.get('/stores/:handle/orders', async (c) => {
-    const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
-    const q = (c.req.query('q') ?? '').trim().slice(0, 100)
-    const status = c.req.query('status') ?? ''
+    const offset = Number(c.req.query('offset') ?? 0)
+    const filters = readOrderFilters(c.req.query())
+    if (!filters || !Number.isSafeInteger(offset) || offset < 0) throw fail(400, 'invalidOrderFilters')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      const digits = q.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/^#/, '')
-      const search = q
-        ? sql`and (o.customer_name ilike ${likePattern(q)} or o.phone like ${likePattern(digits)} ${/^\d+$/.test(digits) ? sql`or o.number = ${Number(digits)}` : sql``})`
-        : sql``
-      const counts = await t.execute<{ status: string; count: number }>(sql`select o.status, count(*)::int as count from orders o where o.store_id = ${store.id}::uuid ${search} group by o.status`)
+      const counts = await t.execute<{ status: string; count: number }>(sql`select o.status, count(*)::int as count from orders o where ${orderWhere(store.id, filters, false)} group by o.status`)
       const rows = await t.execute<{ id: string; number: number; customer_name: string; phone: string; address: string; status: string; total: number; source: string; created_at: string; items: string; duplicate: boolean; blocked: boolean }>(sql`
         select o.id, o.number, o.customer_name, o.phone, o.address, o.status, o.total, o.source, o.created_at, ${duplicateOf(sql.raw('o'))} as duplicate, ${isBlocked(sql.raw('o'))} as blocked,
           (select string_agg(i.product_name || case when i.variant_label <> '' then ' (' || i.variant_label || ')' else '' end || ' × ' || i.quantity, ', ') from order_items i where i.order_id = o.id) as items
         from orders o
-        where o.store_id = ${store.id}::uuid ${search} ${orderStatuses.includes(status as never) ? sql`and o.status = ${status}` : sql``}
+        where ${orderWhere(store.id, filters)}
         order by o.created_at desc, o.number desc
         limit ${pageSize + 1} offset ${offset}`)
       return c.json({
@@ -65,6 +66,30 @@ export function registerOrders(app: Hono<Env>) {
         hasMore: rows.rows.length > pageSize,
         counts: Object.fromEntries(counts.rows.map((r) => [r.status, r.count])),
       })
+    })
+  })
+
+  // The export shares list filters and reads one consistent result, independent
+  // of dashboard pagination. Refuse oversized exports rather than truncate them.
+  app.get('/stores/:handle/orders/export', async (c) => {
+    const filters = readOrderFilters(c.req.query())
+    if (!filters) throw fail(400, 'invalidOrderFilters')
+    return tx(c.get('userId'), async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle'))
+      const result = await t.execute<{ number: number; status: string; source: string; customer_name: string; phone: string; address: string; area: string; items: string; subtotal: number; delivery_charge: number; discount: number; total: number; note: string; created_at: string }>(sql`
+        select o.number, o.status, o.source, o.customer_name, o.phone, o.address, o.area, o.subtotal, o.delivery_charge, o.discount, o.total, o.note,
+          to_char(o.created_at at time zone 'Asia/Dhaka', 'YYYY-MM-DD HH24:MI:SS') as created_at,
+          (select string_agg(i.product_name || case when i.variant_label <> '' then ' (' || i.variant_label || ')' else '' end || ' × ' || i.quantity, ', ' order by i.id) from order_items i where i.order_id = o.id) as items
+        from orders o where ${orderWhere(store.id, filters)} order by o.created_at desc, o.number desc limit ${maxOrderExport + 1}`)
+      if (result.rows.length > maxOrderExport) throw fail(409, 'orderExportLimit')
+      const headers = c.req.query('lang') === 'en'
+        ? ['Order number', 'Status', 'Source', 'Customer', 'Phone', 'Address', 'Delivery area', 'Products', 'Subtotal (BDT)', 'Delivery (BDT)', 'Discount (BDT)', 'Total (BDT)', 'Note', 'Created (Asia/Dhaka)']
+        : ['অর্ডার নম্বর', 'অবস্থা', 'মাধ্যম', 'কাস্টমার', 'মোবাইল', 'ঠিকানা', 'ডেলিভারি এলাকা', 'পণ্য', 'পণ্যের দাম (টাকা)', 'ডেলিভারি (টাকা)', 'ছাড় (টাকা)', 'মোট (টাকা)', 'নোট', 'সময় (Asia/Dhaka)']
+      const csv = [headers.map((h) => csvCell(h)).join(','), ...result.rows.map((r) => [r.number, r.status, r.source, r.customer_name, r.phone, r.address, r.area, r.items, r.subtotal, r.delivery_charge, r.discount, r.total, r.note, r.created_at].map((v, i) => csvCell(v, i === 4)).join(','))].join('\r\n')
+      c.header('Content-Disposition', `attachment; filename="orders-${store.handle}.csv"`)
+      c.header('Cache-Control', 'no-store')
+      c.header('X-Content-Type-Options', 'nosniff')
+      return c.body('\uFEFF' + csv + '\r\n', 200, { 'Content-Type': 'text/csv; charset=utf-8' })
     })
   })
 

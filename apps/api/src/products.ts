@@ -206,6 +206,7 @@ export function registerProducts(app: Hono<Env>) {
     const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
     const q = (c.req.query('q') ?? '').trim().slice(0, 200)
     const status = c.req.query('status') ?? ''
+    const sellable = c.req.query('sellable') === '1'
     const pattern = likePattern(q)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
@@ -226,6 +227,7 @@ export function registerProducts(app: Hono<Env>) {
           where pm.product_id = p.id order by pm.position limit 1
         ) i on true
         where p.store_id = ${store.id}::uuid ${search} ${productStatuses.includes(status as never) ? sql`and p.status = ${status}` : sql``}
+          ${sellable ? sql`and p.status <> 'draft' and exists (select 1 from product_variants available where available.product_id = p.id and (available.stock is null or available.stock > 0))` : sql``}
         order by p.created_at desc, p.id desc
         limit ${pageSize + 1} offset ${offset}`)
       return c.json({

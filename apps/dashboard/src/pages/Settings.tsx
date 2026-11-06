@@ -11,7 +11,7 @@ export function SettingsLayout() {
       <nav className="settings__nav" aria-label={t('settings')}>
         <h2>{t('settings')}</h2>
         {settingsNav.map((item) => (
-          <NavLink key={item.path} to={path(item.path)} end className="nav-link">{t(item.key)}</NavLink>
+          <NavLink key={item.path} to={path(item.path)} end className="nav-link">{t(item.key)}{item.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}</NavLink>
         ))}
       </nav>
       <div className="settings__body"><Outlet /></div>

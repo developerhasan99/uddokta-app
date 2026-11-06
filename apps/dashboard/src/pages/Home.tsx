@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { Check, ChevronDown, ClipboardCheck, LayoutTemplate, Palette, Store, Tag, Truck, UserPlus, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, ClipboardCheck, LayoutTemplate, Tag, Truck, UserPlus, ArrowUpRight, type LucideIcon } from 'lucide-react'
 import { useAccount, useCurrentStore, useStorePath } from '../account-context'
 import { AreaChart, Sparkline } from '../components/charts'
 import { api } from '../api'
@@ -17,13 +17,10 @@ type Summary = {
 const steps: { title: Key; body: Key; action: Key; to: string; icon: LucideIcon; done?: (s: Summary['setup']) => boolean }[] = [
   { title: 'stepProduct', body: 'stepProductD', action: 'stepProductAction', to: '/products', icon: Tag, done: (s) => s.products > 0 },
   { title: 'stepPage', body: 'stepPageD', action: 'stepPageAction', to: '/landing-pages', icon: LayoutTemplate, done: (s) => s.livePages > 0 },
-  { title: 'stepTheme', body: 'stepThemeD', action: 'stepThemeAction', to: '/online-store/themes', icon: Palette },
-  { title: 'stepDelivery', body: 'stepDeliveryD', action: 'stepDeliveryAction', to: '/settings', icon: Truck },
   { title: 'stepTest', body: 'stepTestD', action: 'stepTestAction', to: '/orders/new', icon: ClipboardCheck, done: (s) => s.orders > 0 },
-  { title: 'stepPublish', body: 'stepPublishD', action: 'stepPublishAction', to: '/settings/billing', icon: Store },
 ]
 
-// Steps that can be checked tick themselves off; delivery, theme and plan have nothing to check yet.
+// Every setup step reflects actual store data; publishing a page makes it public.
 function Onboarding({ setup }: { setup: Summary['setup'] }) {
   const { t, num } = useLang()
   const { me } = useAccount()
@@ -46,7 +43,7 @@ function Onboarding({ setup }: { setup: Summary['setup'] }) {
           <div className="guide__head">
             <div className="guide__title">
               <h2>{t('setupTitle')}</h2>
-              <p className="muted">{t('setupProgress', { n: num(doneCount) })}</p>
+              <p className="muted">{t('setupProgress', { n: num(doneCount), total: num(steps.length) })}</p>
             </div>
             <span className="bars__track" role="progressbar" aria-label={t('setupTitle')} aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}><span className="bars__fill" style={{ width: `${(doneCount / steps.length) * 100}%` }} /></span>
           </div>
@@ -90,10 +87,11 @@ function Onboarding({ setup }: { setup: Summary['setup'] }) {
               </span>
             </div>
             <div className="side-status">
-              <Badge tone="warning">{t('storeNotOpen')}</Badge>
-              <p className="muted">{t('storeNotOpenD')}</p>
+              <Badge tone={setup.livePages > 0 ? 'success' : 'neutral'}>{t(setup.livePages > 0 ? 'setupPageLive' : 'setupPageDraft')}</Badge>
+              <p className="muted">{t(setup.livePages > 0 ? 'setupPageLiveD' : 'setupPageDraftD')}</p>
             </div>
           </section>
+          {current.role !== 'staff' && <section className="card"><h2>{t('stepDelivery')}</h2><p className="muted">{t('setupDeliveryReminder')}</p><Link className="side-link" to={path('/settings')}><Truck size={16} aria-hidden="true" />{t('stepDeliveryAction')}</Link></section>}
           {current.role !== 'staff' && (
             <section className="card">
               <h2>{t('inviteTeam')}</h2>
@@ -133,9 +131,20 @@ function Dashboard({ summary }: { summary: Summary }) {
   const maxStatus = Math.max(1, ...orderStatus.map((s) => s.count))
 
   return (
-    <div className="page">
+    <div className="page dashboard-home">
       <PageHeader title={t('home')} description={t('home.d')} action={<LinkButton to={path('/orders/new')} variant="primary">{t('newOrder')}</LinkButton>} />
 
+      <section className="card work-queue" aria-labelledby="work-queue-title">
+        <div><h2 id="work-queue-title">{t('workQueueTitle')}</h2><p className="muted">{t('workQueueHelp')}</p></div>
+        <div className="work-queue__links">
+          {(['new', 'confirmed', 'packed', 'hold'] as const).map((status) => (
+            <Link key={status} to={path(`/orders?status=${status}`)} className="work-queue__link">
+              <span>{t(({ new: 'queueConfirm', confirmed: 'queuePack', packed: 'queueDispatch', hold: 'queueHold' } as const)[status])}</span>
+              <strong>{num(summary.statuses[status] ?? 0)}</strong><ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+      </section>
       <p className="muted">{t('statLast14')}</p>
 
       <div className="stats">
@@ -183,19 +192,24 @@ export function Home() {
   const handle = useCurrentStore()!.store.handle
   const [summary, setSummary] = useState<Summary | null>(null)
   const [failed, setFailed] = useState(false)
+  const latest = useRef(0)
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    const request = ++latest.current
     setFailed(false)
+    setSummary(null)
     try {
-      setSummary(await api<Summary>(`/stores/${handle}/summary`))
+      const result = await api<Summary>(`/stores/${handle}/summary`)
+      if (request === latest.current) setSummary(result)
     } catch {
-      setFailed(true)
+      if (request === latest.current) setFailed(true)
     }
-  }
+  }, [handle])
 
   useEffect(() => {
     void load()
-  }, [handle])
+    return () => { latest.current += 1 }
+  }, [load])
 
   if (failed) return <div className="page"><section className="card card--flush"><Notice role="alert" title={t('errNetwork')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section></div>
   if (!summary) return <div className="page" role="status" aria-label={t('loading')}><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>

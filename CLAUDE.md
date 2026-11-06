@@ -70,15 +70,16 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Home**
 - **Orders:** Incomplete orders, Fake-order protection
 - **Products:** Collections, Inventory, Warehouses
-- **Customers:** Segments, Repeat sales
-- **Inbox:** AI salesman
-- **Marketing:** Auto follow-ups, Offers
+- **Customers:** Segments (coming soon), Repeat sales
+- **Inbox:** AI salesman (both coming soon)
 - **Discounts**
 - **Media**
 - **Analytics**
 - **Landing pages** (first under Sales channels)
-- **Online store:** Themes, Pages, Menus
-- **Settings:** Store, Couriers, Payments, SMS, Tracking, Domains, Team, Billing
+- **Online store:** Themes, Pages (coming soon), Menus
+- **Settings:** Store, Couriers, Payments (coming soon), SMS (coming soon), Tracking, Domains, Team, Billing (coming soon)
+
+The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS, Billing and store-information Pages visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
 ## Media gallery
 
@@ -118,12 +119,21 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Images a page uses are kept in `page_media` (draft and published), which blocks deleting them.
 - The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
 
+- New landing pages can use a blank canvas or the guided `quick`/`story` starting layouts in `apps/storefront/src/campaigns.ts`. Guided creation requires a store-owned active/unlisted product with an available variant. Prefill only real product names and images and connect the order section; never insert sample claims, reviews or policies. All created/duplicated pages start unpublished.
+- The page-list Duplicate action copies the saved draft into a separate page, including media references and SEO fields. Creation and duplication share the store page-limit lock. A copy must never change the source page or its published content.
+
 ## Orders
 
 - Every order, from the storefront or typed in by the team, goes through `place_order`. It prices the order from the variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. App code never sends an amount.
 - Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
 - Public forms carry a random checkout UUID. `place_checkout` serializes retries, calls `place_order` once, and records the number/total in tenant-scoped `checkout_receipts`. Reusing a completed token with different values is refused. Confirmation reads an opaque receipt through `storefront_receipt`, never an amount from the URL.
 - Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.
+
+- Order filters and CSV export share `orderWhere` in `apps/api/src/order-query.ts` and the validated filter contract in `apps/storefront/src/order-filters.ts`. Dates are Bangladesh order-creation dates; end dates include the whole day. Status counts ignore the selected status but honor search/source/date filters.
+- Saved order views belong to one member in one store and use `order_views` row-level security. Keep rolling periods relative rather than saving today's resolved dates. Enforce the 20-view limit under the per-member/store advisory lock.
+- CSV exports include all matching orders up to 10,000, never just the loaded page or a silently truncated result. Quote CSV fields, neutralize formula-like text, preserve phone numbers as text, and omit buying prices. Abort stale browser exports when filters or stores change.
+
+- Keep Orders compact: one toolbar for search and saved views, advanced filters in a dialog, and concise rows/cards. Do not show customer phone numbers under names in the order list; keep them in order details and retain phone search. Use actual scoped counts for summaries and label any QA preview data as sample.
 
 ## Sales tools
 
@@ -145,7 +155,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, 8px controls, 12px cards.
 - Standard input field: the `.input` class. White, 32px, thin `--color-rule-strong` border, 8px corners, 13px text, no shadow, and a green outline on focus.
 - Small controls by default: buttons and inputs are 32px with 13px text. Sign-in forms use 40px.
-- Mobile components should be more compact than their desktop equivalents, following the page editor: reduce 16px text to 14px and 14px text to 13px, with tighter line spacing and padding. Use 32px buttons with 13px text and compact 32–36px icon buttons and list controls. Keep related actions on one row where they fit; icon-only buttons need accessible labels. Editable inputs stay at 16px text and 44px height to avoid iPhone focus zoom and keep typing comfortable. Apply these sizes to the dashboard controls; the storefront preview must retain the storefront's own responsive styles.
+- Mobile components should be more compact than their desktop equivalents, following the page editor: reduce 16px text to 14px and 14px text to 13px, with tighter line spacing and padding. Use 32px buttons with 13px text and compact 32–36px icon buttons and list controls. Keep related actions on one row where they fit; icon-only buttons need accessible labels. Editable inputs keep 16px text (to avoid iPhone focus zoom) at 36px height; buttons stay 32px. Never add per-page overrides to undo the global mobile sizes. Apply these sizes to the dashboard controls; the storefront preview must retain the storefront's own responsive styles.
 - Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
 - Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
 - Colours, spacing and type come from tokens, never one-off values.
