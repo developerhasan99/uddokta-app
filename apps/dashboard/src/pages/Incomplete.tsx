@@ -76,6 +76,8 @@ export function Incomplete() {
             <thead>
               <tr>
                 <th scope="col">{t('colCustomer')}</th>
+                <th scope="col">{t('colPhone')}</th>
+                <th scope="col">{t('colAddress')}</th>
                 <th scope="col">{t('newOrderProduct')}</th>
                 <th scope="col">{t('colTime')}</th>
                 <th scope="col" className="end"><span className="visually-hidden">{t('orderNext')}</span></th>
@@ -84,10 +86,9 @@ export function Incomplete() {
             <tbody>
               {page.items.map((d) => (
                 <tr key={d.id}>
-                  <td data-label={t('colCustomer')}>
-                    {d.name || d.phone}
-                    {(d.name || d.address) && <span className="table__sub num">{[d.name && d.phone, d.address].filter(Boolean).join(' · ')}</span>}
-                  </td>
+                  <td data-label={t('colCustomer')}>{d.name || '—'}</td>
+                  <td className="num" data-label={t('colPhone')}>{d.phone}</td>
+                  <td className="data-table__truncate" data-label={t('colAddress')} title={d.address ?? undefined}>{d.address || '—'}</td>
                   <td data-label={t('newOrderProduct')}>{d.productName}</td>
                   <td className="muted" data-label={t('colTime')}>{time(d.updatedAt)}</td>
                   <td data-label={t('orderNext')}>

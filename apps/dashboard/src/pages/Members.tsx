@@ -106,6 +106,7 @@ export function Members() {
             <thead>
               <tr>
                 <th scope="col">{t('colMember')}</th>
+                <th scope="col">{t('emailLabel')}</th>
                 <th scope="col">{t('role')}</th>
                 <th scope="col" className="end"><span className="visually-hidden">{t('colActions')}</span></th>
               </tr>
@@ -119,11 +120,9 @@ export function Members() {
                 return (
                   <tr key={member.id}>
                     <th scope="row" data-label={t('colMember')}>
-                      <span>
-                        {member.name}{isMe && ` (${t('you')})`}
-                        <span className="table__sub">{member.email}</span>
-                      </span>
+                      {member.name}{isMe && ` (${t('you')})`}
                     </th>
+                    <td className="data-table__truncate muted" data-label={t('emailLabel')} title={member.email}>{member.email}</td>
                     <td data-label={t('role')}>
                       {editable
                         ? (

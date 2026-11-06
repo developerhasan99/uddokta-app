@@ -1,6 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 const bn = {
+  colPhone: 'মোবাইল',
+  colAddress: 'ঠিকানা',
+  colLink: 'লিঙ্ক',
+  bulkSelected: '{n}টি বাছাই করা',
+  bulkSelectAll: 'সব বাছাই করুন',
+  bulkSelectRow: '{name} বাছাই করুন',
+  bulkClear: 'বাছাই বাতিল করুন',
+  bulkDone: '{n}টি হয়ে গেছে।',
+  bulkFailed: '{n}টি বদলানো যায়নি, সেগুলো বাছাই করা আছে।',
+  bulkDelete: 'মুছুন',
+  bulkDeleteConfirm: '{n}টি মুছে ফেলবেন?',
+  bulkMediaFailed: '{n}টি ছবি কোথাও ব্যবহার হচ্ছে, তাই মোছা হয়নি।',
+  orderBulkStatus: 'অবস্থা বদলান',
   orderViewSaveTitle: 'ভিউ সেভ করুন',
   orderViewSaveAction: 'সেভ করুন',
   orderViewNameHint: 'যেমন: নিশ্চিত করার অপেক্ষায়',
@@ -874,6 +887,19 @@ const bn = {
 export type Key = keyof typeof bn
 
 const en: Record<Key, string> = {
+  colPhone: 'Mobile',
+  colAddress: 'Address',
+  colLink: 'Link',
+  bulkSelected: '{n} selected',
+  bulkSelectAll: 'Select all',
+  bulkSelectRow: 'Select {name}',
+  bulkClear: 'Clear selection',
+  bulkDone: '{n} done.',
+  bulkFailed: '{n} could not be changed and are still selected.',
+  bulkDelete: 'Delete',
+  bulkDeleteConfirm: 'Delete {n}?',
+  bulkMediaFailed: '{n} are in use, so they were not deleted.',
+  orderBulkStatus: 'Change status',
   orderViewSaveTitle: 'Save view',
   orderViewSaveAction: 'Save',
   orderViewNameHint: 'For example, Orders to confirm',

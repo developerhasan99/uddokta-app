@@ -5,6 +5,7 @@ import { useStorePath, useCurrentStore } from '../account-context'
 import { api } from '../api'
 import { Badge, Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { useLang, type Key } from '../i18n'
+import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 import { productStatuses, statusInfo, type ProductStatus } from '../product-form'
 import { useUrlSearch } from '../use-url-search'
 
@@ -20,7 +21,9 @@ export function Products() {
   const { t, num, money } = useLang()
   const path = useStorePath()
   const navigate = useNavigate()
-  const base = `/stores/${useCurrentStore()!.store.handle}/products`
+  const current = useCurrentStore()!
+  const base = `/stores/${current.store.handle}/products`
+  const canDelete = current.role !== 'staff'
   const [params] = useSearchParams()
   const status = params.get('status') ?? ''
   const { query, text, setText } = useUrlSearch()
@@ -43,6 +46,12 @@ export function Products() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const selection = useSelection(page?.items.map((row) => row.id) ?? [])
+  const remove = async () => {
+    await selection.run((id) => api(`${base}/${id}`, { method: 'DELETE' }))
+    void load()
+  }
 
   const more = async () => {
     if (!page) return
@@ -96,6 +105,8 @@ export function Products() {
             <SearchInput label={t('productSearch')} value={text} onChange={(e) => setText(e.target.value)} />
           </div>
 
+          <BulkBar selection={selection}><BulkDelete selection={selection} onDelete={() => void remove()} /></BulkBar>
+
           {!page && (
             <div role="status" aria-label={t('loading')}>
               {Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="16rem" /><Skeleton width="5rem" /></div>)}
@@ -112,6 +123,7 @@ export function Products() {
             <table className="data-table">
               <thead>
                 <tr>
+                  {canDelete && <SelectAllCell selection={selection} />}
                   <th scope="col">{t('products')}</th>
                   <th scope="col" className="data-table__meta">{t('colStatus')}</th>
                   <th scope="col" className="data-table__meta">{t('productStockCol')}</th>
@@ -121,7 +133,8 @@ export function Products() {
               </thead>
               <tbody>
                 {page.items.map((row) => (
-                  <tr key={row.id} className="data-table__row" onClick={() => navigate(path(`/products/${row.id}`))}>
+                  <tr key={row.id} className="data-table__row" data-selected={selection.has(row.id) || undefined} onClick={() => navigate(path(`/products/${row.id}`))}>
+                    {canDelete && <SelectCell selection={selection} id={row.id} name={row.name} />}
                     <td>
                       <Link className="data-table__file" to={path(`/products/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                         <span className="data-table__thumb">{row.thumbUrl && <img src={row.thumbUrl} alt="" loading="lazy" />}</span>

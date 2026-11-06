@@ -131,6 +131,7 @@ export function Pages() {
             <thead>
               <tr>
                 <th scope="col">{t('pageTitle')}</th>
+                <th scope="col" className="pages-table__link">{t('colLink')}</th>
                 <th scope="col" className="pages-table__status">{t('pageStatus')}</th>
                 <th scope="col" className="data-table__meta">{t('pageUpdated')}</th>
                 <th scope="col" className="pages-table__actions"><span className="visually-hidden">{t('pagesActions')}</span></th>
@@ -143,10 +144,10 @@ export function Pages() {
                     <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                       <span className="data-table__text">
                         <span className="data-table__name" title={row.title}>{row.title}</span>
-                        <span className="table__sub">/{row.handle}</span>
                       </span>
                     </Link>
                   </td>
+                  <td className="pages-table__link data-table__truncate muted" title={`/${row.handle}`}>/{row.handle}</td>
                   <td className="pages-table__status"><PageStatus page={row} /></td>
                   <td className="data-table__meta">{time(row.updatedAt)}</td>
                   <td className="pages-table__actions" onClick={(e) => e.stopPropagation()}>

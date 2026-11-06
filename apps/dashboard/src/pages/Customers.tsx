@@ -91,6 +91,8 @@ export function Customers() {
               <thead>
                 <tr>
                   <th scope="col">{t('colCustomer')}</th>
+                  <th scope="col" className="data-table__meta customers-table__phone">{t('colPhone')}</th>
+                  <th scope="col" className="data-table__meta customers-table__address">{t('colAddress')}</th>
                   <th scope="col" className="data-table__meta">{t('colOrders')}</th>
                   <th scope="col" className="data-table__meta">{t('colDelivered')}</th>
                   <th scope="col" className="data-table__meta">{t('colReturned')}</th>
@@ -105,7 +107,7 @@ export function Customers() {
                       <Link className="data-table__file" to={path(`/orders?q=${row.phone}`)}>
                         <span className="data-table__text">
                           <span className="data-table__name">{row.name}</span>
-                          <span className="table__sub num">{row.phone} · {row.address}</span>
+                          <span className="data-table__sub num">{row.phone} · {row.address}</span>
                           <span className="customer-summary">
                             <span>{t('colOrders')}: <strong>{num(row.orders)}</strong></span>
                             <span>{t('colDelivered')}: <strong>{num(row.delivered)}</strong></span>
@@ -116,6 +118,8 @@ export function Customers() {
                         </span>
                       </Link>
                     </td>
+                    <td className="data-table__meta customers-table__phone num">{row.phone}</td>
+                    <td className="data-table__meta customers-table__address data-table__truncate" title={row.address}>{row.address}</td>
                     <td className="data-table__meta num">{num(row.orders)}</td>
                     <td className="data-table__meta num">{num(row.delivered)}</td>
                     <td className="data-table__meta num">{row.returned > 0 ? <Badge tone="warning">{num(row.returned)}</Badge> : num(0)}</td>

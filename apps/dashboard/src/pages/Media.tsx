@@ -7,6 +7,7 @@ import { Button, Notice, PageHeader, SearchInput, Skeleton } from '../components
 import { centered, moved, resized, toPixels, type Corner, type Rect } from '../crop'
 import { errorLabel, useLang } from '../i18n'
 import { useUrlSearch } from '../use-url-search'
+import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 
 type Page = { items: Item[]; hasMore: boolean; usedBytes: number; limitBytes: number }
 type Upload = { id: number; name: string; error?: string }
@@ -94,6 +95,13 @@ export function Media() {
   }
 
   const closeDetails = useCallback(() => setSelected(null), [])
+  const canDelete = current.role !== 'staff'
+  const picked = useSelection(page?.items.map((item) => item.id) ?? [])
+  const removePicked = async () => {
+    await picked.run((id) => api(`${base}/${id}`, { method: 'DELETE' }))
+    setSelected(null)
+    void load()
+  }
   const pending = uploads.filter((u) => !u.error)
   const failed = uploads.filter((u) => u.error)
   const usedPercent = page ? Math.min((page.usedBytes / page.limitBytes) * 100, 100) : 0
@@ -192,11 +200,13 @@ export function Media() {
                 <div className="tabs" />
                 <SearchInput label={t('mediaSearch')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
               </div>
+              {canDelete && <BulkBar selection={picked} failedText={picked.result ? t('bulkMediaFailed', { n: num(picked.result.failed) }) : undefined}><BulkDelete selection={picked} onDelete={() => void removePicked()} /></BulkBar>}
               {page.items.length === 0 && pending.length === 0 && query && <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<Button onClick={() => setSearchText('')}>{t('clearFilters')}</Button>} />}
               {(page.items.length > 0 || pending.length > 0) && <>
           <table className="data-table">
             <thead>
               <tr>
+                {canDelete && <SelectAllCell selection={picked} />}
                 <th scope="col">{t('mediaName')}</th>
                 <th scope="col" className="data-table__meta">{t('mediaFormat')}</th>
                 <th scope="col" className="data-table__meta">{t('mediaSize')}</th>
@@ -207,11 +217,12 @@ export function Media() {
             <tbody>
               {pending.map((u) => (
                 <tr key={u.id} aria-label={u.name}>
-                  <td colSpan={5}><span className="data-table__file"><span className="data-table__thumb" /><span className="muted data-table__name">{u.name}</span></span></td>
+                  <td colSpan={canDelete ? 6 : 5}><span className="data-table__file"><span className="data-table__thumb" /><span className="muted data-table__name">{u.name}</span></span></td>
                 </tr>
               ))}
               {page.items.map((item) => (
-                <tr key={item.id} className={selected?.id === item.id ? 'data-table__row data-table__row--selected' : 'data-table__row'} onClick={() => setSelected(item)}>
+                <tr key={item.id} className={selected?.id === item.id ? 'data-table__row data-table__row--selected' : 'data-table__row'} data-selected={picked.has(item.id) || undefined} onClick={() => setSelected(item)}>
+                  {canDelete && <SelectCell selection={picked} id={item.id} name={item.name} />}
                   <td>
                     <button type="button" className="data-table__file" aria-pressed={selected?.id === item.id} onClick={(e) => {
                       e.stopPropagation()

@@ -128,7 +128,9 @@ main { outline: 0; }
      <table class="data-table">…</table>                             .data-table__row when a click on the row opens it
      <footer class="data-list__footer">count, load more</footer>     optional
    </section>
-   Phones hide the header and .data-table__meta cells, so the first cell carries the essentials (.data-table__sub shows only there).
+   One value per cell on desktop: a phone, email, address or link gets its own column, never a second line under the name.
+   Phones hide the header and .data-table__meta cells, so the first cell repeats the essentials in .data-table__sub (shown only there).
+   Selectable rows: useSelection, SelectAllCell, SelectCell and BulkBar from components/Selection.tsx.
    .data-table--stack instead lays each cell out as "label  value" on phones, for rows full of actions (needs data-label). */
 .data-list { min-width: 0; overflow: hidden; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-card); }
 .data-list .filter-bar { border-bottom-color: var(--color-rule-strong); }
@@ -144,10 +146,11 @@ main { outline: 0; }
 .data-table .end { text-align: end; }
 .data-table__row { cursor: pointer; }
 @media (hover: hover) { .data-table tbody tr:hover { background: var(--color-paper-2); } }
-.data-table__row--selected, .data-table__row--selected:hover { background: var(--color-paper-3); box-shadow: inset 2px 0 0 var(--color-primary); }
+.data-table tbody tr[data-selected], .data-table__row--selected, .data-table__row--selected:hover { background: var(--color-paper-3); box-shadow: inset 2px 0 0 var(--color-primary); }
 .data-table__meta { width: 6rem; color: var(--color-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .data-table__meta--price { width: 11rem; }
 .data-table__meta--alert { color: var(--color-error); }
+.data-table__truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .data-table__file { display: flex; align-items: center; gap: var(--space-sm); width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--color-ink); text-align: start; text-decoration: none; cursor: pointer; }
 .data-table__file:focus-visible { outline-offset: -2px; }
 .data-table__thumb { display: block; flex: none; width: 36px; height: 36px; overflow: hidden; border-radius: var(--radius-control); outline: var(--rule-hair) solid var(--color-rule-strong); outline-offset: -1px; background: var(--color-paper-3); }
@@ -155,10 +158,21 @@ main { outline: 0; }
 .data-table__text { display: grid; min-width: 0; }
 .data-table__name { overflow: hidden; font-size: var(--text-md); font-weight: 500; line-height: 1.3; color: var(--color-ink); text-overflow: ellipsis; white-space: nowrap; }
 .table__sub { display: block; color: var(--color-muted); font-size: var(--text-sm); }
-.data-table__sub { display: none; font-size: var(--text-sm); }
+.data-table__sub { display: none; color: var(--color-muted); font-size: var(--text-sm); }
 @media (max-width: 60rem) {
   .data-table__wide { display: none; }
 }
+.check { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); cursor: pointer; }
+.data-table .data-table__check { width: 40px; padding-inline: var(--space-sm) 0; cursor: default; }
+.data-table .data-table__check .check { display: block; }
+.filter-bar.data-list__bulk, .filter-bar.orders-bar { flex-direction: row; align-items: center; }
+.data-list__bulk { gap: var(--space-sm); min-height: 49px; padding-inline-start: var(--space-sm); background: var(--color-paper-2); font-size: var(--text-sm); }
+.data-list__bulk strong { font-weight: 500; white-space: nowrap; }
+.data-list__bulk-actions { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: var(--space-xs); min-width: 0; }
+.data-list__bulk-clear { box-shadow: none; background: transparent; color: var(--color-muted); }
+.bulk-toast { position: fixed; inset-inline: 0; bottom: var(--space-lg); z-index: var(--z-tooltip); display: flex; justify-content: center; padding-inline: var(--space-md); pointer-events: none; }
+.bulk-toast .toast { pointer-events: auto; }
+.toast__close { display: grid; place-items: center; width: 24px; height: 24px; margin-inline-end: calc(-1 * var(--space-xs)); padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-frame-muted); cursor: pointer; }
 @media (max-width: 40rem) {
   .data-table thead, .data-table__meta { display: none; }
   .data-table__sub { display: block; }
@@ -168,7 +182,6 @@ main { outline: 0; }
   .data-table--stack tbody tr:last-child { border-bottom: 0; }
   .data-table--stack tbody th, .data-table--stack tbody td { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: var(--space-xs); height: auto; padding: var(--space-2xs) var(--space-md); border: 0; }
   .data-table--stack [data-label]::before { content: attr(data-label); color: var(--color-muted); font-weight: 400; }
-  .data-table--stack .table__sub { grid-column: 2; }
   .data-table--stack .badge { justify-self: start; }
   .data-table--stack .end { text-align: start; }
 }
@@ -1018,7 +1031,9 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .pages-table__actions .row { flex-wrap: wrap; gap: var(--space-xs); }
 .pages-table__status { width: 11rem; }
 .customer-summary { display: none; }
-.customers-table .table__sub, .pages-table .table__sub { grid-column: auto; }
+.customers-table__phone { width: 8.5rem; }
+.customers-table__address { width: auto; color: var(--color-ink-2); }
+.pages-table__link { width: 12rem; }
 @media (hover: hover) { .work-queue__link:hover { background: var(--color-paper-2); border-color: var(--color-primary); } }
 @media (max-width: 75rem) {
   .customers-table thead, .customers-table .data-table__meta { display: none; }
@@ -1026,13 +1041,14 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
   .customer-summary { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); margin-top: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
   .customer-summary strong { color: var(--color-ink); font-weight: 500; }
   .customer-summary__date { flex-basis: 100%; }
-  .customers-table .table__sub { white-space: normal; overflow-wrap: anywhere; }
+  .customers-table .data-table__sub { display: block; white-space: normal; overflow-wrap: anywhere; }
 }
 @media (max-width: 60rem) {
   .work-queue__links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 75rem) {
   .pages-table, .pages-table tbody { display: block; width: 100%; }
+  .pages-table .pages-table__link { display: none; }
   .pages-table thead { display: none; }
   .pages-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: var(--space-xs) var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
   .pages-table td { display: block; width: auto; padding: var(--space-2xs) 0; border: 0; min-width: 0; }
@@ -1040,7 +1056,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
   .pages-table .pages-table__status { align-self: start; padding-inline-start: var(--space-xs); }
   .pages-table .pages-table__actions { grid-column: 1 / -1; }
   .pages-table .data-table__file { padding: 0; min-height: var(--control); }
-  .pages-table .data-table__name, .pages-table .table__sub { white-space: normal; overflow-wrap: anywhere; }
+  .pages-table .data-table__name { white-space: normal; overflow-wrap: anywhere; }
 }
 @media (max-width: 40rem) {
   .work-queue__link { padding: var(--space-xs); font-size: var(--text-sm); }
@@ -1129,6 +1145,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .orders-table__source { width: 7rem; color: var(--color-ink-2); }
 .orders-table .orders-table__total { width: 7rem; text-align: end; font-variant-numeric: tabular-nums; font-weight: 500; }
 .orders-table__status { width: 8rem; }
+.orders-table__phone { width: 8.5rem; color: var(--color-ink-2); }
 .orders-table__identity { display: inline-flex; align-items: center; gap: var(--space-2xs); }
 .order-number { font-weight: 600; text-decoration: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .order-customer { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; }
@@ -1157,10 +1174,13 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
   .orders-bar { flex-wrap: wrap; gap: var(--space-xs); }
   .orders-tabs { flex-basis: 100%; }
   .orders-bar__tools { flex: 1 1 100%; }
-  .orders-bar__tools .search-field { flex: 1; }
+  .orders-bar__tools .search-field { flex: 1; width: auto; min-width: 0; }
   .orders-table-wrap { display: none; }
   .order-cards { display: block; }
   .order-cards li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+  .order-cards__item { display: flex; align-items: flex-start; padding-inline-start: var(--space-sm); }
+  .order-cards__item > .check { flex: none; margin-top: calc(var(--space-sm) + 2px); }
+  .order-cards__item > .order-card { flex: 1; min-width: 0; }
   .order-card { display: grid; gap: var(--space-2xs); padding: var(--space-sm); color: inherit; text-decoration: none; line-height: 1.4; }
   .order-card__top, .order-card__main, .order-card__meta { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); min-width: 0; }
   .order-card__main { align-items: flex-start; }

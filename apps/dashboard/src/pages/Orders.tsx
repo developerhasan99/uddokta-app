@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowDown, Copy, Download, ShieldAlert, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDown, ChevronDown, Copy, Download, ShieldAlert, SlidersHorizontal, X } from 'lucide-react'
 import { emptyOrderFilters, orderFilterKeys, orderFilterParams, readOrderFilters, type OrderFilters as Filters } from 'storefront/order-filters'
 import { OrderFilters } from '../components/OrderFilters'
 import { OrderViews } from '../components/OrderViews'
+import { BulkBar, Check, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
+import * as Dropdown from '@radix-ui/react-dropdown-menu'
 import { useUrlSearch } from '../use-url-search'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, ApiError, errorCode } from '../api'
@@ -139,6 +141,11 @@ export function Orders() {
   }
 
   const rows = page?.items ?? []
+  const selection = useSelection(rows.map((order) => order.id))
+  const setStatus = async (next: Status) => {
+    await selection.run((id) => api(`${base}/${id}`, { method: 'PATCH', body: { status: next } }))
+    void load()
+  }
   const counts = page?.counts ?? {}
   const count = (s: Status) => counts[s] ?? 0
   const all = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0)
@@ -187,6 +194,14 @@ export function Orders() {
             <button type="button" className="btn btn--default orders-toolbar__filters" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={openFilters}><SlidersHorizontal size={14} aria-hidden="true" /><span>{t('orderFiltersShort')}</span>{filterCount > 0 && <span className="orders-filter-count">{num(filterCount)}</span>}</button>
           </div>
         </OrderViews>
+        <BulkBar selection={selection}>
+          <Dropdown.Root>
+            <Dropdown.Trigger className="btn btn--default" disabled={selection.busy} aria-busy={selection.busy}>{t(selection.busy ? 'loading' : 'orderBulkStatus')}<ChevronDown size={14} aria-hidden="true" /></Dropdown.Trigger>
+            <Dropdown.Portal><Dropdown.Content className="menu" align="start" sideOffset={6} collisionPadding={8}>
+              {(Object.keys(statuses) as Status[]).filter((s) => s !== 'new').map((s) => <Dropdown.Item key={s} className="menu__item menu__action" onSelect={() => void setStatus(s)}>{t(statuses[s].label)}</Dropdown.Item>)}
+            </Dropdown.Content></Dropdown.Portal>
+          </Dropdown.Root>
+        </BulkBar>
 
         {valid && !page && !failed && <div className="orders-loading" role="status" aria-label={t('loading')}>{Array.from({ length: 5 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="5rem" /><Skeleton width="12rem" /><Skeleton width="5rem" /></div>)}</div>}
         {failed && <Notice role="alert" title={t('ordersError')} body={t('ordersErrorBody')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
@@ -197,11 +212,13 @@ export function Orders() {
         {page && rows.length > 0 && <>
           <div className="data-list__scroll orders-table-wrap" tabIndex={0} role="region" aria-label={t('orderTableHelp')}>
             <table className="data-table orders-table">
-              <thead><tr><th scope="col" className="orders-table__number">{t('colOrder')}</th><th scope="col" className="orders-table__date" aria-sort="descending">{t('orderDateColumn')} <ArrowDown size={12} aria-hidden="true" /></th><th scope="col" className="orders-table__customer">{t('colCustomer')}</th><th scope="col" className="orders-table__source">{t('orderSourceColumn')}</th><th scope="col" className="orders-table__total">{t('colTotal')}</th><th scope="col" className="orders-table__status">{t('colStatus')}</th><th scope="col" className="orders-table__items">{t('orderProductsColumn')}</th></tr></thead>
-              <tbody>{rows.map((order) => <tr key={order.id} onClick={() => navigate(path(`/orders/${order.id}`))}>
+              <thead><tr><SelectAllCell selection={selection} /><th scope="col" className="orders-table__number">{t('colOrder')}</th><th scope="col" className="orders-table__date" aria-sort="descending">{t('orderDateColumn')} <ArrowDown size={12} aria-hidden="true" /></th><th scope="col" className="orders-table__customer">{t('colCustomer')}</th><th scope="col" className="orders-table__phone">{t('colPhone')}</th><th scope="col" className="orders-table__source">{t('orderSourceColumn')}</th><th scope="col" className="orders-table__total">{t('colTotal')}</th><th scope="col" className="orders-table__status">{t('colStatus')}</th><th scope="col" className="orders-table__items">{t('orderProductsColumn')}</th></tr></thead>
+              <tbody>{rows.map((order) => <tr key={order.id} className="data-table__row" data-selected={selection.has(order.id) || undefined} onClick={() => navigate(path(`/orders/${order.id}`))}>
+                <SelectCell selection={selection} id={order.id} name={orderNumber(order.number)} />
                 <th scope="row"><div className="orders-table__identity"><Link className="order-number" to={path(`/orders/${order.id}`)} onClick={(e) => e.stopPropagation()}>{orderNumber(order.number)}</Link>{flags(order)}</div></th>
                 <td className="orders-table__date"><time dateTime={order.createdAt}>{time(order.createdAt)}</time></td>
-                <td><span className="order-customer" title={order.customerName}>{order.customerName}</span><span className="order-phone">{order.phone}</span></td>
+                <td><span className="order-customer" title={order.customerName}>{order.customerName}</span></td>
+                <td className="orders-table__phone num">{order.phone}</td>
                 <td className="orders-table__source">{sourceLabel(order.source)}</td>
                 <td className="orders-table__total">{money(order.total)}</td>
                 <td><Badge tone={statuses[order.status].tone}>{t(statuses[order.status].label)}</Badge></td>
@@ -209,7 +226,7 @@ export function Orders() {
               </tr>)}</tbody>
             </table>
           </div>
-          <ul className="order-cards">{rows.map((order) => <li key={order.id}><Link className="order-card" to={path(`/orders/${order.id}`)}>
+          <ul className="order-cards">{rows.map((order) => <li key={order.id} className="order-cards__item"><Check checked={selection.has(order.id)} disabled={selection.busy} label={t('bulkSelectRow', { name: orderNumber(order.number) })} onChange={() => selection.toggle(order.id)} /><Link className="order-card" to={path(`/orders/${order.id}`)}>
             <span className="order-card__top"><span className="orders-table__identity"><strong className="order-number">{orderNumber(order.number)}</strong>{flags(order)}</span><Badge tone={statuses[order.status].tone}>{t(statuses[order.status].label)}</Badge></span>
             <span className="order-card__main"><span className="order-card__customer"><span className="order-customer">{order.customerName}</span><span className="order-phone">{order.phone}</span></span><strong className="order-card__total">{money(order.total)}</strong></span>
             <span className="order-items">{order.items}</span>
