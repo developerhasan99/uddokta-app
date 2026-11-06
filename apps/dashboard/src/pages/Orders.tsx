@@ -176,21 +176,18 @@ export function Orders() {
       {!valid && <p className="form-error" role="alert">{t('errInvalidOrderFilters')} <LinkButton to={path('/orders')}>{t('orderClearFilters')}</LinkButton></p>}
 
       <section className="orders-list" aria-label={t('ordersLabel')}>
-        {filters && <nav className="tabs orders-tabs" aria-label={t('ordersLabel')}>
-          {tabs.map((tab) => <Link key={tab.status} className="tab" to={hrefFor({ ...filters, status: tab.status })} aria-current={status === tab.status ? 'page' : undefined}>{t(tab.label)}{page && <span className="tab__count">{num(tab.value)}</span>}</Link>)}
-        </nav>}
-        <div className="orders-toolbar">
-          <OrderViews key={handle} handle={handle} filters={filters} onApply={applyFilters} />
-          <form className="orders-toolbar__search" role="search" onSubmit={(e) => { e.preventDefault(); applyFilters({ ...(filters ?? emptyOrderFilters), q: searchText.trim().slice(0, 100) }) }}>
-            <Search size={17} aria-hidden="true" />
-            <input name="q" type="search" aria-label={t('search')} placeholder={t('orderSearchCompact')} value={searchText} onChange={(e) => setSearchText(e.target.value.slice(0, 100))} autoComplete="off" />
-          </form>
-          <button type="button" className="btn btn--default orders-toolbar__filters" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={openFilters}><SlidersHorizontal size={15} aria-hidden="true" /><span>{t('orderFiltersShort')}</span>{filterCount > 0 && <span className="orders-filter-count">{num(filterCount)}</span>}</button>
-        </div>
-        {chips.length > 0 && <div className="orders-applied" aria-label={t('orderAppliedFilters')}>
-          {chips.map((chip) => <button type="button" key={chip.key} className="orders-applied__chip" aria-label={t('orderRemoveFilter', { value: chip.label })} onClick={() => filters && applyFilters({ ...filters, [chip.key]: '', ...(chip.key === 'period' ? { from: '', to: '' } : {}) })}><span>{chip.label}</span><X size={12} aria-hidden="true" /></button>)}
-          <Link className="orders-applied__clear" to={path('/orders')}>{t('orderClearFilters')}</Link>
-        </div>}
+        <OrderViews key={handle} handle={handle} filters={filters} hrefFor={hrefFor} tabs={filters ? tabs.map((tab) => ({ status: tab.status, label: t(tab.label), count: page && tab.value ? num(tab.value) : undefined, href: hrefFor({ ...filters, status: tab.status }) })) : []} applied={chips.length > 0 && <>
+            {chips.map((chip) => <button type="button" key={chip.key} className="orders-applied__chip" aria-label={t('orderRemoveFilter', { value: chip.label })} onClick={() => filters && applyFilters({ ...filters, [chip.key]: '', ...(chip.key === 'period' ? { from: '', to: '' } : {}) })}><span>{chip.label}</span><X size={12} aria-hidden="true" /></button>)}
+            <Link className="orders-applied__clear" to={path('/orders')}>{t('orderClearFilters')}</Link>
+          </>}>
+          <div className="orders-bar__tools">
+            <form className="orders-toolbar__search" role="search" onSubmit={(e) => { e.preventDefault(); applyFilters({ ...(filters ?? emptyOrderFilters), q: searchText.trim().slice(0, 100) }) }}>
+              <Search size={15} aria-hidden="true" />
+              <input name="q" type="search" aria-label={t('search')} placeholder={t('search')} value={searchText} onChange={(e) => setSearchText(e.target.value.slice(0, 100))} autoComplete="off" />
+            </form>
+            <button type="button" className="btn btn--default orders-toolbar__filters" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={openFilters}><SlidersHorizontal size={14} aria-hidden="true" /><span>{t('orderFiltersShort')}</span>{filterCount > 0 && <span className="orders-filter-count">{num(filterCount)}</span>}</button>
+          </div>
+        </OrderViews>
 
         {valid && !page && !failed && <div className="orders-loading" role="status" aria-label={t('loading')}>{Array.from({ length: 5 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="5rem" /><Skeleton width="12rem" /><Skeleton width="5rem" /></div>)}</div>}
         {failed && <Notice role="alert" title={t('ordersError')} body={t('ordersErrorBody')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
