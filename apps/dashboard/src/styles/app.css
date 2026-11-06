@@ -798,14 +798,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .editor__readiness button { color: var(--color-ink-2); text-align: left; background: none; border: 0; padding-block: var(--space-2xs); font: inherit; text-decoration: underline; cursor: pointer; }
 
 /* Order detail */
-.order-items { display: grid; }
-.order-items li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-sm); align-items: baseline; padding-block: var(--space-xs); }
-.order-items li + li { border-top: var(--rule-hair) solid var(--color-rule); }
-.order-items__name { min-width: 0; font-weight: 500; }
-.order-totals { display: grid; gap: var(--space-2xs); margin: 0; padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
-.order-totals div { display: flex; justify-content: space-between; gap: var(--space-sm); }
-.order-totals dd { margin: 0; }
-.order-totals__total { padding-top: var(--space-2xs); font-weight: 600; font-size: var(--text-lg); }
 .order-address { white-space: pre-line; }
 fieldset.field { min-width: 0; margin: 0; padding: 0; border: 0; }
 fieldset.field input[type="radio"] { margin: 0; accent-color: var(--color-primary); }
@@ -1277,3 +1269,63 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
 .customer-picked__head .row { gap: 0; flex-wrap: nowrap; }
 .customer-picked__action { width: 28px; min-height: 28px; box-shadow: none; background: transparent; color: var(--color-muted); }
 .customer-picked .customer-known { margin-top: var(--space-xs); }
+
+/* Order page: actions in the header, products with images, shipment, customer and delivery record. */
+.order-head__actions { align-items: center; }
+.order-head__pager { display: flex; gap: var(--space-3xs); margin-inline-start: var(--space-2xs); padding-inline-start: var(--space-xs); border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
+.order-head__pager .btn--icon { width: var(--control); }
+.btn[data-disabled] { opacity: 0.4; box-shadow: none; cursor: default; }
+.order-head__meta { margin-top: calc(var(--space-sm) * -1); font-size: var(--text-sm); }
+.order-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.order-page h2 .muted { font-weight: 400; }
+.order-items-list { display: grid; margin: 0; padding: 0; list-style: none; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
+.order-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 6rem; align-items: center; gap: var(--space-sm); padding: var(--space-sm); }
+.order-item + .order-item { border-top: var(--rule-hair) solid var(--color-rule); }
+.order-item__thumb { width: 44px; height: 44px; }
+.order-item__main { display: grid; justify-items: start; gap: var(--space-2xs); min-width: 0; }
+.order-item__name { max-width: 100%; overflow: hidden; color: var(--color-ink); font-weight: 500; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+a.order-item__name:hover { text-decoration: underline; }
+.order-item__variant { padding: 0 var(--space-xs); border-radius: var(--radius-pill); background: var(--color-paper-3); color: var(--color-ink-2); font-size: var(--text-sm); }
+.order-item__total { text-align: end; font-weight: 600; }
+.order-facts { display: grid; gap: var(--space-xs); margin: 0; }
+.order-facts > div { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
+.order-facts dt { color: var(--color-muted); }
+.order-facts dd { margin: 0; }
+.order-facts .row { gap: var(--space-2xs); }
+.order-facts__copy, .order-customer__phone .btn--icon, .order-card-head__edit { width: 28px; min-height: 28px; box-shadow: none; background: transparent; color: var(--color-muted); }
+.order-empty { display: grid; justify-items: center; gap: var(--space-xs); padding: var(--space-md); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-control); color: var(--color-muted); text-align: center; }
+.order-card-head { align-items: center; }
+.order-customer { display: grid; gap: var(--space-2xs); }
+.order-customer__phone { display: flex; align-items: center; gap: var(--space-3xs); }
+.order-customer__phone .num { margin-inline-end: var(--space-2xs); }
+.order-rate { display: grid; gap: var(--space-xs); }
+.order-rate__head { display: flex; align-items: baseline; gap: var(--space-xs); }
+.order-rate__head strong { font-size: var(--text-xl); font-weight: 600; }
+.order-rate__head .badge { margin-inline-start: auto; align-self: center; }
+.order-rate__bar { display: block; height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-paper-3); }
+.order-rate__bar span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); }
+.order-record { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); margin: 0; }
+.order-record > div { display: grid; gap: var(--space-3xs); padding: var(--space-xs); border-radius: var(--radius-control); background: var(--color-paper-2); }
+.order-record dt { color: var(--color-muted); font-size: var(--text-sm); }
+.order-record dd { margin: 0; font-weight: 600; }
+@media (max-width: 40rem) {
+  .order-head { flex-wrap: wrap; }
+  .order-head__meta { margin-top: 0; }
+  .order-item { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "thumb main total" "thumb unit unit"; row-gap: var(--space-2xs); }
+  .order-item__thumb { grid-area: thumb; align-self: start; }
+  .order-item__main { grid-area: main; }
+  .order-item__unit { grid-area: unit; }
+  .order-item__total { grid-area: total; }
+  .order-facts > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+/* Printing an order: just the order, on white, without the app around it. */
+@media print {
+  body, .shell__main { background: white; }
+  .shell { display: block; height: auto; }
+  .shell__sidebar, .mobilebar, .detail-head__back, .order-head__actions, .order-confirm, .toast-anchor, .order-page .btn, .order-empty .row, .field__help, .order-card-head__edit { display: none !important; }
+  .shell__main { margin: 0; overflow: visible; border-radius: 0; }
+  .detail-head { position: static; }
+  .card { box-shadow: none; break-inside: avoid; }
+  .order-page textarea { border: 0; padding: 0; resize: none; }
+}

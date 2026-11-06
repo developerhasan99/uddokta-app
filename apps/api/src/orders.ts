@@ -1,7 +1,8 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
 import { likePattern } from './media.ts'
+import { publicUrl } from './storage.ts'
 import { readPhone } from 'storefront/schema'
 import { manualOrderSources, readOrderFilters } from 'storefront/order-filters'
 import { csvCell, orderWhere } from './order-query.ts'
@@ -24,7 +25,17 @@ export const maxOrderTags = 10
 async function loadOrder(t: Tx, storeId: string, id: string) {
   const [order] = await t.select().from(orders).where(and(eq(orders.storeId, storeId), eq(orders.id, id)))
   if (!order) throw fail(404, 'notFound')
-  const items = await t.select({ id: orderItems.id, productName: orderItems.productName, variantLabel: orderItems.variantLabel, price: orderItems.price, quantity: orderItems.quantity }).from(orderItems).where(eq(orderItems.orderId, id)).orderBy(asc(orderItems.productName))
+  // The product's first image, if the product still exists; the line itself keeps the name and price from the sale.
+  const items = (await t.execute<{ id: string; product_name: string; variant_label: string; price: number; quantity: number; product_id: string | null; thumb_key: string | null }>(sql`
+    select i.id, i.product_name, i.variant_label, i.price, i.quantity, v.product_id, th.thumb_key
+    from order_items i
+    left join product_variants v on v.id = i.variant_id
+    left join lateral (select m.thumb_key from product_media pm join media m on m.id = pm.media_id where pm.product_id = v.product_id order by pm.position limit 1) th on true
+    where i.order_id = ${id}::uuid order by i.product_name, i.id`)).rows
+    .map((r) => ({ id: r.id, productName: r.product_name, variantLabel: r.variant_label, price: r.price, quantity: r.quantity, productId: r.product_id, thumbUrl: r.thumb_key && publicUrl(r.thumb_key) }))
+  const [neighbours] = (await t.execute<{ newer: string | null; older: string | null }>(sql`
+    select (select n.id from orders n where n.store_id = ${storeId}::uuid and n.number > ${order.number} order by n.number limit 1) as newer,
+      (select n.id from orders n where n.store_id = ${storeId}::uuid and n.number < ${order.number} order by n.number desc limit 1) as older`)).rows
   const [page] = order.pageId ? await t.select({ id: pages.id, title: pages.title }).from(pages).where(eq(pages.id, order.pageId)) : []
   const [warehouse] = order.warehouseId ? await t.select({ id: warehouses.id, name: warehouses.name }).from(warehouses).where(eq(warehouses.id, order.warehouseId)) : []
   // Earlier orders from the same number: the first check before confirming a COD order.
@@ -36,7 +47,7 @@ async function loadOrder(t: Tx, storeId: string, id: string) {
   return {
     id: order.id, number: order.number, status: order.status, customerName: order.customerName, phone: order.phone, address: order.address, area: order.area,
     subtotal: order.subtotal, deliveryCharge: order.deliveryCharge, discount: order.discount, discountCode: order.discountCode, total: order.total, source: order.source, note: order.note, tags: order.tags, createdAt: order.createdAt, updatedAt: order.updatedAt,
-    items, page: page ?? null, warehouse: warehouse ?? null, history, ...flags, shipment: shipment ?? null,
+    items, newer: neighbours.newer, older: neighbours.older, page: page ?? null, warehouse: warehouse ?? null, history, ...flags, shipment: shipment ?? null,
   }
 }
 
@@ -117,6 +128,15 @@ export function registerOrders(app: Hono<Env>) {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
     const { status, note } = body
+    const contact = ['customerName', 'phone', 'address'].some((key) => body[key] !== undefined)
+    const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : ''
+    const where = typeof body.address === 'string' ? body.address.trim() : ''
+    const mobile = typeof body.phone === 'string' ? readPhone(body.phone) : null
+    if (contact) {
+      if (!customerName || customerName.length > 100) throw fail(400, 'nameRequired')
+      if (!mobile) throw fail(400, 'phoneInvalid')
+      if (!where || where.length > 500) throw fail(400, 'addressRequired')
+    }
     const tags = body.tags === undefined ? undefined : readTags(body.tags, maxOrderTags)
     if (status !== undefined && !orderStatuses.includes(status)) throw fail(400, 'invalidRequest')
     if (note !== undefined && (typeof note !== 'string' || note.length > 2000)) throw fail(400, 'invalidRequest')
@@ -125,6 +145,12 @@ export function registerOrders(app: Hono<Env>) {
       await loadOrder(t, store.id, id)
       if (typeof note === 'string') await t.update(orders).set({ note: note.trim(), updatedAt: sql`now()` }).where(eq(orders.id, id))
       if (tags) await t.update(orders).set({ tags, updatedAt: sql`now()` }).where(eq(orders.id, id))
+      // Once packed, the label is printed and the courier may have it, so the details are fixed.
+      if (contact) {
+        const changed = await t.update(orders).set({ customerName, phone: mobile!, address: where, updatedAt: sql`now()` })
+          .where(and(eq(orders.id, id), sql`${orders.status} in ('new', 'hold', 'confirmed')`)).returning({ id: orders.id })
+        if (changed.length === 0) throw fail(409, 'orderLocked')
+      }
       if (status) await t.execute(sql`select set_order_status(${id}::uuid, ${status})`)
       return c.json(await loadOrder(t, store.id, id))
     }).catch((err) => {

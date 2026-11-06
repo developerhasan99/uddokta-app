@@ -240,3 +240,22 @@ test('orders carry tags: set when created or changed, listed, searchable and sug
   assert.deepEqual((await other.call('GET', `/stores/${other.handle}/order-tags`)).json, [])
   assert.equal((await other.call('GET', `/stores/${handle}/order-tags`)).status, 404)
 })
+
+test('customer details can be corrected until the order is packed; the page links to the newer and older order', async () => {
+  const { call, base, create } = await owner()
+  const first = await create()
+  const order = await create()
+  assert.equal(order.older, first.id)
+  assert.equal(order.newer, null)
+  assert.equal(order.items[0].thumbUrl, null)
+  assert.ok(order.items[0].productId)
+
+  const fixed = await call('PATCH', `${base}/${order.id}`, { customerName: ' Rina ', phone: '01812345678', address: 'Mirpur 10' })
+  assert.equal(fixed.status, 200)
+  assert.deepEqual([fixed.json.customerName, fixed.json.phone, fixed.json.address, fixed.json.total], ['Rina', '01812345678', 'Mirpur 10', order.total])
+  assert.equal((await call('PATCH', `${base}/${order.id}`, { customerName: 'Rina', phone: '123', address: 'Mirpur' })).status, 400)
+  assert.equal((await call('PATCH', `${base}/${order.id}`, { customerName: 'Rina', phone: '01812345678' })).status, 400)
+
+  assert.equal((await call('PATCH', `${base}/${order.id}`, { status: 'cancelled' })).status, 200)
+  assert.equal((await call('PATCH', `${base}/${order.id}`, { customerName: 'Late', phone: '01812345678', address: 'Mirpur' })).status, 409)
+})
