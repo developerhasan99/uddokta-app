@@ -1,6 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 const bn = {
+  newOrderCouponShort: 'কুপন',
+  newOrderAddProducts: 'পণ্য খুঁজে যোগ করুন',
+  newOrderNoLines: 'ক্রেতা যে পণ্যগুলো চান সেগুলো যোগ করুন।',
+  newOrderEach: 'প্রতিটি {price}',
+  newOrderInStock: 'স্টকে {n}টি',
+  newOrderRemoveLine: '{name} সরান',
+  newOrderLess: 'একটি কমান',
+  newOrderMore: 'একটি বাড়ান',
+  newOrderItems: '{n}টি',
+  newOrderPayment: 'হিসাব',
+  newOrderAddCoupon: 'কুপন যোগ করুন',
+  newOrderReturning: 'আগের ক্রেতা: {orders}টি অর্ডার, {delivered}টি পৌঁছেছে, {returned}টি ফেরত।',
+  newOrderFilled: 'নাম ও ঠিকানা শেষ অর্ডার থেকে বসানো হয়েছে।',
+  newOrderDetails: 'অর্ডারের তথ্য',
   colPhone: 'মোবাইল',
   colAddress: 'ঠিকানা',
   colLink: 'লিঙ্ক',
@@ -887,6 +901,20 @@ const bn = {
 export type Key = keyof typeof bn
 
 const en: Record<Key, string> = {
+  newOrderCouponShort: 'Coupon',
+  newOrderAddProducts: 'Search and add products',
+  newOrderNoLines: 'Add the products the customer wants.',
+  newOrderEach: '{price} each',
+  newOrderInStock: '{n} in stock',
+  newOrderRemoveLine: 'Remove {name}',
+  newOrderLess: 'One less',
+  newOrderMore: 'One more',
+  newOrderItems: '{n} items',
+  newOrderPayment: 'Payment',
+  newOrderAddCoupon: 'Add coupon',
+  newOrderReturning: 'Ordered before: {orders} orders, {delivered} delivered, {returned} returned.',
+  newOrderFilled: 'Name and address filled from their last order.',
+  newOrderDetails: 'Order details',
   colPhone: 'Mobile',
   colAddress: 'Address',
   colLink: 'Link',

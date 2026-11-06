@@ -225,3 +225,8 @@ Row selection lives in `components/Selection.tsx` (`useSelection`, `SelectAllCel
 Desktop cells hold one value: phone, address, email and page link have their own columns (Orders, Customers, Incomplete, Team, Landing pages); phones still stack them.
 Landing pages: sort moved into the filter bar after search; the page count is in the list footer (no second toolbar row). Fixed cells overflowing where the Customers and Landing pages tables switch to block layout.
 Media: file type tabs (All, JPG, PNG, WebP…) in the list's filter bar, only for types the store has, with counts. API: `GET /media?format=` filters by original format (missing format counts as WebP) and returns `formats` counts; tested.
+
+## New order form with several products (November 6, 2026)
+
+Migration `0058_multi_item_orders.sql`: `place_order_lines(store, page, lines jsonb, …)` prices up to 20 lines (same variant merged), applies the coupon to the whole subtotal, and takes stock from one warehouse that holds every tracked line (refusing the whole order otherwise). `place_order` keeps its signature and calls it with one line, so storefront checkout is unchanged. `POST /orders` takes `items: [{ variantId, quantity }]` (a lone `variantId`/`quantity` still works). Tested: pricing, merged lines, all-or-nothing stock, cancel restoring every line, bad input.
+Form: product lines (picker for several at once, variant choice, stock hint, − / + stepper, line total, remove), Payment card (subtotal, inside/outside switch with each charge, coupon behind "Add coupon", amount to collect), customer card with the phone first: a known number shows their order record (amber if they returned any) and fills name and address when empty. Browser-tested; a test order #1002 was created in the dev store.

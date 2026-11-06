@@ -127,16 +127,21 @@ export function registerOrders(app: Hono<Env>) {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
     const { variantId, quantity, customerName, phone, address, area, source, note = '', coupon = '' } = body
+    // Several products as items: [{ variantId, quantity }]; a single variantId and quantity is the same as one item.
+    const items: unknown = body.items ?? [{ variantId, quantity }]
+    const lines = Array.isArray(items) && items.length >= 1 && items.length <= 20 && items.every((i) => i && isId(i.variantId) && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 100)
+      ? items.map((i) => ({ variant: i.variantId as string, qty: i.quantity as number }))
+      : null
     const name = typeof customerName === 'string' ? customerName.trim() : ''
     const where = typeof address === 'string' ? address.trim() : ''
     const mobile = typeof phone === 'string' ? readPhone(phone) : null
     if (!name || name.length > 100) throw fail(400, 'nameRequired')
     if (!mobile) throw fail(400, 'phoneInvalid')
     if (!where || where.length > 500) throw fail(400, 'addressRequired')
-    if (!isId(variantId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 100 || !['inside', 'outside'].includes(area) || !manualSources.includes(source) || typeof note !== 'string' || note.length > 2000 || typeof coupon !== 'string' || coupon.length > 30) throw fail(400, 'invalidRequest')
+    if (!lines || !['inside', 'outside'].includes(area) || !manualSources.includes(source) || typeof note !== 'string' || note.length > 2000 || typeof coupon !== 'string' || coupon.length > 30) throw fail(400, 'invalidRequest')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      const [placed] = (await t.execute<{ number: number }>(sql`select * from place_order(${store.id}::uuid, null, ${variantId}::uuid, ${quantity}, ${name}, ${mobile}, ${where}, ${area}, ${source}, ${coupon.trim()})`)).rows
+      const [placed] = (await t.execute<{ number: number }>(sql`select * from place_order_lines(${store.id}::uuid, null, ${JSON.stringify(lines)}::jsonb, ${name}, ${mobile}, ${where}, ${area}, ${source}, ${coupon.trim()})`)).rows
       const [row] = await t.update(orders).set({ note: note.trim() }).where(and(eq(orders.storeId, store.id), eq(orders.number, placed.number))).returning({ id: orders.id })
       return c.json(await loadOrder(t, store.id, row.id), 201)
     }).catch((err) => {

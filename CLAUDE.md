@@ -124,7 +124,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 ## Orders
 
-- Every order, from the storefront or typed in by the team, goes through `place_order`. It prices the order from the variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. App code never sends an amount.
+- Every order, from the storefront or typed in by the team, goes through `place_order_lines` (`place_order` is its one-product form, used by the storefront). It prices every line from its variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. All tracked lines ship from one warehouse, because cancels and returns put stock back into `orders.warehouse_id`. App code never sends an amount.
 - Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
 - Public forms carry a random checkout UUID. `place_checkout` serializes retries, calls `place_order` once, and records the number/total in tenant-scoped `checkout_receipts`. Reusing a completed token with different values is refused. Confirmation reads an opaque receipt through `storefront_receipt`, never an amount from the URL.
 - Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.

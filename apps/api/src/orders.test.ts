@@ -186,3 +186,31 @@ test('concurrent saves respect the twenty-view personal limit', async () => {
   assert.equal(result.find((r) => r.status === 409)?.json.error, 'orderViewLimit')
   assert.equal((await s.call('GET', s.views)).json.length, 20)
 })
+
+test('one order holds several products, priced and stocked by the database from one warehouse', async () => {
+  const { call, handle, base } = await owner()
+  const shirt = (await call('POST', `/stores/${handle}/products`, { name: 'Shirt', options: [{ name: 'Size', values: ['M', 'L'] }], variants: [{ options: ['M'], price: 950, stock: 3 }, { options: ['L'], price: 950, stock: 1 }] })).json
+  const buds = (await call('POST', `/stores/${handle}/products`, { name: 'Buds', variants: [{ options: [], price: 1290 }] })).json
+  const [m, l] = shirt.variants
+  const bud = buds.variants[0]
+  const buyer = { customerName: 'Rafi', phone: '01812345678', address: 'Dhaka', area: 'inside', source: 'phone' }
+  const stock = async () => (await call('GET', `/stores/${handle}/products/${shirt.id}`)).json.variants.map((v: any) => v.stock)
+
+  // The same variant twice becomes one line; the app never sends a price.
+  const order = await call('POST', base, { ...buyer, items: [{ variantId: m.id, quantity: 2 }, { variantId: bud.id, quantity: 1 }, { variantId: m.id, quantity: 1 }] })
+  assert.equal(order.status, 201)
+  assert.equal(order.json.subtotal, 950 * 3 + 1290)
+  assert.equal(order.json.total, 950 * 3 + 1290 + 70)
+  assert.equal(order.json.items.length, 2)
+  assert.deepEqual(await stock(), [0, 1])
+
+  // One line that cannot be filled refuses the whole order and takes nothing.
+  assert.equal((await call('POST', base, { ...buyer, items: [{ variantId: l.id, quantity: 1 }, { variantId: m.id, quantity: 1 }] })).status, 409)
+  assert.deepEqual(await stock(), [0, 1])
+
+  assert.equal((await call('PATCH', `${base}/${order.json.id}`, { status: 'cancelled' })).status, 200)
+  assert.deepEqual(await stock(), [3, 1])
+
+  for (const items of [[], Array(21).fill({ variantId: bud.id, quantity: 1 }), [{ variantId: bud.id, quantity: 0 }], [{ variantId: 'x', quantity: 1 }], 'x'])
+    assert.equal((await call('POST', base, { ...buyer, items })).status, 400)
+})

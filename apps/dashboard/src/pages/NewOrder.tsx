@@ -1,16 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Minus, Plus, Search, UserRound, X } from 'lucide-react'
 import { readPhone } from 'storefront/schema'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
-import { ProductPicker } from '../components/ProductPicker'
+import { ProductPicker, type ProductRow } from '../components/ProductPicker'
 import { Button, Field, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import type { StoreSettingsData } from './StoreSettings'
 
-type Product = { id: string; name: string; variants: { id: string; options: string[]; price: number; stock: number | null }[] }
+type Variant = { id: string; options: string[]; price: number; stock: number | null }
+type Product = { id: string; name: string; variants: Variant[] }
+type Line = { product: Product; thumbUrl: string | null; variantId: string; quantity: number }
+type Customer = { phone: string; name: string; address: string; orders: number; delivered: number; returned: number }
 const sources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagram', 'shop', 'other'] as const
+const maxLines = 20
 
 export function NewOrder() {
   const { t, money, num } = useLang()
@@ -18,35 +22,68 @@ export function NewOrder() {
   const [searchParams] = useSearchParams()
   const path = useStorePath()
   const handle = useCurrentStore()!.store.handle
-  const [product, setProduct] = useState<Product | null>(null)
+  const [lines, setLines] = useState<Line[]>([])
   const [picking, setPicking] = useState(false)
   const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
   const [form, setForm] = useState(() => ({
-    variantId: '', quantity: '1', customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
+    customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
     address: searchParams.get('address')?.slice(0, 500) ?? '', area: 'inside', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '',
   }))
+  const [couponOpen, setCouponOpen] = useState(false)
+  const [known, setKnown] = useState<Customer | null>(null)
+  const [filled, setFilled] = useState(false)
   const recoveryProduct = searchParams.get('product')?.slice(0, 300) ?? ''
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const formRef = useRef(form)
+  formRef.current = form
 
   useEffect(() => {
     api<StoreSettingsData>(`/stores/${handle}/settings`).then(setDelivery).catch(() => {})
   }, [handle])
 
+  // A number that has ordered before: show their record, and fill name and address only if still empty.
+  const mobile = readPhone(form.phone)
+  useEffect(() => {
+    setKnown(null)
+    setFilled(false)
+    if (!mobile) return
+    let live = true
+    api<{ items: Customer[] }>(`/stores/${handle}/customers?q=${mobile}`).then(({ items }) => {
+      const match = items.find((c) => c.phone === mobile)
+      if (!live || !match) return
+      setKnown(match)
+      const current = formRef.current
+      if (!current.customerName.trim() && !current.address.trim()) {
+        setForm({ ...current, customerName: match.name, address: match.address })
+        setFilled(true)
+      }
+    }).catch(() => {})
+    return () => { live = false }
+  }, [mobile, handle])
+
   const set = (changes: Partial<typeof form>) => setForm({ ...form, ...changes })
-  const choose = async (id: string) => {
-    const p = await api<Product>(`/stores/${handle}/products/${id}`)
-    setProduct(p)
-    set({ variantId: (p.variants.find((v) => v.stock === null || v.stock > 0) ?? p.variants[0]).id })
+  const setLine = (index: number, changes: Partial<Line>) => setLines((all) => all.map((line, i) => i === index ? { ...line, ...changes } : line))
+
+  const add = async (rows: ProductRow[]) => {
+    const fresh = rows.filter((row) => !lines.some((line) => line.product.id === row.id)).slice(0, maxLines - lines.length)
+    const products = await Promise.all(fresh.map((row) => api<Product>(`/stores/${handle}/products/${row.id}`).then((product) => ({ product, row })).catch(() => null)))
+    setLines((all) => [...all, ...products.flatMap((p) => p ? [{
+      product: p.product, thumbUrl: p.row.thumbUrl, quantity: 1,
+      variantId: (p.product.variants.find((v) => v.stock === null || v.stock > 0) ?? p.product.variants[0]).id,
+    }] : [])])
   }
 
-  const variant = product?.variants.find((v) => v.id === form.variantId)
-  const quantity = Math.min(Math.max(Number(form.quantity) || 1, 1), 100)
-  const charge = delivery ? (form.area === 'outside' ? delivery.deliveryOutside : delivery.deliveryInside) : 0
+  const variantOf = (line: Line) => line.product.variants.find((v) => v.id === line.variantId)!
+  const subtotal = lines.reduce((sum, line) => sum + variantOf(line).price * line.quantity, 0)
+  const units = lines.reduce((sum, line) => sum + line.quantity, 0)
+  const charges = { inside: delivery?.deliveryInside ?? 0, outside: delivery?.deliveryOutside ?? 0 }
+  const charge = form.area === 'outside' ? charges.outside : charges.inside
   const problems = {
+    lines: lines.length === 0,
     name: !form.customerName.trim(),
-    phone: !readPhone(form.phone),
+    phone: !mobile,
     address: !form.address.trim(),
   }
 
@@ -54,10 +91,11 @@ export function NewOrder() {
     e.preventDefault()
     setTried(true)
     setError(null)
-    if (!variant || problems.name || problems.phone || problems.address) return
+    if (Object.values(problems).some(Boolean)) return
     setBusy(true)
     try {
-      const order = await api<{ id: string }>(`/stores/${handle}/orders`, { method: 'POST', body: { ...form, quantity } })
+      const items = lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity }))
+      const order = await api<{ id: string }>(`/stores/${handle}/orders`, { method: 'POST', body: { ...form, items } })
       navigate(path(`/orders/${order.id}`), { replace: true })
     } catch (err) {
       setError(errorCode(err))
@@ -66,7 +104,7 @@ export function NewOrder() {
   }
 
   return (
-    <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
+    <form className="page page--detail new-order" onSubmit={(e) => void save(e)} noValidate>
       <PageTitle title={t('newOrder')} />
       <header className="detail-head">
         <div className="detail-head__title">
@@ -74,88 +112,107 @@ export function NewOrder() {
           <h1>{t('newOrder')}</h1>
         </div>
         <div className="detail-head__actions">
-          <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t('newOrderSave')}</Button>
+          <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t(busy ? 'loading' : 'newOrderSave')}</Button>
         </div>
       </header>
-      <p className="muted">{t('newOrderD')}</p>
       {recoveryProduct && <Notice title={t('draftsRecoveryTitle')} body={t('draftsRecoveryProduct', { product: recoveryProduct })} />}
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
 
       <div className="detail-layout">
         <div className="detail-layout__main">
-          <section className="card card--form">
-            <h2>{t('newOrderProduct')}</h2>
-            {product
-              ? (
-                <div className="editor-product">
-                  <span className="editor-product__name">{product.name}</span>
-                  <Button onClick={() => setPicking(true)}>{t('pageChangeProduct')}</Button>
-                </div>
-              )
-              : <div><Button onClick={() => setPicking(true)}>{t('newOrderPick')}</Button>{tried && <p className="field__help field__help--error">{t('newOrderPick')}</p>}</div>}
-            {product && (
-              <div className="price-grid price-grid--two">
-                <div className="field">
-                  <label htmlFor="order-variant">{t('newOrderOption')}</label>
-                  <select id="order-variant" className="input" value={form.variantId} onChange={(e) => set({ variantId: e.target.value })}>
-                    {product.variants.map((v) => (
-                      <option key={v.id} value={v.id}>{v.options.join(' / ') || product.name} · {money(v.price)}{v.stock === 0 ? ` (${t('newOrderOutOfStock')})` : v.stock !== null ? ` (${num(v.stock)})` : ''}</option>
-                    ))}
-                  </select>
-                </div>
-                <Field id="order-quantity" label={t('newOrderQuantity')} inputMode="numeric" value={form.quantity} onChange={(e) => set({ quantity: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
-              </div>
-            )}
+          <section className="card new-order__products" aria-labelledby="order-products-title">
+            <h2 id="order-products-title">{t('products')}</h2>
+            <button type="button" className="new-order__add" disabled={lines.length >= maxLines} onClick={() => setPicking(true)} aria-invalid={tried && problems.lines ? true : undefined}>
+              <Search size={16} aria-hidden="true" /><span>{t('newOrderAddProducts')}</span><Plus size={16} aria-hidden="true" />
+            </button>
+            {tried && problems.lines && <p className="field__help field__help--error">{t('newOrderNoLines')}</p>}
+            {lines.length > 0 && <ul className="order-lines">
+              {lines.map((line, index) => {
+                const variant = variantOf(line)
+                const short = variant.stock !== null && variant.stock < line.quantity
+                return <li key={line.product.id} className="order-line">
+                  <span className="data-table__thumb order-line__thumb">{line.thumbUrl && <img src={line.thumbUrl} alt="" />}</span>
+                  <div className="order-line__main">
+                    <span className="order-line__name">{line.product.name}</span>
+                    {line.product.variants.length > 1 && (
+                      <select className="input input--compact order-line__variant" aria-label={t('newOrderOption')} value={line.variantId} onChange={(e) => setLine(index, { variantId: e.target.value })}>
+                        {line.product.variants.map((v) => <option key={v.id} value={v.id}>{v.options.join(' / ')}{v.stock === 0 ? ` (${t('newOrderOutOfStock')})` : ''}</option>)}
+                      </select>
+                    )}
+                    <span className={short ? 'order-line__meta order-line__meta--alert' : 'order-line__meta'}>
+                      {t('newOrderEach', { price: money(variant.price) })}
+                      {variant.stock !== null && ` · ${variant.stock === 0 ? t('newOrderOutOfStock') : t('newOrderInStock', { n: num(variant.stock) })}`}
+                    </span>
+                  </div>
+                  <div className="stepper" role="group" aria-label={t('newOrderQuantity')}>
+                    <button type="button" aria-label={t('newOrderLess')} disabled={line.quantity <= 1} onClick={() => setLine(index, { quantity: line.quantity - 1 })}><Minus size={14} aria-hidden="true" /></button>
+                    <input inputMode="numeric" aria-label={t('newOrderQuantity')} value={line.quantity} onChange={(e) => setLine(index, { quantity: Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 1, 1), 100) })} />
+                    <button type="button" aria-label={t('newOrderMore')} disabled={line.quantity >= 100} onClick={() => setLine(index, { quantity: line.quantity + 1 })}><Plus size={14} aria-hidden="true" /></button>
+                  </div>
+                  <strong className="order-line__total num">{money(variant.price * line.quantity)}</strong>
+                  <button type="button" className="btn btn--icon order-line__remove" aria-label={t('newOrderRemoveLine', { name: line.product.name })} onClick={() => setLines((all) => all.filter((_, i) => i !== index))}><X size={16} aria-hidden="true" /></button>
+                </li>
+              })}
+            </ul>}
           </section>
 
-          <section className="card card--form">
-            <h2>{t('orderCustomer')}</h2>
-            <Field id="order-name" label={t('newOrderName')} maxLength={100} autoComplete="off" value={form.customerName} error={tried && problems.name ? t('errNameRequired') : undefined} onChange={(e) => set({ customerName: e.target.value })} />
+          <section className="card" aria-labelledby="order-payment-title">
+            <h2 id="order-payment-title">{t('newOrderPayment')}</h2>
+            <dl className="order-sum">
+              <div><dt>{t('orderSubtotal')} <span className="muted">{t('newOrderItems', { n: num(units) })}</span></dt><dd className="num">{money(subtotal)}</dd></div>
+              <div>
+                <dt>{t('orderDelivery')}</dt>
+                <dd>
+                  <span className="segmented" role="radiogroup" aria-label={t('newOrderArea')}>
+                    {(['inside', 'outside'] as const).map((a) => <label key={a}><input type="radio" name="area" checked={form.area === a} onChange={() => set({ area: a })} /><span>{t(a === 'inside' ? 'orderInside' : 'orderOutside')} · <span className="num">{money(charges[a])}</span></span></label>)}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>{t('newOrderCouponShort')}</dt>
+                <dd>{couponOpen || form.coupon
+                  ? <input className="input input--compact order-sum__coupon" aria-label={t('newOrderCoupon')} maxLength={30} autoComplete="off" autoFocus={couponOpen && !form.coupon} value={form.coupon} onChange={(e) => set({ coupon: e.target.value.toUpperCase() })} />
+                  : <button type="button" className="link-button" onClick={() => setCouponOpen(true)}><Plus size={14} aria-hidden="true" />{t('newOrderAddCoupon')}</button>}</dd>
+              </div>
+              <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(subtotal + charge)}</dd></div>
+            </dl>
+            <p className="muted order-sum__note">{t('newOrderSummaryNote')}</p>
+          </section>
+        </div>
+
+        <aside className="detail-side">
+          <section className="card card--form" aria-labelledby="order-customer-title">
+            <h2 id="order-customer-title">{t('orderCustomer')}</h2>
             <Field id="order-phone" label={t('newOrderPhone')} type="tel" inputMode="tel" maxLength={20} placeholder="01XXXXXXXXX" value={form.phone} error={tried && problems.phone ? t('errPhoneInvalid') : undefined} onChange={(e) => set({ phone: e.target.value })} />
+            {known && <p className={known.returned > 0 ? 'customer-known customer-known--warn' : 'customer-known'}>
+              <UserRound size={14} aria-hidden="true" />
+              <span>{t('newOrderReturning', { orders: num(known.orders), delivered: num(known.delivered), returned: num(known.returned) })}{filled && <> {t('newOrderFilled')}</>}</span>
+            </p>}
+            <Field id="order-name" label={t('newOrderName')} maxLength={100} autoComplete="off" value={form.customerName} error={tried && problems.name ? t('errNameRequired') : undefined} onChange={(e) => set({ customerName: e.target.value })} />
             <div className="field">
               <label htmlFor="order-address">{t('newOrderAddress')}</label>
               <textarea id="order-address" className="input input--area" rows={3} maxLength={500} aria-invalid={tried && problems.address ? true : undefined} value={form.address} onChange={(e) => set({ address: e.target.value })} />
               {tried && problems.address && <p className="field__help field__help--error">{t('errAddressRequired')}</p>}
             </div>
-            <fieldset className="field">
-              <legend className="field__label">{t('newOrderArea')}</legend>
-              <div className="row">
-                {(['inside', 'outside'] as const).map((a) => (
-                  <label key={a} className="row"><input type="radio" name="area" checked={form.area === a} onChange={() => set({ area: a })} />{t(a === 'inside' ? 'orderInside' : 'orderOutside')}</label>
-                ))}
-              </div>
-            </fieldset>
           </section>
-        </div>
 
-        <aside className="detail-side">
-          <section className="card">
+          <section className="card card--form" aria-labelledby="order-details-title">
+            <h2 id="order-details-title">{t('newOrderDetails')}</h2>
             <div className="field">
               <label htmlFor="order-source">{t('newOrderSource')}</label>
               <select id="order-source" className="input" value={form.source} onChange={(e) => set({ source: e.target.value })}>
                 {sources.map((s) => <option key={s} value={s}>{t(`source_${s}` as Key)}</option>)}
               </select>
             </div>
-            <Field id="order-coupon" label={t('newOrderCoupon')} maxLength={30} autoComplete="off" value={form.coupon} onChange={(e) => set({ coupon: e.target.value.toUpperCase() })} />
             <div className="field">
               <label htmlFor="order-new-note">{t('orderNote')}</label>
               <textarea id="order-new-note" className="input input--area" rows={3} maxLength={2000} placeholder={t('orderNoteHint')} value={form.note} onChange={(e) => set({ note: e.target.value })} />
             </div>
           </section>
-          {variant && (
-            <section className="card">
-              <dl className="order-totals">
-                <div><dt>{t('orderSubtotal')}</dt><dd className="num">{money(variant.price * quantity)}</dd></div>
-                <div><dt>{t('orderDelivery')}</dt><dd className="num">{money(charge)}</dd></div>
-                <div className="order-totals__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(variant.price * quantity + charge)}</dd></div>
-              </dl>
-              <p className="muted">{t('newOrderSummaryNote')}</p>
-            </section>
-          )}
         </aside>
       </div>
 
-      {picking && <ProductPicker selected={[]} max={1} onClose={() => setPicking(false)} onDone={(items) => { setPicking(false); if (items[0]) void choose(items[0].id) }} />}
+      {picking && <ProductPicker sellableOnly selected={[]} max={maxLines - lines.length} onClose={() => setPicking(false)} onDone={(rows) => { setPicking(false); void add(rows) }} />}
     </form>
   )
 }
