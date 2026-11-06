@@ -1148,8 +1148,12 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .orders-table__identity { display: inline-flex; align-items: center; gap: var(--space-2xs); }
 .order-number { font-weight: 600; text-decoration: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .order-customer { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; }
-.order-phone { display: block; color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .order-items { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-muted); font-size: var(--text-sm); }
+.order-tags { display: flex; gap: var(--space-2xs); min-width: 0; overflow: hidden; }
+.order-tag { flex: none; max-width: 10rem; overflow: hidden; padding: 1px var(--space-xs); border-radius: var(--radius-pill); background: var(--color-paper-3); color: var(--color-ink-2); font-size: var(--text-sm); line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+a.order-tag { text-decoration: none; }
+a.order-tag[aria-current] { background: var(--color-primary); color: var(--color-primary-ink); }
+@media (hover: hover) { a.order-tag:not([aria-current]):hover { background: var(--color-rule-strong); color: var(--color-ink); } }
 .order-row-flag { display: inline-flex; color: var(--color-warning); }
 .order-row-flag--danger { color: var(--color-error); }
 .orders-more-error { margin: var(--space-xs); }

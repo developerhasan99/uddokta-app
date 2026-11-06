@@ -414,6 +414,13 @@
       "when": 1793934589772,
       "tag": "0058_multi_item_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793935374215,
+      "tag": "0059_order_tags",
+      "breakpoints": true
     }
   ]
 }

@@ -42,8 +42,8 @@ export function cleanDescription(html: string) {
 // Letters of any language stay, so a Bangla name gets a Bangla address. The joiners are part of how Bangla is spelled.
 export const slugify = (text: string) => text.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}\u200c\u200d]+/gu, '-').slice(0, 100).replace(/^-+|-+$/g, '')
 
-function readTags(value: unknown) {
-  const valid = Array.isArray(value) && value.length <= maxTags && value.every((v) => isName(v, 50))
+export function readTags(value: unknown, max = maxTags) {
+  const valid = Array.isArray(value) && value.length <= max && value.every((v) => isName(v, 50))
   if (!valid) throw fail(400, 'invalidRequest')
   return [...new Set((value as string[]).map((v) => v.trim()))]
 }

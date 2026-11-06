@@ -1,6 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 const bn = {
+  orderTagFilter: '“{tag}” ট্যাগের অর্ডার দেখুন',
+  orderTags: 'ট্যাগ',
+  orderTagsHint: 'যেমন: উপহার, জরুরি',
   newOrderFindCustomer: 'আগের ক্রেতা খুঁজুন: নাম বা নম্বর',
   newOrderNoCustomer: 'এমন কোনো ক্রেতা নেই। নিচে নতুন ক্রেতার তথ্য দিন।',
   newOrderCustomerOrders: '{n}টি অর্ডার',
@@ -44,7 +47,6 @@ const bn = {
   orderRemoveFilter: '{value} ফিল্টার সরান',
   orderDateColumn: 'তারিখ',
   orderSourceColumn: 'মাধ্যম',
-  orderProductsColumn: 'পণ্য',
   orderTableHelp: 'অর্ডারের তালিকা। সব কলাম দেখতে ডানে-বামে স্ক্রল করুন।',
   orderShowingCount: '{total}টির মধ্যে {n}টি অর্ডার',
   orderNewestFirst: 'নতুন অর্ডার আগে',
@@ -906,6 +908,9 @@ const bn = {
 export type Key = keyof typeof bn
 
 const en: Record<Key, string> = {
+  orderTagFilter: 'Show orders tagged “{tag}”',
+  orderTags: 'Tags',
+  orderTagsHint: 'For example: gift, urgent',
   newOrderFindCustomer: 'Find a past customer by name or number',
   newOrderNoCustomer: 'No past customer matches. Fill in a new one below.',
   newOrderCustomerOrders: '{n} orders',
@@ -949,7 +954,6 @@ const en: Record<Key, string> = {
   orderRemoveFilter: 'Remove filter: {value}',
   orderDateColumn: 'Date',
   orderSourceColumn: 'Source',
-  orderProductsColumn: 'Products',
   orderTableHelp: 'Orders table. Scroll horizontally to see all columns.',
   orderShowingCount: '{n} of {total} orders',
   orderNewestFirst: 'Newest first',

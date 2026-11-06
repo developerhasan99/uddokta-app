@@ -2,9 +2,9 @@ export const orderStatusValues = ['new', 'hold', 'confirmed', 'packed', 'courier
 export const manualOrderSources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagram', 'shop', 'other'] as const
 export const orderSources = ['landing_page', 'website', ...manualOrderSources] as const
 export const orderPeriods = ['today', '7d', '30d', 'custom'] as const
-export const orderFilterKeys = ['q', 'status', 'source', 'period', 'from', 'to'] as const
+export const orderFilterKeys = ['q', 'status', 'source', 'tag', 'period', 'from', 'to'] as const
 export type OrderFilters = Record<typeof orderFilterKeys[number], string>
-export const emptyOrderFilters: OrderFilters = { q: '', status: '', source: '', period: '', from: '', to: '' }
+export const emptyOrderFilters: OrderFilters = { q: '', status: '', source: '', tag: '', period: '', from: '', to: '' }
 
 const validDate = (value: string) => /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) && !value.startsWith('0000') && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
 
@@ -16,6 +16,7 @@ export function readOrderFilters(raw: unknown): OrderFilters | null {
   if (orderFilterKeys.some((key) => input[key] !== undefined && typeof input[key] !== 'string')) return null
   const filters = Object.fromEntries(orderFilterKeys.map((key) => [key, ((input[key] ?? '') as string).trim()])) as OrderFilters
   filters.q = filters.q.slice(0, 100)
+  filters.tag = filters.tag.slice(0, 50)
   if (filters.status && !orderStatusValues.includes(filters.status as never)) return null
   if (filters.source && !orderSources.includes(filters.source as never)) return null
   if (filters.period && !orderPeriods.includes(filters.period as never)) return null

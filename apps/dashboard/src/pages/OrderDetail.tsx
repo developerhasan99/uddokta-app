@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, CircleCheck, Copy, Phone } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
 import { Badge, Button, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
+import { OrderTagsField } from '../components/OrderTags'
 import { statuses, type Status } from './Orders'
 
 type Order = {
   id: string; number: number; status: Status; customerName: string; phone: string; address: string; area: 'inside' | 'outside'
-  subtotal: number; deliveryCharge: number; discount: number; discountCode: string; total: number; source: string; note: string; createdAt: string
+  subtotal: number; deliveryCharge: number; discount: number; discountCode: string; total: number; source: string; note: string; tags: string[]; createdAt: string
   items: { id: string; productName: string; variantLabel: string; price: number; quantity: number }[]
   page: { id: string; title: string } | null; warehouse: { id: string; name: string } | null
   history: { total: number; delivered: number; returned: number; cancelled: number }
@@ -39,6 +40,9 @@ export function OrderDetail() {
   const [order, setOrder] = useState<Order | null>(null)
   const [failed, setFailed] = useState(false)
   const [note, setNote] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const tagSaves = useRef(Promise.resolve())
+  const tagRequest = useRef(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -47,6 +51,7 @@ export function OrderDetail() {
   const show = (o: Order) => {
     setOrder(o)
     setNote(o.note)
+    setTags(o.tags)
   }
 
   const load = async () => {
@@ -80,6 +85,20 @@ export function OrderDetail() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // Each change sends the whole list; saves run one after another and only the newest answer is shown.
+  const saveTags = (next: string[]) => {
+    setTags(next)
+    const request = ++tagRequest.current
+    tagSaves.current = tagSaves.current.then(async () => {
+      try {
+        const saved = await api<Order>(base, { method: 'PATCH', body: { tags: next } })
+        if (request === tagRequest.current) { setOrder(saved); setToast(t('orderUpdated')) }
+      } catch (err) {
+        if (request === tagRequest.current) { setError(errorCode(err)); void load() }
+      }
+    })
   }
 
   const courierCall = async (path: 'ship' | 'track', message?: string) => {
@@ -216,6 +235,11 @@ export function OrderDetail() {
             <textarea id="order-note" className="input input--area" rows={3} maxLength={2000} placeholder={t('orderNoteHint')} value={note} onChange={(e) => setNote(e.target.value)} />
             <p className="field__help">{t('orderNoteHelp')}</p>
             {note.trim() !== order.note && <div className="row"><Button disabled={busy} onClick={() => void change({ note })}>{t('orderNoteSave')}</Button></div>}
+          </section>
+
+          <section className="card">
+            <h2><label htmlFor="order-tags">{t('orderTags')}</label></h2>
+            <OrderTagsField id="order-tags" handle={handle} values={tags} onChange={saveTags} />
           </section>
         </div>
 

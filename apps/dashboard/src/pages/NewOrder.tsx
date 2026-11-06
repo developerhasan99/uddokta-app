@@ -5,6 +5,7 @@ import { readPhone } from 'storefront/schema'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
+import { OrderTagsField } from '../components/OrderTags'
 import { Button, Field, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import type { StoreSettingsData } from './StoreSettings'
@@ -27,7 +28,7 @@ export function NewOrder() {
   const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
   const [form, setForm] = useState(() => ({
     customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
-    address: searchParams.get('address')?.slice(0, 500) ?? '', area: 'inside', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '',
+    address: searchParams.get('address')?.slice(0, 500) ?? '', area: 'inside', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '', tags: [] as string[],
   }))
   const [couponOpen, setCouponOpen] = useState(false)
   const [known, setKnown] = useState<Customer | null>(null)
@@ -228,6 +229,10 @@ export function NewOrder() {
             <div className="field">
               <label htmlFor="order-new-note">{t('orderNote')}</label>
               <textarea id="order-new-note" className="input input--area" rows={3} maxLength={2000} placeholder={t('orderNoteHint')} value={form.note} onChange={(e) => set({ note: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="order-new-tags">{t('orderTags')}</label>
+              <OrderTagsField id="order-new-tags" handle={handle} values={form.tags} onChange={(tags) => setForm((current) => ({ ...current, tags }))} />
             </div>
           </section>
         </aside>

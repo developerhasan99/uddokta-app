@@ -279,6 +279,7 @@ export const orders = pgTable('orders', {
   pageId: uuid('page_id'),
   warehouseId: uuid('warehouse_id'),
   note: text('note').notNull().default(''),
+  tags: text('tags').array().notNull().default(sql`'{}'`),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -288,6 +289,7 @@ export const orders = pgTable('orders', {
   index('orders_store_phone').on(t.storeId, t.phone),
   check('orders_status', sql`${t.status} in ('new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled')`),
   check('orders_area', sql`${t.area} in ('inside', 'outside')`),
+  check('orders_tags', sql`cardinality(${t.tags}) <= 10`),
   check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
 ])
 

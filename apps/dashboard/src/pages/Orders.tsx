@@ -25,7 +25,7 @@ export const statuses: Record<Status, { label: Key; tone: Tone }> = {
   cancelled: { label: 'statusCancelled', tone: 'neutral' },
 }
 
-type Row = { id: string; number: number; customerName: string; phone: string; address: string; status: Status; source: string; total: number; createdAt: string; items: string; duplicate: boolean; blocked: boolean }
+type Row = { id: string; number: number; customerName: string; phone: string; address: string; status: Status; source: string; total: number; createdAt: string; items: string; tags: string[]; duplicate: boolean; blocked: boolean }
 type Page = { items: Row[]; hasMore: boolean; counts: Partial<Record<Status, number>> }
 
 export function Orders() {
@@ -157,6 +157,7 @@ export function Orders() {
   const chips = filters ? [
     ...(filters.q ? [{ key: 'q', label: filters.q }] : []),
     ...(filters.source ? [{ key: 'source', label: t(`source_${filters.source}` as Key) }] : []),
+    ...(filters.tag ? [{ key: 'tag', label: `${t('orderTags')}: ${filters.tag}` }] : []),
     ...(filters.period ? [{ key: 'period', label: dateLabel }] : []),
   ] : []
   const filterCount = chips.filter((chip) => chip.key !== 'q').length
@@ -212,7 +213,7 @@ export function Orders() {
         {page && rows.length > 0 && <>
           <div className="data-list__scroll orders-table-wrap" tabIndex={0} role="region" aria-label={t('orderTableHelp')}>
             <table className="data-table orders-table">
-              <thead><tr><SelectAllCell selection={selection} /><th scope="col" className="orders-table__number">{t('colOrder')}</th><th scope="col" className="orders-table__date" aria-sort="descending">{t('orderDateColumn')} <ArrowDown size={12} aria-hidden="true" /></th><th scope="col" className="orders-table__customer">{t('colCustomer')}</th><th scope="col" className="orders-table__phone">{t('colPhone')}</th><th scope="col" className="orders-table__source">{t('orderSourceColumn')}</th><th scope="col" className="orders-table__total">{t('colTotal')}</th><th scope="col" className="orders-table__status">{t('colStatus')}</th><th scope="col" className="orders-table__items">{t('orderProductsColumn')}</th></tr></thead>
+              <thead><tr><SelectAllCell selection={selection} /><th scope="col" className="orders-table__number">{t('colOrder')}</th><th scope="col" className="orders-table__date" aria-sort="descending">{t('orderDateColumn')} <ArrowDown size={12} aria-hidden="true" /></th><th scope="col" className="orders-table__customer">{t('colCustomer')}</th><th scope="col" className="orders-table__phone">{t('colPhone')}</th><th scope="col" className="orders-table__source">{t('orderSourceColumn')}</th><th scope="col" className="orders-table__total">{t('colTotal')}</th><th scope="col" className="orders-table__status">{t('colStatus')}</th><th scope="col" className="orders-table__tags">{t('orderTags')}</th></tr></thead>
               <tbody>{rows.map((order) => <tr key={order.id} className="data-table__row" data-selected={selection.has(order.id) || undefined} onClick={() => navigate(path(`/orders/${order.id}`))}>
                 <SelectCell selection={selection} id={order.id} name={orderNumber(order.number)} />
                 <th scope="row"><div className="orders-table__identity"><Link className="order-number" to={path(`/orders/${order.id}`)} onClick={(e) => e.stopPropagation()}>{orderNumber(order.number)}</Link>{flags(order)}</div></th>
@@ -222,14 +223,15 @@ export function Orders() {
                 <td className="orders-table__source">{sourceLabel(order.source)}</td>
                 <td className="orders-table__total">{money(order.total)}</td>
                 <td><Badge tone={statuses[order.status].tone}>{t(statuses[order.status].label)}</Badge></td>
-                <td><span className="order-items" title={order.items}>{order.items || '—'}</span></td>
+                <td>{order.tags.length ? <span className="order-tags" title={order.tags.join(', ')}>{order.tags.map((tag) => <Link key={tag} className="order-tag" to={hrefFor({ ...(filters ?? emptyOrderFilters), tag })} aria-current={filters?.tag === tag ? 'true' : undefined} onClick={(e) => e.stopPropagation()} title={t('orderTagFilter', { tag })}>{tag}</Link>)}</span> : <span className="muted">—</span>}</td>
               </tr>)}</tbody>
             </table>
           </div>
           <ul className="order-cards">{rows.map((order) => <li key={order.id} className="order-cards__item"><Check checked={selection.has(order.id)} disabled={selection.busy} label={t('bulkSelectRow', { name: orderNumber(order.number) })} onChange={() => selection.toggle(order.id)} /><Link className="order-card" to={path(`/orders/${order.id}`)}>
             <span className="order-card__top"><span className="orders-table__identity"><strong className="order-number">{orderNumber(order.number)}</strong>{flags(order)}</span><Badge tone={statuses[order.status].tone}>{t(statuses[order.status].label)}</Badge></span>
-            <span className="order-card__main"><span className="order-card__customer"><span className="order-customer">{order.customerName}</span><span className="order-phone">{order.phone}</span></span><strong className="order-card__total">{money(order.total)}</strong></span>
+            <span className="order-card__main"><span className="order-card__customer"><span className="order-customer">{order.customerName}</span></span><strong className="order-card__total">{money(order.total)}</strong></span>
             <span className="order-items">{order.items}</span>
+            {order.tags.length > 0 && <span className="order-tags">{order.tags.map((tag) => <span key={tag} className="order-tag">{tag}</span>)}</span>}
             <span className="order-card__meta"><time dateTime={order.createdAt}>{time(order.createdAt)}</time><span>{sourceLabel(order.source)}</span></span>
           </Link></li>)}</ul>
         </>}
