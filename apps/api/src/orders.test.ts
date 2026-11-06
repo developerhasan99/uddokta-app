@@ -259,3 +259,46 @@ test('customer details can be corrected until the order is packed; the page link
   assert.equal((await call('PATCH', `${base}/${order.id}`, { status: 'cancelled' })).status, 200)
   assert.equal((await call('PATCH', `${base}/${order.id}`, { customerName: 'Late', phone: '01812345678', address: 'Mirpur' })).status, 409)
 })
+
+test('an order can change products and delivery area until it is packed; the database reprices and restocks', async () => {
+  const { call, handle, base } = await owner()
+  const mug = (await call('POST', `/stores/${handle}/products`, { name: 'Mug', variants: [{ options: [], price: 300, stock: 5 }] })).json
+  const cap = (await call('POST', `/stores/${handle}/products`, { name: 'Cap', variants: [{ options: [], price: 200 }] })).json
+  const buyer = { customerName: 'Rafi', phone: '01712345678', address: 'Dhaka', area: 'inside', source: 'phone' }
+  const order = (await call('POST', base, { ...buyer, items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).json
+  const stock = async () => (await call('GET', `/stores/${handle}/products/${mug.id}`)).json.variants[0].stock
+
+  const edited = await call('PUT', `${base}/${order.id}/items`, { area: 'outside', items: [{ variantId: mug.variants[0].id, quantity: 3 }, { variantId: cap.variants[0].id, quantity: 1 }] })
+  assert.equal(edited.status, 200)
+  assert.deepEqual([edited.json.subtotal, edited.json.deliveryCharge, edited.json.total, edited.json.area], [1100, 130, 1230, 'outside'])
+  assert.equal(edited.json.items.length, 2)
+  assert.equal(await stock(), 2)
+  assert.equal(edited.json.events[0].kind, 'edited')
+
+  // Asking for more than there is changes nothing.
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'outside', items: [{ variantId: mug.variants[0].id, quantity: 9 }] })).status, 409)
+  assert.equal(await stock(), 2)
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'nowhere', items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 400)
+
+  for (const status of ['confirmed', 'packed']) await call('PATCH', `${base}/${order.id}`, { status })
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'inside', items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 409)
+})
+
+test('the activity log records who did what, and comments stay in their store', async () => {
+  const { call, base, create } = await owner()
+  const order = await create()
+  await call('PATCH', `${base}/${order.id}`, { status: 'confirmed' })
+  await call('PATCH', `${base}/${order.id}`, { note: 'Call first' })
+  const commented = await call('POST', `${base}/${order.id}/comments`, { text: ' Customer asked for evening delivery ' })
+  assert.equal(commented.status, 201)
+  const events = commented.json.events
+  assert.deepEqual(events.map((e: any) => e.kind), ['comment', 'note', 'status', 'placed'])
+  assert.ok(events.every((e: any) => e.userName === 'Owner' && e.hasUser))
+  assert.equal(events[0].data.text, 'Customer asked for evening delivery')
+  assert.deepEqual(events[2].data, { from: 'new', to: 'confirmed' })
+  assert.equal((await call('POST', `${base}/${order.id}/comments`, { text: '' })).status, 400)
+
+  const other = await owner()
+  assert.equal((await other.call('POST', `/stores/${other.handle}/orders/${order.id}/comments`, { text: 'hi' })).status, 404)
+  assert.equal((await other.call('POST', `${base}/${order.id}/comments`, { text: 'hi' })).status, 404)
+})

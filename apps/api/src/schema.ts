@@ -437,3 +437,22 @@ export const orderViews = pgTable('order_views', {
   uniqueIndex('order_views_name').on(t.storeId, t.userId, sql`lower(${t.name})`),
   check('order_views_name_length', sql`char_length(btrim(${t.name})) between 1 and 80`),
 ])
+
+// Who did what to an order, written by database triggers so no change can skip it. user_id is empty for the buyer or the system.
+// The name is copied at the time, so the log still reads right after someone leaves the team.
+export const orderEventKinds = ['placed', 'status', 'edited', 'contact', 'note', 'tags', 'shipped', 'comment'] as const
+export const orderEvents = pgTable('order_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull(),
+  orderId: uuid('order_id').notNull(),
+  userId: uuid('user_id'),
+  userName: text('user_name').notNull().default(''),
+  kind: text('kind', { enum: orderEventKinds }).notNull(),
+  data: jsonb('data').notNull().default({}),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ name: 'order_events_order', columns: [t.storeId, t.orderId], foreignColumns: [orders.storeId, orders.id] }).onDelete('cascade'),
+  index('order_events_order_idx').on(t.orderId, t.createdAt),
+  check('order_events_kind', sql`${t.kind} in ('placed', 'status', 'edited', 'contact', 'note', 'tags', 'shipped', 'comment')`),
+  check('order_events_comment', sql`${t.kind} <> 'comment' or length(${t.data}->>'text') between 1 and 2000`),
+])

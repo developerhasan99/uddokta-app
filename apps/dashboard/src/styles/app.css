@@ -1329,3 +1329,14 @@ a.order-item__name:hover { text-decoration: underline; }
   .card { box-shadow: none; break-inside: avoid; }
   .order-page textarea { border: 0; padding: 0; resize: none; }
 }
+
+/* Order activity: comments and every change, newest first. */
+.activity-form { display: grid; gap: var(--space-xs); }
+.activity { display: grid; margin: 0; padding: 0; list-style: none; }
+.activity__item { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: var(--space-sm); padding-block: var(--space-sm); }
+.activity__item + .activity__item { border-top: var(--rule-hair) solid var(--color-rule); }
+.activity__avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-pill); background: var(--color-paper-3); color: var(--color-ink-2); font-size: var(--text-sm); font-weight: 600; }
+.activity__body { display: grid; gap: var(--space-3xs); min-width: 0; font-size: var(--text-sm); }
+.activity__body strong { font-weight: 600; }
+.activity__text { color: var(--color-ink-2); overflow-wrap: anywhere; }
+.activity__comment { padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-ink); white-space: pre-line; overflow-wrap: anywhere; }

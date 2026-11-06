@@ -8,7 +8,7 @@ import { manualOrderSources, readOrderFilters } from 'storefront/order-filters'
 import { csvCell, orderWhere } from './order-query.ts'
 import { registerOrderViews } from './order-views.ts'
 import { isId, readTags } from './products.ts'
-import { blockedPhones, checkoutDrafts, orderItems, shipments, orders, orderStatuses, pages, warehouses } from './schema.ts'
+import { blockedPhones, checkoutDrafts, orderEvents, orderItems, shipments, orders, orderStatuses, pages, warehouses } from './schema.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 const pageSize = 50
@@ -26,13 +26,15 @@ async function loadOrder(t: Tx, storeId: string, id: string) {
   const [order] = await t.select().from(orders).where(and(eq(orders.storeId, storeId), eq(orders.id, id)))
   if (!order) throw fail(404, 'notFound')
   // The product's first image, if the product still exists; the line itself keeps the name and price from the sale.
-  const items = (await t.execute<{ id: string; product_name: string; variant_label: string; price: number; quantity: number; product_id: string | null; thumb_key: string | null }>(sql`
-    select i.id, i.product_name, i.variant_label, i.price, i.quantity, v.product_id, th.thumb_key
+  const items = (await t.execute<{ id: string; variant_id: string | null; product_name: string; variant_label: string; price: number; quantity: number; product_id: string | null; thumb_key: string | null }>(sql`
+    select i.id, i.variant_id, i.product_name, i.variant_label, i.price, i.quantity, v.product_id, th.thumb_key
     from order_items i
     left join product_variants v on v.id = i.variant_id
     left join lateral (select m.thumb_key from product_media pm join media m on m.id = pm.media_id where pm.product_id = v.product_id order by pm.position limit 1) th on true
     where i.order_id = ${id}::uuid order by i.product_name, i.id`)).rows
-    .map((r) => ({ id: r.id, productName: r.product_name, variantLabel: r.variant_label, price: r.price, quantity: r.quantity, productId: r.product_id, thumbUrl: r.thumb_key && publicUrl(r.thumb_key) }))
+    .map((r) => ({ id: r.id, variantId: r.variant_id, productName: r.product_name, variantLabel: r.variant_label, price: r.price, quantity: r.quantity, productId: r.product_id, thumbUrl: r.thumb_key && publicUrl(r.thumb_key) }))
+  const events = (await t.select({ id: orderEvents.id, kind: orderEvents.kind, data: orderEvents.data, userName: orderEvents.userName, hasUser: sql<boolean>`${orderEvents.userId} is not null`, createdAt: orderEvents.createdAt })
+    .from(orderEvents).where(eq(orderEvents.orderId, id)).orderBy(sql`${orderEvents.createdAt} desc, ${orderEvents.id} desc`).limit(200))
   const [neighbours] = (await t.execute<{ newer: string | null; older: string | null }>(sql`
     select (select n.id from orders n where n.store_id = ${storeId}::uuid and n.number > ${order.number} order by n.number limit 1) as newer,
       (select n.id from orders n where n.store_id = ${storeId}::uuid and n.number < ${order.number} order by n.number desc limit 1) as older`)).rows
@@ -47,7 +49,7 @@ async function loadOrder(t: Tx, storeId: string, id: string) {
   return {
     id: order.id, number: order.number, status: order.status, customerName: order.customerName, phone: order.phone, address: order.address, area: order.area,
     subtotal: order.subtotal, deliveryCharge: order.deliveryCharge, discount: order.discount, discountCode: order.discountCode, total: order.total, source: order.source, note: order.note, tags: order.tags, createdAt: order.createdAt, updatedAt: order.updatedAt,
-    items, newer: neighbours.newer, older: neighbours.older, page: page ?? null, warehouse: warehouse ?? null, history, ...flags, shipment: shipment ?? null,
+    items, events, newer: neighbours.newer, older: neighbours.older, page: page ?? null, warehouse: warehouse ?? null, history, ...flags, shipment: shipment ?? null,
   }
 }
 
@@ -106,6 +108,42 @@ export function registerOrders(app: Hono<Env>) {
   })
 
   // Tags already used in this store, offered while typing so the team reuses the same words.
+  // Products and delivery area, until the order is packed. The database reprices, restocks and logs it.
+  app.put('/stores/:handle/orders/:id/items', async (c) => {
+    const id = orderRoute(c)
+    const body = await c.req.json().catch(() => null)
+    const items: unknown = body?.items
+    const lines = Array.isArray(items) && items.length >= 1 && items.length <= 20 && items.every((i) => i && isId(i.variantId) && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 100)
+      ? items.map((i) => ({ variant: i.variantId as string, qty: i.quantity as number }))
+      : null
+    if (!lines || !['inside', 'outside'].includes(body?.area)) throw fail(400, 'invalidRequest')
+    return tx(c.get('userId'), async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle'))
+      await loadOrder(t, store.id, id)
+      await t.execute(sql`select edit_order_lines(${store.id}::uuid, ${id}::uuid, ${JSON.stringify(lines)}::jsonb, ${body.area})`)
+      return c.json(await loadOrder(t, store.id, id))
+    }).catch((err) => {
+      if (databaseCode(err) === 'UD018') throw fail(409, 'orderLocked')
+      if (databaseCode(err) === 'UD011') throw fail(409, 'soldOut')
+      if (databaseCode(err) === 'UD010') throw fail(400, 'notOnSale')
+      throw err
+    })
+  })
+
+  // A comment for the team, written as the signed-in member.
+  app.post('/stores/:handle/orders/:id/comments', async (c) => {
+    const id = orderRoute(c)
+    const body = await c.req.json().catch(() => null)
+    const text = typeof body?.text === 'string' ? body.text.trim() : ''
+    if (!text || text.length > 2000) throw fail(400, 'invalidRequest')
+    return tx(c.get('userId'), async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle'))
+      await loadOrder(t, store.id, id)
+      await t.insert(orderEvents).values({ storeId: store.id, orderId: id, userId: c.get('userId'), kind: 'comment', data: { text } })
+      return c.json(await loadOrder(t, store.id, id), 201)
+    })
+  })
+
   app.get('/stores/:handle/order-tags', async (c) => {
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))

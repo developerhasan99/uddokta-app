@@ -7,13 +7,18 @@ import { api, errorCode } from '../api'
 import { Badge, Button, Field, Notice, PageTitle, Skeleton, type Tone } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import { OrderTagsField } from '../components/OrderTags'
+import { OrderLines, linesSubtotal, type Line, type Product } from '../components/OrderLines'
+import type { StoreSettingsData } from './StoreSettings'
 import { statuses, type Status } from './Orders'
+
+type OrderEvent = { id: string; kind: 'placed' | 'status' | 'edited' | 'contact' | 'note' | 'tags' | 'shipped' | 'comment'; data: Record<string, any>; userName: string; hasUser: boolean; createdAt: string }
 
 type Order = {
   id: string; number: number; status: Status; customerName: string; phone: string; address: string; area: 'inside' | 'outside'
   subtotal: number; deliveryCharge: number; discount: number; discountCode: string; total: number; source: string; note: string; tags: string[]; createdAt: string
-  items: { id: string; productName: string; variantLabel: string; price: number; quantity: number; productId: string | null; thumbUrl: string | null }[]
+  items: { id: string; variantId: string | null; productName: string; variantLabel: string; price: number; quantity: number; productId: string | null; thumbUrl: string | null }[]
   newer: string | null; older: string | null
+  events: OrderEvent[]
   page: { id: string; title: string } | null; warehouse: { id: string; name: string } | null
   history: { total: number; delivered: number; returned: number; cancelled: number }
   duplicate: boolean; blocked: boolean
@@ -51,6 +56,8 @@ export function OrderDetail() {
   const [toast, setToast] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [itemsEdit, setItemsEdit] = useState<{ lines: Line[]; area: 'inside' | 'outside'; charges: { inside: number; outside: number } } | null>(null)
+  const [comment, setComment] = useState('')
   const [contact, setContact] = useState({ customerName: '', phone: '', address: '' })
 
   const show = (o: Order) => {
@@ -138,6 +145,60 @@ export function OrderDetail() {
     }
   }
 
+  // Load each product's variants so lines can change size, colour and quantity.
+  const startItemsEdit = async () => {
+    if (!order) return
+    setBusy(true)
+    setError(null)
+    try {
+      const ids = [...new Set(order.items.map((item) => item.productId!))]
+      const [products, settings] = await Promise.all([
+        Promise.all(ids.map((pid) => api<Product>(`/stores/${handle}/products/${pid}`))),
+        api<StoreSettingsData>(`/stores/${handle}/settings`),
+      ])
+      const byId = new Map(products.map((p) => [p.id, p]))
+      setItemsEdit({
+        area: order.area,
+        charges: { inside: settings.deliveryInside, outside: settings.deliveryOutside },
+        lines: order.items.map((item) => ({ product: byId.get(item.productId!)!, thumbUrl: item.thumbUrl, variantId: item.variantId!, quantity: item.quantity })),
+      })
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveItems = async () => {
+    if (!itemsEdit || itemsEdit.lines.length === 0) return
+    setBusy(true)
+    setError(null)
+    try {
+      show(await api<Order>(`${base}/items`, { method: 'PUT', body: { area: itemsEdit.area, items: itemsEdit.lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })) } }))
+      setItemsEdit(null)
+      setToast(t('orderUpdated'))
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addComment = async () => {
+    const text = comment.trim()
+    if (!text) return
+    setBusy(true)
+    setError(null)
+    try {
+      show(await api<Order>(`${base}/comments`, { method: 'POST', body: { text } }))
+      setComment('')
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -160,7 +221,26 @@ export function OrderDetail() {
   const finished = order.history.delivered + order.history.returned
   const rate = finished ? Math.round((order.history.delivered / finished) * 100) : null
   const canEdit = editable.includes(order.status)
+  const itemsEditable = order.items.every((item) => item.productId && item.variantId)
+  const sold = new Map(order.items.flatMap((item) => item.variantId ? [[item.variantId, item.price] as const] : []))
   const startEdit = () => { setContact({ customerName: order.customerName, phone: order.phone, address: order.address }); setEditing(true) }
+  const actor = (event: OrderEvent) => event.hasUser ? event.userName || t('activityFormer')
+    : event.kind === 'placed' ? t(['landing_page', 'website'].includes(event.data.source) ? 'activityCustomer' : 'activityUnknown') : t('activitySystem')
+  const statusName = (s: string) => statuses[s as Status] ? t(statuses[s as Status].label) : s
+  const describe = (event: OrderEvent): string => {
+    switch (event.kind) {
+      case 'placed': return t('activityPlaced', { source: t(`source_${event.data.source}` as Key), total: money(event.data.total) })
+      case 'status': return t('activityStatus', { from: statusName(event.data.from), to: statusName(event.data.to) })
+      case 'edited': return [event.data.before !== event.data.after ? t('activityItems', { items: event.data.after }) : '',
+        event.data.fromArea !== event.data.toArea ? t('activityArea', { area: t(event.data.toArea === 'outside' ? 'orderOutside' : 'orderInside') }) : '',
+        event.data.fromTotal !== event.data.toTotal ? t('activityTotal', { from: money(event.data.fromTotal), to: money(event.data.toTotal) }) : ''].filter(Boolean).join(' ') || t('activityEditedSame')
+      case 'contact': return t('activityContact', { name: event.data.name, phone: event.data.phone })
+      case 'note': return event.data.note ? t('activityNote', { note: event.data.note }) : t('activityNoteCleared')
+      case 'tags': return event.data.tags.length ? t('activityTags', { tags: event.data.tags.join(', ') }) : t('activityTagsCleared')
+      case 'shipped': return t('activityShipped', { code: event.data.tracking || '—' })
+      case 'comment': return event.data.text
+    }
+  }
   const sourceLabel = order.source === 'landing_page' && order.page ? order.page.title : t(`source_${order.source}` as Key)
 
   return (
@@ -202,7 +282,25 @@ export function OrderDetail() {
       <div className="detail-layout">
         <div className="detail-layout__main">
           <section className="card" aria-labelledby="order-items-title">
-            <h2 id="order-items-title">{t('orderItems')} <span className="muted">{t('newOrderItems', { n: num(units) })}</span></h2>
+            <div className="card__head order-card-head">
+              <h2 id="order-items-title">{t('orderItems')} <span className="muted">{t('newOrderItems', { n: num(units) })}</span></h2>
+              {canEdit && !itemsEdit && <Button disabled={busy || !itemsEditable} title={itemsEditable ? undefined : t('orderEditGone')} onClick={() => void startItemsEdit()}><Pencil size={14} aria-hidden="true" />{t('orderEditItems')}</Button>}
+            </div>
+            {itemsEdit ? <>
+              <OrderLines handle={handle} lines={itemsEdit.lines} sold={sold} onChange={(update) => setItemsEdit((current) => current && { ...current, lines: update(current.lines) })} invalid={itemsEdit.lines.length === 0} />
+              <dl className="order-sum">
+                <div><dt>{t('orderSubtotal')}</dt><dd className="num">{money(linesSubtotal(itemsEdit.lines, sold))}</dd></div>
+                <div>
+                  <dt>{t('orderDelivery')}</dt>
+                  <dd><span className="segmented" role="radiogroup" aria-label={t('newOrderArea')}>
+                    {(['inside', 'outside'] as const).map((a) => <label key={a}><input type="radio" name="edit-area" checked={itemsEdit.area === a} onChange={() => setItemsEdit({ ...itemsEdit, area: a })} /><span>{t(a === 'inside' ? 'orderInside' : 'orderOutside')} · <span className="num">{money(a === order.area ? order.deliveryCharge : itemsEdit.charges[a])}</span></span></label>)}
+                  </span></dd>
+                </div>
+                {!order.discountCode && <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(linesSubtotal(itemsEdit.lines, sold) + (itemsEdit.area === order.area ? order.deliveryCharge : itemsEdit.charges[itemsEdit.area]))}</dd></div>}
+              </dl>
+              <p className="muted order-sum__note">{t(order.discountCode ? 'orderEditCouponNote' : 'orderEditNote')}</p>
+              <div className="row row--end"><Button disabled={busy} onClick={() => setItemsEdit(null)}>{t('cancel')}</Button><Button variant="primary" disabled={busy || itemsEdit.lines.length === 0} aria-busy={busy} onClick={() => void saveItems()}>{t('orderEditSaveItems')}</Button></div>
+            </> : <>
             <ul className="order-items-list">
               {order.items.map((item) => (
                 <li key={item.id} className="order-item">
@@ -223,6 +321,7 @@ export function OrderDetail() {
               <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(order.total)}</dd></div>
               <div><dt>{t('orderCod')}</dt><dd><Badge tone={cod.tone}>{t(cod.label)}</Badge></dd></div>
             </dl>
+            </>}
           </section>
 
           <section className="card" aria-labelledby="order-shipment-title">
@@ -249,6 +348,23 @@ export function OrderDetail() {
             <textarea id="order-note" className="input input--area" rows={3} maxLength={2000} placeholder={t('orderNoteHint')} value={note} onChange={(e) => setNote(e.target.value)} />
             <p className="field__help">{t('orderNoteHelp')}</p>
             {note.trim() !== order.note && <div className="row"><Button disabled={busy} onClick={() => void change({ note })}>{t('orderNoteSave')}</Button></div>}
+          </section>
+
+          <section className="card" aria-labelledby="order-activity-title">
+            <h2 id="order-activity-title">{t('orderActivity')}</h2>
+            <form className="activity-form" onSubmit={(e) => { e.preventDefault(); void addComment() }}>
+              <textarea className="input input--area" rows={2} maxLength={2000} aria-label={t('orderComment')} placeholder={t('orderCommentHint')} value={comment} onChange={(e) => setComment(e.target.value)} />
+              <div className="row row--end"><Button type="submit" disabled={busy || !comment.trim()}>{t('orderCommentSend')}</Button></div>
+            </form>
+            <ol className="activity">
+              {order.events.map((event) => <li key={event.id} className={event.kind === 'comment' ? 'activity__item activity__item--comment' : 'activity__item'}>
+                <span className="activity__avatar" aria-hidden="true">{actor(event).slice(0, 1).toUpperCase()}</span>
+                <div className="activity__body">
+                  <p><strong>{actor(event)}</strong> <span className="muted">{time(event.createdAt)}</span></p>
+                  <p className={event.kind === 'comment' ? 'activity__comment' : 'activity__text'}>{describe(event)}</p>
+                </div>
+              </li>)}
+            </ol>
           </section>
         </div>
 

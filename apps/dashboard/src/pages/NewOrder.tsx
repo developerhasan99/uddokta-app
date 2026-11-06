@@ -1,21 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, Minus, Pencil, Plus, Search, UserRound, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Search, UserRound, X } from 'lucide-react'
 import { readPhone } from 'storefront/schema'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
-import { ProductPicker, type ProductRow } from '../components/ProductPicker'
+import { OrderLines, linesSubtotal, type Line } from '../components/OrderLines'
 import { OrderTagsField } from '../components/OrderTags'
 import { Button, Field, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import type { StoreSettingsData } from './StoreSettings'
 
-type Variant = { id: string; options: string[]; price: number; stock: number | null }
-type Product = { id: string; name: string; variants: Variant[] }
-type Line = { product: Product; thumbUrl: string | null; variantId: string; quantity: number }
 type Customer = { phone: string; name: string; address: string; orders: number; delivered: number; returned: number }
 const sources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagram', 'shop', 'other'] as const
-const maxLines = 20
 
 export function NewOrder() {
   const { t, money, num } = useLang()
@@ -24,7 +20,6 @@ export function NewOrder() {
   const path = useStorePath()
   const handle = useCurrentStore()!.store.handle
   const [lines, setLines] = useState<Line[]>([])
-  const [picking, setPicking] = useState(false)
   const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
   const [form, setForm] = useState(() => ({
     customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
@@ -67,19 +62,7 @@ export function NewOrder() {
   }, [mobile, handle])
 
   const set = (changes: Partial<typeof form>) => setForm({ ...form, ...changes })
-  const setLine = (index: number, changes: Partial<Line>) => setLines((all) => all.map((line, i) => i === index ? { ...line, ...changes } : line))
-
-  const add = async (rows: ProductRow[]) => {
-    const fresh = rows.filter((row) => !lines.some((line) => line.product.id === row.id)).slice(0, maxLines - lines.length)
-    const products = await Promise.all(fresh.map((row) => api<Product>(`/stores/${handle}/products/${row.id}`).then((product) => ({ product, row })).catch(() => null)))
-    setLines((all) => [...all, ...products.flatMap((p) => p ? [{
-      product: p.product, thumbUrl: p.row.thumbUrl, quantity: 1,
-      variantId: (p.product.variants.find((v) => v.stock === null || v.stock > 0) ?? p.product.variants[0]).id,
-    }] : [])])
-  }
-
-  const variantOf = (line: Line) => line.product.variants.find((v) => v.id === line.variantId)!
-  const subtotal = lines.reduce((sum, line) => sum + variantOf(line).price * line.quantity, 0)
+  const subtotal = linesSubtotal(lines)
   const units = lines.reduce((sum, line) => sum + line.quantity, 0)
   const charges = { inside: delivery?.deliveryInside ?? 0, outside: delivery?.deliveryOutside ?? 0 }
   const charge = form.area === 'outside' ? charges.outside : charges.inside
@@ -125,38 +108,7 @@ export function NewOrder() {
         <div className="detail-layout__main">
           <section className="card new-order__products" aria-labelledby="order-products-title">
             <h2 id="order-products-title">{t('products')}</h2>
-            <button type="button" className="new-order__add" disabled={lines.length >= maxLines} onClick={() => setPicking(true)} aria-invalid={tried && problems.lines ? true : undefined}>
-              <Search size={16} aria-hidden="true" /><span>{t('newOrderAddProducts')}</span><Plus size={16} aria-hidden="true" />
-            </button>
-            {tried && problems.lines && <p className="field__help field__help--error">{t('newOrderNoLines')}</p>}
-            {lines.length > 0 && <ul className="order-lines">
-              {lines.map((line, index) => {
-                const variant = variantOf(line)
-                const short = variant.stock !== null && variant.stock < line.quantity
-                return <li key={line.product.id} className="order-line">
-                  <span className="data-table__thumb order-line__thumb">{line.thumbUrl && <img src={line.thumbUrl} alt="" />}</span>
-                  <div className="order-line__main">
-                    <span className="order-line__name">{line.product.name}</span>
-                    {line.product.variants.length > 1 && (
-                      <select className="input input--compact order-line__variant" aria-label={t('newOrderOption')} value={line.variantId} onChange={(e) => setLine(index, { variantId: e.target.value })}>
-                        {line.product.variants.map((v) => <option key={v.id} value={v.id}>{v.options.join(' / ')}{v.stock === 0 ? ` (${t('newOrderOutOfStock')})` : ''}</option>)}
-                      </select>
-                    )}
-                    <span className={short ? 'order-line__meta order-line__meta--alert' : 'order-line__meta'}>
-                      {t('newOrderEach', { price: money(variant.price) })}
-                      {variant.stock !== null && ` · ${variant.stock === 0 ? t('newOrderOutOfStock') : t('newOrderInStock', { n: num(variant.stock) })}`}
-                    </span>
-                  </div>
-                  <div className="stepper" role="group" aria-label={t('newOrderQuantity')}>
-                    <button type="button" aria-label={t('newOrderLess')} disabled={line.quantity <= 1} onClick={() => setLine(index, { quantity: line.quantity - 1 })}><Minus size={14} aria-hidden="true" /></button>
-                    <input inputMode="numeric" aria-label={t('newOrderQuantity')} value={line.quantity} onChange={(e) => setLine(index, { quantity: Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 1, 1), 100) })} />
-                    <button type="button" aria-label={t('newOrderMore')} disabled={line.quantity >= 100} onClick={() => setLine(index, { quantity: line.quantity + 1 })}><Plus size={14} aria-hidden="true" /></button>
-                  </div>
-                  <strong className="order-line__total num">{money(variant.price * line.quantity)}</strong>
-                  <button type="button" className="btn btn--icon order-line__remove" aria-label={t('newOrderRemoveLine', { name: line.product.name })} onClick={() => setLines((all) => all.filter((_, i) => i !== index))}><X size={16} aria-hidden="true" /></button>
-                </li>
-              })}
-            </ul>}
+            <OrderLines handle={handle} lines={lines} onChange={setLines} invalid={tried && problems.lines} />
           </section>
 
           <section className="card" aria-labelledby="order-payment-title">
@@ -238,7 +190,6 @@ export function NewOrder() {
         </aside>
       </div>
 
-      {picking && <ProductPicker sellableOnly selected={[]} max={maxLines - lines.length} onClose={() => setPicking(false)} onDone={(rows) => { setPicking(false); void add(rows) }} />}
     </form>
   )
 }
