@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Minus, Plus, Search, X } from 'lucide-react'
-import { api } from '../api'
 import { useLang } from '../i18n'
-import { ProductPicker, type ProductRow } from './ProductPicker'
+import { ProductPicker, type VariantPick } from './ProductPicker'
 
 export type Variant = { id: string; options: string[]; price: number; stock: number | null }
 export type Product = { id: string; name: string; variants: Variant[] }
@@ -15,18 +14,15 @@ export const linePrice = (line: Line, sold?: Map<string, number>) => sold?.get(l
 export const linesSubtotal = (lines: Line[], sold?: Map<string, number>) => lines.reduce((sum, line) => sum + linePrice(line, sold) * line.quantity, 0)
 
 // Product lines with a picker, variant choice, stock hint and quantity stepper. Shared by the new-order form and order editing.
-export function OrderLines({ handle, lines, onChange, invalid, sold }: { handle: string; lines: Line[]; onChange: (update: (lines: Line[]) => Line[]) => void; invalid?: boolean; sold?: Map<string, number> }) {
+export function OrderLines({ lines, onChange, invalid, sold }: { handle: string; lines: Line[]; onChange: (update: (lines: Line[]) => Line[]) => void; invalid?: boolean; sold?: Map<string, number> }) {
   const { t, money, num } = useLang()
   const [picking, setPicking] = useState(false)
   const setLine = (index: number, changes: Partial<Line>) => onChange((all) => all.map((line, i) => i === index ? { ...line, ...changes } : line))
-  const add = async (rows: ProductRow[]) => {
-    const fresh = rows.filter((row) => !lines.some((line) => line.product.id === row.id)).slice(0, maxLines - lines.length)
-    const products = await Promise.all(fresh.map((row) => api<Product>(`/stores/${handle}/products/${row.id}`).then((product) => ({ product, row })).catch(() => null)))
-    onChange((all) => [...all, ...products.flatMap((p) => p ? [{
-      product: p.product, thumbUrl: p.row.thumbUrl, quantity: 1,
-      variantId: (p.product.variants.find((v) => v.stock === null || v.stock > 0) ?? p.product.variants[0]).id,
-    }] : [])])
-  }
+  // Each picked variant is its own line, so one product can be ordered in several sizes or colours.
+  const add = (picks: VariantPick[]) => onChange((all) => [...all, ...picks
+    .filter((p) => !all.some((line) => line.variantId === p.variant.id))
+    .map((p) => ({ product: p.product, thumbUrl: p.variant.thumbUrl ?? p.product.thumbUrl, variantId: p.variant.id, quantity: 1 }))].slice(0, maxLines))
+  const used = (index: number, variantId: string) => lines.some((line, i) => i !== index && line.variantId === variantId)
   return <>
     <button type="button" className="new-order__add" disabled={lines.length >= maxLines} onClick={() => setPicking(true)} aria-invalid={invalid ? true : undefined}>
       <Search size={16} aria-hidden="true" /><span>{t('newOrderAddProducts')}</span><Plus size={16} aria-hidden="true" />
@@ -36,13 +32,13 @@ export function OrderLines({ handle, lines, onChange, invalid, sold }: { handle:
       {lines.map((line, index) => {
         const variant = variantOf(line)
         const short = variant.stock !== null && variant.stock < line.quantity
-        return <li key={line.product.id} className="order-line">
+        return <li key={line.variantId} className="order-line">
           <span className="data-table__thumb order-line__thumb">{line.thumbUrl && <img src={line.thumbUrl} alt="" />}</span>
           <div className="order-line__main">
             <span className="order-line__name">{line.product.name}</span>
             {line.product.variants.length > 1 && (
               <select className="input input--compact order-line__variant" aria-label={t('newOrderOption')} value={line.variantId} onChange={(e) => setLine(index, { variantId: e.target.value })}>
-                {line.product.variants.map((v) => <option key={v.id} value={v.id}>{v.options.join(' / ')}{v.stock === 0 ? ` (${t('newOrderOutOfStock')})` : ''}</option>)}
+                {line.product.variants.map((v) => <option key={v.id} value={v.id} disabled={used(index, v.id)}>{v.options.join(' / ')}{v.stock === 0 ? ` (${t('newOrderOutOfStock')})` : ''}</option>)}
               </select>
             )}
             <span className={short ? 'order-line__meta order-line__meta--alert' : 'order-line__meta'}>
@@ -60,6 +56,6 @@ export function OrderLines({ handle, lines, onChange, invalid, sold }: { handle:
         </li>
       })}
     </ul>}
-    {picking && <ProductPicker sellableOnly selected={[]} max={maxLines - lines.length} onClose={() => setPicking(false)} onDone={(rows) => { setPicking(false); void add(rows) }} />}
+    {picking && <ProductPicker variants sellableOnly taken={lines.map((line) => line.variantId)} max={maxLines - lines.length} onClose={() => setPicking(false)} onDone={(picks) => { setPicking(false); add(picks) }} />}
   </>
 }

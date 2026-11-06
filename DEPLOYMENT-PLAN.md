@@ -250,3 +250,7 @@ Not built (needs new tables): an activity log with comments, and a cross-courier
 ## Fake-order protection page redesign (November 6, 2026)
 
 Block form in its own card with the button aligned to the inputs. Blocked numbers use the standard data table: search by number or reason, select several to unblock (`components/Selection.tsx`), separate Mobile / Reason / Blocked on columns, a labelled Unblock button per row, each number links to its orders, and the count is in the footer. Empty state with icon and next step. The automatic rules have icons. Checked in the browser at desktop and phone widths.
+
+## Global product picker with variants (November 6, 2026)
+
+`components/ProductPicker.tsx` is the one picker everywhere (orders, collections, page editor, new landing page). It has search, status and collection filters. With `variants`, each product lists its variants (options, price, stock, SKU, variant image) under a tri-state product checkbox; out-of-stock variants are disabled when selling, and `taken` variants show as already added. The products list API takes `variants=1` (no buying prices) and `collection=<id>`. Order lines are now one per variant, so the same product can be ordered in several sizes or colours; a line's variant menu disables variants already on another line. Tested in the API and in the browser on the new-order form.

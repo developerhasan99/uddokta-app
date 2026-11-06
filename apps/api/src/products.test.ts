@@ -199,6 +199,20 @@ test('search covers name and SKU, and tabs filter by status', async () => {
   assert.deepEqual(all.json.counts, { draft: 1, active: 1 }, 'tab counts ignore the current tab')
 })
 
+test('the picker list can include each product’s variants and filter by collection', async () => {
+  const owner = await storeOwner()
+  const shirt = (await owner.call('POST', owner.base, sized())).json
+  await owner.call('POST', owner.base, simple())
+  const collection = (await owner.call('POST', `/stores/${owner.handle}/collections`, { name: 'Tops', productIds: [shirt.id] })).json
+  const plain = (await owner.call('GET', owner.base)).json.items
+  assert.ok(plain.every((i: any) => i.variants === undefined), 'variants only when asked for')
+  const listed = (await owner.call('GET', `${owner.base}?variants=1&collection=${collection.id}`)).json.items
+  assert.deepEqual(listed.map((i: any) => i.name), ['Shirt'])
+  assert.deepEqual(listed[0].variants.map((v: any) => [v.options, v.price, v.stock]), [[['M'], 500, 3], [['L'], 600, 0]])
+  assert.equal(listed[0].variants[0].cost, undefined, 'never buying prices')
+  assert.equal((await owner.call('GET', `${owner.base}?collection=nope`)).status, 400)
+})
+
 test('staff can edit products but never read or change buying prices, and cannot delete', async () => {
   const owner = await storeOwner()
   const staff = await staffOf(owner)

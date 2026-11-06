@@ -564,6 +564,21 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .picker-row { display: flex; align-items: center; gap: var(--space-xs); min-height: 52px; padding-block: var(--space-2xs); cursor: pointer; }
 .picker-row input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
 .picker-row__name { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.picker-row__text { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.picker-row__meta { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.picker-row__meta--alert { color: var(--color-danger); }
+.picker-row__price { flex: none; color: var(--color-muted); font-size: var(--text-sm); }
+.picker-row:has(input:disabled) { cursor: default; }
+.picker-row:has(input:disabled) .picker-row__name { color: var(--color-muted); }
+/* Variants sit under their product, indented past its checkbox. */
+.picker-variants { display: grid; margin-bottom: var(--space-2xs); padding-left: calc(16px + var(--space-xs)); }
+.picker-variants li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+.picker-row--variant { min-height: 44px; }
+.picker-row--variant .picker-row__name { font-weight: 400; }
+.picker-row--variant .data-table__thumb { width: 28px; height: 28px; }
+.picker__tools:has(.picker__filter) { flex-wrap: wrap; }
+.picker__tools:has(.picker__filter) .search-field { flex-basis: 100%; }
+.picker__filter { flex: 1; min-width: 0; }
 
 /* Media picker */
 .picker { display: none; width: min(34rem, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; border: 0; background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }

@@ -207,6 +207,10 @@ export function registerProducts(app: Hono<Env>) {
     const q = (c.req.query('q') ?? '').trim().slice(0, 200)
     const status = c.req.query('status') ?? ''
     const sellable = c.req.query('sellable') === '1'
+    // The product picker asks for each product's variants, so one call can offer them for picking.
+    const withVariants = c.req.query('variants') === '1'
+    const collection = c.req.query('collection') ?? ''
+    if (collection && !isId(collection)) throw fail(400, 'invalidRequest')
     const pattern = likePattern(q)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
@@ -215,8 +219,11 @@ export function registerProducts(app: Hono<Env>) {
         : sql``
       const counts = await t.execute<{ status: string; count: number }>(sql`select p.status, count(*)::int as count from products p where p.store_id = ${store.id}::uuid ${search} group by p.status`)
       // ponytail: offset paging, like media; switch to a cursor if catalogues reach tens of thousands of products.
-      const rows = await t.execute<{ id: string; name: string; status: string; thumb_key: string | null; variant_count: number; min_price: number; max_price: number; stock: number | null }>(sql`
-        select p.id, p.name, p.status, i.thumb_key, v.variant_count, v.min_price, v.max_price, v.stock
+      type VariantRow = { id: string; options: string[]; price: number; stock: number | null; sku: string | null; thumb_key: string | null }
+      const rows = await t.execute<{ id: string; name: string; status: string; thumb_key: string | null; variant_count: number; min_price: number; max_price: number; stock: number | null; variants: VariantRow[] | null }>(sql`
+        select p.id, p.name, p.status, i.thumb_key, v.variant_count, v.min_price, v.max_price, v.stock,
+          ${withVariants ? sql`(select json_agg(json_build_object('id', pv.id, 'options', pv.options, 'price', pv.price, 'stock', pv.stock, 'sku', pv.sku, 'thumb_key', vm.thumb_key) order by pv.position)
+            from product_variants pv left join media vm on vm.id = pv.media_id where pv.product_id = p.id)` : sql`null`} as variants
         from products p
         cross join lateral (
           select count(*)::int as variant_count, min(price) as min_price, max(price) as max_price, sum(stock)::int as stock
@@ -227,6 +234,7 @@ export function registerProducts(app: Hono<Env>) {
           where pm.product_id = p.id order by pm.position limit 1
         ) i on true
         where p.store_id = ${store.id}::uuid ${search} ${productStatuses.includes(status as never) ? sql`and p.status = ${status}` : sql``}
+          ${collection ? sql`and exists (select 1 from collection_products cp where cp.product_id = p.id and cp.collection_id = ${collection}::uuid)` : sql``}
           ${sellable ? sql`and p.status <> 'draft' and exists (select 1 from product_variants available where available.product_id = p.id and (available.stock is null or available.stock > 0))` : sql``}
         order by p.created_at desc, p.id desc
         limit ${pageSize + 1} offset ${offset}`)
@@ -234,6 +242,7 @@ export function registerProducts(app: Hono<Env>) {
         items: rows.rows.slice(0, pageSize).map((r) => ({
           id: r.id, name: r.name, status: r.status, thumbUrl: r.thumb_key && publicUrl(r.thumb_key),
           variantCount: r.variant_count, minPrice: r.min_price, maxPrice: r.max_price, stock: r.stock,
+          ...(r.variants && { variants: r.variants.map(({ thumb_key, ...v }) => ({ ...v, thumbUrl: thumb_key && publicUrl(thumb_key) })) }),
         })),
         hasMore: rows.rows.length > pageSize,
         counts: Object.fromEntries(counts.rows.map((r) => [r.status, r.count])),
