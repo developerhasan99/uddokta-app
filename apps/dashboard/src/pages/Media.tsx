@@ -178,17 +178,7 @@ export function Media() {
         </div>
           )}
 
-          {page && (page.usedBytes > 0 || query) && (
-        <SearchInput label={t('mediaSearch')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
-      )}
-
-      {page && page.items.length === 0 && pending.length === 0 && query && (
-        <section className="data-list">
-          <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<Button onClick={() => setSearchText('')}>{t('clearFilters')}</Button>} />
-        </section>
-      )}
-
-      {page && page.items.length === 0 && pending.length === 0 && !query && (
+          {page && page.items.length === 0 && pending.length === 0 && !query && (
             <button type="button" className="media__empty" onClick={() => picker.current?.click()}>
               <ImagePlus size={32} strokeWidth={1.5} aria-hidden="true" />
               <strong>{t('mediaEmptyTitle')}</strong>
@@ -196,8 +186,14 @@ export function Media() {
             </button>
           )}
 
-          {page && (page.items.length > 0 || pending.length > 0) && (
-            <div className="data-list">
+          {page && (page.usedBytes > 0 || query || pending.length > 0) && (
+            <section className="data-list">
+              <div className="filter-bar">
+                <div className="tabs" />
+                <SearchInput label={t('mediaSearch')} value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+              </div>
+              {page.items.length === 0 && pending.length === 0 && query && <Notice title={t('mediaNoMatch')} body={t('mediaNoMatchBody')} action={<Button onClick={() => setSearchText('')}>{t('clearFilters')}</Button>} />}
+              {(page.items.length > 0 || pending.length > 0) && <>
           <table className="data-table">
             <thead>
               <tr>
@@ -236,10 +232,10 @@ export function Media() {
               ))}
             </tbody>
           </table>
-        </div>
+              </>}
+              {page.hasMore && <footer className="data-list__footer"><span /><Button onClick={() => void loadMore()}>{t('mediaLoadMore')}</Button></footer>}
+            </section>
           )}
-
-          {page?.hasMore && <div className="media__more"><Button onClick={() => void loadMore()}>{t('mediaLoadMore')}</Button></div>}
 
 
           {dragging && <div className="media__drop" aria-hidden="true"><Upload size={24} />{t('mediaDrop')}</div>}

@@ -60,7 +60,7 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
     finally { setBusy(false) }
   }
 
-  return <div className="orders-bar">
+  return <div className="filter-bar orders-bar">
     <nav className="tabs orders-tabs" aria-label={t('ordersLabel')}>
       {tabs.map((tab) => <Link key={tab.status} className="tab" to={tab.href} aria-current={!active && filters?.status === tab.status ? 'page' : undefined}>{tab.label}{tab.count && <span className="tab__count">{tab.count}</span>}</Link>)}
       {views?.map((view) => view === active

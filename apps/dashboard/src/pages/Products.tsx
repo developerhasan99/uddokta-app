@@ -140,10 +140,9 @@ export function Products() {
               </tbody>
             </table>
           )}
+          {page?.hasMore && <footer className="data-list__footer"><span /><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></footer>}
         </div>
       )}
-
-      {page?.hasMore && <div className="media__more"><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></div>}
     </div>
   )
 }

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowDown, Copy, Download, Search, ShieldAlert, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDown, Copy, Download, ShieldAlert, SlidersHorizontal, X } from 'lucide-react'
 import { emptyOrderFilters, orderFilterKeys, orderFilterParams, readOrderFilters, type OrderFilters as Filters } from 'storefront/order-filters'
 import { OrderFilters } from '../components/OrderFilters'
 import { OrderViews } from '../components/OrderViews'
 import { useUrlSearch } from '../use-url-search'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, ApiError, errorCode } from '../api'
-import { Badge, Button, LinkButton, Notice, PageHeader, Skeleton, type Tone } from '../components/ui'
+import { Badge, Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton, type Tone } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 
 export type Status = 'new' | 'hold' | 'confirmed' | 'packed' | 'courier' | 'delivered' | 'returned' | 'cancelled'
@@ -175,15 +175,14 @@ export function Orders() {
       {exported && <p className="orders-feedback" role="status">{t('orderExportDone')}</p>}
       {!valid && <p className="form-error" role="alert">{t('errInvalidOrderFilters')} <LinkButton to={path('/orders')}>{t('orderClearFilters')}</LinkButton></p>}
 
-      <section className="orders-list" aria-label={t('ordersLabel')}>
+      <section className="data-list" aria-label={t('ordersLabel')}>
         <OrderViews key={handle} handle={handle} filters={filters} hrefFor={hrefFor} tabs={filters ? tabs.map((tab) => ({ status: tab.status, label: t(tab.label), count: page && tab.value ? num(tab.value) : undefined, href: hrefFor({ ...filters, status: tab.status }) })) : []} applied={chips.length > 0 && <>
             {chips.map((chip) => <button type="button" key={chip.key} className="orders-applied__chip" aria-label={t('orderRemoveFilter', { value: chip.label })} onClick={() => filters && applyFilters({ ...filters, [chip.key]: '', ...(chip.key === 'period' ? { from: '', to: '' } : {}) })}><span>{chip.label}</span><X size={12} aria-hidden="true" /></button>)}
             <Link className="orders-applied__clear" to={path('/orders')}>{t('orderClearFilters')}</Link>
           </>}>
           <div className="orders-bar__tools">
-            <form className="orders-toolbar__search" role="search" onSubmit={(e) => { e.preventDefault(); applyFilters({ ...(filters ?? emptyOrderFilters), q: searchText.trim().slice(0, 100) }) }}>
-              <Search size={15} aria-hidden="true" />
-              <input name="q" type="search" aria-label={t('search')} placeholder={t('search')} value={searchText} onChange={(e) => setSearchText(e.target.value.slice(0, 100))} autoComplete="off" />
+            <form className="orders-search" onSubmit={(e) => { e.preventDefault(); applyFilters({ ...(filters ?? emptyOrderFilters), q: searchText.trim().slice(0, 100) }) }}>
+              <SearchInput label={t('search')} value={searchText} onChange={(e) => setSearchText(e.target.value.slice(0, 100))} />
             </form>
             <button type="button" className="btn btn--default orders-toolbar__filters" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={openFilters}><SlidersHorizontal size={14} aria-hidden="true" /><span>{t('orderFiltersShort')}</span>{filterCount > 0 && <span className="orders-filter-count">{num(filterCount)}</span>}</button>
           </div>
@@ -196,8 +195,8 @@ export function Orders() {
           : <Notice title={t('ordersEmptyTitle')} body={t('ordersEmptyBody')} action={<LinkButton to={path('/orders/new')}>{t('newOrder')}</LinkButton>} />)}
 
         {page && rows.length > 0 && <>
-          <div className="orders-table-wrap" tabIndex={0} role="region" aria-label={t('orderTableHelp')}>
-            <table className="orders-table">
+          <div className="data-list__scroll orders-table-wrap" tabIndex={0} role="region" aria-label={t('orderTableHelp')}>
+            <table className="data-table orders-table">
               <thead><tr><th scope="col" className="orders-table__number">{t('colOrder')}</th><th scope="col" className="orders-table__date" aria-sort="descending">{t('orderDateColumn')} <ArrowDown size={12} aria-hidden="true" /></th><th scope="col" className="orders-table__customer">{t('colCustomer')}</th><th scope="col" className="orders-table__source">{t('orderSourceColumn')}</th><th scope="col" className="orders-table__total">{t('colTotal')}</th><th scope="col" className="orders-table__status">{t('colStatus')}</th><th scope="col" className="orders-table__items">{t('orderProductsColumn')}</th></tr></thead>
               <tbody>{rows.map((order) => <tr key={order.id} onClick={() => navigate(path(`/orders/${order.id}`))}>
                 <th scope="row"><div className="orders-table__identity"><Link className="order-number" to={path(`/orders/${order.id}`)} onClick={(e) => e.stopPropagation()}>{orderNumber(order.number)}</Link>{flags(order)}</div></th>
@@ -217,7 +216,7 @@ export function Orders() {
             <span className="order-card__meta"><time dateTime={order.createdAt}>{time(order.createdAt)}</time><span>{sourceLabel(order.source)}</span></span>
           </Link></li>)}</ul>
         </>}
-        {page && <footer className="orders-list__footer"><span>{t('orderShowingCount', { n: num(rows.length), total: num(matching) })}</span>{page.hasMore ? <Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button> : <span>{t('orderNewestFirst')}</span>}</footer>}
+        {page && <footer className="data-list__footer"><span>{t('orderShowingCount', { n: num(rows.length), total: num(matching) })}</span>{page.hasMore ? <Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button> : <span>{t('orderNewestFirst')}</span>}</footer>}
         {moreFailed && <p className="form-error orders-more-error" role="alert">{t('ordersError')}</p>}
       </section>
       {filtersOpen && <OrderFilters key={`${handle}:${filterQuery}`} filters={filters ?? { ...emptyOrderFilters, q }} counts={counts} onApply={applyFilters} onClose={closeFilters} />}

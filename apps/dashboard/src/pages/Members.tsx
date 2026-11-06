@@ -94,7 +94,7 @@ export function Members() {
 
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
 
-      <section className="card card--flush">
+      <section className="data-list">
         {loadFailed && <Notice role="alert" title={t('teamLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
         {!loadFailed && !team && (
           <div className="skeleton-rows" role="status" aria-label={t('loading')}>
@@ -102,12 +102,12 @@ export function Members() {
           </div>
         )}
         {team && (
-          <table className="table">
+          <table className="data-table data-table--stack">
             <thead>
               <tr>
                 <th scope="col">{t('colMember')}</th>
                 <th scope="col">{t('role')}</th>
-                <th scope="col" className="num"><span className="visually-hidden">{t('colActions')}</span></th>
+                <th scope="col" className="end"><span className="visually-hidden">{t('colActions')}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -138,7 +138,7 @@ export function Members() {
                         )
                         : <Badge>{t(roleLabels[member.role])}</Badge>}
                     </td>
-                    <td data-label={t('colActions')}>
+                    <td className="end" data-label={t('colActions')}>
                       {lastOwner && <span className="muted">{t('lastOwnerNote')}</span>}
                       {removable && confirming !== member.id && (
                         <Button onClick={() => setConfirming(member.id)}>{isMe ? t('leaveStore') : t('removeMember')}</Button>

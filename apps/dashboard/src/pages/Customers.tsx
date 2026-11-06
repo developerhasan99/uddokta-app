@@ -126,10 +126,10 @@ export function Customers() {
               </tbody>
             </table>
           )}
+          {moreFailed && <p className="form-error" role="alert">{t('customersLoadFailed')}</p>}
+          {page?.hasMore && <footer className="data-list__footer"><span /><Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button></footer>}
         </div>
       )}
-      {moreFailed && <p className="form-error" role="alert">{t('customersLoadFailed')}</p>}
-      {page?.hasMore && <div className="media__more"><Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button></div>}
     </div>
   )
 }

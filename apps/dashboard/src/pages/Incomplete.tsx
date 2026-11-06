@@ -57,7 +57,7 @@ export function Incomplete() {
   return (
     <div className="page">
       <PageHeader title={t('incomplete')} description={t('incomplete.d')} />
-      <section className="card card--flush">
+      <section className="data-list">
         <div className="filter-bar">
           <nav className="tabs" aria-label={t('incomplete')}>
             {tabs.map((tab) => (
@@ -72,13 +72,13 @@ export function Incomplete() {
         {!failed && !page && <div className="skeleton-rows" role="status" aria-label={t('loading')}><div className="skeleton-row"><Skeleton width="10rem" /><Skeleton width="8rem" /></div></div>}
         {page && page.items.length === 0 && <Notice title={status === 'open' ? t('draftsEmpty') : t('draftsEmptyOther')} />}
         {page && page.items.length > 0 && (
-          <table className="table">
+          <table className="data-table data-table--stack">
             <thead>
               <tr>
                 <th scope="col">{t('colCustomer')}</th>
                 <th scope="col">{t('newOrderProduct')}</th>
                 <th scope="col">{t('colTime')}</th>
-                <th scope="col"><span className="visually-hidden">{t('orderNext')}</span></th>
+                <th scope="col" className="end"><span className="visually-hidden">{t('orderNext')}</span></th>
               </tr>
             </thead>
             <tbody>

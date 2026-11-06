@@ -228,10 +228,9 @@ export function Inventory() {
               </tbody>
             </table>
           )}
+          {page?.hasMore && <footer className="data-list__footer"><span /><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></footer>}
         </div>
       )}
-
-      {page?.hasMore && <div className="media__more"><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></div>}
 
       {error && <p className="form-error" role="alert">{t(error === 'inventoryFix' ? 'inventoryFix' : errorLabel(error))}</p>}
 
