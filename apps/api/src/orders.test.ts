@@ -225,6 +225,9 @@ test('orders carry tags: set when created or changed, listed, searchable and sug
   assert.deepEqual((await call('GET', `${base}?q=urg`)).json.items.map((o: any) => o.id), [order.json.id])
   assert.deepEqual((await call('GET', `${base}?tag=gift`)).json.items.map((o: any) => o.id), [order.json.id])
   assert.equal((await call('GET', `${base}?tag=gif`)).json.items.length, 0)
+  assert.deepEqual((await call('GET', `${base}?tag=urgent,gift`)).json.items.map((o: any) => o.id), [order.json.id])
+  assert.equal((await call('GET', `${base}?tag=urgent,other`)).json.items.length, 0)
+  assert.equal((await call('GET', `${base}?tag=${Array.from({ length: 11 }, (_, i) => `t${i}`).join(',')}`)).status, 400)
   assert.deepEqual((await call('GET', base)).json.items.find((o: any) => o.id === order.json.id).tags, ['gift', 'urgent'])
 
   assert.deepEqual((await call('PATCH', `${base}/${order.json.id}`, { tags: ['vip'] })).json.tags, ['vip'])

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ArrowDown, ChevronDown, Copy, Download, ShieldAlert, SlidersHorizontal, X } from 'lucide-react'
-import { emptyOrderFilters, orderFilterKeys, orderFilterParams, readOrderFilters, type OrderFilters as Filters } from 'storefront/order-filters'
+import { emptyOrderFilters, orderFilterKeys, orderFilterParams, readOrderFilters, splitTags, type OrderFilters as Filters } from 'storefront/order-filters'
 import { OrderFilters } from '../components/OrderFilters'
 import { OrderViews } from '../components/OrderViews'
 import { BulkBar, Check, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
@@ -154,11 +154,15 @@ export function Orders() {
   const dateLabel = filters?.period === 'custom' && (filters.from || filters.to)
     ? `${filters.from || '…'} — ${filters.to || '…'}`
     : t(filters?.period ? periodLabels[filters.period] : 'orderPeriodAll')
-  const chips = filters ? [
-    ...(filters.q ? [{ key: 'q', label: filters.q }] : []),
-    ...(filters.source ? [{ key: 'source', label: t(`source_${filters.source}` as Key) }] : []),
-    ...(filters.tag ? [{ key: 'tag', label: `${t('orderTags')}: ${filters.tag}` }] : []),
-    ...(filters.period ? [{ key: 'period', label: dateLabel }] : []),
+  const filterTags = splitTags(filters?.tag ?? '')
+  const withTags = (tags: string[]) => ({ ...(filters ?? emptyOrderFilters), tag: tags.join(',') })
+  // Clicking a tag adds it to the filter (orders must have every chosen tag); clicking it again takes it off.
+  const toggleTag = (tag: string) => withTags(filterTags.includes(tag) ? filterTags.filter((x) => x !== tag) : [...filterTags, tag].slice(0, 10))
+  const chips: { key: string; label: string; next: Filters }[] = filters ? [
+    ...(filters.q ? [{ key: 'q', label: filters.q, next: { ...filters, q: '' } }] : []),
+    ...(filters.source ? [{ key: 'source', label: t(`source_${filters.source}` as Key), next: { ...filters, source: '' } }] : []),
+    ...filterTags.map((tag) => ({ key: `tag:${tag}`, label: `${t('orderTags')}: ${tag}`, next: toggleTag(tag) })),
+    ...(filters.period ? [{ key: 'period', label: dateLabel, next: { ...filters, period: '', from: '', to: '' } }] : []),
   ] : []
   const filterCount = chips.filter((chip) => chip.key !== 'q').length
   const sourceLabel = (source: string) => t(`source_${source}` as Key)
@@ -185,7 +189,7 @@ export function Orders() {
 
       <section className="data-list" aria-label={t('ordersLabel')}>
         <OrderViews key={handle} handle={handle} filters={filters} hrefFor={hrefFor} tabs={filters ? tabs.map((tab) => ({ status: tab.status, label: t(tab.label), count: page && tab.value ? num(tab.value) : undefined, href: hrefFor({ ...filters, status: tab.status }) })) : []} applied={chips.length > 0 && <>
-            {chips.map((chip) => <button type="button" key={chip.key} className="orders-applied__chip" aria-label={t('orderRemoveFilter', { value: chip.label })} onClick={() => filters && applyFilters({ ...filters, [chip.key]: '', ...(chip.key === 'period' ? { from: '', to: '' } : {}) })}><span>{chip.label}</span><X size={12} aria-hidden="true" /></button>)}
+            {chips.map((chip) => <button type="button" key={chip.key} className="orders-applied__chip" aria-label={t('orderRemoveFilter', { value: chip.label })} onClick={() => applyFilters(chip.next)}><span>{chip.label}</span><X size={12} aria-hidden="true" /></button>)}
             <Link className="orders-applied__clear" to={path('/orders')}>{t('orderClearFilters')}</Link>
           </>}>
           <div className="orders-bar__tools">
@@ -223,7 +227,7 @@ export function Orders() {
                 <td className="orders-table__source">{sourceLabel(order.source)}</td>
                 <td className="orders-table__total">{money(order.total)}</td>
                 <td><Badge tone={statuses[order.status].tone}>{t(statuses[order.status].label)}</Badge></td>
-                <td>{order.tags.length ? <span className="order-tags" title={order.tags.join(', ')}>{order.tags.map((tag) => <Link key={tag} className="order-tag" to={hrefFor({ ...(filters ?? emptyOrderFilters), tag })} aria-current={filters?.tag === tag ? 'true' : undefined} onClick={(e) => e.stopPropagation()} title={t('orderTagFilter', { tag })}>{tag}</Link>)}</span> : <span className="muted">—</span>}</td>
+                <td>{order.tags.length ? <span className="order-tags" title={order.tags.join(', ')}>{order.tags.map((tag) => <Link key={tag} className="order-tag" to={hrefFor(toggleTag(tag))} aria-current={filterTags.includes(tag) ? 'true' : undefined} onClick={(e) => e.stopPropagation()} title={t('orderTagFilter', { tag })}>{tag}</Link>)}</span> : <span className="muted">—</span>}</td>
               </tr>)}</tbody>
             </table>
           </div>
@@ -238,7 +242,7 @@ export function Orders() {
         {page && <footer className="data-list__footer"><span>{t('orderShowingCount', { n: num(rows.length), total: num(matching) })}</span>{page.hasMore ? <Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button> : <span>{t('orderNewestFirst')}</span>}</footer>}
         {moreFailed && <p className="form-error orders-more-error" role="alert">{t('ordersError')}</p>}
       </section>
-      {filtersOpen && <OrderFilters key={`${handle}:${filterQuery}`} filters={filters ?? { ...emptyOrderFilters, q }} counts={counts} onApply={applyFilters} onClose={closeFilters} />}
+      {filtersOpen && <OrderFilters key={`${handle}:${filterQuery}`} handle={handle} filters={filters ?? { ...emptyOrderFilters, q }} counts={counts} onApply={applyFilters} onClose={closeFilters} />}
     </div>
   )
 }

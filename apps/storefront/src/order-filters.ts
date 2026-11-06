@@ -16,7 +16,9 @@ export function readOrderFilters(raw: unknown): OrderFilters | null {
   if (orderFilterKeys.some((key) => input[key] !== undefined && typeof input[key] !== 'string')) return null
   const filters = Object.fromEntries(orderFilterKeys.map((key) => [key, ((input[key] ?? '') as string).trim()])) as OrderFilters
   filters.q = filters.q.slice(0, 100)
-  filters.tag = filters.tag.slice(0, 50)
+  const tags = splitTags(filters.tag)
+  if (tags.length > 10 || tags.some((tag) => tag.length > 50)) return null
+  filters.tag = tags.join(',')
   if (filters.status && !orderStatusValues.includes(filters.status as never)) return null
   if (filters.source && !orderSources.includes(filters.source as never)) return null
   if (filters.period && !orderPeriods.includes(filters.period as never)) return null
@@ -29,6 +31,9 @@ export function readOrderFilters(raw: unknown): OrderFilters | null {
   }
   return filters
 }
+
+// Tags never contain commas (the tag input splits on them), so the filter keeps them comma-separated.
+export const splitTags = (value: string) => [...new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))]
 
 export function orderFilterParams(filters: OrderFilters) {
   return new URLSearchParams(orderFilterKeys.flatMap((key) => filters[key] ? [[key, filters[key]]] : []))

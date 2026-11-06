@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import { emptyOrderFilters, orderSources, orderStatusValues, readOrderFilters, type OrderFilters as Filters } from 'storefront/order-filters'
+import { emptyOrderFilters, orderSources, orderStatusValues, readOrderFilters, splitTags, type OrderFilters as Filters } from 'storefront/order-filters'
+import { OrderTagsField } from './OrderTags'
 import { useLang, type Key } from '../i18n'
 import { Button } from './ui'
 
-export function OrderFilters({ filters, counts, onApply, onClose }: { filters: Filters; counts: Partial<Record<string, number>>; onApply: (filters: Filters) => void; onClose: () => void }) {
+export function OrderFilters({ handle, filters, counts, onApply, onClose }: { handle: string; filters: Filters; counts: Partial<Record<string, number>>; onApply: (filters: Filters) => void; onClose: () => void }) {
   const { t, num } = useLang()
   const dialog = useRef<HTMLDialogElement>(null)
   const [period, setPeriod] = useState(filters.period)
+  const [tags, setTags] = useState(() => splitTags(filters.tag))
   const [invalid, setInvalid] = useState(false)
   useEffect(() => { dialog.current?.showModal() }, [])
   const submit = (e: FormEvent<HTMLFormElement>) => {
@@ -23,6 +25,7 @@ export function OrderFilters({ filters, counts, onApply, onClose }: { filters: F
       <div className="order-filter-dialog__body">
         <label>{t('colStatus')}<select className="input" name="status" defaultValue={filters.status}><option value="">{t('statusAll')}</option>{orderStatusValues.map((status) => <option key={status} value={status}>{t(labels[status])} ({num(counts[status] ?? 0)})</option>)}</select></label>
         <label>{t('orderFilterSource')}<select className="input" name="source" defaultValue={filters.source}><option value="">{t('orderSourceAll')}</option>{orderSources.map((source) => <option key={source} value={source}>{t(`source_${source}` as Key)}</option>)}</select></label>
+        <div className="order-filter-dialog__wide order-filter-dialog__tags"><label htmlFor="order-filter-tags">{t('orderTags')}</label><OrderTagsField id="order-filter-tags" handle={handle} values={tags} onChange={setTags} /><input type="hidden" name="tag" value={tags.join(',')} /></div>
         <label className="order-filter-dialog__wide">{t('orderFilterPeriod')}<select className="input" name="period" value={period} onChange={(e) => setPeriod(e.target.value)}><option value="">{t('orderPeriodAll')}</option><option value="today">{t('orderPeriodToday')}</option><option value="7d">{t('orderPeriod7')}</option><option value="30d">{t('orderPeriod30')}</option><option value="custom">{t('orderPeriodCustom')}</option></select></label>
         {period === 'custom' && <><label>{t('orderFilterFrom')}<input type="date" className="input" name="from" defaultValue={filters.from} /></label><label>{t('orderFilterTo')}<input type="date" className="input" name="to" defaultValue={filters.to} /></label></>}
         <p className="muted order-filter-dialog__wide">{t('orderDateHelp')}</p>
