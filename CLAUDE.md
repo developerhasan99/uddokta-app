@@ -105,6 +105,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Stock lives in `warehouse_stock`, one row per variant per warehouse. No rows means not tracked. A trigger keeps `product_variants.stock` equal to the total, so read that column for totals and never write it. Change stock through `setStock` in `apps/api/src/stock.ts`.
 - Every store has at least one warehouse, made with the store, and the API refuses to delete the last. Deleting a warehouse moves its stock to another.
 - Orders must change stock by adding or subtracting in the database, never by writing back a number read earlier, and must say which warehouse a sale ships from.
+- The inventory list also edits SKU, barcode and the low-stock alert (`product_variants.low_stock`, compared with the total). "In orders" counts units on unshipped orders, which are already taken out of stock.
 
 ## Collections
 

@@ -403,7 +403,7 @@ const bn = {
   warehouseDelete: 'গুদামটি মুছে ফেলুন',
   warehouseDeleteWarning: 'মুছে ফেললে আর ফেরত আনা যাবে না।',
   errWarehouseNameTaken: 'এই নামে আরেকটি গুদাম আছে। অন্য নাম দিন।',
-  inventorySearch: 'পণ্যের নাম বা SKU দিয়ে খুঁজুন',
+  inventorySearch: 'নাম, SKU বা বারকোড দিয়ে খুঁজুন',
   inventoryIn: 'স্টকে আছে',
   inventoryOut: 'স্টকে নেই',
   inventoryUntracked: 'হিসাব নেই',
@@ -413,6 +413,17 @@ const bn = {
   inventoryChanges: '{n}টি পরিবর্তন সেভ হয়নি',
   inventorySaved: 'স্টক সেভ হয়েছে।',
   inventoryFix: 'লাল ঘরে শুধু পূর্ণ সংখ্যা লিখুন, অথবা খালি রাখুন।',
+  inventoryLow: 'কম স্টক',
+  inventoryProduct: 'পণ্য',
+  inventoryBarcode: 'বারকোড',
+  inventoryAvailable: 'বিক্রির জন্য',
+  inventoryAvailableHint: 'এখন যতটি বিক্রি করা যাবে। অর্ডার এলে এখান থেকে কমে।',
+  inventoryReserved: 'অর্ডারে আছে',
+  inventoryReservedHint: 'যেসব অর্ডার এখনো কুরিয়ারে যায়নি, তাদের জন্য রাখা মাল। স্টক থেকে আগেই বাদ গেছে।',
+  inventoryReservedSub: 'অর্ডারে আছে {n}টি',
+  inventoryAlert: 'কম স্টকের সীমা',
+  inventoryAlertHint: 'মোট স্টক এই সংখ্যায় বা তার নিচে নামলে "কম স্টক" দেখাবে। খালি রাখলে দেখাবে না।',
+  inventoryCreated: 'যোগের তারিখ',
   productCollectionAdd: 'কালেকশনে যোগ করুন',
   productCollectionCreate: 'প্রথম কালেকশন তৈরি করুন',
   collectionAdd: 'কালেকশন তৈরি করুন',
@@ -1367,7 +1378,7 @@ const en: Record<Key, string> = {
   warehouseDelete: 'Delete warehouse',
   warehouseDeleteWarning: 'This cannot be undone.',
   errWarehouseNameTaken: 'You already have a warehouse with this name. Choose a different one.',
-  inventorySearch: 'Search by product name or SKU',
+  inventorySearch: 'Search by name, SKU or barcode',
   inventoryIn: 'In stock',
   inventoryOut: 'Sold out',
   inventoryUntracked: 'Not tracked',
@@ -1377,6 +1388,17 @@ const en: Record<Key, string> = {
   inventoryChanges: '{n} unsaved changes',
   inventorySaved: 'Stock saved.',
   inventoryFix: 'Enter a whole number in the red boxes, or leave them blank.',
+  inventoryLow: 'Low stock',
+  inventoryProduct: 'Product',
+  inventoryBarcode: 'Barcode',
+  inventoryAvailable: 'Available',
+  inventoryAvailableHint: 'How many you can sell now. New orders take from this.',
+  inventoryReserved: 'In orders',
+  inventoryReservedHint: 'Held for orders not yet with the courier. Already taken out of stock.',
+  inventoryReservedSub: '{n} in orders',
+  inventoryAlert: 'Low stock at',
+  inventoryAlertHint: 'Shows "Low stock" when the total falls to this number or below. Leave blank for no warning.',
+  inventoryCreated: 'Date added',
   productCollectionAdd: 'Add to a collection',
   productCollectionCreate: 'Create your first collection',
   collectionAdd: 'Create collection',
@@ -2002,6 +2024,8 @@ type Ctx = {
   num: (n: number) => string
   time: (iso: string) => string
   date: (day: Date) => string
+  // A calendar date in Bangladesh time, with the year.
+  day: (iso: string) => string
 }
 
 const LangContext = createContext<Ctx | null>(null)
@@ -2021,6 +2045,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
     const number = new Intl.NumberFormat(locale)
     const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
     const dayMonth = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })
+    const dayYear = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dhaka' })
     return {
       lang,
       setLang,
@@ -2028,6 +2053,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
       money: (taka) => `৳${number.format(taka)}`,
       num: (n) => number.format(n),
       date: (day) => dayMonth.format(day),
+      day: (iso) => dayYear.format(new Date(iso)),
       time: (iso) => {
         const text = date.format(new Date(iso))
         return lang === 'bn' ? text.replace('AM', 'এএম').replace('PM', 'পিএম') : text

@@ -133,6 +133,9 @@ export const productVariants = pgTable('product_variants', {
   price: integer('price').notNull(),
   comparePrice: integer('compare_price'),
   sku: text('sku').notNull().default(''),
+  barcode: text('barcode').notNull().default(''),
+  // Warn when the total falls to this many or fewer. Null means no warning.
+  lowStock: integer('low_stock'),
   // The total across warehouses, kept by a trigger. Null means stock is not tracked.
   stock: integer('stock'),
   // One of the product's own images. The deferred foreign key to product_media is in a custom migration.
@@ -141,7 +144,8 @@ export const productVariants = pgTable('product_variants', {
   foreignKey({ name: 'product_variants_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
   unique('product_variants_store_id').on(t.storeId, t.id),
   index('product_variants_product_idx').on(t.productId, t.position),
-  check('product_variants_amounts', sql`${t.price} >= 0 and ${t.comparePrice} >= 0 and ${t.stock} >= 0`),
+  check('product_variants_amounts', sql`${t.price} >= 0 and ${t.comparePrice} >= 0 and ${t.stock} >= 0 and ${t.lowStock} >= 0`),
+  check('product_variants_codes', sql`length(${t.sku}) <= 100 and length(${t.barcode}) <= 100`),
 ])
 
 // Apart from variants so row-level security can hide buying prices from staff.

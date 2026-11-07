@@ -292,7 +292,7 @@ test('inventory lists every variant, filters by stock and searches name and SKU'
   assert.deepEqual(await labels('filter=in'), [['Shirt', 'M']])
   assert.deepEqual(await labels('filter=untracked'), [['Untracked', '']])
   assert.deepEqual(await labels('q=u-1'), [['Untracked', '']])
-  assert.deepEqual((await owner.call('GET', `${url}?q=shirt&filter=out`)).json.counts, { all: 2, in: 1, out: 1, untracked: 0 }, 'tab counts ignore the current tab')
+  assert.deepEqual((await owner.call('GET', `${url}?q=shirt&filter=out`)).json.counts, { all: 2, in: 1, out: 1, untracked: 0, low: 0 }, 'tab counts ignore the current tab')
 })
 
 test('inventory saves many stock counts together, all or nothing, without touching anything else', async () => {
@@ -316,4 +316,30 @@ test('inventory saves many stock counts together, all or nothing, without touchi
 
   const staff = await staffOf(owner)
   assert.equal((await staff('PATCH', url, { changes: [{ variantId: m.id, stock: 3 }] })).status, 200, 'staff can count stock')
+})
+
+test('inventory edits SKU, barcode and low-stock alert, counts units in open orders and sorts by date', async () => {
+  const owner = await storeOwner()
+  const url = `/stores/${owner.handle}/inventory`
+  const old = (await owner.call('POST', owner.base, simple({ name: 'Old' }))).json
+  const made = (await owner.call('POST', owner.base, sized())).json
+  const [m, l] = made.variants
+  assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, sku: ' S-M ', barcode: '8901', lowStock: 3 }, { variantId: l.id, lowStock: null }] })).status, 200)
+  const row = (await owner.call('GET', url)).json.items.find((i: any) => i.variantId === m.id)
+  assert.deepEqual([row.sku, row.barcode, row.lowStock, row.stock], ['S-M', '8901', 3, 3], 'stock untouched when only codes change')
+  assert.deepEqual((await owner.call('GET', `${url}?filter=low`)).json.items.map((i: any) => i.variantId), [m.id])
+  assert.equal((await owner.call('GET', `${url}?q=8901`)).json.items.length, 1)
+  assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, barcode: 'x'.repeat(101) }] })).status, 400)
+  assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, lowStock: -1 }] })).status, 400)
+
+  const order = await owner.call('POST', `/stores/${owner.handle}/orders`, { variantId: m.id, quantity: 2, customerName: 'A', phone: '01712345678', address: 'Dhaka', area: 'inside', source: 'phone' })
+  assert.equal(order.status, 201)
+  const reserved = async () => (await owner.call('GET', url)).json.items.find((i: any) => i.variantId === m.id)
+  assert.deepEqual([(await reserved()).stock, (await reserved()).reserved], [1, 2])
+  await owner.call('PATCH', `/stores/${owner.handle}/orders/${order.json.id}`, { status: 'cancelled' })
+  assert.deepEqual([(await reserved()).stock, (await reserved()).reserved], [3, 0])
+
+  const names = async (q: string) => (await owner.call('GET', `${url}?${q}`)).json.items.map((i: any) => i.productId)
+  assert.deepEqual(await names('sort=oldest'), [old.id, made.id, made.id])
+  assert.deepEqual(await names(''), [made.id, made.id, old.id])
 })
