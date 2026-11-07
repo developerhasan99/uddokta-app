@@ -32,6 +32,10 @@ const numeric = (field: Field) => field === 'stock' || field === 'lowStock'
 const isBad = (edit: Edit) => numeric(edit.field) && bad(edit.value)
 const changed = (edit: Edit) => numeric(edit.field) ? isBad(edit) || toStock(edit.value) !== toStock(edit.was) : edit.value.trim() !== edit.was
 const asText = (n: number | null) => (n === null ? '' : String(n))
+const saved = (row: Row, field: Field) => (field === 'stock' ? asText(row.stock) : field === 'lowStock' ? asText(row.lowStock) : row[field])
+type Edits = Record<string, Edit>
+type Fill = { row: number; field: Field; to: number }
+const maxUndo = 100
 
 export function Inventory() {
   const { t, num, day } = useLang()
@@ -47,7 +51,14 @@ export function Inventory() {
   const [failed, setFailed] = useState(false)
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([])
   // What was typed, by field and variant (and warehouse, for stock). Survives changing tab or search, so a count in progress is not lost.
-  const [edits, setEdits] = useState<Record<string, Edit>>({})
+  const [edits, setEdits] = useState<Edits>({})
+  // Spreadsheet-style history: each typed cell, fill or discard is one step.
+  const [past, setPast] = useState<Edits[]>([])
+  const [future, setFuture] = useState<Edits[]>([])
+  const typing = useRef<string | null>(null)
+  const [active, setActive] = useState<{ row: number; field: Field } | null>(null)
+  const [fill, setFill] = useState<Fill | null>(null)
+  const fillRef = useRef<Fill | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -81,6 +92,86 @@ export function Inventory() {
 
   const changes = Object.values(edits).filter(changed)
   const dirty = changes.length > 0
+
+  // A group (one cell being typed in) records one undo step however many keys are pressed.
+  const commit = (next: Edits, group: string | null = null) => {
+    if (group === null || typing.current !== group) {
+      setPast((p) => [...p.slice(1 - maxUndo), edits])
+      setFuture([])
+    }
+    typing.current = group
+    setEdits(next)
+    setJustSaved(false)
+    setError(null)
+  }
+  const undo = () => {
+    if (past.length === 0) return
+    setFuture([edits, ...future])
+    setEdits(past[past.length - 1])
+    setPast(past.slice(0, -1))
+    typing.current = null
+  }
+  const redo = () => {
+    if (future.length === 0) return
+    setPast([...past, edits])
+    setEdits(future[0])
+    setFuture(future.slice(1))
+    typing.current = null
+  }
+
+  const cellKey = (field: Field, variantId: string) => `${field}:${field === 'stock' ? page?.warehouseId : ''}:${variantId}`
+  const valueOf = (row: Row, field: Field) => edits[cellKey(field, row.variantId)]?.value ?? saved(row, field)
+  const withValue = (next: Edits, row: Row, field: Field, value: string) => {
+    const key = cellKey(field, row.variantId)
+    next[key] = { field, warehouseId: field === 'stock' ? page!.warehouseId : '', variantId: row.variantId, value, was: edits[key]?.was ?? saved(row, field) }
+    return next
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const target = e.target as HTMLElement
+      // Leave other fields (like search) their own undo.
+      if (target.closest('input, textarea, select') && !target.closest('.inventory-table')) return
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  // Dragging the fill handle copies the cell's value up or down its column.
+  const dragging = fill !== null
+  useEffect(() => {
+    if (!dragging) return
+    const move = (e: PointerEvent) => {
+      const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-row]')
+      const current = fillRef.current
+      if (!cell || !current) return
+      const next = { ...current, to: Number(cell.dataset.row) }
+      fillRef.current = next
+      setFill(next)
+    }
+    const up = () => {
+      const done = fillRef.current
+      fillRef.current = null
+      setFill(null)
+      if (!done || done.to === done.row || !page) return
+      const value = valueOf(page.items[done.row], done.field)
+      const next = { ...edits }
+      for (let r = Math.min(done.row, done.to); r <= Math.max(done.row, done.to); r++) if (r !== done.row) withValue(next, page.items[r], done.field, value)
+      commit(next)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up, { once: true })
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+  })
+  const inFill = (row: number, field: Field) => fill !== null && fill.field === field && row >= Math.min(fill.row, fill.to) && row <= Math.max(fill.row, fill.to)
+  const focusCell = (row: number, field: Field) => document.querySelector<HTMLInputElement>(`[data-row="${row}"][data-field="${field}"] input`)?.select()
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -127,6 +218,9 @@ export function Inventory() {
         }
       }
       setEdits({})
+      setPast([])
+      setFuture([])
+      typing.current = null
       setJustSaved(true)
       await load()
     } catch (err) {
@@ -140,7 +234,17 @@ export function Inventory() {
 
   return (
     <div className="page">
-      <PageHeader title={t('inventory')} description={t('inventory.d')} />
+      <PageHeader
+        title={t('inventory')}
+        description={t('inventory.d')}
+        action={!failed && !none && (
+          <div className="row inventory-actions">
+            {dirty && <span className="muted">{t('inventoryChanges', { n: num(changes.length) })}</span>}
+            <Button disabled={!dirty || busy} onClick={() => commit({})}>{t('productDiscard')}</Button>
+            <Button variant="primary" aria-busy={busy} disabled={!dirty || busy} onClick={() => void save()}>{t('inventoryUpdate')}</Button>
+          </div>
+        )}
+      />
 
       {failed && (
         <section className="card card--flush">
@@ -216,29 +320,51 @@ export function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {page.items.map((row) => {
+                  {page.items.map((row, index) => {
                     const label = row.options.length > 0 ? `${row.productName}: ${row.options.join(' / ')}` : row.productName
                     const low = row.total !== null && row.lowStock !== null && row.total <= row.lowStock
-                    const input = (field: Field, saved: string, name: string, attrs: { className?: string; maxLength?: number } = {}) => {
-                      const warehouseId = field === 'stock' ? page.warehouseId : ''
-                      const key = `${field}:${warehouseId}:${row.variantId}`
-                      const value = edits[key]?.value ?? saved
+                    const input = (field: Field, name: string, attrs: { className?: string; maxLength?: number } = {}) => {
+                      const value = valueOf(row, field)
+                      const isActive = active?.row === index && active.field === field
+                      const edited = changed(edits[cellKey(field, row.variantId)] ?? { field, warehouseId: '', variantId: '', value, was: value })
                       return (
-                        <input
-                          className={`input ${attrs.className ?? ''}`}
-                          maxLength={attrs.maxLength}
-                          inputMode={numeric(field) ? 'numeric' : undefined}
-                          autoComplete="off"
-                          aria-label={`${label}: ${name}`}
-                          aria-invalid={numeric(field) && bad(value) ? true : undefined}
-                          placeholder={field === 'stock' ? t('productUntracked') : undefined}
-                          value={value}
-                          onChange={(e) => {
-                            setEdits({ ...edits, [key]: { field, warehouseId, variantId: row.variantId, value: e.target.value, was: edits[key]?.was ?? saved } })
-                            setJustSaved(false)
-                            setError(null)
-                          }}
-                        />
+                        <td
+                          data-row={index}
+                          data-field={field}
+                          className={`sheet__cell ${attrs.className ?? ''}${inFill(index, field) ? ' sheet__cell--fill' : ''}${edited ? ' sheet__cell--edited' : ''}`}
+                        >
+                          <input
+                            className="input"
+                            maxLength={attrs.maxLength}
+                            inputMode={numeric(field) ? 'numeric' : undefined}
+                            autoComplete="off"
+                            aria-label={`${label}: ${name}`}
+                            aria-invalid={numeric(field) && bad(value) ? true : undefined}
+                            placeholder={field === 'stock' ? t('productUntracked') : undefined}
+                            value={value}
+                            onFocus={() => { setActive({ row: index, field }); typing.current = null }}
+                            onChange={(e) => commit(withValue({ ...edits }, row, field, e.target.value), `${field}:${row.variantId}`)}
+                            onKeyDown={(e) => {
+                              const down = e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)
+                              const up = e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey)
+                              if (!down && !up) return
+                              e.preventDefault()
+                              focusCell(index + (down ? 1 : -1), field)
+                            }}
+                          />
+                          {isActive && !busy && (
+                            <span
+                              className="sheet__handle"
+                              aria-hidden="true"
+                              title={t('inventoryFillHint')}
+                              onPointerDown={(e) => {
+                                e.preventDefault()
+                                fillRef.current = { row: index, field, to: index }
+                                setFill(fillRef.current)
+                              }}
+                            />
+                          )}
+                        </td>
                       )
                     }
                     return (
@@ -259,13 +385,13 @@ export function Inventory() {
                             </span>
                           </div>
                         </td>
-                        <td className="inventory-table__code">{input('sku', row.sku, t('productSku'), { maxLength: 100 })}</td>
-                        <td className="inventory-table__code data-table__wide">{input('barcode', row.barcode, t('inventoryBarcode'), { maxLength: 100 })}</td>
-                        <td className="data-table__stock">{input('stock', asText(row.stock), t('inventoryAvailable'))}</td>
-                        <td className={`data-table__meta end${row.reserved === 0 ? ' inventory-table__zero' : ''}`}>{num(row.reserved)}</td>
-                        {warehouses.length > 1 && <td className="data-table__meta data-table__total">{row.total === null ? '-' : num(row.total)}</td>}
-                        <td className="data-table__stock inventory-table__alert">{input('lowStock', asText(row.lowStock), t('inventoryAlert'))}</td>
-                        <td className="data-table__meta inventory-table__date">{day(row.createdAt)}</td>
+                        {input('sku', t('productSku'), { className: 'inventory-table__code', maxLength: 100 })}
+                        {input('barcode', t('inventoryBarcode'), { className: 'inventory-table__code data-table__wide', maxLength: 100 })}
+                        {input('stock', t('inventoryAvailable'), { className: 'data-table__stock' })}
+                        <td className="data-table__meta end sheet__readonly">{num(row.reserved)}</td>
+                        {warehouses.length > 1 && <td className="data-table__meta data-table__total sheet__readonly">{row.total === null ? '-' : num(row.total)}</td>}
+                        {input('lowStock', t('inventoryAlert'), { className: 'data-table__stock inventory-table__alert' })}
+                        <td className="data-table__meta inventory-table__date sheet__readonly">{day(row.createdAt)}</td>
                       </tr>
                     )
                   })}
@@ -278,16 +404,6 @@ export function Inventory() {
       )}
 
       {error && <p className="form-error" role="alert">{t(error === 'inventoryFix' ? 'inventoryFix' : errorLabel(error))}</p>}
-
-      {dirty && (
-        <div className="save-bar">
-          <strong>{t('inventoryChanges', { n: num(changes.length) })}</strong>
-          <div className="row">
-            <Button onClick={() => { setEdits({}); setError(null) }}>{t('productDiscard')}</Button>
-            <Button variant="primary" aria-busy={busy} disabled={busy} onClick={() => void save()}>{t('productSave')}</Button>
-          </div>
-        </div>
-      )}
 
       <div className="toast-anchor" role="status">
         {justSaved && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{t('inventorySaved')}</p>}
