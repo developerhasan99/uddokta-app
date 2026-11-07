@@ -708,6 +708,16 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 /* Small centred dialog */
 .modal { width: min(28rem, calc(100% - 2 * var(--space-md))); padding: 0; border: 0; border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
 .modal::backdrop { background: color-mix(in oklab, var(--color-frame) 40%, transparent); }
+/* Dialogs arrive quickly but never pop: centred ones rise and settle, side sheets slide in, backdrops fade.
+   The curve front-loads the motion, so a dialog is usable almost at once. Reduced motion is handled globally. */
+@keyframes dialog-rise { from { opacity: 0; transform: translateY(var(--space-xs)) scale(0.97); } }
+@keyframes sheet-from-end { from { transform: translateX(100%); } }
+@keyframes sheet-from-start { from { transform: translateX(-100%); } }
+@keyframes backdrop-in { from { opacity: 0; } }
+.modal[open] { animation: dialog-rise var(--dur-enter) var(--ease-out); }
+.picker[open] { animation: sheet-from-end var(--dur-sheet) var(--ease-out); }
+.drawer[open] { animation: sheet-from-start var(--dur-sheet) var(--ease-out); }
+.modal[open]::backdrop, .picker[open]::backdrop, .drawer[open]::backdrop { animation: backdrop-in var(--dur-enter) ease-out; }
 .modal__body { display: grid; gap: var(--space-md); padding-bottom: var(--space-md); }
 .modal__body > :not(.picker__head) { margin-inline: var(--space-md); }
 

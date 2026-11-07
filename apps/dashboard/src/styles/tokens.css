@@ -3,6 +3,7 @@
   --text-sm: 0.8125rem; --text-md: 0.875rem; --text-lg: 1rem; --text-xl: 1.2rem; --text-2xl: 1.44rem;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-micro: 120ms;
+  --dur-enter: 180ms; --dur-sheet: 240ms;
   --container: 1400px; --sidebar-width: 240px; --control: 32px; --frame-gap: 6px;
   --z-dropdown: 100; --z-tooltip: 600;
 

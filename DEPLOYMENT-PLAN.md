@@ -270,3 +270,7 @@ Rows are 32px, down from 44px. Phones keep 36px for editable inputs. A product w
 ## Warehouses moved to Settings (November 7, 2026)
 
 Warehouses now lives at Settings › Warehouses (`/settings/warehouses`), right after Store, because sellers rarely change their locations. Products keeps Collections and Inventory. The old `/products/warehouses` link redirects.
+
+## Dialog motion (November 7, 2026)
+
+Every dialog now animates in, using CSS only. Centred `.modal` dialogs rise 8px and scale up from 97% in 180ms. Side `.picker` sheets and the phone `.drawer` slide in over 240ms. Backdrops fade in. All use the front-loaded `--ease-out` curve, so a dialog is usable almost at once. New tokens: `--dur-enter` and `--dur-sheet`. The global reduced-motion rule turns the animations off. Checked in the browser on the warehouse sheet and the order filter dialog.
