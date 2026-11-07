@@ -21,7 +21,6 @@ export const nav: NavItem[] = [
     children: [
       { key: 'collections', path: '/products/collections' },
       { key: 'inventory', path: '/products/inventory' },
-      { key: 'warehouses', path: '/products/warehouses' },
     ],
   },
   {
@@ -55,6 +54,7 @@ export const channels: NavItem[] = [
 export const settingsItem: NavItem = { key: 'settings', path: '/settings', icon: Settings }
 export const settingsNav: NavLeaf[] = [
   { key: 'sStore', path: '/settings' },
+  { key: 'warehouses', path: '/settings/warehouses' },
   { key: 'couriers', path: '/settings/couriers' },
   { key: 'payments', path: '/settings/payments', planned: true },
   { key: 'sms', path: '/settings/sms', planned: true },

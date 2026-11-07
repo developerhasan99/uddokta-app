@@ -77,7 +77,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="media" element={<Media />} />
                 <Route path="products" element={<Products />} />
                 <Route path="products/inventory" element={<Inventory />} />
-                <Route path="products/warehouses" element={<Warehouses />} />
+                <Route path="products/warehouses" element={<Navigate replace to="../settings/warehouses" />} />
                 <Route path="products/collections" element={<Collections />} />
                 <Route path="products/collections/new" element={<CollectionEdit />} />
                 <Route path="products/collections/:id" element={<CollectionEdit />} />
@@ -98,6 +98,7 @@ createRoot(document.getElementById('root')!).render(
                 {plannedPages.map((item) => <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />)}
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<StoreSettings />} />
+                  <Route path="warehouses" element={<Warehouses />} />
                   <Route path="couriers" element={<Couriers />} />
                   <Route path="tracking" element={<Tracking />} />
                   <Route path="domains" element={<Domains />} />

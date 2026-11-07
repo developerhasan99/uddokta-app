@@ -45,7 +45,7 @@ export function Warehouses() {
   const addButton = <Button variant="primary" onClick={() => setEditing('new')}><Plus size={16} aria-hidden="true" />{t('warehouseAdd')}</Button>
 
   return (
-    <div className="page">
+    <div className="page page--narrow">
       <PageHeader title={t('warehouses')} description={t('warehouses.d')} action={addButton} />
 
       {failed && (

@@ -266,3 +266,7 @@ The inventory table is now a spreadsheet grid. Every cell is ruled, and inputs f
 ## Inventory grouped by product (November 7, 2026)
 
 Rows are 32px, down from 44px. Phones keep 36px for editable inputs. A product with options gets one heading row showing its thumbnail, name, status badge to the right of the name, and date added. That row's editable columns show a muted "-". Its variants follow, indented to line up with the name, and hold the editable cells and any Low stock / Sold out badge. Products without options stay as one editable row.
+
+## Warehouses moved to Settings (November 7, 2026)
+
+Warehouses now lives at Settings › Warehouses (`/settings/warehouses`), right after Store, because sellers rarely change their locations. Products keeps Collections and Inventory. The old `/products/warehouses` link redirects.
