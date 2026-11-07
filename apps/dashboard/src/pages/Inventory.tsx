@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, CircleCheck, Package } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -367,32 +367,50 @@ export function Inventory() {
                         </td>
                       )
                     }
+                    const variant = row.options.length > 0
+                    const status = row.status !== 'active' && <Badge tone={statusInfo[row.status].tone}>{t(statusInfo[row.status].label)}</Badge>
+                    const lowBadge = low && <Badge tone={row.total === 0 ? 'danger' : 'warning'}>{t(row.total === 0 ? 'inventoryOut' : 'inventoryLow')}</Badge>
+                    const product = (
+                      <div className="inventory-table__product">
+                        <span className="data-table__thumb">{row.thumbUrl && <img src={row.thumbUrl} alt="" loading="lazy" />}</span>
+                        <Link className="data-table__name" to={path(`/products/${row.productId}`)} title={row.productName}>{row.productName}</Link>
+                        {status}
+                        {!variant && lowBadge}
+                      </div>
+                    )
+                    // A product with options gets one heading row; its variants sit indented under it and hold the numbers.
+                    const heading = variant && page.items[index - 1]?.productId !== row.productId
+                    const dash = (className: string) => <td className={`${className} sheet__readonly sheet__none`}>-</td>
                     return (
-                      <tr key={row.variantId}>
-                        <td>
-                          <div className="data-table__file">
-                            <span className="data-table__thumb">{row.thumbUrl && <img src={row.thumbUrl} alt="" loading="lazy" />}</span>
-                            <span className="data-table__text inventory-table__product">
-                              <Link className="data-table__name" to={path(`/products/${row.productId}`)} title={row.productName}>{row.productName}</Link>
-                              {(row.options.length > 0 || row.status !== 'active' || low) && (
-                                <span className="inventory-table__tags">
-                                  {row.options.length > 0 && <Badge>{row.options.join(' / ')}</Badge>}
-                                  {row.status !== 'active' && <Badge tone={statusInfo[row.status].tone}>{t(statusInfo[row.status].label)}</Badge>}
-                                  {low && <Badge tone={row.total === 0 ? 'danger' : 'warning'}>{t(row.total === 0 ? 'inventoryOut' : 'inventoryLow')}</Badge>}
-                                </span>
-                              )}
-                              {row.reserved > 0 && <span className="data-table__sub">{t('inventoryReservedSub', { n: num(row.reserved) })}</span>}
-                            </span>
-                          </div>
-                        </td>
-                        {input('sku', t('productSku'), { className: 'inventory-table__code', maxLength: 100 })}
-                        {input('barcode', t('inventoryBarcode'), { className: 'inventory-table__code data-table__wide', maxLength: 100 })}
-                        {input('stock', t('inventoryAvailable'), { className: 'data-table__stock' })}
-                        <td className="data-table__meta end sheet__readonly">{num(row.reserved)}</td>
-                        {warehouses.length > 1 && <td className="data-table__meta data-table__total sheet__readonly">{row.total === null ? '-' : num(row.total)}</td>}
-                        {input('lowStock', t('inventoryAlert'), { className: 'data-table__stock inventory-table__alert' })}
-                        <td className="data-table__meta inventory-table__date sheet__readonly">{day(row.createdAt)}</td>
-                      </tr>
+                      <Fragment key={row.variantId}>
+                        {heading && (
+                          <tr className="inventory-table__parent">
+                            <td>{product}</td>
+                            {dash('inventory-table__code')}
+                            {dash('inventory-table__code data-table__wide')}
+                            {dash('data-table__stock end')}
+                            {dash('data-table__meta end')}
+                            {warehouses.length > 1 && dash('data-table__meta data-table__total')}
+                            {dash('data-table__stock inventory-table__alert end')}
+                            <td className="data-table__meta inventory-table__date sheet__readonly">{day(row.createdAt)}</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td>
+                            {variant
+                              ? <div className="inventory-table__product inventory-table__variant"><span className="data-table__truncate">{row.options.join(' / ')}</span>{lowBadge}</div>
+                              : product}
+                            {row.reserved > 0 && <span className="data-table__sub">{t('inventoryReservedSub', { n: num(row.reserved) })}</span>}
+                          </td>
+                          {input('sku', t('productSku'), { className: 'inventory-table__code', maxLength: 100 })}
+                          {input('barcode', t('inventoryBarcode'), { className: 'inventory-table__code data-table__wide', maxLength: 100 })}
+                          {input('stock', t('inventoryAvailable'), { className: 'data-table__stock' })}
+                          <td className="data-table__meta end sheet__readonly">{num(row.reserved)}</td>
+                          {warehouses.length > 1 && <td className="data-table__meta data-table__total sheet__readonly">{row.total === null ? '-' : num(row.total)}</td>}
+                          {input('lowStock', t('inventoryAlert'), { className: 'data-table__stock inventory-table__alert' })}
+                          <td className="data-table__meta inventory-table__date sheet__readonly">{variant ? '' : day(row.createdAt)}</td>
+                        </tr>
+                      </Fragment>
                     )
                   })}
                 </tbody>

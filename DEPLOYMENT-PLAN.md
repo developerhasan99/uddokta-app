@@ -262,3 +262,7 @@ Inventory rows show the product name with a variant chip, plus status and Low st
 ## Inventory as a spreadsheet (November 7, 2026)
 
 The inventory table is now a spreadsheet grid. Every cell is ruled, and inputs fill their cells. The active cell gets a green frame, and edited cells get a small green corner marker. Read-only columns are shaded, and the product column stays put when the table scrolls sideways. Drag the active cell's fill handle up or down to copy its value through that column. Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Each typed cell, fill or discard counts as one step, and the history keeps 100 steps. Enter and the arrow keys move up and down a column. Update and Discard sit at the top right with the unsaved count, replacing the bottom save bar. Tested in the browser: typing, filling, undo/redo and Update.
+
+## Inventory grouped by product (November 7, 2026)
+
+Rows are 32px, down from 44px. Phones keep 36px for editable inputs. A product with options gets one heading row showing its thumbnail, name, status badge to the right of the name, and date added. That row's editable columns show a muted "-". Its variants follow, indented to line up with the name, and hold the editable cells and any Low stock / Sold out badge. Products without options stay as one editable row.

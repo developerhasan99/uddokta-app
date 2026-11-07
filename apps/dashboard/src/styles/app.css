@@ -539,18 +539,24 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .inventory-table__code { width: 9rem; }
 .inventory-table__alert { width: 7rem; }
 .inventory-table__date { width: 7.5rem; }
-.inventory-table__product { gap: var(--space-3xs); }
 .inventory-table__product .data-table__name { text-decoration: none; }
 .inventory-table__product .data-table__name:hover { text-decoration: underline; }
-.inventory-table__tags { display: flex; flex-wrap: wrap; gap: var(--space-3xs); }
-.inventory-table__tags .badge { padding-block: 0; }
 /* Spreadsheet grid: every cell ruled, inputs fill their cell, the active cell gets a green frame and a fill handle. */
 .inventory-table th, .inventory-table td { border-inline-end: var(--rule-hair) solid var(--color-rule); }
 .inventory-table th:last-child, .inventory-table td:last-child { border-inline-end: 0; }
 .inventory-table th:first-child, .inventory-table td:first-child { position: sticky; inset-inline-start: 0; z-index: 2; background: var(--color-paper); }
 .inventory-table thead th:first-child { background: var(--color-paper-2); }
+/* Compact rows: 32px instead of the usual 44px. */
+.inventory-table tbody td { height: 32px; padding-block: 0; }
+.inventory-table__product { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.inventory-table__product .data-table__name { min-width: 0; font-size: var(--text-sm); }
+.inventory-table__product .badge { flex: none; padding-block: 0; }
+.inventory-table .data-table__thumb { width: 24px; height: 24px; }
+/* Variants line up under the product name, past its thumbnail. */
+.inventory-table__variant { padding-inline-start: calc(24px + var(--space-xs)); color: var(--color-ink-2); }
+.sheet__none { color: var(--color-muted); }
 .inventory-table td.sheet__cell { position: relative; padding: 0; }
-.sheet__cell .input { display: block; width: 100%; height: 44px; min-height: 44px; padding-inline: var(--space-sm); border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: 0; }
+.sheet__cell .input { display: block; width: 100%; height: 32px; min-height: 32px; padding-inline: var(--space-sm); border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: 0; }
 .sheet__cell:focus-within { box-shadow: inset 0 0 0 2px var(--color-primary); }
 .sheet__cell--edited::before { content: ""; position: absolute; inset-block-start: 0; inset-inline-start: 0; border-block-start: 6px solid var(--color-primary); border-inline-end: 6px solid transparent; }
 .sheet__cell--fill { background: var(--color-paper-3); box-shadow: inset 0 0 0 1px var(--color-primary); }
@@ -565,6 +571,7 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 @media (max-width: 60rem) { .inventory-table { min-width: 44rem; } }
 @media (max-width: 40rem) {
   .inventory-table { min-width: 0; }
+  .inventory-table tbody td, .sheet__cell .input { height: 36px; min-height: 36px; }
   .inventory-table__code, .inventory-table__alert { display: none; }
 }
 
