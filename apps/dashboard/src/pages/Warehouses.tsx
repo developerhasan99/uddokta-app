@@ -4,6 +4,7 @@ import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
+import { useDialog } from '../components/dialog'
 
 type Warehouse = { id: string; name: string; phone: string; address: string; units: number; hasStock: boolean }
 
@@ -109,7 +110,7 @@ export function Warehouses() {
 
 function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { item: Warehouse | null; others: Warehouse[]; base: string; canDelete: boolean; onClose: () => void; onDone: (message: Key) => void }) {
   const { t, num } = useLang()
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const [name, setName] = useState(item?.name ?? '')
   const [phone, setPhone] = useState(item?.phone ?? '')
   const [address, setAddress] = useState(item?.address ?? '')
@@ -131,7 +132,7 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
     setBusy(true)
     try {
       await api(item ? `${base}/${item.id}` : base, { method: item ? 'PUT' : 'POST', body: { name, phone, address } })
-      onDone('warehouseSaved')
+      close(() => onDone('warehouseSaved'))
     } catch (err) {
       setError(errorCode(err))
       setBusy(false)
@@ -142,7 +143,7 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
     setError(null)
     try {
       await api(`${base}/${item!.id}${item!.hasStock ? `?moveTo=${moveTo}` : ''}`, { method: 'DELETE' })
-      onDone('warehouseDeleted')
+      close(() => onDone('warehouseDeleted'))
     } catch (err) {
       setConfirming(false)
       setError(errorCode(err))
@@ -152,10 +153,10 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
   const nameTaken = error === 'warehouseNameTaken'
 
   return (
-    <dialog ref={dialog} className="picker" aria-labelledby="warehouse-title" onClose={onClose}>
+    <dialog {...dialogProps} className="picker" aria-labelledby="warehouse-title">
       <div className="picker__head">
         <h2 id="warehouse-title">{t(item ? 'warehouseEdit' : 'warehouseAdd')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={onClose}><X size={18} aria-hidden="true" /></button>
+        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
       </div>
       <form className="warehouse-form" onSubmit={(e) => void save(e)} noValidate>
         <div className="picker__body">
@@ -191,7 +192,7 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
           )}
         </div>
         <div className="picker__foot row--end">
-          <Button onClick={onClose}>{t('cancel')}</Button>
+          <Button onClick={() => close()}>{t('cancel')}</Button>
           <Button type="submit" variant="primary" aria-busy={busy} disabled={busy}>{t('productSave')}</Button>
         </div>
       </form>

@@ -6,6 +6,7 @@ import { useLang } from '../i18n'
 import type { ProductStatus } from '../product-form'
 import { Check } from './Selection'
 import { Button, Notice, SearchInput, Skeleton } from './ui'
+import { useDialog } from './dialog'
 
 export type PickerVariant = { id: string; options: string[]; price: number; stock: number | null; sku: string | null; thumbUrl: string | null }
 export type ProductRow = { id: string; name: string; status: ProductStatus; thumbUrl: string | null; minPrice: number; maxPrice: number; variants?: PickerVariant[] }
@@ -24,7 +25,7 @@ export function ProductPicker(props: Props) {
   const { max, onClose, sellableOnly = false } = props
   const { t, num, money } = useLang()
   const base = `/stores/${useCurrentStore()!.store.handle}`
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const latest = useRef(0)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
@@ -154,10 +155,10 @@ export function ProductPicker(props: Props) {
   }
 
   return (
-    <dialog ref={dialog} className="picker" aria-labelledby="product-picker-title" onClose={onClose}>
+    <dialog {...dialogProps} className="picker" aria-labelledby="product-picker-title">
       <div className="picker__head">
         <h2 id="product-picker-title">{t('pickerProductsTitle')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={onClose}><X size={18} aria-hidden="true" /></button>
+        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
       </div>
       <div className="picker__tools">
         <SearchInput label={t('productSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -185,8 +186,8 @@ export function ProductPicker(props: Props) {
       <div className="picker__foot">
         <span className="muted">{props.variants ? t('pickerSelected', { n: num(count) }) : t('collectionProductCount', { n: num(count) })}</span>
         <div className="row">
-          <Button onClick={onClose}>{t('cancel')}</Button>
-          <Button variant="primary" disabled={(sellableOnly || props.variants) && count === 0} onClick={() => props.variants ? props.onDone(pickedVariants) : props.onDone(picked)}>{t('pickerDone')}</Button>
+          <Button onClick={() => close()}>{t('cancel')}</Button>
+          <Button variant="primary" disabled={(sellableOnly || props.variants) && count === 0} onClick={() => close(() => props.variants ? props.onDone(pickedVariants) : props.onDone(picked))}>{t('pickerDone')}</Button>
         </div>
       </div>
     </dialog>

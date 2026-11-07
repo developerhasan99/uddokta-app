@@ -274,3 +274,7 @@ Warehouses now lives at Settings › Warehouses (`/settings/warehouses`), right 
 ## Dialog motion (November 7, 2026)
 
 Every dialog now animates in, using CSS only. Centred `.modal` dialogs rise 8px and scale up from 97% in 180ms. Side `.picker` sheets and the phone `.drawer` slide in over 240ms. Backdrops fade in. All use the front-loaded `--ease-out` curve, so a dialog is usable almost at once. New tokens: `--dur-enter` and `--dur-sheet`. The global reduced-motion rule turns the animations off. Checked in the browser on the warehouse sheet and the order filter dialog.
+
+## Dialog exit animations (November 7, 2026)
+
+Dialogs now animate out as well as in. `components/dialog.ts` provides `useDialog(onClose)`, which returns `ref`, `close(then?)` and props to spread on the `<dialog>`. `close` sets `[data-closing]`, waits for the dialog's own and its backdrop's exit animation (400ms cap), then closes and calls the parent. Every way out goes through it: X, Cancel, Esc, backdrop click, Apply/Done/Save/Delete. Exits are quicker than entries and accelerate away: modals sink and fade in 130ms, sheets and the drawer slide out in 190ms. New tokens: `--ease-in`, `--dur-exit`, `--dur-sheet-exit`. The phone drawer keeps its menu visible while it slides out and can be reopened mid-exit. Checked in the browser: the filter dialog (X and Esc), the warehouse sheet (Esc) and the drawer (close and reopen).

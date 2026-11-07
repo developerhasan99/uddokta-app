@@ -709,6 +709,7 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .modal { width: min(28rem, calc(100% - 2 * var(--space-md))); padding: 0; border: 0; border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
 .modal::backdrop { background: color-mix(in oklab, var(--color-frame) 40%, transparent); }
 /* Dialogs arrive quickly but never pop: centred ones rise and settle, side sheets slide in, backdrops fade.
+   Leaving is quicker and accelerates away; components/dialog.ts sets [data-closing] and waits for it before closing.
    The curve front-loads the motion, so a dialog is usable almost at once. Reduced motion is handled globally. */
 @keyframes dialog-rise { from { opacity: 0; transform: translateY(var(--space-xs)) scale(0.97); } }
 @keyframes sheet-from-end { from { transform: translateX(100%); } }
@@ -718,6 +719,15 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .picker[open] { animation: sheet-from-end var(--dur-sheet) var(--ease-out); }
 .drawer[open] { animation: sheet-from-start var(--dur-sheet) var(--ease-out); }
 .modal[open]::backdrop, .picker[open]::backdrop, .drawer[open]::backdrop { animation: backdrop-in var(--dur-enter) ease-out; }
+@keyframes dialog-sink { to { opacity: 0; transform: translateY(var(--space-2xs)) scale(0.98); } }
+@keyframes sheet-to-end { to { transform: translateX(100%); } }
+@keyframes sheet-to-start { to { transform: translateX(-100%); } }
+@keyframes backdrop-out { to { opacity: 0; } }
+.modal[data-closing] { animation: dialog-sink var(--dur-exit) var(--ease-in) forwards; }
+.picker[data-closing] { animation: sheet-to-end var(--dur-sheet-exit) var(--ease-in) forwards; }
+.drawer[data-closing] { animation: sheet-to-start var(--dur-sheet-exit) var(--ease-in) forwards; }
+.modal[data-closing]::backdrop { animation: backdrop-out var(--dur-exit) ease-in forwards; }
+.picker[data-closing]::backdrop, .drawer[data-closing]::backdrop { animation: backdrop-out var(--dur-sheet-exit) ease-in forwards; }
 .modal__body { display: grid; gap: var(--space-md); padding-bottom: var(--space-md); }
 .modal__body > :not(.picker__head) { margin-inline: var(--space-md); }
 

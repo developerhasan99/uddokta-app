@@ -20,6 +20,7 @@ import { errorLabel, useLang } from '../i18n'
 import type { ProductStatus } from '../product-form'
 import type { StoreSettingsData } from './StoreSettings'
 import { PageStatus } from './Pages'
+import { useDialog } from '../components/dialog'
 
 type Saved = {
   id: string; title: string; handle: string; seoTitle: string; seoDescription: string; draft: Content; revision: number
@@ -228,26 +229,26 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
 
 function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (type: SectionType) => void }) {
   const { t, lang } = useLang()
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const titleId = useId()
   const [search, setSearch] = useState('')
   const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
   useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
-  return <dialog ref={dialog} className="modal editor-add-modal" aria-labelledby={titleId} onClose={onClose} onCancel={(e) => { e.preventDefault(); onClose() }} onClick={(e) => {
+  return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId} onClick={(e) => {
     if (e.target !== e.currentTarget) return
     const bounds = e.currentTarget.getBoundingClientRect()
-    if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) onClose()
+    if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) close()
   }}>
     <div className="modal__body">
       <div className="picker__head">
         <h2 id={titleId} className="editor__heading">{t('pageAddSection')}</h2>
-        <IconButton label={t('cancel')} onClick={onClose}><X size={16} aria-hidden="true" /></IconButton>
+        <IconButton label={t('cancel')} onClick={() => close()}><X size={16} aria-hidden="true" /></IconButton>
       </div>
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
         {matches.map((type) => {
           const Icon = sectionIcons[type]
-          return <li key={type}><button type="button" onClick={() => onAdd(type)}><SectionThumbnail type={type} /><span className="editor-section-label"><Icon size={16} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}<Plus size={14} aria-hidden="true" /></span></button></li>
+          return <li key={type}><button type="button" onClick={() => close(() => onAdd(type))}><SectionThumbnail type={type} /><span className="editor-section-label"><Icon size={16} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}<Plus size={14} aria-hidden="true" /></span></button></li>
         })}
       </ul>
       {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
@@ -257,14 +258,14 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
 
 function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; onLeave: () => void; onSave: () => void; busy: boolean }) {
   const { t } = useLang()
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => { ref.current?.showModal() }, [])
-  return <dialog ref={ref} className="modal" aria-labelledby="leave-title" onClose={onClose} onCancel={(e) => { e.preventDefault(); if (!busy) onClose() }}>
+  const { ref, close: dismiss, props: leaveProps } = useDialog(onClose)
+  useEffect(() => { ref.current?.showModal() }, [ref])
+  return <dialog {...leaveProps} className="modal" aria-labelledby="leave-title" onCancel={(e) => { e.preventDefault(); if (!busy) dismiss() }}>
     <div className="modal__body">
       <h2 id="leave-title">{t('pageLeaveTitle')}</h2>
       <p className="muted">{t('pageLeaveHelp')}</p>
       <div className="row row--end">
-        <Button disabled={busy} onClick={onClose}>{t('cancel')}</Button>
+        <Button disabled={busy} onClick={() => dismiss()}>{t('cancel')}</Button>
         <Button disabled={busy} onClick={onLeave}>{t('pageLeaveDiscard')}</Button>
         <Button disabled={busy} variant="primary" onClick={onSave}>{t('pageLeaveSave')}</Button>
       </div>

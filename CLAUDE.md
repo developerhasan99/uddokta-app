@@ -159,6 +159,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Small controls by default: buttons and inputs are 32px with 13px text. Sign-in forms use 40px.
 - Mobile components should be more compact than their desktop equivalents, following the page editor: reduce 16px text to 14px and 14px text to 13px, with tighter line spacing and padding. Use 32px buttons with 13px text and compact 32–36px icon buttons and list controls. Keep related actions on one row where they fit; icon-only buttons need accessible labels. Editable inputs keep 16px text (to avoid iPhone focus zoom) at 36px height; buttons stay 32px. Never add per-page overrides to undo the global mobile sizes. Apply these sizes to the dashboard controls; the storefront preview must retain the storefront's own responsive styles.
 - Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
+- Dialogs are native `<dialog>` (`.modal`, `.picker`, `.drawer`) and animate both in and out. Close them only through `useDialog` in `components/dialog.ts`: `close()`, or `close(then)` for actions like Done. Never unmount them directly, or the exit animation is skipped.
 - Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
 - Colours, spacing and type come from tokens, never one-off values.
 - Bangla is chosen and tested first; English fits around it.

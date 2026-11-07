@@ -5,6 +5,7 @@ import { orderFilterParams, type OrderFilters } from 'storefront/order-filters'
 import { api, errorCode } from '../api'
 import { errorLabel, useLang } from '../i18n'
 import { Button, Field } from './ui'
+import { useDialog } from './dialog'
 
 type SavedView = { id: string; name: string; filters: OrderFilters }
 export type StatusTab = { status: string; label: string; count?: string; href: string }
@@ -22,7 +23,7 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(() => setMode(null))
   const active = filters ? views?.find((v) => same(v.filters, filters)) : undefined
   const canSave = !!filters && !!views && !active && Object.entries(filters).some(([key, value]) => key !== 'status' && value)
 
@@ -55,7 +56,7 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
         const view = await api<SavedView>(base, { method: 'POST', body: { name, filters } })
         setViews((previous) => [...(previous ?? []), view])
       }
-      setMode(null)
+      close()
     } catch (err) { setError(errorCode(err)) }
     finally { setBusy(false) }
   }
@@ -73,11 +74,11 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
       {applied}
       {canSave && <button type="button" className="orders-applied__save" onClick={() => { setName(''); setError(null); setMode('save') }}><Plus size={14} aria-hidden="true" />{t('orderViewSaveTitle')}</button>}
     </div>}
-    {mode && <dialog ref={dialog} className="modal order-view-dialog" aria-labelledby="order-view-title" onClose={() => setMode(null)} onCancel={(e) => { if (busy) e.preventDefault() }}>
+    {mode && <dialog {...dialogProps} className="modal order-view-dialog" aria-labelledby="order-view-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
       <form className="order-view-dialog__form" onSubmit={(e) => void submit(e)} noValidate>
         <header className="order-view-dialog__head">
           <h2 id="order-view-title">{t(mode === 'save' ? 'orderViewSaveTitle' : 'orderViewRemove')}</h2>
-          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={() => setMode(null)}><X size={16} aria-hidden="true" /></button>
+          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={() => close()}><X size={16} aria-hidden="true" /></button>
         </header>
         <div className="order-view-dialog__body">
           {mode === 'save'
@@ -85,7 +86,7 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
             : <p className="muted">{t('orderViewRemoveHelp', { name: active?.name ?? '' })}</p>}
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         </div>
-        <footer className="order-view-dialog__footer"><Button disabled={busy} onClick={() => setMode(null)}>{t('cancel')}</Button><Button type="submit" variant={mode === 'delete' ? 'danger' : 'primary'} disabled={busy || (mode === 'save' && !name.trim())} aria-busy={busy}>{t(mode === 'delete' ? 'orderViewRemove' : 'orderViewSaveAction')}</Button></footer>
+        <footer className="order-view-dialog__footer"><Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button><Button type="submit" variant={mode === 'delete' ? 'danger' : 'primary'} disabled={busy || (mode === 'save' && !name.trim())} aria-busy={busy}>{t(mode === 'delete' ? 'orderViewRemove' : 'orderViewSaveAction')}</Button></footer>
       </form>
     </dialog>}
   </div>

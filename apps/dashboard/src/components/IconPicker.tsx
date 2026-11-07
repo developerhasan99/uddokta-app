@@ -4,20 +4,21 @@ import { iconCatalog, iconCategories, iconNames, isIconName, type IconCategory, 
 import { MarketingIcon } from 'storefront/icon'
 import { useLang } from '../i18n'
 import { Button, IconButton } from './ui'
+import { useDialog } from './dialog'
 
 type Props = { value: string; onClose: () => void; onSelect: (icon: IconName | '') => void }
 
 export function IconPicker({ value, onClose, onSelect }: Props) {
   const { lang } = useLang()
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const search = useRef<HTMLInputElement>(null)
   const titleId = useId()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<IconCategory | 'all'>('all')
   const [selected, setSelected] = useState<IconName | ''>(isIconName(value) ? value : '')
-  const dismiss = () => { dialog.current?.close(); onClose() }
-  const choose = (icon: IconName | '') => { dialog.current?.close(); onSelect(icon) }
+  const dismiss = () => close()
+  const choose = (icon: IconName | '') => close(() => onSelect(icon))
   const matches = iconNames.filter((id) => {
     const item = iconCatalog[id]
     return (category === 'all' || item.category === category) && `${item.label.join(' ')} ${item.keywords} ${iconCategories[item.category].join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
@@ -28,7 +29,7 @@ export function IconPicker({ value, onClose, onSelect }: Props) {
     search.current?.focus()
     return () => { node?.close() }
   }, [])
-  return <dialog ref={dialog} className="modal icon-picker" aria-labelledby={titleId} onCancel={(e) => { e.preventDefault(); dismiss() }} onClick={(e) => {
+  return <dialog {...dialogProps} className="modal icon-picker" aria-labelledby={titleId} onClick={(e) => {
     if (e.target !== e.currentTarget) return
     const b = e.currentTarget.getBoundingClientRect()
     if (e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom) dismiss()

@@ -4,6 +4,7 @@ import { useCurrentStore } from '../account-context'
 import { api, errorCode, type MediaItem } from '../api'
 import { errorLabel, useLang } from '../i18n'
 import { Button, Notice, SearchInput, Skeleton } from './ui'
+import { useDialog } from './dialog'
 
 type Page = { items: MediaItem[]; hasMore: boolean }
 
@@ -11,7 +12,7 @@ type Page = { items: MediaItem[]; hasMore: boolean }
 export function MediaPicker({ selected, max, onDone, onClose }: { selected: MediaItem[]; max: number; onDone: (items: MediaItem[]) => void; onClose: () => void }) {
   const { t, num } = useLang()
   const base = `/stores/${useCurrentStore()!.store.handle}/media`
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const file = useRef<HTMLInputElement>(null)
   const latest = useRef(0)
   const [search, setSearch] = useState('')
@@ -73,10 +74,10 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
   }
 
   return (
-    <dialog ref={dialog} className="picker" aria-labelledby="picker-title" onClose={onClose}>
+    <dialog {...dialogProps} className="picker" aria-labelledby="picker-title">
       <div className="picker__head">
         <h2 id="picker-title">{t('pickerTitle')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={onClose}><X size={18} aria-hidden="true" /></button>
+        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
       </div>
       <div className="picker__tools">
         <SearchInput label={t('mediaSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -121,8 +122,8 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
       <div className="picker__foot">
         <span className="muted">{t('pickerCount', { n: num(picked.length), max: num(max) })}</span>
         <div className="row">
-          <Button onClick={onClose}>{t('cancel')}</Button>
-          <Button variant="primary" disabled={uploading > 0} onClick={() => onDone(picked)}>{t('pickerDone')}</Button>
+          <Button onClick={() => close()}>{t('cancel')}</Button>
+          <Button variant="primary" disabled={uploading > 0} onClick={() => close(() => onDone(picked))}>{t('pickerDone')}</Button>
         </div>
       </div>
     </dialog>

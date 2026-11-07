@@ -8,13 +8,14 @@ import { api, errorCode } from '../api'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
 import { Button, Field } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
+import { useDialog } from '../components/dialog'
 
 export function NewCampaignDialog({ onClose }: { onClose: () => void }) {
   const { t, lang, num } = useLang()
   const navigate = useNavigate()
   const path = useStorePath()
   const handle = useCurrentStore()!.store.handle
-  const dialog = useRef<HTMLDialogElement>(null)
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const submitting = useRef(false)
   const [step, setStep] = useState(1)
   const [template, setTemplate] = useState<CampaignTemplate | 'blank'>('quick')
@@ -60,11 +61,11 @@ export function NewCampaignDialog({ onClose }: { onClose: () => void }) {
   }
 
   return <>
-    <dialog ref={dialog} className="modal campaign-dialog" aria-labelledby="campaign-title-heading" onClose={onClose} onCancel={(e) => { if (submitting.current) e.preventDefault() }}>
+    <dialog {...dialogProps} className="modal campaign-dialog" aria-labelledby="campaign-title-heading" onCancel={(e) => { e.preventDefault(); if (!submitting.current) close() }}>
       <form className="campaign-dialog__form" onSubmit={(e) => void submit(e)} noValidate>
         <header className="campaign-dialog__header">
           <div><p className="muted">{t('campaignStep', { n: num(step) })}</p><h2 id="campaign-title-heading">{t(step === 1 ? 'campaignStart' : 'campaignName')}</h2></div>
-          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={onClose}><X size={18} aria-hidden="true" /></button>
+          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
         </header>
         <div className="campaign-dialog__body">
           {step === 1 ? <>
@@ -97,7 +98,7 @@ export function NewCampaignDialog({ onClose }: { onClose: () => void }) {
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         </div>
         <footer className="campaign-dialog__footer">
-          <Button disabled={busy} onClick={() => { if (step === 1) onClose(); else { setStep(1); setTried(false); setError(null) } }}>{step === 2 && <ArrowLeft size={14} aria-hidden="true" />}{t(step === 1 ? 'cancel' : 'campaignBack')}</Button>
+          <Button disabled={busy} onClick={() => { if (step === 1) close(); else { setStep(1); setTried(false); setError(null) } }}>{step === 2 && <ArrowLeft size={14} aria-hidden="true" />}{t(step === 1 ? 'cancel' : 'campaignBack')}</Button>
           <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t(step === 1 ? 'campaignContinue' : 'campaignCreateDraft')}{step === 1 && <ArrowRight size={14} aria-hidden="true" />}</Button>
         </footer>
       </form>

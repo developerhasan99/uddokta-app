@@ -6,6 +6,7 @@ import { useLang } from '../i18n'
 import { channels, nav, settingsItem, type NavItem } from '../nav'
 import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
+import { animateOut } from './dialog'
 
 function NavRow({ item }: { item: NavItem }) {
   const { t } = useLang()
@@ -66,10 +67,24 @@ function StoreShell() {
   const { pathname } = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawer = useRef<HTMLDialogElement>(null)
+  // Kept on screen while the drawer slides out, so its contents do not vanish first.
+  const [drawerShown, setDrawerShown] = useState(false)
 
   useEffect(() => {
-    if (drawerOpen) drawer.current?.showModal()
-    else drawer.current?.close()
+    const el = drawer.current
+    if (!el) return
+    if (drawerOpen) {
+      delete el.dataset.closing
+      setDrawerShown(true)
+      if (!el.open) el.showModal()
+    } else if (el.open) {
+      void animateOut(el).then(() => {
+        if (el.dataset.closing === undefined) return // reopened meanwhile
+        el.close()
+        delete el.dataset.closing
+        setDrawerShown(false)
+      })
+    }
   }, [drawerOpen])
 
   useEffect(() => setDrawerOpen(false), [pathname])
@@ -78,11 +93,11 @@ function StoreShell() {
     <div className="shell">
       <a className="skip-link" href="#main">{t('skip')}</a>
       <aside className="shell__sidebar"><Sidebar /></aside>
-      <dialog ref={drawer} className="drawer" onClose={() => setDrawerOpen(false)}>
+      <dialog ref={drawer} className="drawer" onCancel={(e) => { e.preventDefault(); setDrawerOpen(false) }} onClose={() => { setDrawerOpen(false); setDrawerShown(false) }}>
         <button type="button" className="icon-button drawer__close" aria-label={t('closeMenu')} onClick={() => setDrawerOpen(false)}>
           <X size={20} aria-hidden="true" />
         </button>
-        {drawerOpen && <Sidebar menuContainer={drawer.current} />}
+        {drawerShown && <Sidebar menuContainer={drawer.current} />}
       </dialog>
       <header className="mobilebar">
         <button type="button" className="icon-button" aria-label={t('openMenu')} onClick={() => setDrawerOpen(true)}>
