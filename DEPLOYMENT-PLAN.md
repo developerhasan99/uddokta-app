@@ -336,3 +336,5 @@ Next, if sellers ask: pick the option automatically from the buyer's district in
 Follow-up (same day): the courier list moved from Settings › Delivery to Settings › Couriers. Couriers now shows Steadfast and Pathao as rows in one card. Steadfast's Connect/Manage button opens the key form, or Replace/Disconnect, below its row. Delivery shows only the delivery options.
 
 Follow-up: each delivery option row ends with an edit (pencil) button, after the move arrows, for owners and admins; it opens the same panel as clicking the name.
+
+- Settings sidebar regrouped: account (Store, Team, Billing, Notifications), selling and delivery (Payments, Warehouses, Delivery, Couriers, SMS), online (Domains, Tracking).

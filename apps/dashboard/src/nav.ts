@@ -54,14 +54,14 @@ export const channels: NavItem[] = [
 export const settingsItem: NavItem = { key: 'settings', path: '/settings', icon: Settings }
 export const settingsNav: NavLeaf[] = [
   { key: 'sStore', path: '/settings' },
+  { key: 'members', path: '/settings/members' },
+  { key: 'billing', path: '/settings/billing', planned: true },
+  { key: 'notifications', path: '/settings/notifications' },
+  { key: 'payments', path: '/settings/payments', planned: true },
   { key: 'warehouses', path: '/settings/warehouses' },
   { key: 'shippingTitle', path: '/settings/delivery' },
   { key: 'couriers', path: '/settings/couriers' },
-  { key: 'payments', path: '/settings/payments', planned: true },
   { key: 'sms', path: '/settings/sms', planned: true },
-  { key: 'tracking', path: '/settings/tracking' },
   { key: 'domains', path: '/settings/domains' },
-  { key: 'members', path: '/settings/members' },
-  { key: 'notifications', path: '/settings/notifications' },
-  { key: 'billing', path: '/settings/billing', planned: true },
+  { key: 'tracking', path: '/settings/tracking' },
 ]
