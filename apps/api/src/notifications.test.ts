@@ -39,10 +39,11 @@ async function team() {
   const staff = await person('Rina')
   const { token } = (await owner.call('POST', `/stores/${handle}/invites`, { role: 'staff' })).json
   assert.equal((await staff.call('POST', `/invites/${token}/accept`)).status, 200)
+  const [inside, outside] = (await owner.call('GET', `/stores/${handle}/shipping-rates`)).json.map((r: { id: string }) => r.id) as string[]
   const list = async (who: { call: ReturnType<typeof client> }) => (await who.call('GET', `/stores/${handle}/notifications`)).json
   const storefrontOrder = (qty = 1, phone = '01711111111') => tx(null, (t) => t.execute(sql`
-    select place_order(${store.id}::uuid, null, ${product.variants[0].id}::uuid, ${qty}, 'Karim', ${phone}, 'Dhaka', 'inside')`))
-  return { owner, staff, handle, storeId: store.id as string, variantId: product.variants[0].id as string, productId: product.id as string, list, storefrontOrder }
+    select place_order(${store.id}::uuid, null, ${product.variants[0].id}::uuid, ${qty}, 'Karim', ${phone}, 'Dhaka', ${inside}::uuid)`))
+  return { owner, staff, handle, inside, outside, storeId: store.id as string, variantId: product.variants[0].id as string, productId: product.id as string, list, storefrontOrder }
 }
 
 test('a joining member is announced to the owner, not to themselves', async () => {
@@ -70,7 +71,7 @@ test('storefront orders reach everyone; a typed-in order skips the person who ty
   await s.storefrontOrder()
   assert.equal((await s.list(s.staff)).items[0].data.duplicate, true)
 
-  const typed = await s.owner.call('POST', `/stores/${s.handle}/orders`, { variantId: s.variantId, quantity: 1, customerName: 'Phone buyer', phone: '01722222222', address: 'Khulna', area: 'outside', source: 'phone' })
+  const typed = await s.owner.call('POST', `/stores/${s.handle}/orders`, { variantId: s.variantId, quantity: 1, customerName: 'Phone buyer', phone: '01722222222', address: 'Khulna', shippingRateId: s.outside, source: 'phone' })
   assert.equal(typed.status, 201)
   assert.equal((await s.list(s.staff)).items[0].data.name, 'Phone buyer')
   assert.ok(!(await s.list(s.owner)).items.some((n: { data: { name?: string } }) => n.data.name === 'Phone buyer'))

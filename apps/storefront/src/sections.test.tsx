@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { blankContent, newSection, sectionTypes, type Content } from './schema.ts'
 import { PageView, type Ctx } from './sections.tsx'
 
-const ctx: Ctx = { preview: true, delivery: { inside: 60, outside: 120 }, image: () => undefined, product: () => undefined }
+const ctx: Ctx = { preview: true, shipping: [{ id: '00000000-0000-4000-8000-000000000003', name: 'ঢাকার ভেতরে', note: '', price: 60, freeOver: null, freeMinQty: null, freeProducts: [] }, { id: '00000000-0000-4000-8000-000000000004', name: 'ঢাকার বাইরে', note: '', price: 120, freeOver: null, freeMinQty: null, freeProducts: [] }], image: () => undefined, product: () => undefined }
 const render = (content: Content) => renderToStaticMarkup(<PageView content={content} ctx={ctx} storeName="Legacy store" />)
 
 test('legacy pages retain store chrome; blank pages omit it and accept custom header/footer sections', () => {

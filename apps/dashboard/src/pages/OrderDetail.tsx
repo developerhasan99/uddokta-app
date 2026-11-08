@@ -8,13 +8,13 @@ import { Badge, Button, Field, Notice, PageTitle, Skeleton, type Tone } from '..
 import { errorLabel, useLang, type Key } from '../i18n'
 import { OrderTagsField } from '../components/OrderTags'
 import { OrderLines, linesSubtotal, type Line, type Product } from '../components/OrderLines'
-import type { StoreSettingsData } from './StoreSettings'
+import { loadRates, previewCharge, type ShippingRate } from '../shipping'
 import { statuses, type Status } from './Orders'
 
 type OrderEvent = { id: string; kind: 'placed' | 'status' | 'edited' | 'contact' | 'note' | 'tags' | 'shipped' | 'comment'; data: Record<string, any>; userName: string; hasUser: boolean; createdAt: string }
 
 type Order = {
-  id: string; number: number; status: Status; customerName: string; phone: string; address: string; area: 'inside' | 'outside'
+  id: string; number: number; status: Status; customerName: string; phone: string; address: string; shippingRateId: string | null; shippingName: string
   subtotal: number; deliveryCharge: number; discount: number; discountCode: string; total: number; source: string; note: string; tags: string[]; createdAt: string
   items: { id: string; variantId: string | null; productName: string; variantLabel: string; price: number; quantity: number; productId: string | null; thumbUrl: string | null }[]
   newer: string | null; older: string | null
@@ -56,7 +56,8 @@ export function OrderDetail() {
   const [toast, setToast] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [itemsEdit, setItemsEdit] = useState<{ lines: Line[]; area: 'inside' | 'outside'; charges: { inside: number; outside: number } } | null>(null)
+  // rateId '' keeps the order's own option, which matters when that option was deleted since.
+  const [itemsEdit, setItemsEdit] = useState<{ lines: Line[]; rateId: string; rates: ShippingRate[] } | null>(null)
   const [comment, setComment] = useState('')
   const [contact, setContact] = useState({ customerName: '', phone: '', address: '' })
 
@@ -152,14 +153,14 @@ export function OrderDetail() {
     setError(null)
     try {
       const ids = [...new Set(order.items.map((item) => item.productId!))]
-      const [products, settings] = await Promise.all([
+      const [products, rates] = await Promise.all([
         Promise.all(ids.map((pid) => api<Product>(`/stores/${handle}/products/${pid}`))),
-        api<StoreSettingsData>(`/stores/${handle}/settings`),
+        loadRates(handle),
       ])
       const byId = new Map(products.map((p) => [p.id, p]))
       setItemsEdit({
-        area: order.area,
-        charges: { inside: settings.deliveryInside, outside: settings.deliveryOutside },
+        rateId: order.shippingRateId ?? '',
+        rates: rates.filter((r) => r.active || r.id === order.shippingRateId),
         lines: order.items.map((item) => ({ product: byId.get(item.productId!)!, thumbUrl: item.thumbUrl, variantId: item.variantId!, quantity: item.quantity })),
       })
     } catch (err) {
@@ -174,7 +175,7 @@ export function OrderDetail() {
     setBusy(true)
     setError(null)
     try {
-      show(await api<Order>(`${base}/items`, { method: 'PUT', body: { area: itemsEdit.area, items: itemsEdit.lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })) } }))
+      show(await api<Order>(`${base}/items`, { method: 'PUT', body: { shippingRateId: itemsEdit.rateId || null, items: itemsEdit.lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })) } }))
       setItemsEdit(null)
       setToast(t('orderUpdated'))
     } catch (err) {
@@ -223,6 +224,15 @@ export function OrderDetail() {
   const canEdit = editable.includes(order.status)
   const itemsEditable = order.items.every((item) => item.productId && item.variantId)
   const sold = new Map(order.items.flatMap((item) => item.variantId ? [[item.variantId, item.price] as const] : []))
+  // What delivery would cost after the edit, by the database's rule (edit_order_lines): the order's own option keeps its
+  // agreed price unless free-delivery conditions now say free (or no longer do); another option is priced afresh.
+  const editCharge = (rateId: string) => {
+    if (!itemsEdit) return 0
+    const r = itemsEdit.rates.find((x) => x.id === (rateId || order.shippingRateId))
+    if (!r) return order.deliveryCharge
+    const fresh = previewCharge(r, itemsEdit.lines.map((line) => line.product.id), linesSubtotal(itemsEdit.lines, sold), itemsEdit.lines.reduce((n, line) => n + line.quantity, 0))
+    return r.id !== order.shippingRateId || fresh === 0 ? fresh : order.deliveryCharge > 0 ? order.deliveryCharge : fresh
+  }
   const startEdit = () => { setContact({ customerName: order.customerName, phone: order.phone, address: order.address }); setEditing(true) }
   const actor = (event: OrderEvent) => event.hasUser ? event.userName || t('activityFormer')
     : event.kind === 'placed' ? t(['landing_page', 'website'].includes(event.data.source) ? 'activityCustomer' : 'activityUnknown') : t('activitySystem')
@@ -232,7 +242,9 @@ export function OrderDetail() {
       case 'placed': return t('activityPlaced', { source: t(`source_${event.data.source}` as Key), total: money(event.data.total) })
       case 'status': return t('activityStatus', { from: statusName(event.data.from), to: statusName(event.data.to) })
       case 'edited': return [event.data.before !== event.data.after ? t('activityItems', { items: event.data.after }) : '',
-        event.data.fromArea !== event.data.toArea ? t('activityArea', { area: t(event.data.toArea === 'outside' ? 'orderOutside' : 'orderInside') }) : '',
+        // Older entries recorded inside or outside Dhaka; newer ones the option's name.
+        'toShipping' in event.data ? (event.data.fromShipping !== event.data.toShipping ? t('activityArea', { area: event.data.toShipping }) : '')
+          : event.data.fromArea !== event.data.toArea ? t('activityArea', { area: t(event.data.toArea === 'outside' ? 'orderOutside' : 'orderInside') }) : '',
         event.data.fromTotal !== event.data.toTotal ? t('activityTotal', { from: money(event.data.fromTotal), to: money(event.data.toTotal) }) : ''].filter(Boolean).join(' ') || t('activityEditedSame')
       case 'contact': return t('activityContact', { name: event.data.name, phone: event.data.phone })
       case 'note': return event.data.note ? t('activityNote', { note: event.data.note }) : t('activityNoteCleared')
@@ -292,11 +304,12 @@ export function OrderDetail() {
                 <div><dt>{t('orderSubtotal')}</dt><dd className="num">{money(linesSubtotal(itemsEdit.lines, sold))}</dd></div>
                 <div>
                   <dt>{t('orderDelivery')}</dt>
-                  <dd><span className="segmented" role="radiogroup" aria-label={t('newOrderArea')}>
-                    {(['inside', 'outside'] as const).map((a) => <label key={a}><input type="radio" name="edit-area" checked={itemsEdit.area === a} onChange={() => setItemsEdit({ ...itemsEdit, area: a })} /><span>{t(a === 'inside' ? 'orderInside' : 'orderOutside')} · <span className="num">{money(a === order.area ? order.deliveryCharge : itemsEdit.charges[a])}</span></span></label>)}
-                  </span></dd>
+                  <dd><select className="input input--compact order-sum__rate" aria-label={t('newOrderArea')} value={itemsEdit.rateId} onChange={(e) => setItemsEdit({ ...itemsEdit, rateId: e.target.value })}>
+                    {!order.shippingRateId && <option value="">{order.shippingName || t('orderDelivery')} · {money(order.deliveryCharge)}</option>}
+                    {itemsEdit.rates.map((r) => <option key={r.id} value={r.id}>{r.name} · {editCharge(r.id) === 0 ? t('shippingFree') : money(editCharge(r.id))}</option>)}
+                  </select></dd>
                 </div>
-                {!order.discountCode && <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(linesSubtotal(itemsEdit.lines, sold) + (itemsEdit.area === order.area ? order.deliveryCharge : itemsEdit.charges[itemsEdit.area]))}</dd></div>}
+                {!order.discountCode && <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(linesSubtotal(itemsEdit.lines, sold) + editCharge(itemsEdit.rateId))}</dd></div>}
               </dl>
               <p className="muted order-sum__note">{t(order.discountCode ? 'orderEditCouponNote' : 'orderEditNote')}</p>
               <div className="row row--end"><Button disabled={busy} onClick={() => setItemsEdit(null)}>{t('cancel')}</Button><Button variant="primary" disabled={busy || itemsEdit.lines.length === 0} aria-busy={busy} onClick={() => void saveItems()}>{t('orderEditSaveItems')}</Button></div>
@@ -317,7 +330,7 @@ export function OrderDetail() {
             <dl className="order-sum">
               <div><dt>{t('orderSubtotal')}</dt><dd className="num">{money(order.subtotal)}</dd></div>
               {order.discount > 0 && <div><dt>{t('orderDiscount', { value: order.discountCode })}</dt><dd className="num">−{money(order.discount)}</dd></div>}
-              <div><dt>{t('orderDelivery')} <span className="muted">{t(order.area === 'outside' ? 'orderOutside' : 'orderInside')}</span></dt><dd className="num">{money(order.deliveryCharge)}</dd></div>
+              <div><dt>{t('orderDelivery')} <span className="muted">{order.shippingName}</span></dt><dd className="num">{money(order.deliveryCharge)}</dd></div>
               <div className="order-sum__total"><dt>{t('orderCollect')}</dt><dd className="num">{money(order.total)}</dd></div>
               <div><dt>{t('orderCod')}</dt><dd><Badge tone={cod.tone}>{t(cod.label)}</Badge></dd></div>
             </dl>
@@ -393,7 +406,7 @@ export function OrderDetail() {
                     <button type="button" className="btn btn--icon" aria-label={t('orderCopyAll')} title={t('orderCopyAll')} onClick={() => void copy(`${order.customerName}\n${order.phone}\n${order.address}`)}><Copy size={14} aria-hidden="true" /></button>
                   </div>
                   <p className="order-address">{order.address}</p>
-                  <p className="muted">{t(order.area === 'outside' ? 'orderOutside' : 'orderInside')}</p>
+                  {order.shippingName && <p className="muted">{order.shippingName}</p>}
                 </div>}
           </section>
 

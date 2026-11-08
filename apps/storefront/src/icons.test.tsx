@@ -7,7 +7,7 @@ import { MarketingIcon } from './icons/Icon.tsx'
 import { blankContent, newSection, readContent } from './schema.ts'
 import { PageView, type Ctx } from './sections.tsx'
 
-const ctx: Ctx = { preview: false, delivery: { inside: 60, outside: 120 }, image: () => undefined, product: () => undefined }
+const ctx: Ctx = { preview: false, shipping: [{ id: '00000000-0000-4000-8000-000000000003', name: 'ঢাকার ভেতরে', note: '', price: 60, freeOver: null, freeMinQty: null, freeProducts: [] }, { id: '00000000-0000-4000-8000-000000000004', name: 'ঢাকার বাইরে', note: '', price: 120, freeOver: null, freeMinQty: null, freeProducts: [] }], image: () => undefined, product: () => undefined }
 const render = (sections: ReturnType<typeof newSection>[]) => renderToStaticMarkup(<PageView content={{ ...blankContent(), sections }} ctx={ctx} storeName="Shop" />)
 
 test('the bounded catalog has safe, renderable SVG primitives and bilingual metadata for every icon', () => {

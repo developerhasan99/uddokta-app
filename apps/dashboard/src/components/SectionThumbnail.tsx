@@ -8,7 +8,7 @@ const photoId = '00000000-0000-4000-8000-000000000001'
 const productId = '00000000-0000-4000-8000-000000000002'
 const image = { url: previewPhoto, alt: 'মসলার বাস্তব নমুনা ছবি', width: 1000, height: 667 }
 const ctx: Ctx = {
-  preview: true, delivery: { inside: 60, outside: 120 }, image: () => image,
+  preview: true, shipping: [{ id: '00000000-0000-4000-8000-000000000003', name: 'ঢাকার ভেতরে', note: '', price: 60, freeOver: null, freeMinQty: null, freeProducts: [] }, { id: '00000000-0000-4000-8000-000000000004', name: 'ঢাকার বাইরে', note: '', price: 120, freeOver: null, freeMinQty: null, freeProducts: [] }], image: () => image,
   product: () => ({ id: productId, name: 'নমুনা পণ্য', image, variants: [{ id: productId, label: 'ছোট প্যাক', price: 450, comparePrice: null, available: true }, { id: photoId, label: 'বড় প্যাক', price: 850, comparePrice: null, available: true }] }),
 }
 

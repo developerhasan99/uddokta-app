@@ -1460,3 +1460,28 @@ a.order-item__name:hover { text-decoration: underline; }
 .switch-row__title { color: var(--color-ink); font-size: var(--text-md); font-weight: 500; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
 @media (max-width: 40rem) { .switch-row__title { font-size: var(--text-sm); } .notif-panel__list { max-height: 65dvh; } }
+
+/* Settings › Delivery: the delivery options and the couriers, as rows inside a flush card. */
+.card__intro { display: grid; gap: var(--space-3xs); padding: var(--space-md) var(--space-md) var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.rate-list { display: grid; }
+.rate-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+.rate-row:first-child { border-top: 0; }
+.rate-row__main { display: grid; flex: 1; min-width: 0; gap: 2px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.rate-row__main--static { cursor: default; }
+@media (hover: hover) { button.rate-row__main:hover .rate-row__name { text-decoration: underline; } }
+.rate-row__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); font-weight: 500; }
+.rate-row__sub { font-size: var(--text-sm); }
+.rate-row__free { color: var(--color-success); font-size: var(--text-sm); font-weight: 500; }
+.rate-row__price { flex: none; }
+.rate-row__move { display: flex; flex: none; gap: var(--space-3xs); }
+.courier-mark { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: var(--radius-control); background: var(--color-paper-3); color: var(--color-ink-2); }
+.rate-form { display: grid; gap: var(--space-md); min-width: 0; margin: 0; border: 0; }
+.rate-form__free { display: grid; gap: var(--space-xs); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+.rate-form__free h3 { font-size: var(--text-md); font-weight: 600; }
+.rate-form__products { display: grid; gap: var(--space-xs); margin-top: var(--space-2xs); }
+.switch-row--with-field { cursor: default; }
+.switch-row--with-field .switch-row__title { cursor: pointer; }
+.switch-row--with-field .field { margin-top: var(--space-2xs); max-width: 14rem; }
+.order-sum__rate { max-width: 16rem; }
+@media (max-width: 40rem) { .rate-row { gap: var(--space-xs); padding-inline: var(--space-sm); } .card__intro { padding-inline: var(--space-sm); } }
+.rate-form > .switch-row { padding: 0; border-top: 0; }

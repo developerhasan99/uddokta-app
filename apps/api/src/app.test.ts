@@ -219,9 +219,9 @@ test('owners and admins set the store name and delivery charges; staff can only 
   const admin = await join(handle, owner, 'admin')
   const staff = await join(handle, owner, 'staff')
   const base = `/stores/${handle}/settings`
-  assert.deepEqual((await owner.call('GET', base)).json, { name: 'Shop', deliveryInside: 70, deliveryOutside: 130, theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
-  assert.equal((await admin.call('PUT', base, { name: 'নতুন নাম', deliveryInside: 60, deliveryOutside: 120 })).status, 200)
-  assert.deepEqual((await staff.call('GET', base)).json, { name: 'নতুন নাম', deliveryInside: 60, deliveryOutside: 120, theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  assert.deepEqual((await owner.call('GET', base)).json, { name: 'Shop', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  assert.equal((await admin.call('PUT', base, { name: 'নতুন নাম' })).status, 200)
+  assert.deepEqual((await staff.call('GET', base)).json, { name: 'নতুন নাম', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
   assert.equal((await admin.call('PUT', `/stores/${handle}/theme`, { theme: 'night' })).status, 200)
   assert.equal((await staff.call('PUT', `/stores/${handle}/theme`, { theme: 'bold' })).status, 403)
   assert.equal((await owner.call('PUT', `/stores/${handle}/theme`, { theme: 'neon' })).status, 400)
@@ -235,12 +235,12 @@ test('owners and admins set the store name and delivery charges; staff can only 
   const menu = [{ label: 'ঈদ', href: '/collections/ঈদ' }, { label: 'ফেসবুক', href: 'https://facebook.com/shop' }]
   assert.deepEqual((await owner.call('PUT', `/stores/${handle}/menu`, { items: menu })).json.menu, menu)
   assert.equal((await staff.call('PUT', `/stores/${handle}/menu`, { items: [] })).status, 403)
-  assert.equal((await staff.call('PUT', base, { name: 'x', deliveryInside: 0, deliveryOutside: 0 })).status, 403)
-  for (const bad of [{ name: '', deliveryInside: 1, deliveryOutside: 1 }, { name: 'x', deliveryInside: -1, deliveryOutside: 1 }, { name: 'x', deliveryInside: 1.5, deliveryOutside: 1 }]) {
+  assert.equal((await staff.call('PUT', base, { name: 'x' })).status, 403)
+  for (const bad of [{ name: '' }, { name: 'x'.repeat(101) }]) {
     assert.equal((await owner.call('PUT', base, bad)).status, 400)
   }
   const other = await storeWithOwner()
-  assert.equal((await other.owner.call('PUT', base, { name: 'x', deliveryInside: 0, deliveryOutside: 0 })).status, 404)
+  assert.equal((await other.owner.call('PUT', base, { name: 'x' })).status, 404)
 })
 
 test('merchant handles cannot claim infrastructure hosts', async () => {

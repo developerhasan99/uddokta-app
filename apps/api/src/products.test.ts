@@ -332,7 +332,7 @@ test('inventory edits SKU, barcode and low-stock alert, counts units in open ord
   assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, barcode: 'x'.repeat(101) }] })).status, 400)
   assert.equal((await owner.call('PATCH', url, { changes: [{ variantId: m.id, lowStock: -1 }] })).status, 400)
 
-  const order = await owner.call('POST', `/stores/${owner.handle}/orders`, { variantId: m.id, quantity: 2, customerName: 'A', phone: '01712345678', address: 'Dhaka', area: 'inside', source: 'phone' })
+  const order = await owner.call('POST', `/stores/${owner.handle}/orders`, { variantId: m.id, quantity: 2, customerName: 'A', phone: '01712345678', address: 'Dhaka', shippingRateId: (await owner.call('GET', `/stores/${owner.handle}/shipping-rates`)).json[0].id, source: 'phone' })
   assert.equal(order.status, 201)
   const reserved = async () => (await owner.call('GET', url)).json.items.find((i: any) => i.variantId === m.id)
   assert.deepEqual([(await reserved()).stock, (await reserved()).reserved], [1, 2])

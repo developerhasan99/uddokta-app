@@ -35,9 +35,6 @@ export const stores = pgTable('stores', {
   id: uuid('id').primaryKey().defaultRandom(),
   handle: text('handle').notNull().unique(),
   name: text('name').notNull(),
-  // What buyers pay for delivery, added to every storefront order by the database.
-  deliveryInside: integer('delivery_inside').notNull().default(70),
-  deliveryOutside: integer('delivery_outside').notNull().default(130),
   // A style preset from storefront/src/themes.ts.
   theme: text('theme').notNull().default('fresh'),
   // Ad pixel IDs. They are written into storefront scripts, so their format is checked by the database too.
@@ -53,7 +50,7 @@ export const stores = pgTable('stores', {
   domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
   domainPrimary: boolean('domain_primary').notNull().default(true),
   createdAt: createdAt(),
-}, (t) => [check('stores_delivery', sql`${t.deliveryInside} between 0 and 100000 and ${t.deliveryOutside} between 0 and 100000`), check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), uniqueIndex('stores_verified_domain').on(t.domain).where(sql`${t.domainVerifiedAt} is not null`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
+}, (t) => [check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), uniqueIndex('stores_verified_domain').on(t.domain).where(sql`${t.domainVerifiedAt} is not null`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
 
 export const storeMembers = pgTable('store_members', {
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
@@ -261,7 +258,6 @@ export const pageMedia = pgTable('page_media', {
 ])
 
 export const orderStatuses = orderStatusValues
-export const deliveryAreas = ['inside', 'outside'] as const
 
 // Amounts are worked out by the database when the order is placed (see place_order), never sent by the buyer.
 // The foreign keys to pages, warehouses and variants are in the security migration: they set only their own column to null.
@@ -273,7 +269,10 @@ export const orders = pgTable('orders', {
   customerName: text('customer_name').notNull(),
   phone: text('phone').notNull(),
   address: text('address').notNull(),
-  area: text('area', { enum: deliveryAreas }).notNull(),
+  // The delivery option the buyer chose, and its name at the time, so the order reads the same if the option is renamed or deleted.
+  // The foreign key is in the security migration: deleting an option sets only this column to null.
+  shippingRateId: uuid('shipping_rate_id'),
+  shippingName: text('shipping_name').notNull().default(''),
   subtotal: integer('subtotal').notNull(),
   deliveryCharge: integer('delivery_charge').notNull(),
   discount: integer('discount').notNull().default(0),
@@ -292,7 +291,6 @@ export const orders = pgTable('orders', {
   index('orders_store_created').on(t.storeId, t.createdAt),
   index('orders_store_phone').on(t.storeId, t.phone),
   check('orders_status', sql`${t.status} in ('new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled')`),
-  check('orders_area', sql`${t.area} in ('inside', 'outside')`),
   check('orders_tags', sql`cardinality(${t.tags}) <= 10`),
   check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
 ])
@@ -492,4 +490,36 @@ export const notificationSettings = pgTable('notification_settings', {
 }, (t) => [
   primaryKey({ columns: [t.storeId, t.userId, t.kind] }),
   check('notification_settings_kind', sql`${t.kind} in ('order_new', 'checkout_draft', 'order_delivered', 'order_returned', 'low_stock', 'member_joined')`),
+])
+
+// The delivery options buyers choose from at checkout, in the seller's order. The database prices delivery from them
+// (shipping_charge), and an option is free when any of its conditions holds: the products total reaches free_over,
+// the order has free_min_qty items or more, or it includes one of the products in shipping_rate_products.
+export const shippingRates = pgTable('shipping_rates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // Shown under the name, such as the areas it covers ("Savar, Gazipur, Narayanganj").
+  note: text('note').notNull().default(''),
+  price: integer('price').notNull(),
+  position: integer('position').notNull(),
+  active: boolean('active').notNull().default(true),
+  freeOver: integer('free_over'),
+  freeMinQty: integer('free_min_qty'),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('shipping_rates_store_id').on(t.storeId, t.id),
+  index('shipping_rates_store_position').on(t.storeId, t.position),
+  check('shipping_rates_name', sql`char_length(btrim(${t.name})) between 1 and 60 and char_length(${t.note}) <= 120`),
+  check('shipping_rates_amounts', sql`${t.price} between 0 and 100000 and ${t.freeOver} between 1 and 10000000 and ${t.freeMinQty} between 2 and 1000`),
+])
+
+export const shippingRateProducts = pgTable('shipping_rate_products', {
+  storeId: uuid('store_id').notNull(),
+  rateId: uuid('rate_id').notNull(),
+  productId: uuid('product_id').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.rateId, t.productId] }),
+  foreignKey({ name: 'shipping_rate_products_rate', columns: [t.storeId, t.rateId], foreignColumns: [shippingRates.storeId, shippingRates.id] }).onDelete('cascade'),
+  foreignKey({ name: 'shipping_rate_products_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
 ])

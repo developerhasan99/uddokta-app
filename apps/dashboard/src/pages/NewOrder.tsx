@@ -8,7 +8,7 @@ import { OrderLines, linesSubtotal, type Line } from '../components/OrderLines'
 import { OrderTagsField } from '../components/OrderTags'
 import { Button, Field, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
-import type { StoreSettingsData } from './StoreSettings'
+import { loadRates, previewCharge, type ShippingRate } from '../shipping'
 
 type Customer = { phone: string; name: string; address: string; orders: number; delivered: number; returned: number }
 const sources = ['messenger', 'whatsapp', 'phone', 'facebook_comment', 'instagram', 'shop', 'other'] as const
@@ -20,10 +20,10 @@ export function NewOrder() {
   const path = useStorePath()
   const handle = useCurrentStore()!.store.handle
   const [lines, setLines] = useState<Line[]>([])
-  const [delivery, setDelivery] = useState<StoreSettingsData | null>(null)
+  const [rates, setRates] = useState<ShippingRate[] | null>(null)
   const [form, setForm] = useState(() => ({
     customerName: searchParams.get('name')?.slice(0, 100) ?? '', phone: searchParams.get('phone')?.slice(0, 20) ?? '',
-    address: searchParams.get('address')?.slice(0, 500) ?? '', area: 'inside', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '', tags: [] as string[],
+    address: searchParams.get('address')?.slice(0, 500) ?? '', shippingRateId: '', source: searchParams.get('phone') ? 'phone' : 'messenger', note: '', coupon: '', tags: [] as string[],
   }))
   const [couponOpen, setCouponOpen] = useState(false)
   const [known, setKnown] = useState<Customer | null>(null)
@@ -38,7 +38,11 @@ export function NewOrder() {
   formRef.current = form
 
   useEffect(() => {
-    api<StoreSettingsData>(`/stores/${handle}/settings`).then(setDelivery).catch(() => {})
+    loadRates(handle).then((all) => {
+      const active = all.filter((r) => r.active)
+      setRates(active)
+      setForm((current) => (current.shippingRateId ? current : { ...current, shippingRateId: active[0]?.id ?? '' }))
+    }).catch(() => setRates([]))
   }, [handle])
 
   // A number that has ordered before: show their record, and fill name and address only if still empty.
@@ -64,13 +68,16 @@ export function NewOrder() {
   const set = (changes: Partial<typeof form>) => setForm({ ...form, ...changes })
   const subtotal = linesSubtotal(lines)
   const units = lines.reduce((sum, line) => sum + line.quantity, 0)
-  const charges = { inside: delivery?.deliveryInside ?? 0, outside: delivery?.deliveryOutside ?? 0 }
-  const charge = form.area === 'outside' ? charges.outside : charges.inside
+  const productIds = lines.map((line) => line.product.id)
+  const chargeOf = (r: ShippingRate) => previewCharge(r, productIds, subtotal, units)
+  const rate = rates?.find((r) => r.id === form.shippingRateId)
+  const charge = rate ? chargeOf(rate) : 0
   const problems = {
     lines: lines.length === 0,
     name: !form.customerName.trim(),
     phone: !mobile,
     address: !form.address.trim(),
+    rate: !form.shippingRateId,
   }
 
   const save = async (e: FormEvent) => {
@@ -118,9 +125,11 @@ export function NewOrder() {
               <div>
                 <dt>{t('orderDelivery')}</dt>
                 <dd>
-                  <span className="segmented" role="radiogroup" aria-label={t('newOrderArea')}>
-                    {(['inside', 'outside'] as const).map((a) => <label key={a}><input type="radio" name="area" checked={form.area === a} onChange={() => set({ area: a })} /><span>{t(a === 'inside' ? 'orderInside' : 'orderOutside')} · <span className="num">{money(charges[a])}</span></span></label>)}
-                  </span>
+                  {rates && rates.length === 0
+                    ? <Link className="link-button" to={path('/settings/delivery')}>{t('shippingNoneAdd')}</Link>
+                    : <select className="input input--compact order-sum__rate" aria-label={t('newOrderArea')} value={form.shippingRateId} onChange={(e) => set({ shippingRateId: e.target.value })}>
+                        {rates?.map((r) => <option key={r.id} value={r.id}>{r.name} · {chargeOf(r) === 0 ? t('shippingFree') : money(chargeOf(r))}</option>)}
+                      </select>}
                 </dd>
               </div>
               <div>

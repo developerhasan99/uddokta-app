@@ -47,7 +47,7 @@ async function loadOrder(t: Tx, storeId: string, id: string) {
   const [shipment] = await t.select({ courier: shipments.courier, consignmentId: shipments.consignmentId, trackingCode: shipments.trackingCode, courierStatus: shipments.courierStatus, checkedAt: shipments.checkedAt }).from(shipments).where(eq(shipments.orderId, id))
   const [flags] = (await t.execute<{ duplicate: boolean; blocked: boolean }>(sql`select ${duplicateOf(sql.raw('o'))} as duplicate, ${isBlocked(sql.raw('o'))} as blocked from orders o where o.id = ${id}::uuid`)).rows
   return {
-    id: order.id, number: order.number, status: order.status, customerName: order.customerName, phone: order.phone, address: order.address, area: order.area,
+    id: order.id, number: order.number, status: order.status, customerName: order.customerName, phone: order.phone, address: order.address, shippingRateId: order.shippingRateId, shippingName: order.shippingName,
     subtotal: order.subtotal, deliveryCharge: order.deliveryCharge, discount: order.discount, discountCode: order.discountCode, total: order.total, source: order.source, note: order.note, tags: order.tags, createdAt: order.createdAt, updatedAt: order.updatedAt,
     items, events, newer: neighbours.newer, older: neighbours.older, page: page ?? null, warehouse: warehouse ?? null, history, ...flags, shipment: shipment ?? null,
   }
@@ -90,16 +90,16 @@ export function registerOrders(app: Hono<Env>) {
     if (!filters) throw fail(400, 'invalidOrderFilters')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      const result = await t.execute<{ number: number; status: string; source: string; customer_name: string; phone: string; address: string; area: string; items: string; tags: string; subtotal: number; delivery_charge: number; discount: number; total: number; note: string; created_at: string }>(sql`
-        select o.number, o.status, o.source, o.customer_name, o.phone, o.address, o.area, array_to_string(o.tags, ', ') as tags, o.subtotal, o.delivery_charge, o.discount, o.total, o.note,
+      const result = await t.execute<{ number: number; status: string; source: string; customer_name: string; phone: string; address: string; shipping_name: string; items: string; tags: string; subtotal: number; delivery_charge: number; discount: number; total: number; note: string; created_at: string }>(sql`
+        select o.number, o.status, o.source, o.customer_name, o.phone, o.address, o.shipping_name, array_to_string(o.tags, ', ') as tags, o.subtotal, o.delivery_charge, o.discount, o.total, o.note,
           to_char(o.created_at at time zone 'Asia/Dhaka', 'YYYY-MM-DD HH24:MI:SS') as created_at,
           (select string_agg(i.product_name || case when i.variant_label <> '' then ' (' || i.variant_label || ')' else '' end || ' × ' || i.quantity, ', ' order by i.id) from order_items i where i.order_id = o.id) as items
         from orders o where ${orderWhere(store.id, filters)} order by o.created_at desc, o.number desc limit ${maxOrderExport + 1}`)
       if (result.rows.length > maxOrderExport) throw fail(409, 'orderExportLimit')
       const headers = c.req.query('lang') === 'en'
-        ? ['Order number', 'Status', 'Source', 'Customer', 'Phone', 'Address', 'Delivery area', 'Products', 'Tags', 'Subtotal (BDT)', 'Delivery (BDT)', 'Discount (BDT)', 'Total (BDT)', 'Note', 'Created (Asia/Dhaka)']
-        : ['অর্ডার নম্বর', 'অবস্থা', 'মাধ্যম', 'কাস্টমার', 'মোবাইল', 'ঠিকানা', 'ডেলিভারি এলাকা', 'পণ্য', 'ট্যাগ', 'পণ্যের দাম (টাকা)', 'ডেলিভারি (টাকা)', 'ছাড় (টাকা)', 'মোট (টাকা)', 'নোট', 'সময় (Asia/Dhaka)']
-      const csv = [headers.map((h) => csvCell(h)).join(','), ...result.rows.map((r) => [r.number, r.status, r.source, r.customer_name, r.phone, r.address, r.area, r.items, r.tags, r.subtotal, r.delivery_charge, r.discount, r.total, r.note, r.created_at].map((v, i) => csvCell(v, i === 4)).join(','))].join('\r\n')
+        ? ['Order number', 'Status', 'Source', 'Customer', 'Phone', 'Address', 'Delivery option', 'Products', 'Tags', 'Subtotal (BDT)', 'Delivery (BDT)', 'Discount (BDT)', 'Total (BDT)', 'Note', 'Created (Asia/Dhaka)']
+        : ['অর্ডার নম্বর', 'অবস্থা', 'মাধ্যম', 'কাস্টমার', 'মোবাইল', 'ঠিকানা', 'ডেলিভারি অপশন', 'পণ্য', 'ট্যাগ', 'পণ্যের দাম (টাকা)', 'ডেলিভারি (টাকা)', 'ছাড় (টাকা)', 'মোট (টাকা)', 'নোট', 'সময় (Asia/Dhaka)']
+      const csv = [headers.map((h) => csvCell(h)).join(','), ...result.rows.map((r) => [r.number, r.status, r.source, r.customer_name, r.phone, r.address, r.shipping_name, r.items, r.tags, r.subtotal, r.delivery_charge, r.discount, r.total, r.note, r.created_at].map((v, i) => csvCell(v, i === 4)).join(','))].join('\r\n')
       c.header('Content-Disposition', `attachment; filename="orders-${store.handle}.csv"`)
       c.header('Cache-Control', 'no-store')
       c.header('X-Content-Type-Options', 'nosniff')
@@ -108,7 +108,8 @@ export function registerOrders(app: Hono<Env>) {
   })
 
   // Tags already used in this store, offered while typing so the team reuses the same words.
-  // Products and delivery area, until the order is packed. The database reprices, restocks and logs it.
+  // Products and delivery option, until the order is packed. The database reprices, restocks and logs it.
+  // No shippingRateId keeps the order's own option (needed when that option was since deleted).
   app.put('/stores/:handle/orders/:id/items', async (c) => {
     const id = orderRoute(c)
     const body = await c.req.json().catch(() => null)
@@ -116,11 +117,12 @@ export function registerOrders(app: Hono<Env>) {
     const lines = Array.isArray(items) && items.length >= 1 && items.length <= 20 && items.every((i) => i && isId(i.variantId) && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 100)
       ? items.map((i) => ({ variant: i.variantId as string, qty: i.quantity as number }))
       : null
-    if (!lines || !['inside', 'outside'].includes(body?.area)) throw fail(400, 'invalidRequest')
+    const rate = body?.shippingRateId ?? null
+    if (!lines || (rate !== null && !isId(rate))) throw fail(400, 'invalidRequest')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       await loadOrder(t, store.id, id)
-      await t.execute(sql`select edit_order_lines(${store.id}::uuid, ${id}::uuid, ${JSON.stringify(lines)}::jsonb, ${body.area})`)
+      await t.execute(sql`select edit_order_lines(${store.id}::uuid, ${id}::uuid, ${JSON.stringify(lines)}::jsonb, ${rate}::uuid)`)
       return c.json(await loadOrder(t, store.id, id))
     }).catch((err) => {
       if (databaseCode(err) === 'UD018') throw fail(409, 'orderLocked')
@@ -202,7 +204,7 @@ export function registerOrders(app: Hono<Env>) {
   app.post('/stores/:handle/orders', async (c) => {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
-    const { variantId, quantity, customerName, phone, address, area, source, note = '', coupon = '' } = body
+    const { variantId, quantity, customerName, phone, address, shippingRateId, source, note = '', coupon = '' } = body
     const tags = readTags(body.tags ?? [], maxOrderTags)
     // Several products as items: [{ variantId, quantity }]; a single variantId and quantity is the same as one item.
     const items: unknown = body.items ?? [{ variantId, quantity }]
@@ -215,16 +217,18 @@ export function registerOrders(app: Hono<Env>) {
     if (!name || name.length > 100) throw fail(400, 'nameRequired')
     if (!mobile) throw fail(400, 'phoneInvalid')
     if (!where || where.length > 500) throw fail(400, 'addressRequired')
-    if (!lines || !['inside', 'outside'].includes(area) || !manualSources.includes(source) || typeof note !== 'string' || note.length > 2000 || typeof coupon !== 'string' || coupon.length > 30) throw fail(400, 'invalidRequest')
+    if (!isId(shippingRateId)) throw fail(400, 'shippingRateInvalid')
+    if (!lines || !manualSources.includes(source) || typeof note !== 'string' || note.length > 2000 || typeof coupon !== 'string' || coupon.length > 30) throw fail(400, 'invalidRequest')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
-      const [placed] = (await t.execute<{ number: number }>(sql`select * from place_order_lines(${store.id}::uuid, null, ${JSON.stringify(lines)}::jsonb, ${name}, ${mobile}, ${where}, ${area}, ${source}, ${coupon.trim()})`)).rows
+      const [placed] = (await t.execute<{ number: number }>(sql`select * from place_order_lines(${store.id}::uuid, null, ${JSON.stringify(lines)}::jsonb, ${name}, ${mobile}, ${where}, ${shippingRateId}::uuid, ${source}, ${coupon.trim()})`)).rows
       const [row] = await t.update(orders).set({ note: note.trim(), tags }).where(and(eq(orders.storeId, store.id), eq(orders.number, placed.number))).returning({ id: orders.id })
       return c.json(await loadOrder(t, store.id, row.id), 201)
     }).catch((err) => {
       if (databaseCode(err) === 'UD011') throw fail(409, 'soldOut')
       if (databaseCode(err) === 'UD010') throw fail(400, 'notOnSale')
       if (databaseCode(err) === 'UD016') throw fail(400, 'couponInvalid')
+      if (databaseCode(err) === 'UD019') throw fail(400, 'shippingRateInvalid')
       throw err
     })
   })

@@ -6,7 +6,8 @@ import {
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { defOf, isSectionLink, maxSections, newSection, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
-import { css as storefrontCss, PageView, type Ctx, type Product } from 'storefront/sections'
+import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
+import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
@@ -291,7 +292,7 @@ export function PageEditor() {
   const lastEdit = useRef({ key: '', at: 0 })
   const [media, setMedia] = useState<Record<string, MediaItem>>({})
   const [products, setProducts] = useState<Record<string, PreviewProduct | null>>({})
-  const [delivery, setDelivery] = useState({ inside: 0, outside: 0 })
+  const [shipping, setShipping] = useState<ShippingOption[]>([])
   const [theme, setTheme] = useState<PresetId>('fresh')
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | 'page' | null>(null)
@@ -335,9 +336,10 @@ export function PageEditor() {
 
   useEffect(() => {
     api<StoreSettingsData>(`/stores/${current.store.handle}/settings`).then((s) => {
-      setDelivery({ inside: s.deliveryInside, outside: s.deliveryOutside })
       if (isPreset(s.theme)) setTheme(s.theme)
     }).catch(() => {})
+    // The preview shows the same delivery options the live order form will.
+    loadRates(current.store.handle).then((rates) => setShipping(rates.filter((r) => r.active).map((r) => ({ ...r, freeProducts: r.freeProducts.map((p) => p.id) })))).catch(() => {})
   }, [current.store.handle])
 
   // Products shown by order forms, loaded once each for the preview.
@@ -490,13 +492,13 @@ export function PageEditor() {
 
   const ctx: Ctx = useMemo(() => ({
     preview: true,
-    delivery,
+    shipping,
     image: (mid) => {
       const item = mid ? media[mid] : undefined
       return item && { url: item.url, alt: item.alt || item.name, width: item.width, height: item.height }
     },
     product: (pid) => (pid ? products[pid] ?? undefined : undefined),
-  }), [media, products, delivery])
+  }), [media, products, shipping])
 
   if (loadFailed) {
     return <div className="editor-loading"><section className="card card--flush"><Notice role="alert" title={t('pageLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section></div>
@@ -742,7 +744,7 @@ export function PageEditor() {
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
                 }}>{L(settingsTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
               </>}
-              {section.type === 'order' && settingsTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings')} target="_blank">{t('sStore')}</Link></p>}
+              {section.type === 'order' && settingsTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
             </div>
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
               <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>

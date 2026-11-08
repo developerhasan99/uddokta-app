@@ -463,6 +463,27 @@
       "when": 1794106724226,
       "tag": "0065_notifications_security",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794108969244,
+      "tag": "0066_shipping_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1794108981255,
+      "tag": "0067_drop_delivery_areas",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1794108981619,
+      "tag": "0068_shipping_functions",
+      "breakpoints": true
     }
   ]
 }

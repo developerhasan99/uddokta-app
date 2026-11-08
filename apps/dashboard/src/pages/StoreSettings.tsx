@@ -1,18 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { CircleCheck } from 'lucide-react'
-import { useAccount, useCurrentStore } from '../account-context'
+import { useAccount, useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
-import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Button, Field, LinkButton, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 
-export type StoreSettingsData = { name: string; deliveryInside: number; deliveryOutside: number; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[] }
-
-const toNumber = (text: string) => Math.min(Number(text.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '') || 0), 100_000)
+export type StoreSettingsData = { name: string; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[] }
 
 export function StoreSettings() {
   const { t } = useLang()
   const { refresh } = useAccount()
   const current = useCurrentStore()!
+  const path = useStorePath()
   const base = `/stores/${current.store.handle}/settings`
   const canEdit = current.role !== 'staff'
   const [form, setForm] = useState<StoreSettingsData | null>(null)
@@ -47,9 +46,9 @@ export function StoreSettings() {
     }
     setBusy(true)
     try {
-      const data = await api<StoreSettingsData>(base, { method: 'PUT', body: form })
-      setForm(data)
-      setSaved(JSON.stringify(data))
+      const data = await api<{ name: string }>(base, { method: 'PUT', body: { name: form.name } })
+      setForm({ ...form, ...data })
+      setSaved(JSON.stringify({ ...form, ...data }))
       setDone(true)
       void refresh()
     } catch (err) {
@@ -78,15 +77,12 @@ export function StoreSettings() {
       <section className="card card--form">
         <Field id="store-name" label={t('storeSettingsName')} maxLength={100} disabled={!canEdit} value={form.name} error={error === 'nameRequired' && !form.name.trim() ? t('errNameRequired') : undefined} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </section>
-      <section className="card card--form">
+      <section className="card">
         <div>
           <h2>{t('storeSettingsDelivery')}</h2>
-          <p className="muted">{t('storeSettingsDeliveryHelp')}</p>
+          <p className="muted">{t('storeSettingsDeliveryMoved')}</p>
         </div>
-        <div className="price-grid price-grid--two">
-          <Field id="delivery-inside" label={t('orderInside')} unit="৳" inputMode="numeric" disabled={!canEdit} value={String(form.deliveryInside)} onChange={(e) => setForm({ ...form, deliveryInside: toNumber(e.target.value) })} />
-          <Field id="delivery-outside" label={t('orderOutside')} unit="৳" inputMode="numeric" disabled={!canEdit} value={String(form.deliveryOutside)} onChange={(e) => setForm({ ...form, deliveryOutside: toNumber(e.target.value) })} />
-        </div>
+        <div><LinkButton to={path('/settings/delivery')}>{t('shippingManage')}</LinkButton></div>
       </section>
       <div className="toast-anchor" role="status">
         {done && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{t('storeSettingsSaved')}</p>}

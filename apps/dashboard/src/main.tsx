@@ -31,6 +31,7 @@ import { Products } from './pages/Products'
 import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
 import { NotificationSettings } from './pages/NotificationSettings'
+import { Delivery } from './pages/Delivery'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
 import { Themes } from './pages/Themes'
@@ -100,6 +101,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<StoreSettings />} />
                   <Route path="warehouses" element={<Warehouses />} />
+                  <Route path="delivery" element={<Delivery />} />
                   <Route path="couriers" element={<Couriers />} />
                   <Route path="tracking" element={<Tracking />} />
                   <Route path="domains" element={<Domains />} />

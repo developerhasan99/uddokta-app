@@ -304,3 +304,31 @@ A bell sits to the right of the logo in the sidebar and at the right end of the 
 - **Checked in the browser** on desktop and at 390px, in Bangla and English: badge, panel, opening an order, mark one and mark all, tab title, saving settings and reload, no duplicate bell in the drawer. The test order and draft were removed afterwards.
 
 Next, when needed: replace polling and the lazy draft check with a pg-boss worker and server-sent events (both marked `ponytail:`). Add web push so phones are notified with the dashboard closed; that needs a service worker and VAPID keys. Add SMS or WhatsApp delivery once the SMS settings exist.
+
+## Delivery options and free delivery (November 8, 2026)
+
+The fixed "inside Dhaka / outside Dhaka" charges (`stores.delivery_inside/outside`, `orders.area`) are replaced by delivery options.
+
+- **Database:**
+  - `0066_shipping_rates` creates `shipping_rates` and `shipping_rate_products` and adds `orders.shipping_rate_id` and `shipping_name`.
+  - `0067_drop_delivery_areas` gives each store its two old charges as options ("ঢাকার ভেতরে" and "ঢাকার বাইরে"), links every order to the one it used, and only then drops the old columns. I checked this on the local database: every store and order converted correctly.
+  - `0068_shipping_functions` adds row-level security (members read, owners and admins write) and `shipping_charge()`. It also replaces `place_order_lines`, `place_order`, `place_checkout` and `edit_order_lines`, which now take a rate id instead of an area, plus the new `storefront_shipping()`. `storefront_page` and `storefront_store` lose the delivery columns.
+  - An option that is off or belongs to another store raises `UD019`.
+- **Free delivery:** an option is free when any condition holds: products total ≥ `free_over` (before coupon), items ≥ `free_min_qty`, or the order includes a listed product. Editing an order on the same option keeps the agreed charge unless the free result changes.
+- **API** (`apps/api/src/shipping.ts`):
+  - `GET`, `POST`, `PUT` and `DELETE /stores/:handle/shipping-rates[/:id]`, plus `PUT /stores/:handle/shipping-rates-order`.
+  - At most 20 options and 50 free products. The last active option cannot be turned off or deleted (`lastShippingRate`).
+  - `POST /stores` takes optional `deliveryInside` and `deliveryOutside` (default 70 and 130).
+  - Orders take `shippingRateId`. On edit it is optional, and leaving it out keeps the order's own option.
+  - The store settings endpoint no longer has delivery fields. The CSV column is now "Delivery option".
+- **Storefront:** the order form lists active options with their area note, a free-delivery hint, and the charge or "ফ্রি". The page script repeats the rule as quantity and option change, for display only. The form field is `rate`.
+- **Dashboard:**
+  - New Settings › Delivery page (`pages/Delivery.tsx`) lists the options with up/down reordering, opens a side panel for each option and its free conditions (amount, item count, products via the product picker), and shows a courier summary card.
+  - Create Store asks for the inside and outside Dhaka charges.
+  - The new-order form and order editing use an option dropdown.
+  - The editor preview uses the store's options.
+  - Store settings links to Delivery.
+- **Tests:** `shipping.test.ts` (7 tests) and a storefront test for the form. Existing tests were moved to rate ids. API 123, storefront 36 and the third suite 14 all pass.
+- **Checked in the browser:** desktop and 390px, Bangla and English. The test option was created and deleted through the UI.
+
+Next, if sellers ask: pick the option automatically from the buyer's district instead of the buyer choosing, store-wide free-delivery campaigns with end dates, and conditions that only show an option above an order amount.

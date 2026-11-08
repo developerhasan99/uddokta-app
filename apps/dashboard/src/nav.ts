@@ -55,6 +55,7 @@ export const settingsItem: NavItem = { key: 'settings', path: '/settings', icon:
 export const settingsNav: NavLeaf[] = [
   { key: 'sStore', path: '/settings' },
   { key: 'warehouses', path: '/settings/warehouses' },
+  { key: 'shippingTitle', path: '/settings/delivery' },
   { key: 'couriers', path: '/settings/couriers' },
   { key: 'payments', path: '/settings/payments', planned: true },
   { key: 'sms', path: '/settings/sms', planned: true },

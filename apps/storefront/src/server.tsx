@@ -3,14 +3,14 @@ import { serve } from '@hono/node-server'
 import { sql } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
 import { renderToString } from 'react-dom/server'
-import { tx } from '../../api/src/db.ts'
+import { tx, type Tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
 import { readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
 import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type MenuLink } from './catalog.tsx'
-import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product } from './sections.tsx'
+import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -63,7 +63,7 @@ const domainStore = async (host: string) =>
 const liveDomain = async (handle: string) =>
   (await tx(null, (t) => t.execute<{ domain: string | null }>(sql`select storefront_live_domain(${handle}) as domain`))).rows[0].domain
 
-type PageRow = { store_id: string; store_name: string; delivery_inside: number; delivery_outside: number; theme: string; page_id: string; title: string; seo_title: string; seo_description: string; content: Content }
+type PageRow = { store_id: string; store_name: string; theme: string; page_id: string; title: string; seo_title: string; seo_description: string; content: Content }
 
 export async function loadPage(store: string, handle: string) {
   return tx(null, async (t) => {
@@ -81,13 +81,19 @@ export async function loadPage(store: string, handle: string) {
       image: p.image_key ? { url: publicUrl(p.image_key), alt: p.image_alt || p.name, width: p.image_width, height: p.image_height } : null,
       variants: p.variants.map((v) => ({ id: v.id, label: v.options.join(' / ') || p.name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 })),
     }]))
-    return { ...page, images, products }
+    return { ...page, images, products, shipping: await shippingOptions(t, page.store_id) }
   })
 }
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadPage>>>
 
 type VariantRow = { id: string; options: string[]; price: number; comparePrice: number | null; stock: number | null }
-type StoreRow = { id: string; name: string; delivery_inside: number; delivery_outside: number; theme: string }
+type StoreRow = { id: string; name: string; theme: string }
+
+async function shippingOptions(t: Tx, storeId: string): Promise<ShippingOption[]> {
+  const rows = await t.execute<{ id: string; name: string; note: string; price: number; free_over: number | null; free_min_qty: number | null; free_products: string[] }>(
+    sql`select * from storefront_shipping(${storeId}::uuid)`)
+  return rows.rows.map((r) => ({ id: r.id, name: r.name, note: r.note, price: r.price, freeOver: r.free_over, freeMinQty: r.free_min_qty, freeProducts: r.free_products }))
+}
 const image = (key: string | null, alt: string, width: number, height: number): Img | null => (key ? { url: publicUrl(key), alt, width, height } : null)
 const toVariants = (rows: VariantRow[], name: string) => rows.map((v) => ({ id: v.id, label: v.options.join(' / ') || name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 }))
 const listPageSize = 24
@@ -99,7 +105,7 @@ async function loadStore(handle: string) {
     const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
     const [{ menu }] = (await t.execute<{ menu: MenuLink[] }>(sql`select storefront_menu(${store.id}::uuid) as menu`)).rows
     const links: MenuLink[] = menu.length > 0 ? menu : collections.map((x) => ({ label: x.name, href: collectionHref(x.handle) }))
-    return { ...store, collections, links }
+    return { ...store, collections, links, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
@@ -174,7 +180,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   const pixel = pixelScript(await trackingFor(page.store_id))
   const ctx: Ctx = {
     preview: false,
-    delivery: { inside: page.delivery_inside, outside: page.delivery_outside },
+    shipping: page.shipping,
     image: (id) => (id ? page.images.get(id) : undefined),
     product: (id) => (id ? page.products.get(id) : undefined),
     orderAction: pagePath(c),
@@ -196,7 +202,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   const pixel = pixelScript(await trackingFor(store.id))
   const ctx: Ctx = {
     preview: false,
-    delivery: { inside: store.delivery_inside, outside: store.delivery_outside },
+    shipping: store.shipping,
     image: () => undefined,
     product: (id) => (id === item.id ? item.product : undefined),
     orderAction: productPath(c),
@@ -368,7 +374,7 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   // A bot that filled the hidden field is shown success, so it has no reason to try again, and nothing is saved.
   if (form.website) return c.redirect(`${o.back}/thanks`, 303)
   const values: OrderValues = {}
-  for (const key of ['variant', 'quantity', 'name', 'phone', 'address', 'area', 'coupon', 'checkout'] as const) values[key] = typeof form[key] === 'string' ? (form[key] as string).trim() : ''
+  for (const key of ['variant', 'quantity', 'name', 'phone', 'address', 'rate', 'coupon', 'checkout'] as const) values[key] = typeof form[key] === 'string' ? (form[key] as string).trim() : ''
   const reject = (error: string) => o.reject({ sectionId: o.sectionId, error, values })
 
   const variant = o.product.variants.find((v) => v.id === values.variant)
@@ -382,13 +388,13 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   if (!values.name || values.name.length > 100) return reject('name')
   if (!phone) return reject('phone')
   if (!values.address || values.address.length < 5 || values.address.length > 500) return reject('address')
-  if (values.area !== 'inside' && values.area !== 'outside') return reject('area')
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(values.rate ?? '')) return reject('rate')
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) return reject('server')
   if ((values.coupon ?? '').length > 30) return reject('coupon')
 
   try {
     await tx(null, async (t) => (await t.execute<{ number: number; total: number }>(sql`
-      select * from place_checkout(${values.checkout}::uuid, ${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.area}, ${o.source}, ${values.coupon ?? ''})`)).rows[0])
+      select * from place_checkout(${values.checkout}::uuid, ${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${o.source}, ${values.coupon ?? ''})`)).rows[0])
     return c.redirect(`${o.back}/thanks?receipt=${values.checkout}`, 303)
   } catch (err) {
     if (databaseCode(err) === 'UD017') return reject('checkout')
@@ -396,6 +402,7 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
     if (databaseCode(err) === 'UD014') return reject('tooMany')
     if (databaseCode(err) === 'UD015') return reject('blocked')
     if (databaseCode(err) === 'UD016') return reject('coupon')
+    if (databaseCode(err) === 'UD019') return reject('rate')
     if (databaseCode(err) !== 'UD010') console.error(err)
     return reject('server')
   }

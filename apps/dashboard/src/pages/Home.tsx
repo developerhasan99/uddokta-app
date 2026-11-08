@@ -91,7 +91,7 @@ function Onboarding({ setup }: { setup: Summary['setup'] }) {
               <p className="muted">{t(setup.livePages > 0 ? 'setupPageLiveD' : 'setupPageDraftD')}</p>
             </div>
           </section>
-          {current.role !== 'staff' && <section className="card"><h2>{t('stepDelivery')}</h2><p className="muted">{t('setupDeliveryReminder')}</p><Link className="side-link" to={path('/settings')}><Truck size={16} aria-hidden="true" />{t('stepDeliveryAction')}</Link></section>}
+          {current.role !== 'staff' && <section className="card"><h2>{t('stepDelivery')}</h2><p className="muted">{t('setupDeliveryReminder')}</p><Link className="side-link" to={path('/settings/delivery')}><Truck size={16} aria-hidden="true" />{t('stepDeliveryAction')}</Link></section>}
           {current.role !== 'staff' && (
             <section className="card">
               <h2>{t('inviteTeam')}</h2>

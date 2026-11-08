@@ -24,7 +24,8 @@ import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { readLocalFile } from './storage.ts'
-import { roles, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
+import { roles, shippingRates, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
+import { defaultRateNames, isPrice, registerShipping } from './shipping.ts'
 
 const sessionDays = 30
 const inviteDays = 7
@@ -204,6 +205,12 @@ app.post('/stores', async (c) => {
   if (!name) throw fail(400, 'nameRequired')
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(handle) || handle.length > 63 || isReservedStoreHandle(handle)) throw fail(400, 'handleInvalid')
 
+  // The Bangladesh habit: one charge inside Dhaka, another outside. They become the first two delivery options,
+  // which the seller can rename, add to and make free under conditions later in Settings › Delivery.
+  const charge = (v: unknown, fallback: number) => (v === undefined ? fallback : v)
+  const inside = charge(body.deliveryInside, 70), outside = charge(body.deliveryOutside, 130)
+  if (!isPrice(inside) || !isPrice(outside)) throw fail(400, 'invalidRequest')
+
   const id = randomUUID()
   const userId = c.get('userId')
   try {
@@ -211,6 +218,10 @@ app.post('/stores', async (c) => {
       await t.insert(stores).values({ id, handle, name })
       await t.insert(storeMembers).values({ storeId: id, userId, role: 'owner' })
       await t.insert(warehouses).values({ storeId: id, name: defaultWarehouseName })
+      await t.insert(shippingRates).values([
+        { storeId: id, name: defaultRateNames.inside, price: inside, position: 0 },
+        { storeId: id, name: defaultRateNames.outside, price: outside, position: 1 },
+      ])
     })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')
@@ -222,7 +233,7 @@ app.post('/stores', async (c) => {
 app.get('/stores/:handle/settings', async (c) => {
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
-    return c.json({ name: store.name, deliveryInside: store.deliveryInside, deliveryOutside: store.deliveryOutside, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu })
+    return c.json({ name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu })
   })
 })
 
@@ -272,14 +283,12 @@ app.put('/stores/:handle/theme', async (c) => {
 app.put('/stores/:handle/settings', async (c) => {
   const body = await readBody(c)
   const name = text(body, 'name')
-  const charge = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100_000
   if (!name || name.length > 100) throw fail(400, 'nameRequired')
-  if (!charge(body.deliveryInside) || !charge(body.deliveryOutside)) throw fail(400, 'invalidRequest')
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
-    const [row] = await t.update(stores).set({ name, deliveryInside: body.deliveryInside as number, deliveryOutside: body.deliveryOutside as number }).where(eq(stores.id, store.id)).returning()
+    const [row] = await t.update(stores).set({ name }).where(eq(stores.id, store.id)).returning()
     if (!row) throw fail(403, 'forbidden')
-    return c.json({ name: row.name, deliveryInside: row.deliveryInside, deliveryOutside: row.deliveryOutside })
+    return c.json({ name: row.name })
   })
 })
 
@@ -372,3 +381,4 @@ registerAnalytics(app)
 registerCouriers(app)
 registerDiscounts(app)
 registerNotifications(app)
+registerShipping(app)

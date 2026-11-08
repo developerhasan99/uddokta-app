@@ -38,8 +38,8 @@ async function publishedPage(status = 'active') {
   const n = ++count
   await call('POST', '/auth/signup', { name: 'Owner', email: `sf${n}@example.com`, password: 'correct horse' })
   const handle = `sf-${n}`
-  await call('POST', '/stores', { name: 'রঙিন শপ', handle })
-  await call('PUT', `/stores/${handle}/settings`, { name: 'রঙিন শপ', deliveryInside: 60, deliveryOutside: 120 })
+  await call('POST', '/stores', { name: 'রঙিন শপ', handle, deliveryInside: 60, deliveryOutside: 120 })
+  const [inside, outside] = (await call('GET', `/stores/${handle}/shipping-rates`)).json.map((r: { id: string }) => r.id) as string[]
   const product = (await call('POST', `/stores/${handle}/products`, {
     name: 'পাঞ্জাবি', status, options: [{ name: 'সাইজ', values: ['M', 'L'] }],
     variants: [{ options: ['M'], price: 1200, stock: 3 }, { options: ['L'], price: 1300, stock: null }],
@@ -49,7 +49,7 @@ async function publishedPage(status = 'active') {
   const savedPage = await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: page.title, handle: page.handle, draft: { version: 1, sections }, revision: page.revision })
   await call('POST', `/stores/${handle}/pages/${page.id}/publish`, { revision: savedPage.json.revision })
   const orderSection = sections.find((s: any) => s.type === 'order').id
-  return { call, handle, product, page, orderSection, url: `/${encodeURIComponent(page.handle)}` }
+  return { call, handle, product, page, orderSection, inside, outside, url: `/${encodeURIComponent(page.handle)}` }
 }
 
 const visit = (store: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { host: `${store}.localhost:8788`, ...init.headers } })
@@ -108,7 +108,7 @@ test('a published page renders on its store’s address, and nowhere else', asyn
 test('an order is priced by the system, takes stock from a warehouse, and gets the next number', async () => {
   const s = await publishedPage()
   const m = s.product.variants[0].id
-  const res = await order(s.handle, s.url, { section: s.orderSection, variant: m, quantity: '2', name: 'রাফি', phone: '০১৭১২-৩৪৫৬৭৮', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', area: 'outside' })
+  const res = await order(s.handle, s.url, { section: s.orderSection, variant: m, quantity: '2', name: 'রাফি', phone: '০১৭১২-৩৪৫৬৭৮', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', rate: s.outside })
   assert.equal(res.status, 303)
   assert.match(res.headers.get('location')!, /\/thanks\?receipt=[0-9a-f-]{36}$/)
   assert.match(await (await visit(s.handle, res.headers.get('location')!)).text(), /৳২,৫২০/)
@@ -116,13 +116,13 @@ test('an order is priced by the system, takes stock from a warehouse, and gets t
   assert.deepEqual(placed.rows, [{ number: 1001, phone: '01712345678', subtotal: 2400, delivery_charge: 120, total: 2520, has_warehouse: true, price: 1200, quantity: 2, variant_label: 'M' }])
   assert.equal((await pool.query('select stock from product_variants where id = $1', [m])).rows[0].stock, 1)
 
-  const second = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01812345678', address: 'আগ্রাবাদ, চট্টগ্রাম', area: 'inside' })
+  const second = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01812345678', address: 'আগ্রাবাদ, চট্টগ্রাম', rate: s.inside })
   assert.match(await (await visit(s.handle, second.headers.get('location')!)).text(), /৳১,৩৬০/, 'untracked stock is never refused')
 })
 
 test('the buyer is told what to fix, and nothing is saved', async () => {
   const s = await publishedPage()
-  const base = { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  const base = { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
   const cases: [Record<string, string>, RegExp][] = [
     [{ phone: '12345' }, /সঠিক মোবাইল নম্বর দিন/],
     [{ name: '' }, /আপনার নাম লিখুন/],
@@ -143,7 +143,7 @@ test('draft products and unpublished pages take no orders', async () => {
   const s = await publishedPage('draft')
   const body = await (await visit(s.handle, s.url)).text()
   assert.doesNotMatch(body, /অর্ডার নিশ্চিত করুন/, 'the order form hides a draft product')
-  const res = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'x', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  const res = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'x', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside })
   assert.equal(res.status, 404)
 
   const live = await publishedPage()
@@ -153,7 +153,7 @@ test('draft products and unpublished pages take no orders', async () => {
 
 test('the seller sees landing page orders in their list, and other stores cannot', async () => {
   const s = await publishedPage()
-  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01912345678', address: 'উত্তরা, ঢাকা', area: 'inside' })
+  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01912345678', address: 'উত্তরা, ঢাকা', rate: s.inside })
   const list = await s.call('GET', `/stores/${s.handle}/orders`)
   assert.equal(list.status, 200)
   assert.deepEqual(list.json.items.map((o: any) => [o.number, o.customerName, o.total, o.source, o.items]), [[1001, 'সাদিয়া', 1360, 'landing_page', 'পাঞ্জাবি (L) × 1']])
@@ -170,7 +170,7 @@ test('an order moves through its statuses, and cancelling or a return puts the s
   const s = await publishedPage()
   const m = s.product.variants[0].id
   const stock = async () => (await pool.query('select stock from product_variants where id = $1', [m])).rows[0].stock
-  const place = () => order(s.handle, s.url, { section: s.orderSection, variant: m, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  const place = () => order(s.handle, s.url, { section: s.orderSection, variant: m, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside })
   await place()
   await place()
   assert.equal(await stock(), 1)
@@ -199,7 +199,7 @@ test('an order moves through its statuses, and cancelling or a return puts the s
 
 test('bots that fill the hidden field, and floods from one number, place no orders', async () => {
   const s = await publishedPage()
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01612345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01612345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
   const before = (await pool.query('select count(*)::int as n from orders')).rows[0].n
   const bot = await order(s.handle, s.url, { ...fields, website: 'http://spam.example' })
   assert.equal(bot.status, 303)
@@ -215,7 +215,7 @@ test('the team types in an order from a chat, priced and stocked like a storefro
   const s = await publishedPage()
   const m = s.product.variants[0].id
   const base = `/stores/${s.handle}/orders`
-  const fields = { variantId: m, quantity: 2, customerName: 'নুসরাত', phone: '+8801712345678', address: 'আগ্রাবাদ, চট্টগ্রাম', area: 'outside', source: 'messenger', note: 'বিকেলে ফোন দিতে বলেছেন' }
+  const fields = { variantId: m, quantity: 2, customerName: 'নুসরাত', phone: '+8801712345678', address: 'আগ্রাবাদ, চট্টগ্রাম', shippingRateId: s.outside, source: 'messenger', note: 'বিকেলে ফোন দিতে বলেছেন' }
   const made = await s.call('POST', base, fields)
   assert.equal(made.status, 201)
   assert.deepEqual([made.json.number, made.json.phone, made.json.subtotal, made.json.deliveryCharge, made.json.total, made.json.source, made.json.note], [1001, '01712345678', 2400, 120, 2520, 'messenger', 'বিকেলে ফোন দিতে বলেছেন'])
@@ -260,18 +260,18 @@ test('a product page takes orders like a landing page, marked as from the websit
   const s = await publishedPage()
   const url = `/products/${encodeURIComponent(s.product.handle)}`
   assert.match(await (await visit(s.handle, url)).text(), /অর্ডার নিশ্চিত করুন/)
-  const res = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  const res = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside })
   assert.equal(res.status, 303)
   assert.match(await (await visit(s.handle, res.headers.get('location')!)).text(), /৳১,২৬০/)
   const [placed] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
   assert.equal(placed.source, 'website')
-  const bad = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: '', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  const bad = await order(s.handle, url, { section: 'buy', variant: s.product.variants[0].id, quantity: '1', name: '', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside })
   assert.equal(bad.status, 422)
 })
 
 test('a blocked number cannot order from the storefront, and repeat orders are marked as duplicates', async () => {
   const s = await publishedPage()
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01512345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01512345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
   await order(s.handle, s.url, fields)
   await order(s.handle, s.url, fields)
   const [second, first] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
@@ -284,7 +284,7 @@ test('a blocked number cannot order from the storefront, and repeat orders are m
   assert.equal(refused.status, 422)
   assert.match(await refused.text(), /দোকানে ফোন করুন/)
   assert.equal((await s.call('GET', `/stores/${s.handle}/orders/${first.id}`)).json.blocked, true)
-  const typed = await s.call('POST', `/stores/${s.handle}/orders`, { variantId: s.product.variants[1].id, quantity: 1, customerName: 'x', phone: '01512345678', address: 'বাসা', area: 'inside', source: 'phone' })
+  const typed = await s.call('POST', `/stores/${s.handle}/orders`, { variantId: s.product.variants[1].id, quantity: 1, customerName: 'x', phone: '01512345678', address: 'বাসা', shippingRateId: s.inside, source: 'phone' })
   assert.equal(typed.status, 201, 'the team may still type in an order they decided to take')
 
   const other = await publishedPage()
@@ -296,7 +296,7 @@ test('a blocked number cannot order from the storefront, and repeat orders are m
 
 test('customers are grouped by phone number, with what they bought and returned', async () => {
   const s = await publishedPage()
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01312345678', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01312345678', address: 'উত্তরা, ঢাকা', rate: s.inside }
   await order(s.handle, s.url, fields)
   await order(s.handle, s.url, { ...fields, name: 'সাদিয়া ইসলাম' })
   await order(s.handle, s.url, { ...fields, phone: '01412345678', name: 'রাফি' })
@@ -316,7 +316,7 @@ test('home sums the last 14 days of real orders, leaving cancelled ones out', as
   const empty = (await s.call('GET', `/stores/${s.handle}/summary`)).json
   assert.equal(empty.days.length, 14)
   assert.deepEqual(empty.setup, { products: 1, livePages: 1, orders: 0 })
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01312345679', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'x', phone: '01312345679', address: 'উত্তরা, ঢাকা', rate: s.inside }
   await order(s.handle, s.url, fields)
   await order(s.handle, s.url, { ...fields, phone: '01312345670' })
   const [latest] = (await s.call('GET', `/stores/${s.handle}/orders`)).json.items
@@ -337,7 +337,7 @@ test('a buyer who types a number but does not finish shows up to call, and leave
   const open = (await s.call('GET', base)).json
   assert.deepEqual(open.items.map((d: any) => [d.phone, d.name, d.address, d.productName]), [['01812345671', 'রাফি আহমেদ', 'মিরপুর ১০', 'পাঞ্জাবি']], 'invalid numbers are not saved, and a later save replaces the first')
 
-  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01812345671', address: 'মিরপুর ১০, ঢাকা', area: 'inside' })
+  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01812345671', address: 'মিরপুর ১০, ঢাকা', rate: s.inside })
   assert.equal((await s.call('GET', base)).json.items.length, 0)
   assert.equal((await s.call('GET', `${base}?status=ordered`)).json.items.length, 1)
 
@@ -353,7 +353,7 @@ test('a buyer who types a number but does not finish shows up to call, and leave
 
 test('repeat sales lists buyers delivered long enough ago, until someone calls them or they order again', async () => {
   const s = await publishedPage()
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01712340001', address: 'উত্তরা, ঢাকা', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'সাদিয়া', phone: '01712340001', address: 'উত্তরা, ঢাকা', rate: s.inside }
   await order(s.handle, s.url, fields)
   await order(s.handle, s.url, { ...fields, phone: '01712340002', name: 'রাফি' })
   const base = `/stores/${s.handle}/orders`
@@ -384,8 +384,8 @@ test('profit counts delivered orders at the buying price of the day of sale, for
   const shop = `/stores/${s.handle}`
   const m = s.product.variants[0]
   await s.call('PUT', `${shop}/products/${s.product.id}`, { name: 'পাঞ্জাবি', options: [{ name: 'সাইজ', values: ['M', 'L'] }], variants: [{ id: m.id, options: ['M'], price: 1200, cost: 800, stock: 3 }, { id: s.product.variants[1].id, options: ['L'], price: 1300, stock: null }] })
-  await order(s.handle, s.url, { section: s.orderSection, variant: m.id, quantity: '2', name: 'রাফি', phone: '01712349991', address: 'বাসা ১২, ধানমন্ডি', area: 'outside' })
-  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01712349992', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' })
+  await order(s.handle, s.url, { section: s.orderSection, variant: m.id, quantity: '2', name: 'রাফি', phone: '01712349991', address: 'বাসা ১২, ধানমন্ডি', rate: s.outside })
+  await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'নুসরাত', phone: '01712349992', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside })
   const [returned, delivered] = (await s.call('GET', `${shop}/orders`)).json.items
   for (const status of ['confirmed', 'packed', 'courier', 'delivered']) await s.call('PATCH', `${shop}/orders/${delivered.id}`, { status })
   for (const status of ['confirmed', 'packed', 'courier', 'returned']) await s.call('PATCH', `${shop}/orders/${returned.id}`, { status })
@@ -415,7 +415,7 @@ test('a coupon is priced by the database, counts its uses, and stops at its limi
   assert.equal((await s.call('POST', `${shop}/discounts`, { code: 'EID10', kind: 'amount', value: 50 })).json.error, 'couponCodeTaken')
   await s.call('POST', `${shop}/discounts`, { code: 'BIG', kind: 'amount', value: 200, minSubtotal: 5000 })
 
-  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01711110001', address: 'বাসা ১২, ধানমন্ডি', area: 'inside' }
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01711110001', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
   const used = await order(s.handle, s.url, { ...fields, coupon: 'eid10' })
   assert.match(await (await visit(s.handle, used.headers.get('location')!)).text(), /৳১,২৩০/, '1300 − 130 + 60')
   const again = await order(s.handle, s.url, { ...fields, phone: '01711110002', coupon: 'EID10' })
@@ -449,7 +449,7 @@ test('a store’s pixels load on its pages, are allowed by the page’s own poli
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
     assert.ok(csp.includes(`'sha256-${createHash('sha256').update(script).digest('base64')}'`), 'every inline script is allowed by hash')
   }
-  const placed = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' })
+  const placed = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', rate: s.inside })
   const thanks = await (await visit(s.handle, placed.headers.get('location')!)).text()
   assert.match(thanks, /fbq\('track','Purchase',\{value:1360,currency:'BDT'\},\{eventID:'[0-9a-f-]{36}'\}\)/)
   assert.match(thanks, /ttq\.track\('PlaceAnOrder',\{value:1360,currency:'BDT'\},\{event_id:'[0-9a-f-]{36}'\}\)/)
@@ -472,7 +472,7 @@ test('a store’s pixels load on its pages, are allowed by the page’s own poli
 test('a checkout retry returns one receipt, takes stock and counts its coupon only once', async () => {
   const s = await publishedPage()
   assert.equal((await s.call('POST', `/stores/${s.handle}/discounts`, { code: 'ONCE', kind: 'amount', value: 100, maxUses: 1 })).status, 201)
-  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '3', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside', coupon: 'ONCE' }
+  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '3', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', rate: s.inside, coupon: 'ONCE' }
   const [a, b] = await Promise.all([order(s.handle, s.url, fields), order(s.handle, s.url, fields)])
   assert.equal(a.status, 303)
   assert.equal(b.status, 303)
@@ -487,7 +487,7 @@ test('a checkout retry returns one receipt, takes stock and counts its coupon on
 
 test('confirmation amounts come from a store-scoped receipt, never URL parameters', async () => {
   const s = await publishedPage()
-  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' }
+  const fields = { checkout: randomUUID(), section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', rate: s.inside }
   const page = await (await visit(s.handle, s.url)).text()
   assert.match(page, /name="checkout" value="[0-9a-f-]{36}"/)
   const placed = await order(s.handle, s.url, fields)
@@ -515,7 +515,7 @@ test('short campaign URLs preserve legacy links, checkout posts, and receipt red
   const redirected = await visit(s.handle, `${legacy}?utm_source=qa`)
   assert.equal(redirected.status, 308)
   assert.equal(redirected.headers.get('location'), `${s.url}?utm_source=qa`)
-  const placed = await order(s.handle, legacy, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', area: 'inside' })
+  const placed = await order(s.handle, legacy, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'Buyer', phone: '01712345678', address: 'Dhaka test address', rate: s.inside })
   assert.equal(placed.status, 303)
   assert.ok(placed.headers.get('location')!.startsWith(`${s.url}/thanks?receipt=`))
   const receipt = new URL(placed.headers.get('location')!, 'http://test').search
@@ -553,7 +553,7 @@ test('a seller’s own domain shows their store through the domains proxy, and b
   await pool.query(`update stores set domain_live_at = now() where handle = '${s.handle}'`)
   const moved = await visit(s.handle, s.url)
   assert.deepEqual([moved.status, moved.headers.get('location')], [302, `https://rongin-shop.com${s.url}`])
-  const posted = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, name: 'ক্রেতা', phone: '01711111111', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', area: 'inside', quantity: '1' })
+  const posted = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, name: 'ক্রেতা', phone: '01711111111', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', rate: s.inside, quantity: '1' })
   assert.match(posted.headers.get('location') ?? '', /^\/[^/].*thanks\?receipt=/, 'an open checkout form still submits on the old address and gets its receipt')
 })
 
@@ -574,4 +574,29 @@ test('product links expose escaped share metadata and a canonical URL without tr
   assert.match(html, /<meta property="og:description" content="Made for &quot;you&quot; &lt;today&gt;"/)
   assert.match(html, /<meta property="og:locale" content="bn_BD"/)
   assert.doesNotMatch(html, /property="og:image"/, 'a product without media has no broken share image')
+})
+
+test('the order form offers the store’s delivery options, says when delivery is free, and refuses one that is off', async () => {
+  const s = await publishedPage()
+  const rates = `/stores/${s.handle}/shipping-rates`
+  const city = (await s.call('POST', rates, { name: 'ঢাকা সিটি', note: 'মিরপুর, উত্তরা, ধানমন্ডি', price: 50, freeOver: 2000 })).json
+  const html = await (await visit(s.handle, s.url)).text()
+  for (const text of ['ঢাকার ভেতরে', 'ঢাকার বাইরে', 'ঢাকা সিটি', 'মিরপুর, উত্তরা, ধানমন্ডি', '৳২,০০০ বা বেশি অর্ডারে ডেলিভারি ফ্রি']) assert.ok(html.includes(text), text)
+  const radio = html.match(new RegExp(`<input[^>]*value="${city.id}"[^>]*>`))![0]
+  assert.match(radio, /data-free-over="2000"/)
+  assert.match(radio, /data-price="50"/)
+
+  // Two of the ৳1,200 item reach ৳2,000, so the city option is free; the database decides, not the form.
+  const free = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, quantity: '2', name: 'রাফি', phone: '01712340099', address: 'বাসা ১২, ধানমন্ডি', rate: city.id })
+  assert.equal(free.status, 303)
+  assert.deepEqual((await pool.query('select delivery_charge, total, shipping_name from orders where phone = $1', ['01712340099'])).rows, [{ delivery_charge: 0, total: 2400, shipping_name: 'ঢাকা সিটি' }])
+
+  await s.call('PUT', `${rates}/${city.id}`, { ...city, active: false })
+  const off = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01712340098', address: 'বাসা ১২, ধানমন্ডি', rate: city.id })
+  assert.equal(off.status, 422)
+  const body = await off.text()
+  assert.match(body, /ডেলিভারি কোথায় হবে, বেছে নিন।/)
+  assert.ok(!body.includes('ঢাকা সিটি'), 'an option that is off is no longer offered')
+  assert.equal((await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01712340097', address: 'বাসা ১২, ধানমন্ডি' })).status, 422)
+  assert.equal((await pool.query('select count(*)::int as n from orders where phone in ($1, $2)', ['01712340098', '01712340097'])).rows[0].n, 0)
 })

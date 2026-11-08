@@ -77,7 +77,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Analytics**
 - **Landing pages** (first under Sales channels)
 - **Online store:** Themes, Pages (coming soon), Menus
-- **Settings:** Store, Warehouses, Couriers, Payments (coming soon), SMS (coming soon), Tracking, Domains, Team, Notifications, Billing (coming soon)
+- **Settings:** Store, Warehouses, Delivery, Couriers, Payments (coming soon), SMS (coming soon), Tracking, Domains, Team, Notifications, Billing (coming soon)
 
 The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS, Billing and store-information Pages visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
@@ -125,7 +125,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 ## Orders
 
-- Every order, from the storefront or typed in by the team, goes through `place_order_lines` (`place_order` is its one-product form, used by the storefront). It prices every line from its variant and the store's delivery charges (`stores.delivery_inside/outside`, set in Settings › Store), takes stock and records the warehouse. All tracked lines ship from one warehouse, because cancels and returns put stock back into `orders.warehouse_id`. App code never sends an amount.
+- Every order, from the storefront or typed in by the team, goes through `place_order_lines` (`place_order` is its one-product form, used by the storefront). It prices every line from its variant and delivery from the buyer's chosen option through `shipping_charge` (see Delivery options), takes stock and records the warehouse. All tracked lines ship from one warehouse, because cancels and returns put stock back into `orders.warehouse_id`. App code never sends an amount.
 - Status changes go through `set_order_status`, which holds the allowed steps (new → confirmed/hold/cancelled, confirmed → packed, packed → courier, courier → delivered/returned). Cancelling or a return adds back what `order_items.stock_taken` says the sale took.
 - Public forms carry a random checkout UUID. `place_checkout` serializes retries, calls `place_order` once, and records the number/total in tenant-scoped `checkout_receipts`. Reusing a completed token with different values is refused. Confirmation reads an opaque receipt through `storefront_receipt`, never an amount from the URL.
 - Storefront orders are limited to 5 per phone per hour, and a hidden form field catches bots. Typed-in orders have no limit.
@@ -147,6 +147,13 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
+
+## Delivery options
+
+- `shipping_rates` replaces the old fixed inside/outside charges. A store has any number of options (name, area note, price, on/off, order), and buyers choose one on the order form. Orders keep `shipping_rate_id` and a copy of the name in `shipping_name`. Deleting an option leaves past orders as they were.
+- Delivery is free when any of an option's conditions holds: products total (before coupon) ≥ `free_over`, item count ≥ `free_min_qty`, or the order includes a product in `shipping_rate_products`. Only `shipping_charge()` in the database decides. The storefront script and dashboard previews repeat the rule for display only.
+- Store creation asks for the inside/outside Dhaka charges and turns them into the first two options; Settings › Delivery manages them. The API refuses to turn off or delete the last active option. Owners and admins edit; staff read.
+- Editing an order keeps its agreed charge on the same option unless the free conditions change; another option is priced afresh.
 
 ## Notifications
 

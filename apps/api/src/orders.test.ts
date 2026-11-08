@@ -31,12 +31,13 @@ async function owner() {
   const handle = `order-shop-${counter}`
   const store = (await call('POST', '/stores', { name: 'Shop', handle })).json
   const product = (await call('POST', `/stores/${handle}/products`, { name: 'পণ্য, "এক"', variants: [{ options: [], price: 150 }] })).json
+  const [inside, outside] = (await call('GET', `/stores/${handle}/shipping-rates`)).json.map((r: { id: string }) => r.id) as string[]
   const create = async (source = 'phone', name = 'Customer') => {
-    const result = await call('POST', `/stores/${handle}/orders`, { variantId: product.variants[0].id, quantity: 1, customerName: name, phone: '01712345678', address: 'Dhaka, Road "4"', area: 'inside', source })
+    const result = await call('POST', `/stores/${handle}/orders`, { variantId: product.variants[0].id, quantity: 1, customerName: name, phone: '01712345678', address: 'Dhaka, Road "4"', shippingRateId: inside, source })
     assert.equal(result.status, 201)
     return result.json
   }
-  return { call, userId, storeId: store.id as string, handle, base: `/stores/${handle}/orders`, views: `/stores/${handle}/order-views`, create }
+  return { call, userId, inside, outside, storeId: store.id as string, handle, base: `/stores/${handle}/orders`, views: `/stores/${handle}/order-views`, create }
 }
 // Parse independently to verify fields containing commas, quotes and newlines.
 function parseCsv(input: string) {
@@ -129,7 +130,7 @@ test('CSV exports all pages and preserves text phones, Bangla, quotes and formul
 
 test('oversized exports are refused without silent truncation', async () => {
   const s = await owner()
-  await pool.query("insert into orders (store_id,number,customer_name,phone,address,area,subtotal,delivery_charge,total,source) select $1, 2000+n, 'Bulk fixture', '01712345678', 'Dhaka', 'inside', 150, 70, 220, 'phone' from generate_series(1,10001) n", [s.storeId])
+  await pool.query("insert into orders (store_id,number,customer_name,phone,address,shipping_name,subtotal,delivery_charge,total,source) select $1, 2000+n, 'Bulk fixture', '01712345678', 'Dhaka', 'ঢাকার ভেতরে', 150, 70, 220, 'phone' from generate_series(1,10001) n", [s.storeId])
   const response = await s.call('GET', `${s.base}/export`)
   assert.equal(response.status, 409)
   assert.equal(response.json.error, 'orderExportLimit')
@@ -188,12 +189,12 @@ test('concurrent saves respect the twenty-view personal limit', async () => {
 })
 
 test('one order holds several products, priced and stocked by the database from one warehouse', async () => {
-  const { call, handle, base } = await owner()
+  const { call, handle, base, inside } = await owner()
   const shirt = (await call('POST', `/stores/${handle}/products`, { name: 'Shirt', options: [{ name: 'Size', values: ['M', 'L'] }], variants: [{ options: ['M'], price: 950, stock: 3 }, { options: ['L'], price: 950, stock: 1 }] })).json
   const buds = (await call('POST', `/stores/${handle}/products`, { name: 'Buds', variants: [{ options: [], price: 1290 }] })).json
   const [m, l] = shirt.variants
   const bud = buds.variants[0]
-  const buyer = { customerName: 'Rafi', phone: '01812345678', address: 'Dhaka', area: 'inside', source: 'phone' }
+  const buyer = { customerName: 'Rafi', phone: '01812345678', address: 'Dhaka', shippingRateId: inside, source: 'phone' }
   const stock = async () => (await call('GET', `/stores/${handle}/products/${shirt.id}`)).json.variants.map((v: any) => v.stock)
 
   // The same variant twice becomes one line; the app never sends a price.
@@ -216,9 +217,9 @@ test('one order holds several products, priced and stocked by the database from 
 })
 
 test('orders carry tags: set when created or changed, listed, searchable and suggested within the store only', async () => {
-  const { call, handle, base, create } = await owner()
+  const { call, handle, base, create, inside } = await owner()
   const product = (await call('POST', `/stores/${handle}/products`, { name: 'Tagged', variants: [{ options: [], price: 100 }] })).json
-  const buyer = { customerName: 'Mim', phone: '01912345678', address: 'Dhaka', area: 'inside', source: 'phone' }
+  const buyer = { customerName: 'Mim', phone: '01912345678', address: 'Dhaka', shippingRateId: inside, source: 'phone' }
   const order = await call('POST', base, { ...buyer, items: [{ variantId: product.variants[0].id, quantity: 1 }], tags: [' gift ', 'urgent', 'gift'] })
   assert.equal(order.status, 201)
   assert.deepEqual(order.json.tags, ['gift', 'urgent'])
@@ -260,28 +261,28 @@ test('customer details can be corrected until the order is packed; the page link
   assert.equal((await call('PATCH', `${base}/${order.id}`, { customerName: 'Late', phone: '01812345678', address: 'Mirpur' })).status, 409)
 })
 
-test('an order can change products and delivery area until it is packed; the database reprices and restocks', async () => {
-  const { call, handle, base } = await owner()
+test('an order can change products and delivery option until it is packed; the database reprices and restocks', async () => {
+  const { call, handle, base, inside, outside } = await owner()
   const mug = (await call('POST', `/stores/${handle}/products`, { name: 'Mug', variants: [{ options: [], price: 300, stock: 5 }] })).json
   const cap = (await call('POST', `/stores/${handle}/products`, { name: 'Cap', variants: [{ options: [], price: 200 }] })).json
-  const buyer = { customerName: 'Rafi', phone: '01712345678', address: 'Dhaka', area: 'inside', source: 'phone' }
+  const buyer = { customerName: 'Rafi', phone: '01712345678', address: 'Dhaka', shippingRateId: inside, source: 'phone' }
   const order = (await call('POST', base, { ...buyer, items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).json
   const stock = async () => (await call('GET', `/stores/${handle}/products/${mug.id}`)).json.variants[0].stock
 
-  const edited = await call('PUT', `${base}/${order.id}/items`, { area: 'outside', items: [{ variantId: mug.variants[0].id, quantity: 3 }, { variantId: cap.variants[0].id, quantity: 1 }] })
+  const edited = await call('PUT', `${base}/${order.id}/items`, { shippingRateId: outside, items: [{ variantId: mug.variants[0].id, quantity: 3 }, { variantId: cap.variants[0].id, quantity: 1 }] })
   assert.equal(edited.status, 200)
-  assert.deepEqual([edited.json.subtotal, edited.json.deliveryCharge, edited.json.total, edited.json.area], [1100, 130, 1230, 'outside'])
+  assert.deepEqual([edited.json.subtotal, edited.json.deliveryCharge, edited.json.total, edited.json.shippingName], [1100, 130, 1230, 'ঢাকার বাইরে'])
   assert.equal(edited.json.items.length, 2)
   assert.equal(await stock(), 2)
   assert.equal(edited.json.events[0].kind, 'edited')
 
   // Asking for more than there is changes nothing.
-  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'outside', items: [{ variantId: mug.variants[0].id, quantity: 9 }] })).status, 409)
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { shippingRateId: outside, items: [{ variantId: mug.variants[0].id, quantity: 9 }] })).status, 409)
   assert.equal(await stock(), 2)
-  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'nowhere', items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 400)
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { shippingRateId: 'nowhere', items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 400)
 
   for (const status of ['confirmed', 'packed']) await call('PATCH', `${base}/${order.id}`, { status })
-  assert.equal((await call('PUT', `${base}/${order.id}/items`, { area: 'inside', items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 409)
+  assert.equal((await call('PUT', `${base}/${order.id}/items`, { shippingRateId: inside, items: [{ variantId: mug.variants[0].id, quantity: 1 }] })).status, 409)
 })
 
 test('the activity log records who did what, and comments stay in their store', async () => {

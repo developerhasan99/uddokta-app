@@ -8,15 +8,30 @@ import { videoEmbed, type Content, type Section, type SectionStyle } from './sch
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
 export type Product = { id: string; name: string; image: Img | null; variants: Variant[] }
-export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'area' | 'coupon' | 'checkout', string>>
+export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'rate' | 'coupon' | 'checkout', string>>
+// A delivery option from Settings › Delivery, as the storefront shows it.
+export type ShippingOption = { id: string; name: string; note: string; price: number; freeOver: number | null; freeMinQty: number | null; freeProducts: string[] }
+
+// What the form shows for delivery. The database works the charge out again itself (shipping_charge) when the order is placed,
+// and the page script repeats this rule as the buyer changes the quantity or option.
+export const deliveryCharge = (o: ShippingOption, productId: string, subtotal: number, qty: number) =>
+  (o.freeOver !== null && subtotal >= o.freeOver) || (o.freeMinQty !== null && qty >= o.freeMinQty) || o.freeProducts.includes(productId) ? 0 : o.price
+
+// "Free on orders of ৳1,000 or more", and so on, so buyers see how to get free delivery.
+function freeHint(o: ShippingOption, productId: string) {
+  if (o.price === 0) return ''
+  if (o.freeProducts.includes(productId)) return 'এই পণ্যে ডেলিভারি ফ্রি'
+  const ways = [o.freeOver !== null && `${taka(o.freeOver)} বা বেশি অর্ডারে`, o.freeMinQty !== null && `${number.format(o.freeMinQty)}টি বা বেশি নিলে`].filter(Boolean)
+  return ways.length ? `${ways.join(' অথবা ')} ডেলিভারি ফ্রি` : ''
+}
 
 export type Ctx = {
   image: (id: string | null) => Img | undefined
   product: (id: string | null) => Product | undefined
   // The editor's preview: forms never submit and empty sections show a hint for the seller.
   preview: boolean
-  // The store's delivery charges, from Settings. The database adds them again itself when the order is placed.
-  delivery: { inside: number; outside: number }
+  // The store's active delivery options, in the seller's order.
+  shipping: ShippingOption[]
   checkoutToken?: string
   orderAction?: string
   order?: { sectionId: string; error: string; values: OrderValues }
@@ -167,7 +182,8 @@ export const orderErrors: Record<string, string> = {
   name: 'আপনার নাম লিখুন।',
   phone: 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।',
   address: 'পুরো ঠিকানা লিখুন: বাসা, রাস্তা, এলাকা, জেলা।',
-  area: 'ঢাকার ভেতরে না বাইরে, বেছে নিন।',
+  rate: 'ডেলিভারি কোথায় হবে, বেছে নিন।',
+  noDelivery: 'এই দোকানে এখন ডেলিভারি নেওয়া হচ্ছে না। অর্ডার করতে দোকানে যোগাযোগ করুন।',
   variant: 'একটি অপশন বেছে নিন।',
   soldOut: 'দুঃখিত, এটি এখন স্টকে নেই। অন্য অপশন বেছে নিন।',
   coupon: 'এই কুপন কোডটি চলছে না। কোডটি দেখে আবার লিখুন, অথবা ফাঁকা রাখুন।',
@@ -182,7 +198,6 @@ const maxChoices = 4
 
 function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
   const product = ctx.product(s.settings.product as string | null)
-  const { inside, outside } = ctx.delivery
   if (!product) {
     return ctx.preview
       ? <section className="sf-section" id={s.id}><div className="sf-wrap sf-narrow"><Hint ctx={ctx}>অর্ডার নিতে একটি পণ্য বেছে নিন</Hint></div></section>
@@ -192,16 +207,18 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
   const values = mine?.values ?? {}
   const available = product.variants.filter((v) => v.available)
   const chosen = product.variants.find((v) => v.id === values.variant && v.available) ?? available[0]
-  const area = values.area ?? 'inside'
+  const options = ctx.shipping
+  const rate = options.find((o) => o.id === values.rate) ?? options[0]
   const quantity = Math.min(Math.max(Number(values.quantity) || 1, 1), 20)
-  const total = chosen ? chosen.price * quantity + (area === 'outside' ? outside : inside) : 0
+  const subtotal = chosen ? chosen.price * quantity : 0
+  const total = chosen ? subtotal + (rate ? deliveryCharge(rate, product.id, subtotal, quantity) : 0) : 0
   const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? '', 'aria-invalid': mine?.error === name ? true : undefined })
 
   return (
     <section className="sf-section sf-section--tint" id={s.id}>
       <div className={`sf-wrap ${s.settings.layout === 'split' ? '' : 'sf-narrow'}`}>
         <Heading text={str(s.settings.heading)} />
-        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-layout={str(s.settings.layout)} data-choices={str(s.settings.choices)} data-inside={inside} data-outside={outside} data-product={product.name}>
+        <form className="sf-order" method="post" action={ctx.preview ? undefined : ctx.orderAction} data-order data-layout={str(s.settings.layout)} data-choices={str(s.settings.choices)} data-product={product.name}>
           <input type="hidden" name="section" value={s.id} />
           {!ctx.preview && <input type="hidden" name="checkout" value={ctx.checkoutToken} />}
           {/* Left empty by people, who never see it; form-filling bots tend to fill every field. */}
@@ -252,19 +269,28 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             <span>পুরো ঠিকানা</span>
             <textarea rows={3} autoComplete="street-address" maxLength={500} required {...field('address')} />
           </label>
-          <fieldset className="sf-choices">
-            <legend>ডেলিভারি এলাকা</legend>
-            <label className="sf-choice">
-              <input type="radio" name="area" value="inside" defaultChecked={area !== 'outside'} />
-              <span>ঢাকার ভেতরে</span>
-              <strong>{taka(inside)}</strong>
-            </label>
-            <label className="sf-choice">
-              <input type="radio" name="area" value="outside" defaultChecked={area === 'outside'} />
-              <span>ঢাকার বাইরে</span>
-              <strong>{taka(outside)}</strong>
-            </label>
-          </fieldset>
+          {options.length > 0 && (
+            <fieldset className="sf-choices">
+              <legend>ডেলিভারি</legend>
+              {options.map((o) => {
+                const hint = freeHint(o, product.id)
+                const charge = deliveryCharge(o, product.id, subtotal, quantity)
+                return (
+                  <label key={o.id} className="sf-choice">
+                    <input type="radio" name="rate" value={o.id} defaultChecked={o.id === rate?.id} data-price={o.price}
+                      data-free-over={o.freeOver ?? undefined} data-free-qty={o.freeMinQty ?? undefined} data-free-product={o.freeProducts.includes(product.id) ? '' : undefined} />
+                    <span className="sf-choice__text">
+                      <span>{o.name}</span>
+                      {o.note && <small>{o.note}</small>}
+                      {hint && <small className="sf-choice__free">{hint}</small>}
+                    </span>
+                    <strong data-charge>{charge === 0 ? 'ফ্রি' : taka(charge)}</strong>
+                  </label>
+                )
+              })}
+            </fieldset>
+          )}
+          {options.length === 0 && <p className="sf-error" role="alert">{orderErrors.noDelivery}</p>}
 
           <label className="sf-field">
             <span>কুপন কোড (থাকলে)</span>
@@ -273,7 +299,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
           <p className="sf-note">কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
-          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
+          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
         </form>
       </div>
     </section>
@@ -481,7 +507,7 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
 
 // The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,
 // saves what the buyer typed so the store can call if they do not finish. Forms work without it.
-export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var a=f.querySelector('input[name=area]:checked');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var t=(v?Number(v.dataset.price):0)*q+Number(a&&a.value==='outside'?f.dataset.outside:f.dataset.inside);f.querySelector('[data-total]').textContent='৳'+n.format(t)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
+export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var sub=(v?Number(v.dataset.price):0)*q;var d=0;f.querySelectorAll('input[name=rate]').forEach(function(r){var o=r.dataset;var c=('freeProduct' in o)||(o.freeOver&&sub>=Number(o.freeOver))||(o.freeQty&&q>=Number(o.freeQty))?0:Number(o.price);r.closest('label').querySelector('[data-charge]').textContent=c?'৳'+n.format(c):'ফ্রি';if(r.checked)d=c});f.querySelector('[data-total]').textContent='৳'+n.format(sub+d)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
 
 
 export const css = `
@@ -535,7 +561,7 @@ h1,h2,h3,p{margin:0}
 .sf-choices{border:0;margin:0;padding:0;display:grid;gap:8px}
 .sf-choices legend{font-weight:600;font-size:15px;margin-bottom:4px;padding:0}
 .sf-choice{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border:1px solid color-mix(in srgb,var(--sf-ink) 25%,transparent);border-radius:8px;cursor:pointer}
-.sf-choice span{flex:1}
+.sf-choice span{flex:1}.sf-choice__text{display:grid;gap:2px;padding:8px 0}.sf-choice__text small{font-size:13px;opacity:.75}.sf-choice__text .sf-choice__free{color:var(--sf-accent);opacity:1;font-weight:600}
 .sf-choice input{accent-color:var(--sf-accent);width:18px;height:18px;margin:0}
 .sf-total{display:flex;justify-content:space-between;font-size:18px;border-top:1px solid var(--sf-rule);padding-top:12px}
 .sf-note{color:var(--sf-muted);font-size:14px}

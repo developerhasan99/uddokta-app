@@ -54,7 +54,7 @@ async function storeWithOrder() {
   const handle = `cr-${n}`
   await call('POST', '/stores', { name: 'Shop', handle })
   const product = (await call('POST', `/stores/${handle}/products`, { name: 'আতর', variants: [{ options: [], price: 500, stock: 5 }] })).json
-  const order = (await call('POST', `/stores/${handle}/orders`, { variantId: product.variants[0].id, quantity: 2, customerName: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', area: 'inside', source: 'phone', note: 'সকালে দিন' })).json
+  const order = (await call('POST', `/stores/${handle}/orders`, { variantId: product.variants[0].id, quantity: 2, customerName: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', shippingRateId: (await call('GET', `/stores/${handle}/shipping-rates`)).json[0].id, source: 'phone', note: 'সকালে দিন' })).json
   return { call, handle, order, stock: async () => (await pool.query('select stock from product_variants where id = $1', [product.variants[0].id])).rows[0].stock }
 }
 

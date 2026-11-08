@@ -46,6 +46,10 @@ export function Stores() {
 
 const suggestHandle = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
+// Bangla digits are typed as often as English ones.
+const digits = (text: string) => text.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '').slice(0, 6)
+const toTaka = (text: string) => Math.min(Number(text || 0), 100_000)
+
 export function NewStore() {
   const { t } = useLang()
   const { refresh } = useAccount()
@@ -53,6 +57,8 @@ export function NewStore() {
   const [name, setName] = useState('')
   const [handle, setHandle] = useState('')
   const [handleEdited, setHandleEdited] = useState(false)
+  // Inside and outside Dhaka: the usual start. They become the first two delivery options, changed later in Settings › Delivery.
+  const [charges, setCharges] = useState({ inside: '70', outside: '130' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -62,7 +68,7 @@ export function NewStore() {
     setBusy(true)
     setError(null)
     try {
-      const store = await api<{ handle: string }>('/stores', { method: 'POST', body: { name, handle } })
+      const store = await api<{ handle: string }>('/stores', { method: 'POST', body: { name, handle, deliveryInside: toTaka(charges.inside), deliveryOutside: toTaka(charges.outside) } })
       await refresh()
       navigate(`/store/${store.handle}`)
     } catch (err) {
@@ -103,6 +109,14 @@ export function NewStore() {
             setHandleEdited(true)
           }}
         />
+        <div>
+          <h2>{t('newStoreDelivery')}</h2>
+          <p className="muted">{t('newStoreDeliveryHelp')}</p>
+        </div>
+        <div className="price-grid price-grid--two">
+            <Field id="store-inside" label={t('orderInside')} unit="৳" inputMode="numeric" value={charges.inside} onChange={(e) => setCharges({ ...charges, inside: digits(e.target.value) })} />
+            <Field id="store-outside" label={t('orderOutside')} unit="৳" inputMode="numeric" value={charges.outside} onChange={(e) => setCharges({ ...charges, outside: digits(e.target.value) })} />
+        </div>
         <div className="row">
           <Button type="submit" variant="primary" aria-busy={busy}>{t('createStore')}</Button>
           <LinkButton to="/stores">{t('cancel')}</LinkButton>
