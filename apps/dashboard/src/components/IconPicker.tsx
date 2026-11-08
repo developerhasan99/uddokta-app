@@ -29,11 +29,7 @@ export function IconPicker({ value, onClose, onSelect }: Props) {
     search.current?.focus()
     return () => { node?.close() }
   }, [])
-  return <dialog {...dialogProps} className="modal icon-picker" aria-labelledby={titleId} onClick={(e) => {
-    if (e.target !== e.currentTarget) return
-    const b = e.currentTarget.getBoundingClientRect()
-    if (e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom) dismiss()
-  }}>
+  return <dialog {...dialogProps} className="modal icon-picker" aria-labelledby={titleId}>
     <div className="icon-picker__head"><div><h2 id={titleId}>{L('আইকন লাইব্রেরি', 'Icon library')}</h2><p>{L('আপনার পেজের জন্য বাছাই করা ৮০টি আইকন', '80 curated icons for your pages')} <span>· Lucide</span></p></div><IconButton label={L('আইকন লাইব্রেরি বন্ধ করুন', 'Close icon library')} onClick={dismiss}><X size={18} aria-hidden="true" /></IconButton></div>
     <div className="icon-picker__search"><Search size={17} aria-hidden="true" /><input ref={search} type="search" aria-label={L('আইকন খুঁজুন', 'Search icons')} placeholder={L('আইকন খুঁজুন — ডেলিভারি, নগদ, আস্থা…', 'Search icons — delivery, cash, trust…')} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
     <div className="icon-picker__categories" role="group" aria-label={L('আইকনের বিভাগ', 'Icon categories')}>

@@ -235,11 +235,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
   const [search, setSearch] = useState('')
   const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
   useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
-  return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId} onClick={(e) => {
-    if (e.target !== e.currentTarget) return
-    const bounds = e.currentTarget.getBoundingClientRect()
-    if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) close()
-  }}>
+  return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId}>
     <div className="modal__body">
       <div className="picker__head">
         <h2 id={titleId} className="editor__heading">{t('pageAddSection')}</h2>

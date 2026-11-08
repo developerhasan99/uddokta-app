@@ -6,7 +6,7 @@ import { useLang } from '../i18n'
 import { channels, nav, settingsItem, type NavItem } from '../nav'
 import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
-import { animateOut } from './dialog'
+import { animateOut, backdropProps } from './dialog'
 import { NotificationBell, useNotificationFeed, type NotificationFeed } from './Notifications'
 
 function NavRow({ item }: { item: NavItem }) {
@@ -91,6 +91,7 @@ function StoreShell() {
   }, [unread])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawer = useRef<HTMLDialogElement>(null)
+  const drawerBackdrop = useRef(backdropProps()).current
   // Kept on screen while the drawer slides out, so its contents do not vanish first.
   const [drawerShown, setDrawerShown] = useState(false)
 
@@ -117,7 +118,7 @@ function StoreShell() {
     <div className="shell">
       <a className="skip-link" href="#main">{t('skip')}</a>
       <aside className="shell__sidebar"><Sidebar feed={feed} /></aside>
-      <dialog ref={drawer} className="drawer" onCancel={(e) => { e.preventDefault(); setDrawerOpen(false) }} onClose={() => { setDrawerOpen(false); setDrawerShown(false) }}>
+      <dialog ref={drawer} className="drawer" {...drawerBackdrop} onCancel={(e) => { e.preventDefault(); setDrawerOpen(false) }} onClose={() => { setDrawerOpen(false); setDrawerShown(false) }}>
         <button type="button" className="icon-button drawer__close" aria-label={t('closeMenu')} onClick={() => setDrawerOpen(false)}>
           <X size={20} aria-hidden="true" />
         </button>
