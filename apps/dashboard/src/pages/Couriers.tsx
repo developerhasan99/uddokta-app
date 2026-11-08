@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Truck } from 'lucide-react'
+import { Bike, Truck } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
@@ -67,7 +67,22 @@ export function Couriers() {
     }
   }
 
+  const toggleSelf = async () => {
+    setError(null)
+    setDone(null)
+    setBusy(true)
+    try {
+      await api(`${base}/self`, { method: self ? 'DELETE' : 'PUT' })
+      await load()
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const steadfast = accounts?.find((a) => a.courier === 'steadfast')
+  const self = accounts?.some((a) => a.courier === 'self')
   const showForm = canEdit && (!steadfast || editing)
 
   return (
@@ -111,6 +126,14 @@ export function Couriers() {
                 {!showForm && error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
               </li>
             )}
+            <li className="rate-row">
+              <span className="courier-mark" aria-hidden="true"><Bike size={16} /></span>
+              <span className="rate-row__main rate-row__main--static">
+                <span className="rate-row__name">{t('courierSelf')} {self ? <Badge tone="success">{t('courierOn')}</Badge> : <Badge>{t('courierOff')}</Badge>}</span>
+                <span className="muted rate-row__sub">{t('courierSelfHelp')}</span>
+              </span>
+              {canEdit && <Button disabled={busy} aria-busy={busy} onClick={() => void toggleSelf()}>{t(self ? 'courierTurnOff' : 'courierTurnOn')}</Button>}
+            </li>
             <li className="rate-row">
               <span className="courier-mark" aria-hidden="true"><Truck size={16} /></span>
               <span className="rate-row__main rate-row__main--static">

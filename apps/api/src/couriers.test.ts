@@ -110,3 +110,36 @@ test('staff can book parcels but not change the courier login; other stores reac
   await other.call('PATCH', `/stores/${other.handle}/orders/${other.order.id}`, { status: 'confirmed' })
   assert.equal((await other.call('POST', `/stores/${other.handle}/orders/${other.order.id}/ship`)).json.error, 'courierNotConnected')
 })
+
+test('self delivery: turned on by managers, sends the order with no booking, and is finished by hand', async () => {
+  const s = await storeWithOrder()
+  const order = `/stores/${s.handle}/orders/${s.order.id}`
+  await s.call('PATCH', order, { status: 'confirmed' })
+  assert.equal((await s.call('POST', `${order}/ship`, { courier: 'self' })).json.error, 'courierNotConnected')
+  assert.equal((await s.call('POST', `${order}/ship`, { courier: 'pigeon' })).status, 400)
+
+  const invite = await s.call('POST', `/stores/${s.handle}/invites`, { role: 'staff' })
+  const staff = client()
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `crstaff${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', `/invites/${invite.json.token}/accept`)
+  assert.equal((await staff('PUT', `/stores/${s.handle}/couriers/self`)).status, 403)
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/couriers/self`)).status, 200)
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/couriers/self`)).status, 200, 'turning it on twice is fine')
+  assert.deepEqual((await s.call('GET', `/stores/${s.handle}/couriers`)).json.map((r: any) => r.courier), ['self'])
+
+  // Staff send it; booked is untouched because Steadfast is never called.
+  const before = booked.length
+  assert.equal((await staff('POST', `${order}/ship`, { courier: 'self' })).status, 201)
+  assert.equal(booked.length, before)
+  let detail = (await s.call('GET', order)).json
+  assert.deepEqual([detail.status, detail.shipment.courier], ['courier', 'self'])
+  assert.equal(detail.events.find((e: any) => e.kind === 'shipped').data.courier, 'self')
+  assert.equal((await s.call('POST', `${order}/track`)).status, 404)
+  await s.call('PATCH', order, { status: 'delivered' })
+  detail = (await s.call('GET', order)).json
+  assert.equal(detail.status, 'delivered')
+
+  assert.equal((await staff('DELETE', `/stores/${s.handle}/couriers/self`)).status, 403)
+  assert.equal((await s.call('DELETE', `/stores/${s.handle}/couriers/self`)).status, 200)
+  assert.equal((await s.call('GET', order)).json.shipment.courier, 'self', 'past orders keep their record')
+})

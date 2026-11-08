@@ -372,7 +372,8 @@ export const orderItemCosts = pgTable('order_item_costs', {
   cost: integer('cost').notNull(),
 }, (t) => [check('order_item_costs_amount', sql`${t.cost} >= 0`)])
 
-export const couriers = ['steadfast'] as const
+// 'self' is the seller's own delivery: no login, no tracking. Its row in courier_accounts only means it is turned on.
+export const couriers = ['steadfast', 'self'] as const
 
 // A store's courier login, encrypted with COURIER_KEY (see secrets.ts). The API never sends it back to the dashboard.
 // Members can read the row so staff can book parcels; only owners and admins can change it (security migration).
@@ -381,7 +382,7 @@ export const courierAccounts = pgTable('courier_accounts', {
   courier: text('courier', { enum: couriers }).notNull(),
   credentials: text('credentials').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [primaryKey({ columns: [t.storeId, t.courier] }), check('courier_accounts_courier', sql`${t.courier} in ('steadfast')`)])
+}, (t) => [primaryKey({ columns: [t.storeId, t.courier] }), check('courier_accounts_courier', sql`${t.courier} in ('steadfast', 'self')`)])
 
 // The parcel booked for an order. One per order: a returned order that is sent again gets a new order.
 export const shipments = pgTable('shipments', {

@@ -340,3 +340,4 @@ Follow-up: each delivery option row ends with an edit (pencil) button, after the
 - Settings sidebar regrouped: account (Store, Team, Notifications), selling and delivery (Payments, Warehouses, Delivery, Couriers, SMS), online (Domains, Tracking), then Billing last.
 - Delivery option panel: delete button fits its text (no full-width stretch) and has the trash icon.
 - Every dialog (and the phone menu drawer) closes on a backdrop click, through useDialog; busy guards in onCancel still apply.
+- Self delivery in Settings › Couriers (on/off, owners and admins). Orders get a Deliver yourself button that records a 'self' shipment and moves the order to With courier; delivered/returned are set by hand. Migration 0069.

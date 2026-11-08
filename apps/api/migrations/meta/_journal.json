@@ -484,6 +484,13 @@
       "when": 1794108981619,
       "tag": "0068_shipping_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794111875448,
+      "tag": "0069_self_delivery",
+      "breakpoints": true
     }
   ]
 }

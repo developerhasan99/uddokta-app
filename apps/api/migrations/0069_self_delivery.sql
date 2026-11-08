@@ -1,0 +1,2 @@
+ALTER TABLE "courier_accounts" DROP CONSTRAINT "courier_accounts_courier";--> statement-breakpoint
+ALTER TABLE "courier_accounts" ADD CONSTRAINT "courier_accounts_courier" CHECK ("courier_accounts"."courier" in ('steadfast', 'self'));

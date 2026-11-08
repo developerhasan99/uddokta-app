@@ -46,6 +46,9 @@ export function OrderDetail() {
   const handle = useCurrentStore()!.store.handle
   const base = `/stores/${handle}/orders/${id}`
   const [order, setOrder] = useState<Order | null>(null)
+  // Which ways of sending are on. Until it loads (or if it fails) the Steadfast button shows, as before.
+  const [couriers, setCouriers] = useState<string[]>([])
+  const selfOn = couriers.includes('self'), steadfastOn = couriers.includes('steadfast')
   const [failed, setFailed] = useState(false)
   const [note, setNote] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -79,6 +82,10 @@ export function OrderDetail() {
   useEffect(() => {
     void load()
   }, [base])
+
+  useEffect(() => {
+    api<{ courier: string }[]>(`/stores/${handle}/couriers`).then((rows) => setCouriers(rows.map((r) => r.courier)), () => {})
+  }, [handle])
 
   useEffect(() => {
     if (!toast) return
@@ -115,11 +122,11 @@ export function OrderDetail() {
     })
   }
 
-  const courierCall = async (path: 'ship' | 'track', message?: string) => {
+  const courierCall = async (path: 'ship' | 'track', message?: string, courier?: 'self') => {
     setBusy(true)
     setError(null)
     try {
-      await api(`${base}/${path}`, { method: 'POST' })
+      await api(`${base}/${path}`, { method: 'POST', body: courier ? { courier } : undefined })
       show(await api<Order>(base))
       setToast(message ?? t('orderUpdated'))
     } catch (err) {
@@ -249,7 +256,7 @@ export function OrderDetail() {
       case 'contact': return t('activityContact', { name: event.data.name, phone: event.data.phone })
       case 'note': return event.data.note ? t('activityNote', { note: event.data.note }) : t('activityNoteCleared')
       case 'tags': return event.data.tags.length ? t('activityTags', { tags: event.data.tags.join(', ') }) : t('activityTagsCleared')
-      case 'shipped': return t('activityShipped', { code: event.data.tracking || '—' })
+      case 'shipped': return event.data.courier === 'self' ? t('activityShippedSelf') : t('activityShipped', { code: event.data.tracking || '—' })
       case 'comment': return event.data.text
     }
   }
@@ -341,16 +348,18 @@ export function OrderDetail() {
             <h2 id="order-shipment-title">{t('orderShipment')}</h2>
             {order.shipment
               ? <dl className="order-facts">
-                  <div><dt>{t('orderCourier')}</dt><dd>{t('courierSteadfast')}</dd></div>
-                  <div><dt>{t('orderTrackingCode')}</dt><dd className="row"><span className="num">{order.shipment.trackingCode}</span><button type="button" className="btn btn--icon order-facts__copy" aria-label={t('orderCopy')} onClick={() => void copy(order.shipment!.trackingCode)}><Copy size={14} aria-hidden="true" /></button></dd></div>
+                  <div><dt>{t('orderCourier')}</dt><dd>{t(order.shipment.courier === 'self' ? 'courierSelf' : 'courierSteadfast')}</dd></div>
+                  {order.shipment.courier === 'self' && order.status === 'courier' && <div><dt /><dd className="muted">{t('orderSelfHint')}</dd></div>}
+                  {order.shipment.courier !== 'self' && <div><dt>{t('orderTrackingCode')}</dt><dd className="row"><span className="num">{order.shipment.trackingCode}</span><button type="button" className="btn btn--icon order-facts__copy" aria-label={t('orderCopy')} onClick={() => void copy(order.shipment!.trackingCode)}><Copy size={14} aria-hidden="true" /></button></dd></div>}
                   {order.shipment.courierStatus && <div><dt>{t('orderCourierState')}</dt><dd>{order.shipment.courierStatus} <span className="muted">· {time(order.shipment.checkedAt)}</span></dd></div>}
-                  {order.status === 'courier' && <div><dt /><dd><Button disabled={busy} onClick={() => void courierCall('track')}>{t('orderTrack')}</Button></dd></div>}
+                  {order.status === 'courier' && order.shipment.courier !== 'self' && <div><dt /><dd><Button disabled={busy} onClick={() => void courierCall('track')}>{t('orderTrack')}</Button></dd></div>}
                 </dl>
               : <div className="order-empty">
                   <Truck size={22} strokeWidth={1.5} aria-hidden="true" />
                   <p>{t(order.status === 'confirmed' || order.status === 'packed' ? 'orderShipReady' : order.status === 'new' || order.status === 'hold' ? 'orderShipHint' : 'orderNoShipment')}</p>
                   {(order.status === 'confirmed' || order.status === 'packed') && <div className="row">
-                    <Button variant="primary" disabled={busy} aria-busy={busy} onClick={() => void courierCall('ship', t('orderShipped'))}>{t('orderShip')}</Button>
+                    {(!selfOn || steadfastOn) && <Button variant="primary" disabled={busy} aria-busy={busy} onClick={() => void courierCall('ship', t('orderShipped'))}>{t('orderShip')}</Button>}
+                    {selfOn && <Button variant={steadfastOn ? 'default' : 'primary'} disabled={busy} aria-busy={busy} onClick={() => void courierCall('ship', t('orderUpdated'), 'self')}>{t('orderShipSelf')}</Button>}
                     {error === 'courierNotConnected' && <Link to={path('/settings/couriers')}>{t('orderShipConnect')}</Link>}
                   </div>}
                 </div>}
