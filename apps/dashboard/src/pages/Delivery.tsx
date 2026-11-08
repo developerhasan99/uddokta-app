@@ -94,11 +94,11 @@ export function Delivery() {
                   <strong className="num rate-row__price">{r.price === 0 ? t('shippingFree') : money(r.price)}</strong>
                   {canEdit && (
                     <span className="rate-row__move">
-                      <IconButton label={t('shippingEditNamed', { name: r.name })} onClick={() => setEditing(r)}><Pencil size={14} aria-hidden="true" /></IconButton>
                       {rates.length > 1 && <>
                       <IconButton label={t('shippingMoveUp', { name: r.name })}  disabled={i === 0} onClick={() => void move(i, -1)}><ArrowUp size={14} aria-hidden="true" /></IconButton>
                       <IconButton label={t('shippingMoveDown', { name: r.name })}  disabled={i === rates.length - 1} onClick={() => void move(i, 1)}><ArrowDown size={14} aria-hidden="true" /></IconButton>
                       </>}
+                      <IconButton label={t('shippingEditNamed', { name: r.name })} onClick={() => setEditing(r)}><Pencil size={14} aria-hidden="true" /></IconButton>
                     </span>
                   )}
                 </li>
