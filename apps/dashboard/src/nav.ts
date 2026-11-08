@@ -61,5 +61,6 @@ export const settingsNav: NavLeaf[] = [
   { key: 'tracking', path: '/settings/tracking' },
   { key: 'domains', path: '/settings/domains' },
   { key: 'members', path: '/settings/members' },
+  { key: 'notifications', path: '/settings/notifications' },
   { key: 'billing', path: '/settings/billing', planned: true },
 ]

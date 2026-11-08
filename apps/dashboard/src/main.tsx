@@ -30,6 +30,7 @@ import { ProductEdit } from './pages/ProductEdit'
 import { Products } from './pages/Products'
 import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
+import { NotificationSettings } from './pages/NotificationSettings'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
 import { Themes } from './pages/Themes'
@@ -103,6 +104,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="tracking" element={<Tracking />} />
                   <Route path="domains" element={<Domains />} />
                   <Route path="members" element={<Members />} />
+                  <Route path="notifications" element={<NotificationSettings />} />
                   {settingsNav.filter((item) => item.planned).map((item) => <Route key={item.path} path={item.path.slice('/settings/'.length)} element={<Placeholder item={item.key} />} />)}
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />

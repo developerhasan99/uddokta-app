@@ -7,6 +7,7 @@ import { channels, nav, settingsItem, type NavItem } from '../nav'
 import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
 import { animateOut } from './dialog'
+import { NotificationBell, useNotificationFeed, type NotificationFeed } from './Notifications'
 
 function NavRow({ item }: { item: NavItem }) {
   const { t } = useLang()
@@ -36,15 +37,20 @@ function NavRow({ item }: { item: NavItem }) {
   )
 }
 
-function Sidebar({ menuContainer }: { menuContainer?: HTMLElement | null }) {
+// The phone drawer passes no feed: on phones the bell lives in the top bar instead.
+function Sidebar({ menuContainer, feed }: { menuContainer?: HTMLElement | null; feed?: NotificationFeed }) {
   const { t } = useLang()
   const path = useStorePath()
+  const handle = useCurrentStore()!.store.handle
   return (
     <nav className="sidebar" aria-label={t('mainNav')}>
-      <Link to={path('/')} className="brand">
-        <img src="/favicon.svg" width="28" height="28" alt="" />
-        {t('appName')}
-      </Link>
+      <div className="sidebar__top">
+        <Link to={path('/')} className="brand">
+          <img src="/favicon.svg" width="28" height="28" alt="" />
+          {t('appName')}
+        </Link>
+        {feed && <NotificationBell feed={feed} handle={handle} />}
+      </div>
       <ul className="nav-list">
         {nav.map((item) => <NavRow key={item.path} item={item} />)}
       </ul>
@@ -65,6 +71,24 @@ function Sidebar({ menuContainer }: { menuContainer?: HTMLElement | null }) {
 function StoreShell() {
   const { t } = useLang()
   const { pathname } = useLocation()
+  const handle = useCurrentStore()!.store.handle
+  const feed = useNotificationFeed(handle)
+  const unread = feed.page?.unread ?? 0
+
+  // "(3) Orders" in the tab. Pages set their own titles (some after loading), so the count is put back whenever the title changes.
+  useEffect(() => {
+    const apply = () => {
+      const base = document.title.replace(/^\(\d+\+?\) /, '')
+      const wanted = unread ? `(${unread > 99 ? '99+' : unread}) ${base}` : base
+      if (document.title !== wanted) document.title = wanted
+    }
+    apply()
+    const title = document.querySelector('title')
+    if (!title) return
+    const watcher = new MutationObserver(apply)
+    watcher.observe(title, { childList: true })
+    return () => watcher.disconnect()
+  }, [unread])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawer = useRef<HTMLDialogElement>(null)
   // Kept on screen while the drawer slides out, so its contents do not vanish first.
@@ -92,7 +116,7 @@ function StoreShell() {
   return (
     <div className="shell">
       <a className="skip-link" href="#main">{t('skip')}</a>
-      <aside className="shell__sidebar"><Sidebar /></aside>
+      <aside className="shell__sidebar"><Sidebar feed={feed} /></aside>
       <dialog ref={drawer} className="drawer" onCancel={(e) => { e.preventDefault(); setDrawerOpen(false) }} onClose={() => { setDrawerOpen(false); setDrawerShown(false) }}>
         <button type="button" className="icon-button drawer__close" aria-label={t('closeMenu')} onClick={() => setDrawerOpen(false)}>
           <X size={20} aria-hidden="true" />
@@ -104,6 +128,7 @@ function StoreShell() {
           <Menu size={20} aria-hidden="true" />
         </button>
         <span className="brand">{t('appName')}</span>
+        <span className="mobilebar__end"><NotificationBell feed={feed} handle={handle} align="end" /></span>
       </header>
       <main id="main" className="shell__main" tabIndex={-1}>
         <Outlet />

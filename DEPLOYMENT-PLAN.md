@@ -278,3 +278,29 @@ Every dialog now animates in, using CSS only. Centred `.modal` dialogs rise 8px 
 ## Dialog exit animations (November 7, 2026)
 
 Dialogs now animate out as well as in. `components/dialog.ts` provides `useDialog(onClose)`, which returns `ref`, `close(then?)` and props to spread on the `<dialog>`. `close` sets `[data-closing]`, waits for the dialog's own and its backdrop's exit animation (400ms cap), then closes and calls the parent. Every way out goes through it: X, Cancel, Esc, backdrop click, Apply/Done/Save/Delete. Exits are quicker than entries and accelerate away: modals sink and fade in 130ms, sheets and the drawer slide out in 190ms. New tokens: `--ease-in`, `--dur-exit`, `--dur-sheet-exit`. The phone drawer keeps its menu visible while it slides out and can be reopened mid-exit. Checked in the browser: the filter dialog (X and Esc), the warehouse sheet (Esc) and the drawer (close and reopen).
+
+## Notifications (November 8, 2026)
+
+A bell sits to the right of the logo in the sidebar and at the right end of the phone top bar (not inside the phone drawer). It shows the unread count. The panel lists notifications newest first, with older pages below. Each one opens what it is about and is marked read. "Mark all as read" and a link to the settings sit in the panel. The tab title shows the count, as in "(3) Orders".
+
+- **Database:** migrations `0064_notifications` (tables and `checkout_drafts.notified_at`) and `0065_notifications_security` (row-level security, triggers, functions). `notifications` has one row per member, with a snapshot in `data`. Members can read and set `read_at` on their own rows only, and only in stores they belong to. The app role cannot insert, and cannot change any other column. `notification_settings` holds each member's choices per store. With no row, `notification_default()` applies: everything is on except delivered orders.
+- **What creates them:** all from triggers through `notify(store, kind, data, actor)`, which never tells the actor and drops rows older than 90 days.
+  - `order_new`: a deferred constraint trigger, so the order lines exist. It records the first product, the line count and the repeat-order mark, using the same rule as the order page.
+  - `order_returned` and `order_delivered`: from status changes, including courier refresh.
+  - `low_stock`: when the total crosses `low_stock` or reaches 0.
+  - `member_joined`: owners and admins only.
+  - `checkout_draft`: created lazily by `notify_stale_drafts(store)` when a member loads notifications, once a draft has been left open for 15 minutes. Every storefront order saves a draft first, so announcing drafts straight away would duplicate every order. Each draft is announced once.
+  - Leaving a team deletes that member's notifications and settings for the store.
+- **API** (`apps/api/src/notifications.ts`):
+  - `GET /stores/:handle/notifications?before=<id>` returns 30 at a time plus the unread count.
+  - `POST …/notifications/read` takes `{ids?}`, and no ids means all.
+  - `GET` and `PUT …/notification-settings`. Staff do not get the team-member switch.
+  - Tests: `notifications.test.ts`, 8 tests covering recipients, actor exclusion, repeat mark, stock crossing, drafts, settings, isolation and paging.
+- **Dashboard:**
+  - `components/Notifications.tsx` holds one feed per open store, which the shell shares between the two bells.
+  - The feed polls every 30 seconds and again when the tab regains focus.
+  - Settings › Notifications (`pages/NotificationSettings.tsx`) has the per-store switches, plus per-device browser pop-ups (asks permission; shows a hint when blocked) and a sound made in the browser. Device choices live in `localStorage` (`notify.popups`, `notify.sound`).
+  - `useLang().ago()` formats relative times.
+- **Checked in the browser** on desktop and at 390px, in Bangla and English: badge, panel, opening an order, mark one and mark all, tab title, saving settings and reload, no duplicate bell in the drawer. The test order and draft were removed afterwards.
+
+Next, when needed: replace polling and the lazy draft check with a pg-boss worker and server-sent events (both marked `ponytail:`). Add web push so phones are notified with the dashboard closed; that needs a service worker and VAPID keys. Add SMS or WhatsApp delivery once the SMS settings exist.

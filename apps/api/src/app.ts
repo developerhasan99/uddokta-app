@@ -14,6 +14,7 @@ import { registerAnalytics } from './analytics.ts'
 import { registerCollections } from './collections.ts'
 import { registerCouriers } from './couriers.ts'
 import { registerDiscounts } from './discounts.ts'
+import { registerNotifications } from './notifications.ts'
 import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerOrders } from './orders.ts'
@@ -370,3 +371,4 @@ registerRepeat(app)
 registerAnalytics(app)
 registerCouriers(app)
 registerDiscounts(app)
+registerNotifications(app)

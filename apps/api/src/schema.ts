@@ -338,6 +338,8 @@ export const checkoutDrafts = pgTable('checkout_drafts', {
   pageId: uuid('page_id'),
   // open: not ordered yet; ordered: an order followed; dismissed: the team dealt with it.
   status: text('status').notNull().default('open'),
+  // When the team was told about this draft; set once it has sat open for a while (see notify_stale_drafts).
+  notifiedAt: timestamp('notified_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -459,4 +461,35 @@ export const orderEvents = pgTable('order_events', {
   index('order_events_order_idx').on(t.orderId, t.createdAt),
   check('order_events_kind', sql`${t.kind} in ('placed', 'status', 'edited', 'contact', 'note', 'tags', 'shipped', 'comment')`),
   check('order_events_comment', sql`${t.kind} <> 'comment' or length(${t.data}->>'text') between 1 and 2000`),
+])
+
+// What the team hears about, one row per member, written only by database triggers (see the notifications migrations),
+// so storefront orders, courier tracking and the team are all covered. Nobody is told about their own action.
+// data is a snapshot taken at the time (order number, buyer's name, product), so it reads the same later. Kept 90 days.
+export const notificationKinds = ['order_new', 'checkout_draft', 'order_delivered', 'order_returned', 'low_stock', 'member_joined'] as const
+export type NotificationKind = (typeof notificationKinds)[number]
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: notificationKinds }).notNull(),
+  data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+}, (t) => [
+  index('notifications_user_store_created').on(t.userId, t.storeId, t.createdAt),
+  index('notifications_store_created').on(t.storeId, t.createdAt),
+  index('notifications_unread').on(t.userId, t.storeId).where(sql`${t.readAt} is null`),
+  check('notifications_kind', sql`${t.kind} in ('order_new', 'checkout_draft', 'order_delivered', 'order_returned', 'low_stock', 'member_joined')`),
+])
+
+// Each member's own choices per store. No row means the default from notification_default() in the database.
+export const notificationSettings = pgTable('notification_settings', {
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: notificationKinds }).notNull(),
+  enabled: boolean('enabled').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.storeId, t.userId, t.kind] }),
+  check('notification_settings_kind', sql`${t.kind} in ('order_new', 'checkout_draft', 'order_delivered', 'order_returned', 'low_stock', 'member_joined')`),
 ])

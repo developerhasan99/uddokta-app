@@ -973,6 +973,53 @@ const bn = {
   menuCollections: 'কালেকশন',
   menuPages: 'ল্যান্ডিং পেজ',
   errMenuInvalid: 'প্রতিটি লিংকে লেখা দিন, আর অন্য লিংক https:// দিয়ে শুরু করুন।',
+  notifications: 'নোটিফিকেশন', 'notifications.d': 'কোন খবর পাবেন আর কীভাবে পাবেন, তা নিজের মতো ঠিক করুন।',
+  notifOpen: 'নোটিফিকেশন',
+  notifOpenUnread: 'নোটিফিকেশন, {n}টি পড়া হয়নি',
+  notifMarkAll: 'সব পড়া হয়েছে',
+  notifEmptyTitle: 'এখনো কোনো নোটিফিকেশন নেই',
+  notifEmptyBody: 'নতুন অর্ডার, ফেরত, স্টক কমে যাওয়া বা অসম্পূর্ণ অর্ডার হলে এখানে দেখাবে।',
+  notifLoadMore: 'আগের নোটিফিকেশন দেখুন',
+  notifSettings: 'নোটিফিকেশন সেটিংস',
+  notifLoadFailed: 'নোটিফিকেশন আনা যায়নি। একটু পরে আবার দেখুন।',
+  notifUnread: 'পড়া হয়নি',
+  notifOrderNew: 'নতুন অর্ডার #{number}',
+  notifRepeat: 'সম্ভাব্য রিপিট অর্ডার',
+  notifMoreLines: '+{n}টি পণ্য',
+  notifDraft: 'অসম্পূর্ণ অর্ডার',
+  notifDraftNoName: 'নাম দেননি',
+  notifDelivered: 'অর্ডার #{number} ডেলিভারি হয়েছে',
+  notifReturned: 'অর্ডার #{number} ফেরত এসেছে',
+  notifLowStock: 'স্টক কম: {product}',
+  notifOutOfStock: 'স্টক শেষ: {product}',
+  notifStockLeft: '{n}টি বাকি',
+  notifJoined: '{name} টিমে যোগ দিয়েছেন',
+  notifWhatTitle: 'কোন খবর পাবেন',
+  notifWhatBody: 'এই সেটিং শুধু আপনার জন্য, এই দোকানে। নিজের করা কাজের নোটিফিকেশন আপনি পাবেন না।',
+  'notifKind.order_new': 'নতুন অর্ডার',
+  'notifKind.order_new.d': 'পেজ থেকে বা টিমের কেউ অর্ডার নিলে। রিপিট মনে হলে আলাদা চিহ্ন থাকবে।',
+  'notifKind.checkout_draft': 'অসম্পূর্ণ অর্ডার',
+  'notifKind.checkout_draft.d': 'কেউ ফোন নম্বর দিয়েও ১৫ মিনিট অর্ডার শেষ না করলে, যাতে ফোন করতে পারেন।',
+  'notifKind.order_returned': 'ফেরত আসা অর্ডার',
+  'notifKind.order_returned.d': 'কুরিয়ার থেকে বা টিমের কেউ অর্ডার ফেরত হিসেবে চিহ্নিত করলে।',
+  'notifKind.order_delivered': 'ডেলিভারি হওয়া অর্ডার',
+  'notifKind.order_delivered.d': 'প্রতিটি ডেলিভারির খবর। অর্ডার বেশি হলে বন্ধ রাখাই ভালো।',
+  'notifKind.low_stock': 'স্টক কম বা শেষ',
+  'notifKind.low_stock.d': 'স্টক সতর্কতার সংখ্যায় নামলে বা শেষ হয়ে গেলে। সতর্কতার সংখ্যা স্টক পেজে ঠিক করুন।',
+  'notifKind.member_joined': 'নতুন টিম সদস্য',
+  'notifKind.member_joined.d': 'কেউ আমন্ত্রণ লিংক দিয়ে টিমে যোগ দিলে। শুধু মালিক আর অ্যাডমিন পান।',
+  notifSaved: 'নোটিফিকেশন সেটিংস সেভ হয়েছে।',
+  notifDeviceTitle: 'এই ডিভাইসে',
+  notifDeviceBody: 'এগুলো শুধু এই ব্রাউজারে কাজ করে। অন্য ফোন বা কম্পিউটারে আলাদা করে চালু করুন।',
+  notifPopups: 'ব্রাউজার নোটিফিকেশন',
+  notifPopupsHelp: 'অন্য ট্যাব বা অ্যাপে থাকলেও স্ক্রিনের কোণে নতুন খবর দেখাবে। ড্যাশবোর্ড ব্রাউজারে খোলা থাকতে হবে।',
+  notifPopupsBlocked: 'এই ব্রাউজারে নোটিফিকেশন বন্ধ করা আছে। ঠিকানার পাশের লক চিহ্নে চাপ দিয়ে নোটিফিকেশন চালু করুন, তারপর আবার চেষ্টা করুন।',
+  notifPopupsUnsupported: 'এই ব্রাউজার নোটিফিকেশন দেখাতে পারে না।',
+  notifSound: 'শব্দ',
+  notifSoundHelp: 'নতুন নোটিফিকেশন এলে ছোট একটা শব্দ হবে।',
+  notifTest: 'পরীক্ষা করুন',
+  notifTestTitle: 'নোটিফিকেশন চালু আছে',
+  notifTestBody: 'নতুন অর্ডার এলে এভাবেই জানাবে।',
 }
 
 export type Key = keyof typeof bn
@@ -1950,6 +1997,53 @@ const en: Record<Key, string> = {
   menuCollections: 'Collections',
   menuPages: 'Landing pages',
   errMenuInvalid: 'Give every link a label, and start custom links with https://.',
+  notifications: 'Notifications', 'notifications.d': 'Choose what you hear about, and how.',
+  notifOpen: 'Notifications',
+  notifOpenUnread: 'Notifications, {n} unread',
+  notifMarkAll: 'Mark all as read',
+  notifEmptyTitle: 'No notifications yet',
+  notifEmptyBody: 'New orders, returns, low stock and unfinished orders will show up here.',
+  notifLoadMore: 'Show older notifications',
+  notifSettings: 'Notification settings',
+  notifLoadFailed: 'Notifications could not be loaded. Try again in a moment.',
+  notifUnread: 'Unread',
+  notifOrderNew: 'New order #{number}',
+  notifRepeat: 'Possible repeat order',
+  notifMoreLines: '+{n} products',
+  notifDraft: 'Unfinished order',
+  notifDraftNoName: 'No name given',
+  notifDelivered: 'Order #{number} delivered',
+  notifReturned: 'Order #{number} returned',
+  notifLowStock: 'Low stock: {product}',
+  notifOutOfStock: 'Out of stock: {product}',
+  notifStockLeft: '{n} left',
+  notifJoined: '{name} joined the team',
+  notifWhatTitle: 'What you hear about',
+  notifWhatBody: 'These settings are yours, for this store only. You are never notified about your own actions.',
+  'notifKind.order_new': 'New orders',
+  'notifKind.order_new.d': 'From your pages or typed in by the team. Likely repeat orders are marked.',
+  'notifKind.checkout_draft': 'Unfinished orders',
+  'notifKind.checkout_draft.d': 'When someone gives a phone number but has not ordered after 15 minutes, so you can call.',
+  'notifKind.order_returned': 'Returned orders',
+  'notifKind.order_returned.d': 'When the courier or someone on the team marks an order returned.',
+  'notifKind.order_delivered': 'Delivered orders',
+  'notifKind.order_delivered.d': 'Every delivery. Best left off once you have many orders.',
+  'notifKind.low_stock': 'Low or out of stock',
+  'notifKind.low_stock.d': 'When stock falls to its alert level or runs out. Set alert levels on the Inventory page.',
+  'notifKind.member_joined': 'New team members',
+  'notifKind.member_joined.d': 'When someone joins with an invite link. Owners and admins only.',
+  notifSaved: 'Notification settings saved.',
+  notifDeviceTitle: 'On this device',
+  notifDeviceBody: 'These work in this browser only. Turn them on separately on your other phones and computers.',
+  notifPopups: 'Browser notifications',
+  notifPopupsHelp: 'Shows new notifications in the corner of the screen, even in another tab or app. The dashboard must stay open in the browser.',
+  notifPopupsBlocked: 'Notifications are blocked for this site. Click the lock next to the address, allow notifications, then try again.',
+  notifPopupsUnsupported: 'This browser cannot show notifications.',
+  notifSound: 'Sound',
+  notifSoundHelp: 'Plays a short sound when a new notification arrives.',
+  notifTest: 'Test',
+  notifTestTitle: 'Notifications are on',
+  notifTestBody: 'This is how new orders will reach you.',
 }
 
 const errorKeys: Record<string, Key> = {
@@ -2030,6 +2124,8 @@ type Ctx = {
   date: (day: Date) => string
   // A calendar date in Bangladesh time, with the year.
   day: (iso: string) => string
+  // "5 minutes ago", falling back to the date after a week.
+  ago: (iso: string) => string
 }
 
 const LangContext = createContext<Ctx | null>(null)
@@ -2050,6 +2146,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
     const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
     const dayMonth = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })
     const dayYear = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dhaka' })
+    const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
     return {
       lang,
       setLang,
@@ -2058,6 +2155,15 @@ export function LangProvider({ children }: { children: ReactNode }) {
       num: (n) => number.format(n),
       date: (day) => dayMonth.format(day),
       day: (iso) => dayYear.format(new Date(iso)),
+      ago: (iso) => {
+        const seconds = (new Date(iso).getTime() - Date.now()) / 1000
+        if (seconds > -60) return relative.format(0, 'second')
+        for (const [unit, size] of [['minute', 60], ['hour', 3600], ['day', 86400]] as const) {
+          const next = unit === 'minute' ? 3600 : unit === 'hour' ? 86400 : 604800
+          if (-seconds < next) return relative.format(Math.round(seconds / size), unit)
+        }
+        return dayYear.format(new Date(iso))
+      },
       time: (iso) => {
         const text = date.format(new Date(iso))
         return lang === 'bn' ? text.replace('AM', 'এএম').replace('PM', 'পিএম') : text

@@ -77,7 +77,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Analytics**
 - **Landing pages** (first under Sales channels)
 - **Online store:** Themes, Pages (coming soon), Menus
-- **Settings:** Store, Warehouses, Couriers, Payments (coming soon), SMS (coming soon), Tracking, Domains, Team, Billing (coming soon)
+- **Settings:** Store, Warehouses, Couriers, Payments (coming soon), SMS (coming soon), Tracking, Domains, Team, Notifications, Billing (coming soon)
 
 The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS, Billing and store-information Pages visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
@@ -147,6 +147,14 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
+
+## Notifications
+
+- The bell sits beside the logo in the sidebar and at the end of the phone top bar. Its panel opens what each notification is about, and Settings › Notifications holds the choices.
+- Only database triggers create notifications, through `notify()` in migration `0065`. Never insert them from app code: storefront and courier paths must be covered too. The person who caused an event is never notified about it.
+- `data` is a snapshot (number, name, product), so text reads the same later. New kinds need the check constraints, `notification_default()`, the kind lists in `schema.ts` and `components/Notifications.tsx`, text in `describe()` and a test.
+- Incomplete orders are announced only after 15 minutes left open, because every storefront order saves a draft first.
+- Browser pop-ups and sound are per device (`localStorage`); what a member receives is per store (`notification_settings`).
 
 ## Design rules
 
