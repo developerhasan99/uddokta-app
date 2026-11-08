@@ -338,3 +338,4 @@ Follow-up (same day): the courier list moved from Settings › Delivery to Setti
 Follow-up: each delivery option row ends with an edit (pencil) button, after the move arrows, for owners and admins; it opens the same panel as clicking the name.
 
 - Settings sidebar regrouped: account (Store, Team, Notifications), selling and delivery (Payments, Warehouses, Delivery, Couriers, SMS), online (Domains, Tracking), then Billing last.
+- Delivery option panel: delete button fits its text (no full-width stretch) and has the trash icon.

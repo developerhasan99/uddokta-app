@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, CircleCheck, Pencil, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleCheck, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { useDialog } from '../components/dialog'
@@ -273,7 +273,7 @@ function RatePanel({ handle, rate, canEdit, lastActive, onClose, onDone }: { han
               )
               : lastActive
                 ? <p className="field__help">{t('shippingLastDeleteNote')}</p>
-                : <button type="button" className="media-details__delete" onClick={() => setConfirming(true)}>{t('shippingDelete')}</button>
+                : <button type="button" className="media-details__delete" onClick={() => setConfirming(true)}><Trash2 size={16} aria-hidden="true" />{t('shippingDelete')}</button>
           )}
         </fieldset>
         <div className="picker__foot row--end">
