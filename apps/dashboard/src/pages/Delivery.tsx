@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, CircleCheck, Plus, Truck, X } from 'lucide-react'
-import { useCurrentStore, useStorePath } from '../account-context'
+import { ArrowDown, ArrowUp, CircleCheck, Plus, X } from 'lucide-react'
+import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { useDialog } from '../components/dialog'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
-import { Badge, Button, Field, IconButton, LinkButton, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Badge, Button, Field, IconButton, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 import { loadRates, type ShippingRate } from '../shipping'
 
@@ -13,11 +13,9 @@ const digits = (text: string) => text.replace(/[০-৯]/g, (d) => String('০�
 export function Delivery() {
   const { t, money, num } = useLang()
   const current = useCurrentStore()!
-  const path = useStorePath()
   const handle = current.store.handle
   const canEdit = current.role !== 'staff'
   const [rates, setRates] = useState<ShippingRate[] | null>(null)
-  const [couriers, setCouriers] = useState<{ courier: string }[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [editing, setEditing] = useState<ShippingRate | 'new' | null>(null)
   const [toast, setToast] = useState<Key | null>(null)
@@ -34,8 +32,7 @@ export function Delivery() {
 
   useEffect(() => {
     void load()
-    api<{ courier: string }[]>(`/stores/${handle}/couriers`).then(setCouriers).catch(() => setCouriers([]))
-  }, [load, handle])
+  }, [load])
 
   useEffect(() => {
     if (!toast) return
@@ -64,7 +61,6 @@ export function Delivery() {
     r.freeProducts.length > 0 && t('shippingFreeProductsShort', { n: num(r.freeProducts.length) }),
   ].filter(Boolean).join(' · ')
 
-  const steadfast = couriers?.some((c) => c.courier === 'steadfast')
   const activeCount = rates?.filter((r) => r.active).length ?? 0
 
   return (
@@ -109,29 +105,6 @@ export function Delivery() {
         )}
       </section>
 
-      <section className="card card--flush">
-        <div className="card__intro">
-          <h2>{t('couriers')}</h2>
-          <p className="muted">{t('shippingCouriersHelp')}</p>
-        </div>
-        <ul className="rate-list">
-          <li className="rate-row">
-            <span className="courier-mark" aria-hidden="true"><Truck size={16} /></span>
-            <span className="rate-row__main rate-row__main--static">
-              <span className="rate-row__name">Steadfast {couriers && <Badge tone={steadfast ? 'success' : 'neutral'}>{t(steadfast ? 'shippingConnected' : 'shippingNotConnected')}</Badge>}</span>
-              <span className="muted rate-row__sub">{t('shippingSteadfastHelp')}</span>
-            </span>
-            <LinkButton to={path('/settings/couriers')}>{t('shippingManage')}</LinkButton>
-          </li>
-          <li className="rate-row">
-            <span className="courier-mark" aria-hidden="true"><Truck size={16} /></span>
-            <span className="rate-row__main rate-row__main--static">
-              <span className="rate-row__name">Pathao <Badge>{t('comingSoon')}</Badge></span>
-              <span className="muted rate-row__sub">{t('shippingPathaoHelp')}</span>
-            </span>
-          </li>
-        </ul>
-      </section>
 
       {editing && (
         <RatePanel

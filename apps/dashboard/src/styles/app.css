@@ -1485,3 +1485,5 @@ a.order-item__name:hover { text-decoration: underline; }
 .order-sum__rate { max-width: 16rem; }
 @media (max-width: 40rem) { .rate-row { gap: var(--space-xs); padding-inline: var(--space-sm); } .card__intro { padding-inline: var(--space-sm); } }
 .rate-form > .switch-row { padding: 0; border-top: 0; }
+.courier-panel { padding: var(--space-sm) var(--space-md) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); }
+@media (max-width: 40rem) { .courier-panel { padding-inline: var(--space-sm); } }

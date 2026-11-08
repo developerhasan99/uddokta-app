@@ -332,3 +332,5 @@ The fixed "inside Dhaka / outside Dhaka" charges (`stores.delivery_inside/outsid
 - **Checked in the browser:** desktop and 390px, Bangla and English. The test option was created and deleted through the UI.
 
 Next, if sellers ask: pick the option automatically from the buyer's district instead of the buyer choosing, store-wide free-delivery campaigns with end dates, and conditions that only show an option above an order amount.
+
+Follow-up (same day): the courier list moved from Settings › Delivery to Settings › Couriers. Couriers now shows Steadfast and Pathao as rows in one card. Steadfast's Connect/Manage button opens the key form, or Replace/Disconnect, below its row. Delivery shows only the delivery options.
