@@ -922,13 +922,13 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .editor-sections__label svg { flex-shrink: 0; color: var(--color-muted); }
 .editor-sections__row--hidden .editor-sections__name { opacity: .5; }
 /* Sidebar views: Sections, Page settings, Custom CSS. */
-.editor__views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; gap: 2px; padding: 2px; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
-.editor__views button { display: flex; align-items: center; justify-content: center; gap: var(--space-2xs); min-width: 0; min-height: 32px; padding: 0 var(--space-2xs); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.editor__views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; padding: 2px; border-radius: var(--radius-control); background: var(--color-paper-3); }
+.editor__views button { display: flex; align-items: center; justify-content: center; gap: var(--space-2xs); min-width: 0; min-height: 30px; padding: 0 var(--space-xs); border: 0; border-radius: calc(var(--radius-control) - 2px); background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .editor__views button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor__views button svg { flex: none; }
-.editor__views button:hover { background: var(--color-paper-2); color: var(--color-ink); }
-.editor__views button[aria-pressed="true"] { background: var(--color-paper-3); color: var(--color-ink); font-weight: 600; }
-.editor__views button[aria-pressed="true"] svg { color: var(--color-primary); }
+.editor__views button:hover { color: var(--color-ink); }
+.editor__views button[aria-pressed="true"] { background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-weight: 500; }
+.editor__views button:focus-visible { outline: 2px solid var(--color-focus); }
 .editor__css-input { flex: 1 1 auto !important; min-height: 240px; padding: var(--space-xs); resize: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.6; tab-size: 2; white-space: pre; }
 .editor__section-actions { margin-top: auto; }
 .editor__readiness { padding: var(--space-xs); border-left: 2px solid var(--color-warning); background: var(--color-paper-2); font-size: var(--text-sm); }
