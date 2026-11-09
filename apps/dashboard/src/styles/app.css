@@ -121,7 +121,11 @@ main { outline: 0; }
 .filter-search:focus-within { outline: 2px solid var(--color-focus); outline-offset: 1px; border-radius: var(--radius-control); }
 .filter-search input::placeholder { color: var(--color-muted); }
 
-.filter-bar .tab { padding-inline: var(--space-xs); }
+/* List filter chips: small and quiet, 13px on a 28px pill-less chip; the count reads as a lighter suffix. */
+.filter-bar .tabs { gap: 2px; }
+.filter-bar .tab { gap: var(--space-2xs); min-height: 28px; padding-inline: var(--space-xs); font-size: var(--text-sm); line-height: 1; }
+.filter-bar .tab__count { color: var(--color-muted); font-size: var(--text-sm); }
+.filter-bar .tab[aria-current] .tab__count { color: var(--color-ink-2); }
 
 /* Data tables: the one list pattern on every admin page.
    <section class="data-list">
@@ -1195,7 +1199,6 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .campaign-layout input { flex: none; accent-color: var(--color-primary); }
 .campaign-layout__copy { display: grid; flex: 1; gap: var(--space-2xs); min-width: 0; }
 /* Discounts: the list tabs are buttons. */
-button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .discount-products { display: grid; gap: var(--space-xs); }
 .discount-row__sub { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .discount-summary { display: grid; gap: var(--space-3xs); }
@@ -1239,7 +1242,6 @@ button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .order-header-actions { flex: none; gap: var(--space-xs); }
 .orders-feedback { font-size: var(--text-sm); color: var(--color-muted); }
 .orders-bar { gap: var(--space-sm); }
-.orders-tabs .tab { font-size: var(--text-sm); }
 .orders-tabs__view { padding-inline-end: var(--space-2xs); }
 .orders-tabs__remove { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); cursor: pointer; }
 .orders-tabs__remove:hover { background: var(--color-rule-strong); color: var(--color-ink); }

@@ -451,3 +451,4 @@ Every dialog now shares one design, so they look the same everywhere.
   - The icon library.
 - Old per-dialog head, body and footer CSS is removed.
 - **Checked in the browser:** discount types, order filters, media picker, new landing page, the delivery option panel and add section.
+- List filter chips (filter bars on Orders, Products, Landing pages, Discounts) are smaller: 13px text on 28px chips with the count as a lighter suffix. Duplicate button.tab rule removed.
