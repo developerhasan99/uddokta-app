@@ -87,7 +87,6 @@ test('blocks put built-in sections inside layouts, validated by that section typ
   assert.deepEqual(orderBlocks(content).map((o) => o.id), ['b0'])
   const bad = (block: unknown) => readContent({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'block', props: {}, block }] }] })
   assert.equal(bad({ type: 'layout', settings: {} }), null, 'no layouts inside layouts')
-  assert.equal(bad({ type: 'header', settings: {} }), null)
   assert.equal(bad({ type: 'order', settings: { product: 'nope' } }), null, 'the section type\'s own rules apply')
   assert.equal(bad(undefined), null)
   assert.equal(readContent({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'text', props: {}, block: { type: 'faq', settings: {} } }] }] }), null, 'only block nodes carry a block')

@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app as api } from '../../api/src/app.ts'
 import { pool } from '../../api/src/db.ts'
 import { app } from './server.tsx'
-import { blankContent, newBlock, newSection } from './schema.ts'
+import { blankContent, newBlock, newSection, orderBlocks } from './schema.ts'
 
 before(async () => {
   await pool.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public')
@@ -45,10 +45,12 @@ async function publishedPage(status = 'active') {
     variants: [{ options: ['M'], price: 1200, stock: 3 }, { options: ['L'], price: 1300, stock: null }],
   })).json
   const page = (await call('POST', `/stores/${handle}/pages`, { title: 'ঈদ অফার' })).json
-  const sections = page.draft.sections.map((s: any) => (s.type === 'order' ? { ...s, settings: { ...s.settings, product: product.id } } : s))
+  // New pages are layouts: the order form is a block somewhere in the tree.
+  const withProduct = (n: any): any => (n.block?.type === 'order' ? { ...n, block: { ...n.block, settings: { ...n.block.settings, product: product.id } } } : n.children ? { ...n, children: n.children.map(withProduct) } : n)
+  const sections = page.draft.sections.map((s: any) => ({ ...s, ...(s.children ? { children: s.children.map(withProduct) } : {}) }))
   const savedPage = await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: page.title, handle: page.handle, draft: { version: 2, sections }, revision: page.revision })
   await call('POST', `/stores/${handle}/pages/${page.id}/publish`, { revision: savedPage.json.revision })
-  const orderSection = sections.find((s: any) => s.type === 'order').id
+  const orderSection = orderBlocks({ version: 2, sections })[0].id
   return { call, handle, product, page, orderSection, inside, outside, url: `/${encodeURIComponent(page.handle)}` }
 }
 
@@ -72,7 +74,7 @@ test('saved icon IDs publish as inline SVG on the public page without an icon fo
   assert.equal(saved.status, 200)
   assert.deepEqual(saved.json.draft, draft)
   assert.deepEqual((await s.call('GET', base)).json.draft, draft)
-  assert.doesNotMatch(await (await visit(s.handle, s.url)).text(), /data-icon=/, 'saving a draft does not change the published page')
+  assert.doesNotMatch(await (await visit(s.handle, s.url)).text(), /data-icon="phone"/, 'saving a draft does not change the published page')
   assert.equal((await s.call('POST', `${base}/publish`, { revision: saved.json.revision })).status, 200)
   const res = await visit(s.handle, s.url)
   assert.equal(res.status, 200)

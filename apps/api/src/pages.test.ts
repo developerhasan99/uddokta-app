@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { app } from './app.ts'
 import { pool, tx } from './db.ts'
 import { pageMedia, pages } from './schema.ts'
+import { newSection, orderBlocks } from 'storefront/schema'
 
 before(async () => {
   await pool.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public')
@@ -58,7 +59,8 @@ test('a new page starts with a landing page layout, and only publishing puts it 
   const made = await owner.call('POST', owner.base, { title: 'ঈদ অফার' })
   assert.equal(made.status, 201)
   assert.equal(made.json.handle, 'ঈদ-অফার')
-  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['hero', 'features', 'video', 'reviews', 'faq', 'order', 'contact'])
+  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), Array(7).fill('layout'), 'new pages are built from layouts')
+  assert.equal(orderBlocks(made.json.draft).length, 1, 'with an order form block')
   assert.equal(made.json.isPublished, false)
   assert.equal(await storefrontPage(owner.handle, 'ঈদ-অফার'), undefined, 'a draft is never public')
 
@@ -89,7 +91,7 @@ test('a stale save is refused instead of overwriting someone else’s', async ()
 test('content that does not match the section schema is refused', async () => {
   const owner = await storeOwner()
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const hero = page.draft.sections[0]
+  const hero = newSection('hero', 'hero')
   const bad = [
     { version: 1, sections: [] },
     { version: 2, sections: [{ ...hero, type: 'script' }] },
@@ -110,7 +112,7 @@ test('an image used by a page cannot be deleted, and shows where it is used', as
   const owner = await storeOwner()
   const image = await upload(owner)
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const [hero, ...rest] = page.draft.sections
+  const [hero, rest] = [newSection('hero', 'hero'), page.draft.sections]
   const saved = await save(owner, page, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: image.id } }, ...rest] } })
   assert.equal(saved.json.media[image.id].id, image.id)
   const usage = await owner.call('GET', `/stores/${owner.handle}/media/${image.id}/usage`)
@@ -149,9 +151,9 @@ test('one store cannot reach another store’s pages, images or products', async
   assert.equal((await a.call('DELETE', `${a.base}/${theirs.id}`)).status, 403)
 
   const mine = (await a.call('POST', a.base, { title: 'A' })).json
-  const [hero, ...rest] = mine.draft.sections
+  const hero = newSection('hero', 'hero')
   assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: theirImage.id } }] } })).status, 400)
-  const order = rest.find((s: any) => s.type === 'order')
+  const order = newSection('order', 'buy')
   assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...order, settings: { ...order.settings, product: theirProduct.id } }] } })).status, 400)
 
   const me = await a.call('GET', '/me')
@@ -281,15 +283,15 @@ test('guided campaign creation connects a sellable product and real media in an 
   const product = (await owner.call('POST', `/stores/${owner.handle}/products`, { name: 'Real product', mediaIds: [image.id], variants: [{ options: [], price: 450, stock: 5 }] })).json
   const made = await owner.call('POST', owner.base, { title: 'New campaign', template: 'story', productId: product.id, lang: 'en' })
   assert.equal(made.status, 201)
-  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['hero', 'text', 'gallery', 'order'])
+  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'layout', 'layout'])
   assert.deepEqual(made.json.draft.canvas, { header: false, footer: false })
-  assert.equal(made.json.draft.sections[0].settings.heading, product.name)
-  assert.equal(made.json.draft.sections[0].settings.image, image.id)
-  assert.equal(made.json.draft.sections[0].settings.text, '')
-  assert.equal(made.json.draft.sections[1].settings.body, '', 'seller supplies their own details')
-  assert.deepEqual(made.json.draft.sections[2].settings.items, [{ image: image.id }])
-  assert.equal(made.json.draft.sections[3].settings.product, product.id)
-  assert.equal(made.json.draft.sections[3].settings.button, 'Confirm order')
+  const tree = JSON.stringify(made.json.draft)
+  assert.match(tree, /"kind":"heading","props":\{"text":"Real product","level":"h1"\}/, 'the product name is the main heading')
+  assert.ok(tree.includes(`"image":"${image.id}"`), 'its photo is placed')
+  assert.doesNotMatch(tree, /"kind":"text","props":\{"text":"[^"]+"/, 'seller supplies their own details: no sample copy')
+  const [form] = orderBlocks(made.json.draft)
+  assert.equal(form.settings.product, product.id)
+  assert.equal(form.settings.button, 'Confirm order')
   assert.equal(made.json.media[image.id].id, image.id)
   assert.equal(made.json.isPublished, false)
   assert.equal(await storefrontPage(owner.handle, made.json.handle), undefined)
@@ -297,7 +299,7 @@ test('guided campaign creation connects a sellable product and real media in an 
   assert.ok(usage.json.pages.some((page: any) => page.id === made.json.id))
   const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })
   assert.equal(published.status, 200)
-  assert.equal((await storefrontPage(owner.handle, made.json.handle)).content.sections.at(-1).settings.product, product.id)
+  assert.equal(orderBlocks((await storefrontPage(owner.handle, made.json.handle)).content)[0].settings.product, product.id)
 })
 
 test('layout templates build editable trees from the real product and publish cleanly', async () => {
@@ -307,11 +309,11 @@ test('layout templates build editable trees from the real product and publish cl
   for (const template of ['modern', 'banner']) {
     const made = await owner.call('POST', owner.base, { title: template, template, productId: product.id })
     assert.equal(made.status, 201, template)
-    assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'order'])
+    assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'layout'])
     const nodes = JSON.stringify(made.json.draft.sections[0].children)
     assert.match(nodes, /"text":"Layout product"/, 'the product name is the heading')
     assert.ok(JSON.stringify(made.json.draft).includes(image.id), 'the product image is placed')
-    assert.equal(made.json.draft.sections[2].settings.product, product.id)
+    assert.equal(orderBlocks(made.json.draft)[0].settings.product, product.id)
     assert.ok(made.json.media[image.id], 'layout images are tracked as page media')
     assert.equal((await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })).status, 200)
   }
@@ -329,9 +331,9 @@ test('guided creation and its product picker reject draft or sold-out products a
   assert.equal((await create(soldOut.id)).json.error, 'soldOut')
   const accepted = await create(unlisted.id)
   assert.equal(accepted.status, 201)
-  assert.deepEqual(accepted.json.draft.sections.map((s: any) => s.type), ['hero', 'order'])
-  assert.equal(accepted.json.draft.sections[0].settings.image, null)
-  assert.equal(accepted.json.draft.sections[1].settings.button, 'অর্ডার নিশ্চিত করুন')
+  assert.deepEqual(accepted.json.draft.sections.map((s: any) => s.type), ['layout', 'layout'])
+  assert.ok(JSON.stringify(accepted.json.draft).includes('"image":null'), 'no photo yet, so the image waits for one')
+  assert.equal(orderBlocks(accepted.json.draft)[0].settings.button, 'অর্ডার নিশ্চিত করুন')
   const picker = await owner.call('GET', `/stores/${owner.handle}/products?sellable=1`)
   assert.deepEqual(picker.json.items.map((p: any) => p.id), [unlisted.id])
   assert.equal((await other.call('POST', other.base, { title: 'Theirs', template: 'quick', productId: unlisted.id })).status, 404)
@@ -346,7 +348,7 @@ test('duplicating a published page copies its saved draft into an independent pr
   const image = await upload(owner)
   const made = (await owner.call('POST', owner.base, { title: 'Original' })).json
   const live = (await owner.call('POST', `${owner.base}/${made.id}/publish`, { revision: made.revision })).json
-  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [{ ...live.draft.sections[0], settings: { ...live.draft.sections[0].settings, heading: 'Saved draft heading', image: image.id } }] } })).json
+  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [{ ...newSection('hero', 'hero'), settings: { ...newSection('hero', 'hero').settings, heading: 'Saved draft heading', image: image.id } }] } })).json
   const copied = await owner.call('POST', `${owner.base}/${made.id}/duplicate`, { title: 'Independent copy' })
   assert.equal(copied.status, 201)
   assert.notEqual(copied.json.id, made.id)

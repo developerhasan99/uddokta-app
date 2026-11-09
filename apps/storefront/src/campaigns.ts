@@ -1,3 +1,4 @@
+import { toLayout } from './convert.ts'
 import { newNode, newSection, type Content, type Label, type NodeKind, type NodeStyle, type PageNode, type SectionType } from './schema.ts'
 
 export const campaignTemplates = [
@@ -24,7 +25,7 @@ export function campaignContent(template: CampaignTemplate, product: { id: strin
     if (type === 'order') Object.assign(section.settings, { product: product.id, heading: english ? 'Place your order' : 'অর্ডার করতে নিচের ফর্মটি পূরণ করুন', button: english ? 'Confirm order' : 'অর্ডার নিশ্চিত করুন' })
     return section
   })
-  return { version: 2, canvas: { header: false, footer: false }, sections }
+  return { version: 2, canvas: { header: false, footer: false }, sections: sections.map((section) => toLayout(section, id)) }
 }
 
 const node = (kind: NodeKind, id: () => string, props: PageNode['props'] = {}, style?: NodeStyle, children?: PageNode[]): PageNode => {

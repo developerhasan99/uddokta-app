@@ -9,7 +9,8 @@ import {
   Sparkles, LayoutGrid, Box, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
-import { blockTypes, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { toLayout } from 'storefront/convert'
+import { blockTypes, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
@@ -38,7 +39,8 @@ type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 const sectionIcons = { layout: LayoutGrid, icon: Sparkles, iconCards: LayoutTemplate, iconList: ListChecks, announcement: MessageSquare, header: LayoutTemplate, footer: LayoutTemplate, imageText: Image, trust: CircleCheck, steps: ListChecks, specifications: ListChecks, comparison: ListChecks, cards: Images, cta: ShoppingBag, hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: LayoutTemplate }
 const historyLimit = 100
-const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
+// Every section is edited as a layout; older built-in sections are turned into one when the page opens.
+const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => toLayout(s, newId)) } })
 const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
@@ -633,7 +635,7 @@ export function PageEditor() {
     ><span /></li>
   )
   const add = (type: SectionType) => {
-    const section = type === 'layout' ? { ...newSection(type, newId()), children: starterNodes(newId) } : newSection(type, newId())
+    const section = type === 'layout' ? { ...newSection(type, newId()), children: starterNodes(newId) } : toLayout(newSection(type, newId()), newId)
     const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
     const next = [...sections]
     next.splice(at === -1 ? next.length : at + 1, 0, section)
@@ -659,6 +661,16 @@ export function PageEditor() {
   }
 
   const found = findNode(sections, selected)
+  // A layout section is listed by what it shows: its block, or its first heading or text.
+  const sectionName = (s: Section) => {
+    if (s.type !== 'layout') return L(defOf(s.type).label)
+    const first = [...walk(s.children ?? [])].find((n) => n.block || (typeof n.props.text === 'string' && n.props.text.trim()))
+    return first ? nodeName(first, L) : L(defOf('layout').label)
+  }
+  const sectionIcon = (s: Section) => {
+    const only = s.children?.length === 1 ? s.children[0] : undefined
+    return only?.block ? sectionIcons[only.block.type] : sectionIcons[s.type]
+  }
   const editTree = (sectionId: string, fn: (nodes: PageNode[]) => PageNode[], key?: string) => setSections(sections.map((s) => (s.id === sectionId ? { ...s, children: fn(s.children ?? []) } : s)), key)
   const addNode = (build: (id: () => string) => PageNode) => {
     if (!addingNode) return
@@ -757,7 +769,7 @@ export function PageEditor() {
   const section = sections.find((s) => s.id === selected)
   const index = section ? sections.indexOf(section) : -1
   const liveUrl = `${storefrontUrl(current.store.handle)}${pageHref(page.publishedHandle ?? page.handle)}`
-  const incompleteOrders = sections.filter((s) => !s.hidden && s.type === 'order' && (!s.settings.product || (typeof s.settings.product === 'string' && products[s.settings.product]?.status === 'draft')))
+  const incompleteOrders = orderBlocks(doc.content).filter((o) => !o.settings.product || (typeof o.settings.product === 'string' && products[o.settings.product]?.status === 'draft'))
   const status = { isPublished: page.isPublished, hasChanges: page.isPublished && (page.hasChanges || dirty) }
 
   // Shown in the top bar on wide screens and, with short labels, in the bottom dock on phones.
@@ -811,7 +823,7 @@ export function PageEditor() {
         <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
         {incompleteOrders.length > 0 && <div className="editor__readiness">
           <p>{t('pageOrderNotReady')}</p>
-          {incompleteOrders.map((s) => <button key={s.id} type="button" onClick={() => choose(s.id)}>{L(defOf(s.type).label)}</button>)}
+          {incompleteOrders.map((o) => <button key={o.id} type="button" onClick={() => choose(o.id)}>{L(defOf('order').label)}</button>)}
         </div>}
         <ul className="editor-sections" onDragOver={(e) => {
           if (dragFrom.current === null) return
@@ -885,8 +897,8 @@ export function PageEditor() {
                 onPointerCancel={endDrag}
                 onLostPointerCapture={endDrag}
               ><GripVertical size={16} aria-hidden="true" /></button>
-              <button type="button" className="editor-sections__name" title={short(s.settings.heading) || L(defOf(s.type).label)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
-                <span className="editor-sections__label">{(() => { const Icon = sectionIcons[s.type]; return <Icon size={15} aria-hidden="true" /> })()}{L(defOf(s.type).label)}</span>
+              <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} aria-expanded={s.type === 'layout' ? (s.id === selected || found?.section.id === s.id) : undefined} onClick={() => choose(s.id)}>
+                <span className="editor-sections__label">{s.type === 'layout' && <ChevronDown className="editor-sections__chevron" size={14} aria-hidden="true" />}{(() => { const Icon = sectionIcon(s); return <Icon size={15} aria-hidden="true" /> })()}<span className="editor-sections__text">{sectionName(s)}</span></span>
               </button>
               <IconButton label={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} title={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} onClick={() => updateSection(s.id, { hidden: !s.hidden })}>
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}

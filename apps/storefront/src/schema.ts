@@ -461,8 +461,8 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
   block: { label: ['ব্লক', 'Block'], fields: [], defaults: {} },
 }
 
-// Built-in sections that can also sit inside a layout. Page chrome and layouts themselves cannot.
-export const blockTypes = sectionTypes.filter((type) => !['layout', 'header', 'footer'].includes(type))
+// Built-in sections that can sit inside a layout as a block (anything but a layout itself).
+export const blockTypes = sectionTypes.filter((type) => type !== 'layout')
 export const newBlock = (type: SectionType, id: () => string): PageNode => ({ id: id(), kind: 'block', props: {}, block: { type, settings: structuredClone(defOf(type).defaults) } })
 
 // Every order form a buyer can submit: visible order sections and order blocks in visible layouts, in page order.

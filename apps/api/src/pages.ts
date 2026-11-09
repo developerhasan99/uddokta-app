@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { isReservedPageHandle } from 'storefront/paths'
 import { campaignContent, isCampaignTemplate } from 'storefront/campaigns'
+import { toLayout } from 'storefront/convert'
 import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia } from './media.ts'
@@ -116,7 +117,7 @@ export function registerPages(app: Hono<Env>) {
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${store.id}`}))`)
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
       if (count >= maxPages) throw fail(409, 'pageLimit')
-      let draft = body.blank === true ? blankContent() : starterContent(sectionId)
+      let draft = body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId))
       if (guided) {
         const [product] = await t.select({ id: products.id, name: products.name, status: products.status }).from(products).where(and(eq(products.storeId, store.id), eq(products.id, body.productId)))
         if (!product) throw fail(404, 'notFound')

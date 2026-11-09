@@ -1699,3 +1699,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor :is(.design-segments, .editor-setting-tabs, .segmented) { background: var(--color-paper-2); box-shadow: inset 0 0 0 1px var(--color-rule); }
 .editor :is(.design-segments, .editor-setting-tabs) button[aria-pressed="true"], .editor .segmented input:checked + span { background: oklch(36% 0.006 155); color: var(--color-ink); }
 .editor .editor-setting-tabs { box-shadow: inset 0 0 0 1px var(--color-rule), 0 6px 0 var(--color-paper); }
+.editor-sections__chevron { flex: none; margin-inline-start: -4px; color: var(--color-muted); transform: rotate(-90deg); transition: transform var(--dur-micro) var(--ease-out); }
+.editor-sections__name[aria-expanded="true"] .editor-sections__chevron { transform: none; }
+.editor-sections__label { min-width: 0; }
+.editor-sections__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

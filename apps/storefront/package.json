@@ -5,6 +5,7 @@
   "exports": {
     "./order-filters": "./src/order-filters.ts",
     "./campaigns": "./src/campaigns.ts",
+    "./convert": "./src/convert.ts",
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
     "./themes": "./src/themes.ts",
