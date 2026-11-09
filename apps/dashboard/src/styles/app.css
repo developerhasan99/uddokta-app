@@ -1722,3 +1722,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-sections__row:is(:hover, :focus-within) .editor-sections__delete { display: contents; }
 .editor-sections__delete .btn--icon:hover { color: var(--color-error); }
 @media (hover: none) { .editor-sections__delete { display: contents; } }
+.editor__name-input { flex: 1; min-width: 0; height: 32px; margin-inline-start: calc(-1 * var(--space-xs)); padding: 0 var(--space-xs); border: var(--rule-hair) solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-ink); font: inherit; font-size: var(--text-md); font-weight: 600; }
+.editor__name-input:hover { border-color: var(--color-rule-strong); }
+.editor__name-input:focus { border-color: var(--color-primary); outline: 0; background: var(--color-paper-2); }

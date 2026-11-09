@@ -40,7 +40,7 @@ const sectionIcons = { layout: LayoutGrid, icon: Sparkles, iconCards: LayoutTemp
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: LayoutTemplate }
 const historyLimit = 100
 // Every section is edited as a layout; older built-in sections are turned into one when the page opens.
-const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => toLayout(s, newId)) } })
+const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => (s.type === 'layout' ? s : { ...toLayout(s, newId), settings: { name: defOf(s.type).label[document.documentElement.lang === 'en' ? 1 : 0] } })) } })
 const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
@@ -291,7 +291,7 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
   )
 }
 
-function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void }) {
+function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: (typeof sectionPresets)[number]) => void }) {
   const { t, lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
@@ -308,7 +308,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (bui
     <div className="dialog__body">
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
-        {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset.build))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><LayoutGrid size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
+        {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><LayoutGrid size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
       </ul>
       {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
       <p className="muted editor-add__note">{L(['অর্ডার ফর্ম, রিভিউ, প্রশ্নোত্তরের মতো জিনিস সেকশনের ভেতরে "এলিমেন্ট যোগ করুন" থেকে ব্লক হিসেবে বসান।', 'Order forms, reviews, questions and similar pieces go inside a section: use "Add element" and pick a block.'])}</p>
@@ -339,12 +339,11 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
           return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
         })}
       </ul>
-      <p className="node-add__label">{L(['লেআউট', 'Layouts'])}</p>
+      <p className="node-add__label">{L(['কন্টেইনার', 'Container'])}</p>
     </div>
     <div className="dialog__body dialog__body--flush">
       <ul className="dialog-list">
         <li><button type="button" className="dialog-list__item" onClick={() => close(() => onAdd((id) => newNode('box', id)))}><Box className="dialog-list__icon" size={18} aria-hidden="true" /><span className="dialog-list__text"><strong>{L(['খালি বক্স', 'Empty box'])}</strong><span>{L(['যেকোনো কিছু রাখার পাত্র, নিচে নিচে বা পাশাপাশি', 'A container for anything, stacked or side by side'])}</span></span><ChevronDown className="dialog-list__chevron" size={18} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }} /></button></li>
-        {layoutPresets.map((preset) => <li key={preset.key}><button type="button" className="dialog-list__item" onClick={() => close(() => onAdd(preset.build))}><LayoutGrid className="dialog-list__icon" size={18} aria-hidden="true" /><span className="dialog-list__text"><strong>{L(preset.label)}</strong><span>{L(preset.help)}</span></span><ChevronDown className="dialog-list__chevron" size={18} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }} /></button></li>)}
       </ul>
     </div>
   </dialog>
@@ -366,7 +365,7 @@ function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; 
 }
 
 export function PageEditor() {
-  const { t, lang } = useLang()
+  const { t, lang, num } = useLang()
   const { id } = useParams()
   const navigate = useNavigate()
   const path = useStorePath()
@@ -639,8 +638,8 @@ export function PageEditor() {
       }}
     ><span /></li>
   )
-  const add = (build: (id: () => string) => PageNode) => {
-    const section: Section = { ...newSection('layout', newId()), children: [build(newId)] }
+  const add = (preset: (typeof sectionPresets)[number]) => {
+    const section: Section = { ...newSection('layout', newId()), settings: { name: L(preset.label) }, children: [preset.build(newId)] }
     setOpen((o) => new Set([...o, section.id, section.children![0].id]))
     const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
     const next = [...sections]
@@ -668,17 +667,19 @@ export function PageEditor() {
   }
 
   const found = findNode(sections, selected)
+  const sTab = section0(selected)?.type === 'layout' && settingsTab === 'content' ? 'layout' : settingsTab
   // A layout section is listed by what it shows: its block, or its first heading or text.
+  // Sections are listed by the name the seller gives them (or their place on the page until they do).
   const sectionName = (s: Section) => {
     if (s.type !== 'layout') return L(defOf(s.type).label)
     if (typeof s.settings.name === 'string' && s.settings.name.trim()) return s.settings.name.trim()
-    const first = [...walk(s.children ?? [])].find((n) => n.block || (typeof n.props.text === 'string' && n.props.text.trim()))
-    return first ? nodeName(first, L) : L(defOf('layout').label)
+    return `${L(["সেকশন", "Section"])} ${num(sections.findIndex((x) => x.id === s.id) + 1)}`
   }
   const sectionIcon = (s: Section) => {
     const only = s.children?.length === 1 ? s.children[0] : undefined
     return only?.block ? sectionIcons[only.block.type] : sectionIcons[s.type]
   }
+  function section0(id: string | null) { return sections.find((x) => x.id === id) }
   const editTree = (sectionId: string, fn: (nodes: PageNode[]) => PageNode[], key?: string) => setSections(sections.map((s) => (s.id === sectionId ? { ...s, children: fn(s.children ?? []) } : s)), key)
   const addNode = (build: (id: () => string) => PageNode) => {
     if (!addingNode) return
@@ -936,17 +937,19 @@ export function PageEditor() {
         {found ? nodePanel(found) : section ? (
           <>
             <div className="editor__settings-head">
-              <h2 className="editor__heading">{L(defOf(section.type).label)}</h2>
+              {section.type === 'layout'
+                ? <input className="editor__name-input" aria-label={L(['সেকশনের নাম', 'Section name'])} maxLength={60} placeholder={sectionName({ ...section, settings: { name: '' } })} value={typeof section.settings.name === 'string' ? section.settings.name : ''} onChange={(e) => updateSection(section.id, { settings: { ...section.settings, name: e.target.value } }, `${section.id}:name`)} />
+                : <h2 className="editor__heading">{L(defOf(section.type).label)}</h2>}
               <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
             </div>
             {section.hidden && <p className="muted">{t('pageHidden')}</p>}
             <div className="editor-setting-tabs" role="group" aria-label={L(['সেকশন সেটিংস', 'Section settings'])}>
-              {(['content', 'layout', 'style'] as const).map((tab) => <button key={tab} type="button" aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+              {(['content', 'layout', 'style'] as const).filter((tab) => tab !== 'content' || section.type !== 'layout').map((tab) => <button key={tab} type="button" aria-pressed={sTab === tab} onClick={() => setSettingsTab(tab)}>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
             </div>
             <div className="editor__form">
-              {settingsTab !== 'style' && <div className={settingsTab === 'layout' ? 'design-structure' : 'editor__fields'}><SectionForm
-                key={`${section.id}:${settingsTab}`}
-                group={settingsTab === 'layout' ? 'layout' : 'content'}
+              {sTab !== 'style' && <div className={sTab === 'layout' ? 'design-structure' : 'editor__fields'}><SectionForm
+                key={`${section.id}:${sTab}`}
+                group={sTab === 'layout' ? 'layout' : 'content'}
                 section={section}
                 media={media}
                 products={products}
@@ -954,8 +957,8 @@ export function PageEditor() {
                 onChange={(key, value, typing) => updateSection(section.id, { settings: { ...section.settings, [key]: value } }, typing ? `${section.id}:${key}` : undefined)}
               /></div>}
 
-              {settingsTab !== 'content' && <>
-                <SectionDesignControls key={`${section.id}:${settingsTab}`} section={section} tab={settingsTab} theme={theme} onPatch={(patch, typingKey) => {
+              {sTab !== 'content' && <>
+                <SectionDesignControls key={`${section.id}:${sTab}`} section={section} tab={sTab} theme={theme} onPatch={(patch, typingKey) => {
                   const style = { ...section.style }
                   for (const [key, value] of Object.entries(patch)) {
                     if (value === undefined || value === '') delete style[key]
@@ -963,19 +966,15 @@ export function PageEditor() {
                   }
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined }, typingKey ? `${section.id}:style:${typingKey}` : undefined)
                 }} />
-                {settingsTab === 'layout' && <details className="design-group design-anchor"><summary><span className="design-group__icon"><Link2 size={15} aria-hidden="true" /></span><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
+                {sTab === 'layout' && <details className="design-group design-anchor"><summary><span className="design-group__icon"><Link2 size={15} aria-hidden="true" /></span><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
                 <Button onClick={() => {
                   const style = { ...section.style }
-                  for (const field of styleFieldsFor(section.type).filter((f) => f.group === settingsTab)) delete style[field.key]
+                  for (const field of styleFieldsFor(section.type).filter((f) => f.group === sTab)) delete style[field.key]
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
-                }}>{L(settingsTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
+                }}>{L(sTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
               </>}
-              {section.type === 'layout' && settingsTab === 'content' && <>
-                <Field id="section-name" label={L(['সেকশনের নাম', 'Section name'])} maxLength={60} placeholder={sectionName({ ...section, settings: { ...section.settings, name: '' } })} value={typeof section.settings.name === 'string' ? section.settings.name : ''} help={L(['শুধু আপনি দেখবেন, তালিকায় চেনার জন্য।', 'Only you see this, to find it in the list.'])} onChange={(e) => updateSection(section.id, { settings: { ...section.settings, name: e.target.value } }, `${section.id}:name`)} />
-                <p className="muted">{L(['এই সেকশনে বক্স আর এলিমেন্ট সাজিয়ে নিজের মতো ডিজাইন করুন। প্রিভিউতে বা বাঁয়ের তালিকায় ক্লিক করে যেকোনো অংশ বদলান।', 'Arrange boxes and elements in this section however you like. Click any part in the preview or the list on the left to change it.'])}</p>
-                <Button onClick={() => setAddingNode({ sectionId: section.id, parentId: null, index: section.children?.length ?? 0 })}><Plus size={16} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</Button>
-              </>}
-              {section.type === 'order' && settingsTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
+              {section.type === 'layout' && sTab === 'layout' && <Button onClick={() => setAddingNode({ sectionId: section.id, parentId: null, index: section.children?.length ?? 0 })}><Plus size={16} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</Button>}
+              {section.type === 'order' && sTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
             </div>
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
               <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
