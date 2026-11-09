@@ -361,15 +361,14 @@ export function DiscountEdit() {
                 <div className="discount-num"><Field id="disc-max-uses" label={t('discLimits')} inputMode="numeric" value={form.maxUses} error={show_('maxUses') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ maxUses: digits(e.target.value).slice(0, 7) })} /></div>)}
               {box('oncePerPhone', 'discOncePerPhone', 'discOncePerPhoneHelp')}
             </div>
-          </section>
-
-          <section className="card card--form">
-            <h2>{t('discDates')}</h2>
-            <div className="price-grid price-grid--two">
-              <Field id="disc-starts" type="datetime-local" label={t('discStarts')} value={form.startsAt} onChange={(e) => change({ startsAt: e.target.value })} />
-              {form.hasEnd && <Field id="disc-ends" type="datetime-local" label={t('discEnds')} value={form.endsAt} error={show_('dates') ? t('errDiscountDatesInvalid') : undefined} onChange={(e) => change({ endsAt: e.target.value })} />}
+            <div className="form-section">
+              <h3>{t('discDates')}</h3>
+              <div className="price-grid price-grid--two">
+                <Field id="disc-starts" type="datetime-local" label={t('discStarts')} value={form.startsAt} onChange={(e) => change({ startsAt: e.target.value })} />
+                {form.hasEnd && <Field id="disc-ends" type="datetime-local" label={t('discEnds')} value={form.endsAt} error={show_('dates') ? t('errDiscountDatesInvalid') : undefined} onChange={(e) => change({ endsAt: e.target.value })} />}
+              </div>
+              <label className="check-line"><input type="checkbox" className="check" checked={form.hasEnd} onChange={(e) => change({ hasEnd: e.target.checked })} />{t('discSetEnd')}</label>
             </div>
-            <label className="check-line"><input type="checkbox" className="check" checked={form.hasEnd} onChange={(e) => change({ hasEnd: e.target.checked })} />{t('discSetEnd')}</label>
           </section>
         </div>
 

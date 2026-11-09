@@ -1193,6 +1193,7 @@ button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .discount-form .segmented { flex-wrap: wrap; justify-self: start; width: fit-content; max-width: 100%; }
 .discount-form .switch-list { margin-top: 0; }
 .discount-form .switch-row:first-child { padding-top: 0; }
+.discount-form .switch-row:last-child { padding-bottom: 0; }
 .discount-row { display: grid; justify-items: start; gap: var(--space-sm); }
 .discount-num { width: 14rem; max-width: 100%; }
 .discount-num--wide { width: 20rem; }
