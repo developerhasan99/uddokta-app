@@ -388,3 +388,4 @@ The three fixed roles (owner, admin, staff) stay as they were, enforced by row-l
 
 Next, if sellers ask: per-staff permission areas, enforced in the database and API.
 - Fix: black space below the app frame on long pages (Team showed it most). Hidden screen-reader labels were positioned against the whole page because the scrolling `.shell__main` was not positioned; it now is, so they stay inside it.
+- Settings menu stays in place while a settings page scrolls: sticky beside the content on desktop, and a sticky tab strip with its own background on phones.
