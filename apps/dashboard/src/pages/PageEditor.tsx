@@ -43,11 +43,15 @@ const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
-function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void }) {
+function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void }) {
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
   const select = useRef(onSelect)
   select.current = onSelect
+  const typed = useRef(onText)
+  typed.current = onText
+  const chosen = useRef(selected)
+  chosen.current = selected
 
   useEffect(() => {
     if (!body || !selected) return
@@ -60,8 +64,58 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
     const doc = frame.contentDocument
     if (!doc) return
     // A srcdoc frame resolves links against the dashboard, so links never navigate here; in-page links still scroll.
+    // Typing on the page: a plain-text box laid exactly over the element, so React never sees its markup edited.
+    let editing: HTMLElement | null = null
+    const startEdit = (el: HTMLElement, id: string) => {
+      if (editing) return
+      const win = doc.defaultView!
+      const rect = el.getBoundingClientRect()
+      const cs = win.getComputedStyle(el)
+      const box = doc.createElement('div')
+      box.className = 'editor-inline'
+      box.setAttribute('contenteditable', 'plaintext-only')
+      if (box.contentEditable !== 'plaintext-only') box.contentEditable = 'true'
+      for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color', 'textAlign', 'textTransform'] as const) box.style[prop] = cs[prop]
+      Object.assign(box.style, { position: 'absolute', zIndex: '9999', left: `${rect.left + win.scrollX}px`, top: `${rect.top + win.scrollY}px`, width: `${Math.max(rect.width, 80)}px`, minHeight: `${rect.height}px`, whiteSpace: 'pre-wrap', outline: '2px solid #1f7a4d', outlineOffset: '3px', background: 'transparent', borderRadius: '2px' })
+      box.textContent = el.innerText
+      el.style.visibility = 'hidden'
+      doc.body.appendChild(box)
+      editing = box
+      box.focus()
+      const range = doc.createRange()
+      range.selectNodeContents(box)
+      range.collapse(false)
+      win.getSelection()?.removeAllRanges()
+      win.getSelection()?.addRange(range)
+      const single = el.tagName !== 'DIV'
+      const finish = (save: boolean) => {
+        if (editing !== box) return
+        editing = null
+        const text = box.innerText.replace(/\n{3,}/g, '\n\n').trim()
+        box.remove()
+        el.style.visibility = ''
+        if (save && text !== el.innerText.trim()) typed.current(id, text)
+      }
+      box.addEventListener('blur', () => finish(true))
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); finish(false) }
+        if (e.key === 'Enter' && (single || e.metaKey || e.ctrlKey)) { e.preventDefault(); finish(true) }
+      })
+    }
+    const editable = (target: Element) => {
+      const field = target.closest<HTMLElement>('[data-edit]')
+      const node = field?.closest('[data-node]')
+      return field && node ? { field, id: node.getAttribute('data-node')! } : null
+    }
+    doc.addEventListener('dblclick', (e) => {
+      const hit = editable(e.target as Element)
+      if (hit) { select.current(hit.id); startEdit(hit.field, hit.id) }
+    })
     doc.addEventListener('click', (e) => {
       const target = e.target as Element
+      if (editing?.contains(target)) return
+      const hit = editable(target)
+      if (hit && hit.id === chosen.current) { e.preventDefault(); startEdit(hit.field, hit.id); return }
       const link = target.closest('a')
       if (link) {
         e.preventDefault()
@@ -649,7 +703,7 @@ export function PageEditor() {
       <div className="editor__form">
         {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
         {tab === 'content'
-          ? <div className="editor__fields">{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
+          ? <div className="editor__fields">{['heading', 'text', 'button'].includes(f.node.kind) && <p className="design-help">{L(['টিপ: প্রিভিউতে লেখার উপর আবার ক্লিক করে সরাসরি লিখুন।', 'Tip: click the text in the preview again to type straight on the page.'])}</p>}{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
               onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
           : <NodeDesignControls key={`${f.node.id}:${tab}:${device}`} node={f.node} tab={tab} device={device} media={media} onPatch={patch}
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
@@ -923,7 +977,13 @@ export function PageEditor() {
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={section?.id ?? null} onSelect={choose} />
+        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onText={(nid, text) => {
+          const hit = findNode(sections, nid)
+          if (!hit) return
+          const field = nodeDefs[hit.node.kind].fields.find((f) => f.key === 'text')
+          if (!field || !('max' in field)) return
+          editTree(hit.section.id, (nodes) => updateNode(nodes, nid, (n) => ({ ...n, props: { ...n.props, text: text.slice(0, field.max) } })))
+        }} />
       </section>
 
       {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
