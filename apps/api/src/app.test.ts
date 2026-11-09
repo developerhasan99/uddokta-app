@@ -253,6 +253,9 @@ test('store business details are checked, kept when left out, and only owners an
   assert.deepEqual({ logo: saved.logo, ...Object.fromEntries(Object.keys(details).map((k) => [k, saved[k]])) }, { logo: null, ...details })
   assert.equal((await owner.call('PUT', base, { name: 'Renamed' })).json.phone, details.phone)
   assert.equal((await owner.call('PUT', base, { name: 'Shop', facebook: 'facebook.com/rina' })).json.facebook, 'https://facebook.com/rina')
+  const invoice = (await owner.call('PUT', base, { invoiceNote: 'ধন্যবাদ' })).json
+  assert.deepEqual([invoice.name, invoice.invoiceNote, invoice.phone], ['Shop', 'ধন্যবাদ', details.phone])
+  assert.equal((await owner.call('PUT', base, {})).status, 400)
   for (const [bad, error] of [[{ phone: 'call me' }, 'phoneInvalid'], [{ whatsapp: '12' }, 'phoneInvalid'], [{ email: 'shop@' }, 'emailInvalid'], [{ facebook: 'javascript:alert(1)' }, 'facebookInvalid'], [{ facebook: 'http://facebook.com/x' }, 'facebookInvalid'], [{ address: 'x'.repeat(301) }, 'invalidRequest'], [{ bin: 5 }, 'invalidRequest'], [{ logoId: 'nope' }, 'invalidRequest']] as const) {
     assert.equal((await owner.call('PUT', base, { name: 'Shop', ...bad })).json.error, error, JSON.stringify(bad))
   }

@@ -6,7 +6,7 @@ import { MediaPicker } from '../components/MediaPicker'
 import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
 
-// Business details, printed on invoices. Blank means not given.
+// The business behind the store. Blank means not given. The invoice footer (invoiceNote) is edited in Settings › Invoices.
 export type StoreDetails = { phone: string; whatsapp: string; email: string; facebook: string; address: string; legalName: string; tradeLicence: string; bin: string; invoiceNote: string }
 export type StoreSettingsData = StoreDetails & { name: string; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[]; logo: MediaItem | null }
 
@@ -55,8 +55,8 @@ export function StoreSettings() {
     }
     setBusy(true)
     try {
-      const { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, invoiceNote, logo } = form
-      show(await api<StoreSettingsData>(base, { method: 'PUT', body: { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, invoiceNote, logoId: logo?.id ?? null } }))
+      const { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logo } = form
+      show(await api<StoreSettingsData>(base, { method: 'PUT', body: { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logoId: logo?.id ?? null } }))
       setDone(true)
       void refresh()
     } catch (err) {
@@ -82,7 +82,7 @@ export function StoreSettings() {
   const text = (key: keyof StoreDetails, label: Key, max: number, extra: Partial<Parameters<typeof Field>[0]> = {}) => (
     <Field id={`store-${key}`} label={t(label)} maxLength={max} disabled={!canEdit} value={form[key]} error={fieldError(key)} onChange={(e) => setForm({ ...form, [key]: e.target.value })} {...extra} />
   )
-  const area = (key: 'address' | 'invoiceNote', label: Key, help: Key) => (
+  const area = (key: 'address', label: Key, help: Key) => (
     <div className="field">
       <label htmlFor={`store-${key}`}>{t(label)}</label>
       <textarea id={`store-${key}`} className="input input--area" rows={2} maxLength={300} disabled={!canEdit} aria-describedby={`store-${key}-help`} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
@@ -138,11 +138,6 @@ export function StoreSettings() {
           {text('tradeLicence', 'storeTradeLicence', 50)}
           {text('bin', 'storeBin', 50)}
         </div>
-      </section>
-
-      <section className="card card--form" aria-labelledby="store-invoice">
-        <h2 id="store-invoice">{t('storeInvoice')}</h2>
-        {area('invoiceNote', 'storeInvoiceNote', 'storeInvoiceNoteHelp')}
       </section>
 
       {picking && (

@@ -77,7 +77,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Analytics**
 - **Landing pages** (first under Sales channels)
 - **Online store:** Themes, Pages (coming soon), Menus
-- **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, SMS (coming soon), Domains, Tracking, Billing (coming soon)
+- **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
 The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS, Billing and store-information Pages visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
@@ -145,6 +145,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Profit (owners and admins only): delivered sales − buying price copied at sale (`order_item_costs`). Delivery charges go to the courier and are left out.
 - Out of scope: expense tracking, team tasks, attendance and referral pages. We are not a bookkeeping, project or HR tool.
 - Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in. Self delivery (`courier = 'self'`) is turned on in Settings › Couriers by owners and admins; sending an order that way records a shipment with no booking or tracking, and the team marks it delivered or returned by hand.
+- Settings › Store is the business itself (name, logo, contact, address, optional registration), never online-store settings. Settings › Invoices holds what printed orders add; its header reads the Store details.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
 

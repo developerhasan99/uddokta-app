@@ -35,6 +35,7 @@ import { Delivery } from './pages/Delivery'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
 import { Themes } from './pages/Themes'
+import { Invoices } from './pages/Invoices'
 import { StoreSettings } from './pages/StoreSettings'
 import { Analytics } from './pages/Analytics'
 import { Couriers } from './pages/Couriers'
@@ -103,6 +104,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="warehouses" element={<Warehouses />} />
                   <Route path="delivery" element={<Delivery />} />
                   <Route path="couriers" element={<Couriers />} />
+                  <Route path="invoices" element={<Invoices />} />
                   <Route path="tracking" element={<Tracking />} />
                   <Route path="domains" element={<Domains />} />
                   <Route path="members" element={<Members />} />

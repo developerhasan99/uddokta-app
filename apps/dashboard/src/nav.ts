@@ -62,6 +62,7 @@ export const settingsNav: NavLeaf[] = [
   { key: 'warehouses', path: '/settings/warehouses' },
   { key: 'shippingTitle', path: '/settings/delivery' },
   { key: 'couriers', path: '/settings/couriers' },
+  { key: 'invoices', path: '/settings/invoices' },
   { key: 'tracking', path: '/settings/tracking' },
   { key: 'billing', path: '/settings/billing', planned: true },
 ]

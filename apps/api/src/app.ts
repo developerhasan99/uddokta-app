@@ -302,12 +302,15 @@ app.put('/stores/:handle/theme', async (c) => {
 })
 
 // Owners and admins only: row-level security updates nothing for staff, which is answered as forbidden.
-// Fields left out of the body keep their saved value; logoId null removes the logo.
+// Fields left out of the body keep their saved value (Settings › Invoices sends only its own); logoId null removes the logo.
 app.put('/stores/:handle/settings', async (c) => {
   const body = await readBody(c)
-  const name = text(body, 'name')
-  if (!name || name.length > 100) throw fail(400, 'nameRequired')
-  const set: Partial<typeof stores.$inferInsert> = { name }
+  const set: Partial<typeof stores.$inferInsert> = {}
+  if (body.name !== undefined) {
+    const name = text(body, 'name')
+    if (!name || name.length > 100) throw fail(400, 'nameRequired')
+    set.name = name
+  }
   for (const key of detailKeys) {
     if (body[key] === undefined) continue
     if (typeof body[key] !== 'string') throw fail(400, 'invalidRequest')
@@ -322,6 +325,7 @@ app.put('/stores/:handle/settings', async (c) => {
     if (body.logoId !== null && !isId(body.logoId)) throw fail(400, 'invalidRequest')
     set.logoMediaId = body.logoId
   }
+  if (Object.keys(set).length === 0) throw fail(400, 'invalidRequest')
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
     if (set.logoMediaId) {

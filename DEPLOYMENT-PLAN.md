@@ -369,3 +369,4 @@ Deferred:
 - Reusing the store contact details in the landing-page contact section.
 - Merging Warehouses, Delivery and Couriers into one tab.
 - The media picker is also a drop zone: images dragged onto the panel upload and are selected, with the Media page's drop overlay. Only files from outside count.
+- Settings › Store reworded around the business (profile, contact, address, registration). The invoice footer moved to a new Settings › Invoices tab (`pages/Invoices.tsx`), which explains that the header comes from the Store details. `PUT /settings` no longer requires `name`; an empty body is refused.
