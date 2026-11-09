@@ -64,7 +64,7 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 2. Section editor: add, drag and configure sections with a live preview.
 3. Custom CSS per landing page (`content.css`, in the editor's Page settings). `readContent` refuses `<` and more than 20,000 characters so it can never leave its `<style>` tag. Plan limits come with billing. No Liquid-style theme language.
 
-The page editor's top bar has back, then icon toggles for the sidebar (Sections: list plus the selected section's settings; Page settings: full height, including Custom CSS), with the title and status centred.
+The page editor's top bar has back, then icon toggles for the sidebar (Sections: list plus the selected section's settings; Page settings: full height, including Custom CSS in a lazy-loaded CodeMirror editor, `components/CssEditor.tsx`), with the title and status centred. Phones have no bottom bar: a third Preview icon shows the preview, tapping a section opens its settings and closing them returns to the list.
 
 ## Navigation
 

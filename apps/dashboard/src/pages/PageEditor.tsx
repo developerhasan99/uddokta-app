@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { DialogHead } from '../components/DialogHead'
+const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
@@ -291,7 +292,7 @@ export function PageEditor() {
   const [view, setView] = useState<'sections' | 'page'>('sections')
   const settingsPanel = useRef<HTMLElement>(null)
   useEffect(() => { settingsPanel.current?.scrollTo({ top: 0 }) }, [selected, settingsTab])
-  const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>(() => window.matchMedia('(max-width: 860px)').matches ? 'sections' : 'preview')
+  const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>('sections')
   const [mobile, setMobile] = useState(false)
   const [adding, setAdding] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -574,8 +575,9 @@ export function PageEditor() {
         <div className="editor__nav">
           <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
           <span className="editor__views">
-            <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections'} onClick={() => setView('sections')}><LayoutTemplate size={16} aria-hidden="true" /></IconButton>
-            <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={16} aria-hidden="true" /></IconButton>
+            <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections' && pane !== 'preview'} onClick={() => { setView('sections'); setPane('sections') }}><LayoutTemplate size={16} aria-hidden="true" /></IconButton>
+            <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page' && pane !== 'preview'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={16} aria-hidden="true" /></IconButton>
+            <IconButton label={t('pagePreview')} title={t('pagePreview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={16} aria-hidden="true" /></IconButton>
           </span>
         </div>
         <div className="editor__title">
@@ -594,15 +596,6 @@ export function PageEditor() {
           <Button variant="primary" disabled={busy || (page.isPublished && !page.hasChanges && !dirty)} aria-busy={busy} onClick={() => void publish()}>{t('pagePublish')}</Button>
         </div>
       </header>
-
-      <nav className="editor__panes" aria-label={t('pageSections')}>
-        {(['sections', 'preview', 'edit'] as const).map((p) => (
-          <button key={p} type="button" className="tab" aria-current={pane === p ? 'page' : undefined} onClick={() => { setPane(p); if (p === 'sections') setView('sections') }}>
-            <span className="editor__pane-icon">{p === 'sections' ? <LayoutTemplate size={18} aria-hidden="true" /> : p === 'preview' ? <Eye size={18} aria-hidden="true" /> : <Settings2 size={18} aria-hidden="true" />}</span>
-            {t(p === 'sections' ? 'pageSections' : p === 'preview' ? 'pagePreview' : 'pageEditTab')}
-          </button>
-        ))}
-      </nav>
 
       {error && (
         <div className="editor__error" role="alert">
@@ -778,9 +771,10 @@ export function PageEditor() {
                 <textarea id="page-seo-description" className="input input--area" rows={3} maxLength={1000} value={doc.seoDescription} onChange={(e) => edit({ ...doc, seoDescription: e.target.value }, 'seoDescription')} />
               </div>
               <div className="field">
-                <label htmlFor="page-css">{L(['কাস্টম CSS', 'Custom CSS'])}</label>
-                <textarea id="page-css" className="input editor__css-input" aria-describedby="page-css-help" spellCheck={false} autoCapitalize="off" autoCorrect="off" rows={12} maxLength={maxCss}
-                  placeholder={'.sf-page h2 {\n  letter-spacing: -0.02em;\n}'} value={doc.content.css ?? ''} onChange={(e) => edit({ ...doc, content: { ...doc.content, css: e.target.value } }, 'css')} />
+                <label>{L(['কাস্টম CSS', 'Custom CSS'])}</label>
+                <Suspense fallback={<div className="css-editor css-editor--loading" />}>
+                  <CssEditor value={doc.content.css ?? ''} label={L(['কাস্টম CSS', 'Custom CSS'])} describedBy="page-css-help" maxLength={maxCss} onChange={(css) => edit({ ...doc, content: { ...doc.content, css } }, 'css')} />
+                </Suspense>
                 {doc.content.css?.includes('<')
                   ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
                   : <p className="field__help" id="page-css-help">{L(['শুধু এই পেজে কাজ করবে। পুরো পেজ .sf-page, আর প্রতিটি সেকশন [data-section="…"] দিয়ে ধরুন।', 'Applies to this page only. Target the page with .sf-page and a section with [data-section="…"].'])}</p>}
