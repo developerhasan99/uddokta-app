@@ -912,6 +912,10 @@ export function PageEditor() {
               <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
                 <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span></span>
               </button>
+              <span className="editor-sections__delete"><IconButton label={`${t('pageRemoveSection')}: ${sectionName(s)}`} title={t('pageRemoveSection')} onClick={() => {
+                setSections(sections.filter((x) => x.id !== s.id))
+                if (s.id === selected || found?.section.id === s.id) { setSelected(null); setPane('sections') }
+              }}><Trash2 size={15} aria-hidden="true" /></IconButton></span>
               <IconButton label={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} title={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} onClick={() => updateSection(s.id, { hidden: !s.hidden })}>
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
               </IconButton>

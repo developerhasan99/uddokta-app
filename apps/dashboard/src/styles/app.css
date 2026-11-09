@@ -1718,3 +1718,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-tree__toggle[aria-expanded="true"] svg { transform: none; }
 .editor-tree__name { padding-inline-start: 2px; }
 .editor-add__note { margin-top: var(--space-sm); font-size: var(--text-sm); }
+.editor-sections__delete { display: none; }
+.editor-sections__row:is(:hover, :focus-within) .editor-sections__delete { display: contents; }
+.editor-sections__delete .btn--icon:hover { color: var(--color-error); }
+@media (hover: none) { .editor-sections__delete { display: contents; } }
