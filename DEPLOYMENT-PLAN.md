@@ -470,3 +470,10 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Section-setting tabs match the dashboard segmented control; list item and icon remove buttons are flat 28px icons; empty image picker is a 64px row; long text boxes start at 4 rows.
 - Phones: every field is 36px with 16px text, toggles 32px, labels 13px.
 - Landing pages list: row actions (View, Copy link, Duplicate) moved into a ⋯ menu; on narrow screens the date and status share one line.
+
+## Page builder v2 (2026-11-09)
+- Content version 2 only (migration 0076 moved existing pages). New `layout` section type holds a validated tree of boxes and elements with desktop style, phone overrides and per-device hiding; `layout.tsx` renders it to HTML plus one generated stylesheet.
+- Editor: structure tree with drag and drop, click-to-select in the preview, type on the page, element panel (content / layout / style for desktop or phones), Add element dialog with elements, blocks (any built-in section, including the order form) and ready-made layouts.
+- Templates: Modern product page and Colour banner page build layout trees from the seller's real product.
+- Editor is dark; preview keeps real colours.
+- Next: rebuild the remaining built-in sections as layout presets, a template gallery with previews, copy/paste between pages, undo-friendly keyboard shortcuts for the tree (delete, duplicate).

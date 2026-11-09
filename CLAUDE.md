@@ -120,6 +120,10 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 - `pages` holds a `draft` and a `published` JSON copy, plus `published_meta` for the public title, handle and SEO fields. Draft metadata never changes a live page; publishing snapshots it with the content. Live and draft handles share a store-scoped reservation namespace. Saving changes only the draft; Publish copies it. Saves send `revision`, and a stale one gets 409 `pageChanged` instead of overwriting.
 - Sections live in `apps/storefront`: `schema.ts` (settings schemas, `readContent` validation, no JSX so the API imports it) and `sections.tsx` (stateless components). The storefront renders them to HTML; the editor renders the same components into an iframe preview. The editor's forms are generated from the schemas.
+- Page content is version 2 only (`readContent` refuses anything else). A page is a list of sections: built-in typed sections, plus `layout` sections that hold a tree of nodes (`PageNode` in `schema.ts`): boxes (flex containers, nestable, max depth 6, max 400 nodes a page) and elements (heading, text, image, button, icon, divider, spacer, video, and `block`, which embeds any built-in section such as the order form inside a layout). Each node has content (`props`), desktop `style`, phone overrides (`mobile`, under 720px) and `hide`. Style values come from the fixed list `nodeStyleFields`, so `layout.tsx` turns them into one generated stylesheet without escaping. Rows share width with gaps and stack on phones unless a phone direction is set.
+- Order forms are found only through `orderBlocks()` (order sections and order blocks in visible layouts); the storefront's order handler and the page's default button link both use it.
+- The editor's layout tools: structure tree under a layout section (drag to reorder or drop into a box), click in the preview to select any element, click a selected heading, text or button again to type on the page, Add element dialog (elements, blocks, ready-made layouts in `apps/dashboard/src/layout-tree.ts`). Tree edits are the pure functions in `layout-tree.ts`; duplicates get fresh ids (`reId`), because ids must be unique on a page.
+- The editor is dark: `.editor` redefines the colour tokens, and dialogs opened from it follow. The preview iframe keeps the page's real colours.
 - Images a page uses are kept in `page_media` (draft and published), which blocks deleting them.
 - The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
 
@@ -174,19 +178,20 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Do not use the Hallmark skill or its linter in this project.
 - Blend of Shopify's admin and a modern analytics dashboard. From Shopify: black frame and sidebar, rounded content panel, dense tables with a filter bar. From the dashboard: large page title with a one-line description, green primary and active state, a stat row with sparklines and charts on Home.
 - Our own code, name and logo. Never Shopify's logo, assets or copy.
-- Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, 8px controls, 12px cards.
+- Neutrals plus one green; other colours only for status badges and errors. 14px body text, thin borders, fully round (pill) controls, 12px cards. Boxes that hold several lines, lists or pictures keep soft corners (`--radius-box`, `--radius-media`).
 - Lists use the one data table (`.data-list`, `.filter-bar`, `.data-table`; see the comment in `app.css`). One value per cell: phone, email, address and links get their own columns; only phones stack them. Bulk actions use `components/Selection.tsx`.
-- Standard input field: the `.input` class. White, 32px, thin `--color-rule-strong` border, 8px corners, 13px text, no shadow, and a green outline on focus.
+- Standard input field: the `.input` class. White, 32px, thin `--color-rule-strong` border, pill-shaped with 12px side padding, 13px text, no shadow, and a green outline on focus.
 - Small controls by default: buttons and inputs are 32px with 13px text. Sign-in forms use 40px.
 - Mobile components should be more compact than their desktop equivalents, following the page editor: reduce 16px text to 14px and 14px text to 13px, with tighter line spacing and padding. Use 32px buttons with 13px text and compact 32–36px icon buttons and list controls. Keep related actions on one row where they fit; icon-only buttons need accessible labels. Editable inputs keep 16px text (to avoid iPhone focus zoom) at 36px height; buttons stay 32px. Never add per-page overrides to undo the global mobile sizes. Apply these sizes to the dashboard controls; the storefront preview must retain the storefront's own responsive styles.
-- Buttons are tactile, like Polaris: a bevel from layered inner shadows (light top edge, dark bottom edge) that inverts when pressed. Shadows come from tokens.
+- Buttons: white ones have a thin edge and a soft drop shadow; filled ones (primary, danger) have a top-to-bottom sheen in the brand colour with a light top edge and a soft shadow, and look pressed in when clicked. Shadows come from tokens.
 - Dialogs are native `<dialog>` (`.modal` centred, `.picker` a floating side sheet, `.drawer` the phone menu) and animate both in and out. Build them from `components/DialogHead.tsx` (title and round close button), `.dialog__body` and `.dialog__foot`; a dialog's own class sets only its width and inner layout. Edge-to-edge choices use `.dialog-list`. Close them only through `useDialog` in `components/dialog.ts`: `close()`, or `close(then)` for actions like Done. Its props close on a backdrop click (sent as a cancel, so a dialog's own `onCancel` guard still applies). Never unmount them directly, or the exit animation is skipped.
 - Page editor section settings use the same scale as the rest of the dashboard: `.input`, `.input-affix` and `.btn` for fields, 13px labels, 28px segmented toggles, tokens only (see the "Section settings" block at the end of `app.css`). Do not add one-off pixel sizes or hex colours there.
 - Charts are inline SVG with no chart library. Never invent figures: sample data is labelled as sample.
 - Colours, spacing and type come from tokens, never one-off values.
 - Bangla is chosen and tested first; English fits around it.
 - Plain seller language. Every empty state says what to do next.
-- **Never:** gradients, emoji icons, stat cards beyond one row, oversized rounded corners, decorative glass or glow effects, or anything that reads as generic AI output.
+- Status badges and Soon tags are small uppercase pills (Bangla keeps a readable size, it has no capitals).
+- **Never:** gradients other than the filled-button sheen, emoji icons, stat cards beyond one row, decorative glass or glow effects, or anything that reads as generic AI output.
 
 ## Build order
 

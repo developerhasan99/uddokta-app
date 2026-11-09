@@ -1695,3 +1695,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .node-add__grid--blocks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .node-add__grid--blocks button { grid-template-columns: auto 1fr; justify-items: start; align-items: center; padding: var(--space-xs) var(--space-sm); text-align: left; }
 @media (max-width: 860px) { .node-add__grid--blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Dark editor: the chosen option in a toggle is the lighter one. */
+.editor :is(.design-segments, .editor-setting-tabs, .segmented) { background: var(--color-paper-2); box-shadow: inset 0 0 0 1px var(--color-rule); }
+.editor :is(.design-segments, .editor-setting-tabs) button[aria-pressed="true"], .editor .segmented input:checked + span { background: oklch(36% 0.006 155); color: var(--color-ink); }
+.editor .editor-setting-tabs { box-shadow: inset 0 0 0 1px var(--color-rule), 0 6px 0 var(--color-paper); }
