@@ -368,3 +368,4 @@ Deferred:
 - Store ownership transfer and deletion.
 - Reusing the store contact details in the landing-page contact section.
 - Merging Warehouses, Delivery and Couriers into one tab.
+- The media picker is also a drop zone: images dragged onto the panel upload and are selected, with the Media page's drop overlay. Only files from outside count.

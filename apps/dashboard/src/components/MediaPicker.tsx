@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Check, ImagePlus, Upload, X } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode, type MediaItem } from '../api'
@@ -21,6 +21,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
   const [picked, setPicked] = useState(selected)
   const [uploading, setUploading] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     dialog.current?.showModal()
@@ -48,9 +49,8 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
     setPicked((all) => all.some((x) => x.id === item.id) ? all.filter((x) => x.id !== item.id) : add(all, item))
   }
 
-  const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
+  const upload = async (files: File[]) => {
+    if (files.length === 0) return
     setError(null)
     setUploading(files.length)
     for (const f of files) {
@@ -67,6 +67,25 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
     }
   }
 
+  // Only files dragged in from outside count; dragging a tile around the panel does nothing.
+  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes('Files')
+  const drop = {
+    onDragOver: (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      setDragging(true)
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false)
+    },
+    onDrop: (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      setDragging(false)
+      void upload(Array.from(e.dataTransfer.files))
+    },
+  }
+
   const more = async () => {
     if (!page) return
     const next = await api<Page>(`${base}?q=${encodeURIComponent(search.trim())}&offset=${page.items.length}`)
@@ -74,7 +93,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
   }
 
   return (
-    <dialog {...dialogProps} className="picker" aria-labelledby="picker-title">
+    <dialog {...dialogProps} {...drop} className="picker" aria-labelledby="picker-title">
       <div className="picker__head">
         <h2 id="picker-title">{t('pickerTitle')}</h2>
         <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
@@ -82,7 +101,10 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
       <div className="picker__tools">
         <SearchInput label={t('mediaSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <Button onClick={() => file.current?.click()}><Upload size={16} aria-hidden="true" />{t('mediaUpload')}</Button>
-        <input ref={file} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple tabIndex={-1} aria-label={t('mediaUpload')} onChange={(e) => void onFiles(e)} />
+        <input ref={file} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple tabIndex={-1} aria-label={t('mediaUpload')} onChange={(e) => {
+          void upload(Array.from(e.target.files ?? []))
+          e.target.value = ''
+        }} />
       </div>
 
       <div className="picker__body">
@@ -119,6 +141,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
         {page?.hasMore && <div className="media__more"><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></div>}
       </div>
 
+      {dragging && <div className="media__drop" aria-hidden="true"><Upload size={24} />{t('mediaDrop')}</div>}
       <div className="picker__foot">
         <span className="muted">{t('pickerCount', { n: num(picked.length), max: num(max) })}</span>
         <div className="row">
