@@ -230,6 +230,19 @@ export function DiscountEdit() {
     </div>
   )
 
+  // Minimum purchase: inside the Value card where there is one, its own card for buy X get Y.
+  const minimum = (
+    <div className="discount-row">
+      {segmented('min', form.min, [['none', 'discMinNone'], ['amount', 'discMinAmountShort'], ['qty', 'discMinQtyShort']], (min) => change({ min }))}
+      {form.min === 'amount' && <div className="discount-num">
+        <Field id="disc-min-amount" label={t('discMinAmount')} unit="৳" inputMode="numeric" value={form.minSubtotal} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minSubtotal: digits(e.target.value).slice(0, 7) })} />
+      </div>}
+      {form.min === 'qty' && <div className="discount-num">
+        <Field id="disc-min-qty" label={t('discMinQty')} inputMode="numeric" value={form.minQty} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minQty: digits(e.target.value).slice(0, 4) })} />
+      </div>}
+    </div>
+  )
+
   return (
     <form className="page page--detail" onSubmit={(e) => void save(e)} noValidate>
       <PageTitle title={name || t('discNew')} />
@@ -287,6 +300,7 @@ export function DiscountEdit() {
                   {!form.appliesAll && products('get')}
                 </div>
               )}
+              <div className="form-section"><h3>{t('discMinTitle')}</h3>{minimum}</div>
             </section>
           )}
 
@@ -328,20 +342,17 @@ export function DiscountEdit() {
             </section>
           </>}
 
-          {form.type === 'shipping' && <section className="card"><p className="muted">{t('discShippingNote')}</p></section>}
+          {form.type === 'shipping' && (
+            <section className="card card--form">
+              <div>
+                <h2>{t('discTypeShipping')}</h2>
+                <p className="muted">{t('discShippingNote')}</p>
+              </div>
+              <div className="form-section"><h3>{t('discMinTitle')}</h3>{minimum}</div>
+            </section>
+          )}
 
-          <section className="card card--form">
-            <h2>{t('discMinTitle')}</h2>
-            <div className="discount-row">
-              {segmented('min', form.min, [['none', 'discMinNone'], ['amount', 'discMinAmountShort'], ['qty', 'discMinQtyShort']], (min) => change({ min }))}
-              {form.min === 'amount' && <div className="discount-num">
-                <Field id="disc-min-amount" label={t('discMinAmount')} unit="৳" inputMode="numeric" value={form.minSubtotal} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minSubtotal: digits(e.target.value).slice(0, 7) })} />
-              </div>}
-              {form.min === 'qty' && <div className="discount-num">
-                <Field id="disc-min-qty" label={t('discMinQty')} inputMode="numeric" value={form.minQty} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minQty: digits(e.target.value).slice(0, 4) })} />
-              </div>}
-            </div>
-          </section>
+          {form.type === 'bxgy' && <section className="card card--form"><h2>{t('discMinTitle')}</h2>{minimum}</section>}
 
           <section className="card card--form">
             <h2>{t('discLimits')}</h2>

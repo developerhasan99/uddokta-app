@@ -1189,13 +1189,12 @@ button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .discount-summary__lines { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
 .discount-summary__lines li { position: relative; padding-inline-start: var(--space-sm); }
 .discount-summary__lines li::before { content: ''; position: absolute; top: 0.6em; inset-inline-start: 0; width: 4px; height: 4px; border-radius: var(--radius-pill); background: var(--color-muted); }
-/* Discount editor: either/or choices are segmented controls; a number sits beside its choice at a fixed width. */
+/* Discount editor: either/or choices are segmented controls; the box a choice needs sits under it, at a fixed width. */
 .discount-form .segmented { flex-wrap: wrap; justify-self: start; width: fit-content; max-width: 100%; }
 .discount-form .switch-list { margin-top: 0; }
 .discount-form .switch-row:first-child { padding-top: 0; }
-.discount-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs) var(--space-sm); }
-.discount-row > .segmented { margin-bottom: 1px; }
-.discount-num { width: 10rem; max-width: 100%; }
+.discount-row { display: grid; justify-items: start; gap: var(--space-sm); }
+.discount-num { width: 14rem; max-width: 100%; }
 .discount-num--wide { width: 20rem; }
 .field-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-xs); }
 .field-action > .btn { margin-top: calc(var(--text-md) * 1.55 + var(--space-2xs)); }
