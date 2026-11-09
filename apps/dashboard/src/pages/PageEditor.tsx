@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { findNode, insertNode, layoutPresets, moveNode, nodeName, reId, reIdSection, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { findNode, insertNode, layoutPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -393,6 +393,8 @@ export function PageEditor() {
   const dragFrom = useRef<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
+  const nodeDrag = useRef<string | null>(null)
+  const [nodeDrop, setNodeDrop] = useState<{ id: string; where: 'before' | 'after' | 'inside' } | null>(null)
 
   const show = (saved: Saved) => {
     setPage(saved)
@@ -662,7 +664,29 @@ export function PageEditor() {
   const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
     const Icon = nodeIcons[n.kind]
     return <Fragment key={n.id}>
-      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}`} style={{ paddingInlineStart: depth * 14 }}>
+      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}${nodeDrop?.id === n.id ? ` editor-tree__row--drop-${nodeDrop.where}` : ''}`} style={{ paddingInlineStart: depth * 14 }}
+        draggable
+        onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', n.id); nodeDrag.current = n.id }}
+        onDragEnd={() => { nodeDrag.current = null; setNodeDrop(null) }}
+        onDragOver={(e) => {
+          if (!nodeDrag.current || nodeDrag.current === n.id) return
+          e.preventDefault()
+          e.stopPropagation()
+          const box = e.currentTarget.getBoundingClientRect()
+          const y = (e.clientY - box.top) / box.height
+          const where = n.kind === 'box' && y > 0.3 && y < 0.7 ? 'inside' : y < 0.5 ? 'before' : 'after'
+          if (nodeDrop?.id !== n.id || nodeDrop.where !== where) setNodeDrop({ id: n.id, where })
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          const from = nodeDrag.current
+          nodeDrag.current = null
+          setNodeDrop(null)
+          if (!from || !nodeDrop) return
+          const next = relocate(sections.find((x) => x.id === sectionId)?.children ?? [], from, n.id, nodeDrop.where)
+          if (next) { editTree(sectionId, () => next); setSelected(from) }
+        }}>
         <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} onClick={() => choose(n.id)}><Icon size={14} aria-hidden="true" /><span>{nodeName(n, L)}</span></button>
         {n.kind === 'box' && <IconButton label={L(['ভেতরে যোগ করুন', 'Add inside'])} title={L(['ভেতরে যোগ করুন', 'Add inside'])} onClick={() => setAddingNode({ sectionId, parentId: n.id, index: n.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" /></IconButton>}
       </div>

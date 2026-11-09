@@ -1688,3 +1688,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .badge { background: var(--color-paper-3); color: var(--color-ink-2); }
 .editor .css-editor { border-color: var(--color-rule-strong); }
 .editor .editor-preview--mobile iframe, .editor .editor-preview iframe { background: #fff; }
+.editor-tree__row[draggable="true"] { cursor: grab; }
+.editor-tree__row--drop-before { box-shadow: inset 0 2px 0 var(--color-primary); }
+.editor-tree__row--drop-after { box-shadow: inset 0 -2px 0 var(--color-primary); }
+.editor-tree__row--drop-inside { background: color-mix(in oklab, var(--color-primary) 18%, transparent); box-shadow: inset 0 0 0 1px var(--color-primary); }

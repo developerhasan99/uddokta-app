@@ -83,3 +83,23 @@ export const layoutPresets: { key: string; label: Label; help: Label; build: Bui
 
 // What a new layout section starts with: something to click on, not an empty box.
 export const starterNodes = (id: () => string): PageNode[] => [el('heading', id), el('text', id), el('button', id)]
+
+function locate(nodes: PageNode[], id: string, parentId: string | null = null): { parentId: string | null; index: number; node: PageNode } | null {
+  for (let index = 0; index < nodes.length; index++) {
+    if (nodes[index].id === id) return { parentId, index, node: nodes[index] }
+    const inner = nodes[index].children && locate(nodes[index].children!, id, nodes[index].id)
+    if (inner) return inner
+  }
+  return null
+}
+
+// Drag and drop inside one layout section. Returns null for a drop that makes no sense (onto itself or into its own box).
+export function relocate(nodes: PageNode[], id: string, targetId: string, where: 'before' | 'after' | 'inside'): PageNode[] | null {
+  const moving = locate(nodes, id)
+  if (!moving || id === targetId || locate(moving.node.children ?? [], targetId)) return null
+  const rest = removeNode(nodes, id)
+  const target = locate(rest, targetId)
+  if (!target) return null
+  if (where === 'inside') return target.node.kind === 'box' ? insertNode(rest, targetId, target.node.children?.length ?? 0, moving.node) : null
+  return insertNode(rest, target.parentId, target.index + (where === 'after' ? 1 : 0), moving.node)
+}
