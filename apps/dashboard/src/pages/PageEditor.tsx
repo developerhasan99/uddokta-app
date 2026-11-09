@@ -568,17 +568,24 @@ export function PageEditor() {
   const incompleteOrders = sections.filter((s) => !s.hidden && s.type === 'order' && (!s.settings.product || (typeof s.settings.product === 'string' && products[s.settings.product]?.status === 'draft')))
   const status = { isPublished: page.isPublished, hasChanges: page.isPublished && (page.hasChanges || dirty) }
 
+  // Shown in the top bar on wide screens and in the bottom dock on phones.
+  const views = (size: number) => <>
+    <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections' && pane !== 'preview'} onClick={() => { setView('sections'); setPane('sections') }}><LayoutTemplate size={size} aria-hidden="true" /></IconButton>
+    <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page' && pane !== 'preview'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={size} aria-hidden="true" /></IconButton>
+    <IconButton label={t('pagePreview')} title={t('pagePreview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={size} aria-hidden="true" /></IconButton>
+  </>
+  const history = (size: number) => <>
+    <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={busy || past.length === 0} onClick={undo}><Undo2 size={size} aria-hidden="true" /></IconButton>
+    <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={busy || future.length === 0} onClick={redo}><Redo2 size={size} aria-hidden="true" /></IconButton>
+  </>
+
   return (
     <div className="editor" data-pane={pane}>
       <PageTitle title={doc.title || t('pages')} />
       <header className="editor__bar">
         <div className="editor__nav">
           <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
-          <span className="editor__views">
-            <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections' && pane !== 'preview'} onClick={() => { setView('sections'); setPane('sections') }}><LayoutTemplate size={16} aria-hidden="true" /></IconButton>
-            <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page' && pane !== 'preview'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={16} aria-hidden="true" /></IconButton>
-            <IconButton label={t('pagePreview')} title={t('pagePreview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={16} aria-hidden="true" /></IconButton>
-          </span>
+          <span className="editor__views">{views(16)}</span>
         </div>
         <div className="editor__title">
           <h1 title={doc.title}>{doc.title || t('pages')}</h1>
@@ -586,8 +593,7 @@ export function PageEditor() {
         </div>
         <div className="editor__tools">
           <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
-          <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={busy || past.length === 0} onClick={undo}><Undo2 size={16} aria-hidden="true" /></IconButton>
-          <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={busy || future.length === 0} onClick={redo}><Redo2 size={16} aria-hidden="true" /></IconButton>
+          <span className="editor__history">{history(16)}</span>
           <div className="editor__devices">
             <IconButton label={t('pageMobile')} title={t(mobile ? 'pageDesktop' : 'pageMobile')} aria-pressed={mobile} onClick={() => setMobile((value) => !value)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
@@ -596,6 +602,8 @@ export function PageEditor() {
           <Button variant="primary" disabled={busy || (page.isPublished && !page.hasChanges && !dirty)} aria-busy={busy} onClick={() => void publish()}>{t('pagePublish')}</Button>
         </div>
       </header>
+
+      <nav className="editor__dock" aria-label={t('pageEditTab')}>{views(20)}{history(20)}</nav>
 
       {error && (
         <div className="editor__error" role="alert">

@@ -460,3 +460,4 @@ Every dialog now shares one design, so they look the same everywhere.
 - Follow-up: sidebar tabs replaced by icon toggles in the top bar after the back button; title and status centred; Custom CSS moved into Page settings.
 - Phone editor: bottom Sections/Preview/Edit bar removed (the empty "Edit" screen confused); the top-bar icons now switch Sections, Page settings and Preview.
 - Custom CSS uses CodeMirror 6 (highlighting, line numbers, completion, bracket matching, search, Tab indent), loaded only when Page settings opens (~145 KB gzip chunk).
+- Phone editor: one-line top bar (back, title, status, view live, Save, Publish); bottom dock with Sections, Page settings, Preview, Undo, Redo.
