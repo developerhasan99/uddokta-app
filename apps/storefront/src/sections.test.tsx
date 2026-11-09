@@ -8,8 +8,8 @@ const ctx: Ctx = { preview: true, shipping: [{ id: '00000000-0000-4000-8000-0000
 const render = (content: Content) => renderToStaticMarkup(<PageView content={content} ctx={ctx} storeName="Legacy store" />)
 
 test('legacy pages retain store chrome; blank pages omit it and accept custom header/footer sections', () => {
-  assert.match(render({ version: 1, sections: [] }), /sf-bar/)
-  assert.match(render({ version: 1, sections: [] }), /sf-foot/)
+  assert.match(render({ version: 2, sections: [] }), /sf-bar/)
+  assert.match(render({ version: 2, sections: [] }), /sf-foot/)
   const blank = render(blankContent())
   assert.doesNotMatch(blank, /sf-bar|sf-foot/)
   const custom = render({ ...blankContent(), sections: [newSection('header', 'top'), newSection('footer', 'bottom')] })
@@ -60,4 +60,21 @@ test('split checkout retains a single real form with product variants, price dat
   assert.match(html, /data-price="450"/)
   assert.match(html, /<input[^>]*disabled=""[^>]*value="large"/)
   assert.match(html, /type="submit"/)
+})
+
+test('layout sections render their tree, escape text and generate row/stack CSS with phone overrides', () => {
+  const layout = newSection('layout', 'custom')
+  layout.children = [{ id: 'row', kind: 'box', props: {}, style: { direction: 'row', gap: 20, background: '#fafafa' }, children: [
+    { id: 'left', kind: 'heading', props: { text: '<b>বড় অফার</b>', level: 'h1' }, style: { width: 60, fontSize: 48 }, mobile: { fontSize: 28 } },
+    { id: 'right', kind: 'button', props: { text: 'অর্ডার', link: '', icon: '', variant: 'outline' }, hide: 'desktop' },
+  ] }]
+  const order = newSection('order', 'buy')
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout, order] }} ctx={{ ...ctx, preview: false }} storeName="S" />)
+  assert.match(html, /<h1 class="sf-n sf-n-heading n-left"[^>]*>&lt;b&gt;বড় অফার&lt;\/b&gt;<\/h1>/)
+  assert.match(html, /href="#buy"/, 'a blank button link goes to the order form')
+  assert.match(html, /\.n-row\{flex-direction:row;gap:20px;background-color:#fafafa\}/)
+  assert.match(html, /\.n-left\{font-size:48px;flex:0 1 calc\(60% - 8\.00px\);width:auto\}/)
+  assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-row\{flex-direction:column\}/, 'rows stack on phones')
+  assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-left\{font-size:28px;flex:none;width:auto\}/, "a desktop share does not carry into a stacked phone column")
+  assert.match(html, /@media \(min-width:720px\)\{\.n-right\{display:none\}\}/)
 })

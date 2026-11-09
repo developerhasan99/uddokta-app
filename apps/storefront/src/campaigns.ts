@@ -20,5 +20,5 @@ export function campaignContent(template: CampaignTemplate, product: { id: strin
     if (type === 'order') Object.assign(section.settings, { product: product.id, heading: english ? 'Place your order' : 'অর্ডার করতে নিচের ফর্মটি পূরণ করুন', button: english ? 'Confirm order' : 'অর্ডার নিশ্চিত করুন' })
     return section
   })
-  return { version: 1, canvas: { header: false, footer: false }, sections }
+  return { version: 2, canvas: { header: false, footer: false }, sections }
 }

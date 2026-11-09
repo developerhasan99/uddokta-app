@@ -19,9 +19,11 @@ export type SectionDef = { label: Label; fields: Field[]; defaults: Settings }
 export type Value = string | number | null | Record<string, string | null>[]
 export type Settings = Record<string, Value>
 export type SectionStyle = Record<string, string | number>
-export type Section = { id: string; type: SectionType; hidden: boolean; settings: Settings; style?: SectionStyle }
+// children: only a 'layout' section has them, a tree of boxes and elements (see "Layout tree" below).
+export type Section = { id: string; type: SectionType; hidden: boolean; settings: Settings; style?: SectionStyle; children?: PageNode[] }
+// Version 2: typed sections plus layout sections. Older versions are refused (migration 0076 moved existing pages).
 // css: the seller's own styles for this page only. No '<', so it can never close the <style> tag it is written into.
-export type Content = { version: 1; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string }
+export type Content = { version: 2; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string }
 export const maxCss = 20000
 
 const heading = (max = 120): Leaf => ({ key: 'heading', kind: 'text', label: ['শিরোনাম', 'Heading'], max })
@@ -71,6 +73,7 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
 ]
 
 export const sectionDefs = {
+  layout: { label: ['নিজের লেআউট', 'Custom layout'], fields: [], defaults: {} },
   hero: {
     label: ['শুরুর ব্যানার', 'Hero banner'],
     fields: [
@@ -263,17 +266,17 @@ export const maxSections = 40
 export const maxAmount = 100_000
 const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 
-export const newSection = (type: SectionType, id: string): Section => ({ id, type, hidden: false, settings: structuredClone(defOf(type).defaults) })
+export const newSection = (type: SectionType, id: string): Section => ({ id, type, hidden: false, settings: structuredClone(defOf(type).defaults), ...(type === 'layout' ? { children: [] } : {}) })
 
 // What a new landing page starts with: the shape most single-product pages follow.
 export const starterContent = (id: (n: number) => string): Content => ({
-  version: 1,
+  version: 2,
   sections: (['hero', 'features', 'video', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
 })
 
 export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^(?:#[a-z0-9-]+|https:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d -]+)$/i.test(raw))
 
-function readLeaf(field: Leaf, raw: unknown): string | number | null | undefined {
+export function readLeaf(field: Leaf, raw: unknown): string | number | null | undefined {
   switch (field.kind) {
     case 'icon':
       return raw === '' || isIconName(raw) ? raw : undefined
@@ -303,8 +306,9 @@ function readLeaf(field: Leaf, raw: unknown): string | number | null | undefined
 // The trust boundary for page content: anything that does not match the section's schema is refused, and unknown keys are dropped.
 export function readContent(raw: unknown): Content | null {
   const doc = raw as Content
-  if (!doc || typeof doc !== 'object' || doc.version !== 1 || !Array.isArray(doc.sections) || doc.sections.length > maxSections) return null
+  if (!doc || typeof doc !== 'object' || doc.version !== 2 || !Array.isArray(doc.sections) || doc.sections.length > maxSections) return null
   const ids = new Set<string>()
+  const budget = { nodes: maxNodes }
   const sections: Section[] = []
   for (const s of doc.sections as unknown[]) {
     const section = s as Section
@@ -340,11 +344,16 @@ export function readContent(raw: unknown): Content | null {
     }
     const style = section.style === undefined ? undefined : readSectionStyle(section.style)
     if (style === null) return null
-    sections.push({ id: section.id, type: section.type, hidden: section.hidden === true, settings, ...(style && Object.keys(style).length ? { style } : {}) })
+    let children: PageNode[] | undefined
+    if (section.type === 'layout') {
+      children = readNodes(section.children ?? [], 1, ids, budget) ?? undefined
+      if (!children) return null
+    } else if (section.children !== undefined) return null
+    sections.push({ id: section.id, type: section.type, hidden: section.hidden === true, settings, ...(style && Object.keys(style).length ? { style } : {}), ...(children ? { children } : {}) })
   }
   if (doc.canvas !== undefined && (!doc.canvas || typeof doc.canvas !== 'object' || typeof doc.canvas.header !== 'boolean' || typeof doc.canvas.footer !== 'boolean')) return null
   if (doc.css !== undefined && (typeof doc.css !== 'string' || doc.css.length > maxCss || doc.css.includes('<'))) return null
-  return { version: 1, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}) }
+  return { version: 2, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}) }
 }
 
 export function readSectionStyle(raw: unknown): SectionStyle | null {
@@ -360,13 +369,18 @@ export function readSectionStyle(raw: unknown): SectionStyle | null {
   return result
 }
 
-export const blankContent = (): Content => ({ version: 1, sections: [], canvas: { header: false, footer: false } })
+export const blankContent = (): Content => ({ version: 2, sections: [], canvas: { header: false, footer: false } })
 
 // Every image and product a page points at, so the API can check they belong to the store and the storefront can load them.
 export function references(content: Content) {
   const media = new Set<string>()
   const products = new Set<string>()
   for (const section of content.sections) {
+    for (const node of walk(section.children ?? [])) {
+      if (typeof node.props.image === 'string') media.add(node.props.image)
+      if (typeof node.style?.backgroundImage === 'string') media.add(node.style.backgroundImage)
+      if (typeof node.mobile?.backgroundImage === 'string') media.add(node.mobile.backgroundImage)
+    }
     for (const field of defOf(section.type).fields) {
       const value = section.settings[field.key]
       if (field.kind === 'image' && typeof value === 'string') media.add(value)
@@ -396,4 +410,118 @@ export function videoEmbed(url: string) {
 export function readPhone(raw: string) {
   const digits = raw.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[\s-]/g, '').replace(/^\+?88/, '')
   return /^01[3-9]\d{8}$/.test(digits) ? digits : null
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Layout tree. A 'layout' section holds boxes (flex containers, nestable) and elements (heading, text, image, …).
+// Each node has content (props, per kind), desktop style and mobile overrides. Everything is from fixed lists and
+// ranges, so the storefront can turn it into CSS without escaping anything the seller typed.
+
+export const nodeKinds = ['box', 'heading', 'text', 'image', 'button', 'icon', 'divider', 'spacer', 'video'] as const
+export type NodeKind = typeof nodeKinds[number]
+export type NodeStyle = Record<string, string | number>
+export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'desktop' | 'mobile'; children?: PageNode[] }
+export type NodeDef = { label: Label; fields: Leaf[]; defaults: Settings }
+
+export const maxNodes = 400
+export const maxDepth = 6
+
+const opts = (...list: (readonly [string, Label])[]) => list.map(([value, label]) => ({ value, label }))
+export const nodeDefs: Record<NodeKind, NodeDef> = {
+  box: { label: ['বক্স', 'Box'], fields: [], defaults: {} },
+  heading: { label: ['শিরোনাম', 'Heading'], fields: [
+    { key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 300 },
+    { key: 'level', kind: 'select', label: ['ধরন', 'Size'], options: opts(['h1', ['বড় (H1)', 'Large (H1)']], ['h2', ['মাঝারি (H2)', 'Medium (H2)']], ['h3', ['ছোট (H3)', 'Small (H3)']]) },
+  ], defaults: { text: 'আপনার শিরোনাম লিখুন', level: 'h2' } },
+  text: { label: ['লেখা', 'Text'], fields: [{ key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 3000 }], defaults: { text: 'এখানে আপনার লেখা লিখুন। পণ্যের সুবিধা, ব্যবহার বা গল্প।' } },
+  image: { label: ['ছবি', 'Image'], fields: [{ key: 'image', kind: 'image', label: ['ছবি', 'Image'] }, { key: 'link', kind: 'link', label: ['লিংক (ঐচ্ছিক)', 'Link (optional)'] }], defaults: { image: null, link: '' } },
+  button: { label: ['বাটন', 'Button'], fields: [
+    { key: 'text', kind: 'text', label: ['বাটনের লেখা', 'Button text'], max: 80 },
+    { key: 'link', kind: 'link', label: ['লিংক (ফাঁকা রাখলে অর্ডার ফর্ম)', 'Link (blank uses order form)'] },
+    { key: 'icon', kind: 'icon', label: ['আইকন', 'Icon'] },
+    { key: 'variant', kind: 'select', label: ['ধরন', 'Look'], options: opts(['solid', ['ভরাট', 'Solid']], ['outline', ['বর্ডার', 'Outline']]) },
+  ], defaults: { text: 'এখনই অর্ডার করুন', link: '', icon: '', variant: 'solid' } },
+  icon: { label: ['আইকন', 'Icon'], fields: [{ key: 'icon', kind: 'icon', label: ['আইকন', 'Icon'], defaultIcon: 'check' }], defaults: { icon: 'check' } },
+  divider: { label: ['ভাগ রেখা', 'Divider'], fields: [], defaults: {} },
+  spacer: { label: ['ফাঁকা জায়গা', 'Spacer'], fields: [], defaults: {} },
+  video: { label: ['ভিডিও', 'Video'], fields: [{ key: 'url', kind: 'url', label: ['ইউটিউব বা ফেসবুক লিংক', 'YouTube or Facebook link'] }], defaults: { url: '' } },
+}
+
+const px = (key: string, label: Label, max: number, min = 0, group: 'layout' | 'style' = 'layout') => ({ key, kind: 'number' as const, min, max, label, group })
+// One list for desktop and mobile; mobile values override desktop ones under 720px.
+export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
+  { key: 'direction', kind: 'select', group: 'layout', label: ['দিক', 'Direction'], options: opts(['column', ['নিচে নিচে', 'Down']], ['row', ['পাশাপাশি', 'Across']]) },
+  { key: 'justify', kind: 'select', group: 'layout', label: ['মূল দিকে সাজানো', 'Justify'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['between', ['ছড়িয়ে', 'Space between']]) },
+  { key: 'align', kind: 'select', group: 'layout', label: ['আড়াআড়ি সাজানো', 'Align'], options: opts(['stretch', ['পুরো জায়গা', 'Stretch']], ['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']]) },
+  { key: 'wrap', kind: 'select', group: 'layout', label: ['জায়গা না হলে', 'When out of room'], options: opts(['nowrap', ['এক লাইনে', 'Keep on one line']], ['wrap', ['পরের লাইনে', 'Wrap']]) },
+  px('gap', ['ফাঁক (px)', 'Gap (px)'], 160),
+  px('width', ['প্রস্থ (%)', 'Width (%)'], 100, 1),
+  px('maxWidth', ['সর্বোচ্চ প্রস্থ (px)', 'Max width (px)'], 1600, 40),
+  px('minHeight', ['সর্বনিম্ন উচ্চতা (px)', 'Min height (px)'], 1200),
+  ...(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => px(`padding${side}`, [`প্যাডিং ${side}`, `Padding ${side.toLowerCase()}`], 200)),
+  ...(['Top', 'Bottom'] as const).map((side) => px(`margin${side}`, [`মার্জিন ${side}`, `Margin ${side.toLowerCase()}`], 200)),
+  { key: 'textAlign', kind: 'select', group: 'style', label: ['লেখার অবস্থান', 'Text alignment'], options: opts(['left', ['বামে', 'Left']], ['center', ['মাঝে', 'Center']], ['right', ['ডানে', 'Right']]) },
+  px('fontSize', ['লেখার মাপ (px)', 'Font size (px)'], 120, 10, 'style'),
+  { key: 'fontWeight', kind: 'select', group: 'style', label: ['লেখার ওজন', 'Weight'], options: opts(['400', ['স্বাভাবিক', 'Regular']], ['500', ['মাঝারি', 'Medium']], ['600', ['সেমিবোল্ড', 'Semibold']], ['700', ['বোল্ড', 'Bold']]) },
+  { key: 'color', kind: 'color', group: 'style', label: ['লেখার রং', 'Text color'] },
+  { key: 'background', kind: 'color', group: 'style', label: ['পটভূমি', 'Background'] },
+  { key: 'backgroundImage', kind: 'image', group: 'style', label: ['পটভূমির ছবি', 'Background image'] },
+  px('radius', ['কোণা (px)', 'Corners (px)'], 200, 0, 'style'),
+  px('borderWidth', ['বর্ডার (px)', 'Border (px)'], 12, 0, 'style'),
+  { key: 'borderColor', kind: 'color', group: 'style', label: ['বর্ডারের রং', 'Border color'] },
+  { key: 'shadow', kind: 'select', group: 'style', label: ['ছায়া', 'Shadow'], options: opts(['none', ['নেই', 'None']], ['soft', ['হালকা', 'Soft']], ['strong', ['গাঢ়', 'Strong']]) },
+]
+
+export function* walk(nodes: PageNode[]): Generator<PageNode> {
+  for (const node of nodes) {
+    yield node
+    if (node.children) yield* walk(node.children)
+  }
+}
+
+export const newNode = (kind: NodeKind, id: () => string): PageNode => ({ id: id(), kind, props: structuredClone(nodeDefs[kind].defaults), ...(kind === 'box' ? { children: [] } : {}) })
+
+function readNodeStyle(raw: unknown): NodeStyle | null {
+  if (raw === undefined) return {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const out: NodeStyle = {}
+  for (const field of nodeStyleFields) {
+    const value = (raw as Record<string, unknown>)[field.key]
+    if (value === undefined || value === '' || value === null) continue
+    const read = readLeaf(field, value)
+    if (read === undefined || read === null) return null
+    out[field.key] = read
+  }
+  return out
+}
+
+function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { nodes: number }): PageNode[] | null {
+  if (!Array.isArray(raw) || depth > maxDepth) return null
+  const out: PageNode[] = []
+  for (const item of raw as Record<string, unknown>[]) {
+    if (!item || typeof item !== 'object' || --budget.nodes < 0) return null
+    const kind = item.kind as NodeKind
+    if (!(nodeKinds as readonly string[]).includes(kind)) return null
+    if (typeof item.id !== 'string' || !/^[a-z0-9-]{1,40}$/i.test(item.id) || ids.has(item.id)) return null
+    ids.add(item.id)
+    const given = (item.props ?? {}) as Record<string, unknown>
+    if (typeof given !== 'object' || Array.isArray(given)) return null
+    const props: Settings = {}
+    for (const field of nodeDefs[kind].fields) {
+      const value = readLeaf(field, given[field.key] ?? nodeDefs[kind].defaults[field.key] ?? (field.kind === 'image' ? null : ''))
+      if (value === undefined) return null
+      props[field.key] = value
+    }
+    const style = readNodeStyle(item.style)
+    const mobile = readNodeStyle(item.mobile)
+    if (!style || !mobile) return null
+    if (item.hide !== undefined && item.hide !== 'desktop' && item.hide !== 'mobile') return null
+    let children: PageNode[] | undefined
+    if (kind === 'box') {
+      children = readNodes(item.children ?? [], depth + 1, ids, budget) ?? undefined
+      if (!children) return null
+    } else if (item.children !== undefined) return null
+    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}) })
+  }
+  return out
 }

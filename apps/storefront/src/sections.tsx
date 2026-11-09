@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { IconBadge } from './icons/Icon.tsx'
 import { iconCatalog, isIconName } from './icons/catalog.ts'
 import { videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
+import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -464,6 +465,7 @@ export function SectionFrame({ s, children }: { s: Section; children: ReactNode 
 
 export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   switch (s.type) {
+    case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
     case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
     case 'iconCards':
     case 'iconList': return <InfoItems s={s} ctx={ctx} />
@@ -494,10 +496,12 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
 export function PageView({ content, ctx, storeName }: { content: Content; ctx: Ctx; storeName: string }) {
   const orderId = firstOrderId(content)
   const fonts = new Set(content.sections.filter((s) => !s.hidden).map((s) => s.style?.font).filter(Boolean))
+  const nodes = layoutCss(content, ctx)
   return (
     <div className="sf-page">
       {fonts.has('serif') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap" />}
       {fonts.has('sans') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" />}
+      {nodes && <style dangerouslySetInnerHTML={{ __html: nodes }} />}
       {content.canvas?.header !== false && <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>}
       <main>
         {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
@@ -679,4 +683,5 @@ h1,h2,h3,p{margin:0}
 .sf-standalone-icon{text-align:center}.sf-icon-link{display:inline-flex;color:inherit}.sf-icon-link:focus-visible{outline:2px solid var(--sf-accent);outline-offset:6px}
 .sf-button{gap:10px}.sf-button>.sf-icon-badge>.sf-marketing-icon{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px)}.sf-button>.sf-icon-badge[data-icon-surface=plain]{color:var(--section-icon-color,inherit)}
 
+${layoutBaseCss}
 `
