@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { DialogHead } from './DialogHead'
 import { Link } from 'react-router'
 import { Plus, X } from 'lucide-react'
 import { orderFilterParams, type OrderFilters } from 'storefront/order-filters'
@@ -76,17 +77,14 @@ export function OrderViews({ handle, filters, tabs, hrefFor, applied, children }
     </div>}
     {mode && <dialog {...dialogProps} className="modal order-view-dialog" aria-labelledby="order-view-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
       <form className="order-view-dialog__form" onSubmit={(e) => void submit(e)} noValidate>
-        <header className="order-view-dialog__head">
-          <h2 id="order-view-title">{t(mode === 'save' ? 'orderViewSaveTitle' : 'orderViewRemove')}</h2>
-          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={() => close()}><X size={16} aria-hidden="true" /></button>
-        </header>
-        <div className="order-view-dialog__body">
+        <DialogHead id="order-view-title" title={t(mode === 'save' ? 'orderViewSaveTitle' : 'orderViewRemove')} disabled={busy} onClose={() => close()} />
+        <div className="dialog__body order-view-dialog__body">
           {mode === 'save'
             ? <Field id="order-view-name" label={t('orderViewName')} placeholder={t('orderViewNameHint')} value={name} maxLength={80} disabled={busy} onChange={(e) => { setName(e.target.value); if (error === 'nameRequired') setError(null) }} autoComplete="off" autoFocus />
             : <p className="muted">{t('orderViewRemoveHelp', { name: active?.name ?? '' })}</p>}
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         </div>
-        <footer className="order-view-dialog__footer"><Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button><Button type="submit" variant={mode === 'delete' ? 'danger' : 'primary'} disabled={busy || (mode === 'save' && !name.trim())} aria-busy={busy}>{t(mode === 'delete' ? 'orderViewRemove' : 'orderViewSaveAction')}</Button></footer>
+        <footer className="dialog__foot"><Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button><Button type="submit" variant={mode === 'delete' ? 'danger' : 'primary'} disabled={busy || (mode === 'save' && !name.trim())} aria-busy={busy}>{t(mode === 'delete' ? 'orderViewRemove' : 'orderViewSaveAction')}</Button></footer>
       </form>
     </dialog>}
   </div>

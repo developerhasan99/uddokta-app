@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { DialogHead } from '../components/DialogHead'
 import { ArrowDown, ArrowUp, CircleCheck, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
@@ -191,12 +192,9 @@ function RatePanel({ handle, rate, canEdit, lastActive, onClose, onDone }: { han
 
   return (
     <dialog {...dialogProps} className="picker" aria-labelledby="rate-title">
-      <div className="picker__head">
-        <h2 id="rate-title">{t(rate ? (canEdit ? 'shippingEdit' : 'shippingView') : 'shippingAdd')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-      </div>
+      <DialogHead id="rate-title" title={t(rate ? (canEdit ? 'shippingEdit' : 'shippingView') : 'shippingAdd')} onClose={() => close()} />
       <form className="warehouse-form" onSubmit={(e) => void save(e)} noValidate>
-        <fieldset className="picker__body rate-form" disabled={!canEdit}>
+        <fieldset className="dialog__body rate-form" disabled={!canEdit}>
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
           <Field id="rate-name" label={t('shippingName')} maxLength={60} autoComplete="off" placeholder={t('shippingNameHint')} value={form.name}
             error={tried && problems.name ? t('errNameRequired') : undefined} onChange={(e) => set({ name: e.target.value })} />
@@ -276,7 +274,7 @@ function RatePanel({ handle, rate, canEdit, lastActive, onClose, onDone }: { han
                 : <button type="button" className="media-details__delete" onClick={() => setConfirming(true)}><Trash2 size={16} aria-hidden="true" />{t('shippingDelete')}</button>
           )}
         </fieldset>
-        <div className="picker__foot row--end">
+        <div className="dialog__foot">
           <Button onClick={() => close()}>{t(canEdit ? 'cancel' : 'mediaClose')}</Button>
           {canEdit && <Button type="submit" variant="primary" aria-busy={busy} disabled={busy}>{t('productSave')}</Button>}
         </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { CircleCheck, Plus, X } from 'lucide-react'
+import { DialogHead } from '../components/DialogHead'
+import { CircleCheck, Plus } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
@@ -154,12 +155,9 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
 
   return (
     <dialog {...dialogProps} className="picker" aria-labelledby="warehouse-title">
-      <div className="picker__head">
-        <h2 id="warehouse-title">{t(item ? 'warehouseEdit' : 'warehouseAdd')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-      </div>
+      <DialogHead id="warehouse-title" title={t(item ? 'warehouseEdit' : 'warehouseAdd')} onClose={() => close()} />
       <form className="warehouse-form" onSubmit={(e) => void save(e)} noValidate>
-        <div className="picker__body">
+        <div className="dialog__body">
           {error && !nameTaken && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
           <Field id="warehouse-name" label={t('warehouseName')} maxLength={100} autoComplete="off" placeholder={t('warehouseNameHint')} value={name} error={nameTaken ? t('errWarehouseNameTaken') : tried && !name.trim() ? t('errNameRequired') : undefined} onChange={(e) => { setName(e.target.value); setError(null) }} />
           <Field id="warehouse-phone" label={t('warehousePhone')} type="tel" maxLength={30} autoComplete="off" placeholder={t('productOptional')} value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -191,7 +189,7 @@ function WarehousePanel({ item, others, base, canDelete, onClose, onDone }: { it
               : <button type="button" className="media-details__delete" onClick={() => setConfirming(true)}>{t('warehouseDelete')}</button>
           )}
         </div>
-        <div className="picker__foot row--end">
+        <div className="dialog__foot">
           <Button onClick={() => close()}>{t('cancel')}</Button>
           <Button type="submit" variant="primary" aria-busy={busy} disabled={busy}>{t('productSave')}</Button>
         </div>

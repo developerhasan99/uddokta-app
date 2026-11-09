@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { DialogHead } from './DialogHead'
 import { useCurrentStore } from '../account-context'
 import { api } from '../api'
 import { useLang } from '../i18n'
@@ -156,10 +156,7 @@ export function ProductPicker(props: Props) {
 
   return (
     <dialog {...dialogProps} className="picker" aria-labelledby="product-picker-title">
-      <div className="picker__head">
-        <h2 id="product-picker-title">{t('pickerProductsTitle')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-      </div>
+      <DialogHead id="product-picker-title" title={t('pickerProductsTitle')} onClose={() => close()} />
       <div className="picker__tools">
         <SearchInput label={t('productSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="input picker__filter" aria-label={t('productStatus')} value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -175,7 +172,7 @@ export function ProductPicker(props: Props) {
           </select>
         )}
       </div>
-      <div className="picker__body">
+      <div className="dialog__body">
         {failed && <Notice role="alert" title={t('productLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
         {!failed && !page && <div role="status" aria-label={t('loading')}><Skeleton /></div>}
         {page && page.items.length === 0 && <Notice title={search || status || collection ? t('productNoMatch') : t('pickerProductsEmpty')} body={search || status || collection ? t('productNoMatchBody') : sellableOnly ? t('campaignNoProducts') : undefined} />}
@@ -183,7 +180,7 @@ export function ProductPicker(props: Props) {
         {moreFailed && <p className="form-error" role="alert">{t('productLoadFailed')}</p>}
         {page?.hasMore && <div className="media__more"><Button disabled={loadingMore} aria-busy={loadingMore} onClick={() => void more()}>{t(moreFailed ? 'retry' : loadingMore ? 'loading' : 'mediaLoadMore')}</Button></div>}
       </div>
-      <div className="picker__foot">
+      <div className="dialog__foot dialog__foot--split">
         <span className="muted">{props.variants ? t('pickerSelected', { n: num(count) }) : t('collectionProductCount', { n: num(count) })}</span>
         <div className="row">
           <Button onClick={() => close()}>{t('cancel')}</Button>

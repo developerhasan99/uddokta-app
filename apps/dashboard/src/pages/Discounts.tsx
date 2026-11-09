@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Percent, Plus, X } from 'lucide-react'
+import { ChevronRight, Gift, Percent, Plus, ShoppingBag, Tag, Truck } from 'lucide-react'
+import { DialogHead } from '../components/DialogHead'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api } from '../api'
 import { useDialog } from '../components/dialog'
 import { Badge, Button, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { describeDiscount, discountStatus, discountTypes, statusInfo, type Discount, type DiscountStatus } from '../discounts'
 import { useLang } from '../i18n'
+
+const typeIcons = { products: Tag, bxgy: Gift, order: ShoppingBag, shipping: Truck }
 
 const tabs: { value: DiscountStatus | ''; label: 'discAll' | 'discActive' | 'discScheduled' | 'discExpired' }[] = [
   { value: '', label: 'discAll' }, { value: 'active', label: 'discActive' }, { value: 'scheduled', label: 'discScheduled' }, { value: 'expired', label: 'discExpired' },
@@ -118,17 +121,23 @@ function TypeDialog({ onClose, onChoose }: { onClose: () => void; onChoose: (typ
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   useEffect(() => { dialog.current?.showModal() }, [])
   return (
-    <dialog {...dialogProps} className="modal campaign-dialog" aria-labelledby="disc-type-title">
-      <header className="campaign-dialog__header">
-        <h2 id="disc-type-title">{t('discChooseType')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-      </header>
-      <div className="campaign-dialog__body discount-types">
-        {discountTypes.map((item) => (
-          <button key={item.type} type="button" className="campaign-layout" onClick={() => close(() => onChoose(item.type))}>
-            <span className="campaign-layout__copy"><strong>{t(item.label)}</strong><span className="muted">{t(item.help)}</span></span>
-          </button>
-        ))}
+    <dialog {...dialogProps} className="modal" aria-labelledby="disc-type-title">
+      <DialogHead id="disc-type-title" title={t('discChooseType')} onClose={() => close()} />
+      <div className="dialog__body dialog__body--flush">
+        <ul className="dialog-list">
+          {discountTypes.map((item) => {
+            const Icon = typeIcons[item.type]
+            return (
+              <li key={item.type}>
+                <button type="button" className="dialog-list__item" onClick={() => close(() => onChoose(item.type))}>
+                  <Icon className="dialog-list__icon" size={18} aria-hidden="true" />
+                  <span className="dialog-list__text"><strong>{t(item.label)}</strong><span>{t(item.help)}</span></span>
+                  <ChevronRight className="dialog-list__chevron" size={18} aria-hidden="true" />
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       </div>
     </dialog>
   )

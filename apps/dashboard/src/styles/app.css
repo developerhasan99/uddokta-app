@@ -600,7 +600,7 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .data-table .data-table__total { text-align: end; }
 .warehouse-address { overflow: hidden; color: var(--color-muted); text-overflow: ellipsis; white-space: nowrap; }
 .warehouse-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-.warehouse-form .picker__body { padding-top: var(--space-md); gap: var(--space-md); }
+fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 @media (max-width: 40rem) { .warehouse-address { display: none; } }
 
 /* Collections */
@@ -639,14 +639,9 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .picker__filter { flex: 1; min-width: 0; }
 
 /* Media picker */
-.picker { display: none; width: min(34rem, 100%); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; border: 0; background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
-.picker[open] { display: flex; flex-direction: column; }
-.picker::backdrop { background: color-mix(in oklab, var(--color-frame) 40%, transparent); }
-.picker__head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule); }
-.picker__tools { display: flex; flex: none; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); }
+.picker__tools { display: flex; flex: none; gap: var(--space-xs); padding: 0 var(--space-lg) var(--space-sm); }
 .picker__tools .search-field { flex: 1; min-width: 0; }
 .picker__tools .btn svg { flex: none; }
-.picker__body { display: grid; flex: 1; align-content: start; gap: var(--space-sm); min-height: 0; padding: 0 var(--space-md) var(--space-md); overflow-y: auto; }
 .picker__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: var(--space-xs); }
 .picker__tile { position: relative; display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius-control); outline: var(--rule-hair) solid var(--color-rule-strong); outline-offset: -1px; background: var(--color-paper-3); cursor: pointer; }
 .picker__tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -654,7 +649,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .picker__tile:disabled { opacity: 0.45; cursor: not-allowed; }
 .picker__tile:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .picker__check { position: absolute; top: var(--space-2xs); right: var(--space-2xs); display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-pill); background: var(--color-primary); color: var(--color-primary-ink); }
-.picker__foot { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); font-size: var(--text-sm); }
 
 /* Radix menu */
 .menu { z-index: var(--z-dropdown); width: min(18rem, calc(100vw - 16px)); overflow: hidden; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
@@ -724,14 +718,53 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
   .skeleton-row > :nth-child(n + 3) { display: none; }
 }
 
-/* Small centred dialog */
-.modal { width: min(28rem, calc(100% - 2 * var(--space-md))); padding: 0; border: 0; border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); }
-.modal::backdrop { background: color-mix(in oklab, var(--color-frame) 40%, transparent); }
+/* Dialogs. One look everywhere: .modal is centred, .picker is a side sheet floating at the end of the screen.
+   Both are a column of .dialog__head (components/DialogHead.tsx), a scrolling .dialog__body and an optional .dialog__foot.
+   A dialog's own class adds only its width and inner layout. */
+.modal, .picker { display: none; flex-direction: column; max-width: none; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius-panel); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-dialog); }
+.modal[open], .picker[open] { display: flex; }
+.modal { width: min(34rem, calc(100% - 2 * var(--space-md))); max-height: calc(100dvh - 2 * var(--space-lg)); }
+.picker { width: min(34rem, calc(100% - 2 * var(--space-xs))); height: calc(100dvh - 2 * var(--space-xs)); max-height: none; margin: var(--space-xs) var(--space-xs) var(--space-xs) auto; }
+.modal::backdrop, .picker::backdrop { background: var(--color-scrim); }
+/* A form or wrapper directly inside a dialog carries the same column, so the body scrolls and the foot stays put. */
+:is(.modal, .picker) > :is(form, fieldset, .dialog__frame) { display: flex; flex: 1; flex-direction: column; min-height: 0; margin: 0; padding: 0; border: 0; }
+.dialog__head { display: flex; flex: none; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md) var(--space-md) var(--space-sm) var(--space-lg); }
+.dialog__title { display: grid; gap: var(--space-3xs); min-width: 0; padding-top: var(--space-2xs); }
+.dialog__title h2 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.dialog__kicker, .dialog__sub { color: var(--color-muted); font-size: var(--text-sm); }
+.dialog__close { display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-pill); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-2); cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out); }
+@media (hover: hover) { .dialog__close:not(:disabled):hover { background: var(--color-paper-2); color: var(--color-ink); } }
+.dialog__close:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Opening a dialog focuses its first control; the ring is for keyboard users, not for every mouse open. */
+.dialog__close:focus:not(:focus-visible) { outline: none; }
+.dialog__body { display: grid; flex: 1; align-content: start; gap: var(--space-md); min-height: 0; padding: var(--space-2xs) var(--space-lg) var(--space-lg); overflow-y: auto; overscroll-behavior: contain; }
+.dialog__body--flush { padding: 0 0 var(--space-xs); gap: 0; }
+.dialog__foot { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-xs); padding: var(--space-sm) var(--space-lg); border-top: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); font-size: var(--text-sm); }
+.dialog__foot--split { justify-content: space-between; }
+/* Choices that fill a dialog edge to edge: icon, title and help, and a chevron, divided by hairlines. */
+.dialog-list { display: grid; margin: 0; padding: 0; list-style: none; border-top: var(--rule-hair) solid var(--color-rule); }
+.dialog-list__item { display: flex; align-items: center; gap: var(--space-sm); width: 100%; padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-lg); border: 0; border-bottom: var(--rule-hair) solid var(--color-rule); background: transparent; color: var(--color-ink); font: inherit; text-align: start; cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out); }
+.dialog-list li:last-child .dialog-list__item { border-bottom: 0; }
+@media (hover: hover) { .dialog-list__item:hover { background: var(--color-paper-2); } }
+.dialog-list__item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.dialog-list__icon { flex: none; align-self: flex-start; margin-top: 2px; color: var(--color-ink-2); }
+.dialog-list__text { display: grid; flex: 1; gap: var(--space-3xs); min-width: 0; }
+.dialog-list__text strong { font-weight: 500; }
+.dialog-list__text span { color: var(--color-muted); font-size: var(--text-sm); }
+.dialog-list__chevron { flex: none; color: var(--color-muted); }
+@media (max-width: 40rem) {
+  .picker { width: 100%; height: 100dvh; margin: 0; border-radius: 0; }
+  .modal { width: calc(100% - 2 * var(--space-sm)); max-height: calc(100dvh - 2 * var(--space-sm)); }
+  .dialog__head { padding: var(--space-sm) var(--space-sm) var(--space-xs) var(--space-md); }
+  .dialog__body { padding: var(--space-2xs) var(--space-md) var(--space-md); }
+  .dialog__foot { padding: var(--space-xs) var(--space-md); }
+  .picker__tools { padding: 0 var(--space-md) var(--space-sm); }
+}
 /* Dialogs arrive quickly but never pop: centred ones rise and settle, side sheets slide in, backdrops fade.
    Leaving is quicker and accelerates away; components/dialog.ts sets [data-closing] and waits for it before closing.
    The curve front-loads the motion, so a dialog is usable almost at once. Reduced motion is handled globally. */
 @keyframes dialog-rise { from { opacity: 0; transform: translateY(var(--space-xs)) scale(0.97); } }
-@keyframes sheet-from-end { from { transform: translateX(100%); } }
+@keyframes sheet-from-end { from { transform: translateX(calc(100% + var(--space-xs))); } }
 @keyframes sheet-from-start { from { transform: translateX(-100%); } }
 @keyframes backdrop-in { from { opacity: 0; } }
 .modal[open] { animation: dialog-rise var(--dur-enter) var(--ease-out); }
@@ -739,7 +772,7 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .drawer[open] { animation: sheet-from-start var(--dur-sheet) var(--ease-out); }
 .modal[open]::backdrop, .picker[open]::backdrop, .drawer[open]::backdrop { animation: backdrop-in var(--dur-enter) ease-out; }
 @keyframes dialog-sink { to { opacity: 0; transform: translateY(var(--space-2xs)) scale(0.98); } }
-@keyframes sheet-to-end { to { transform: translateX(100%); } }
+@keyframes sheet-to-end { to { transform: translateX(calc(100% + var(--space-xs))); } }
 @keyframes sheet-to-start { to { transform: translateX(-100%); } }
 @keyframes backdrop-out { to { opacity: 0; } }
 .modal[data-closing] { animation: dialog-sink var(--dur-exit) var(--ease-in) forwards; }
@@ -747,8 +780,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .drawer[data-closing] { animation: sheet-to-start var(--dur-sheet-exit) var(--ease-in) forwards; }
 .modal[data-closing]::backdrop { animation: backdrop-out var(--dur-exit) ease-in forwards; }
 .picker[data-closing]::backdrop, .drawer[data-closing]::backdrop { animation: backdrop-out var(--dur-sheet-exit) ease-in forwards; }
-.modal__body { display: grid; gap: var(--space-md); padding-bottom: var(--space-md); }
-.modal__body > :not(.picker__head) { margin-inline: var(--space-md); }
 
 /* Page editor: stacked controls beside the storefront preview. */
 .editor { position: fixed; inset: 0; display: grid; grid-template: "bar bar" auto "error error" auto "sidebar preview" minmax(0, 1fr) / 360px minmax(0, 1fr); background: var(--color-paper); }
@@ -806,7 +837,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .editor-sections__name span:first-child { font-weight: 500; }
 .editor-sections__name .muted { font-size: var(--text-sm); }
 .editor-sections__row:has(.btn--icon svg.lucide-eye-off) .editor-sections__name { opacity: 0.5; }
-.editor-add-modal { max-height: calc(100dvh - 2 * var(--space-md)); overflow-y: auto; }
 .editor-add__choices { display: grid; gap: var(--space-3xs); }
 .editor-add__choices button { display: flex; align-items: center; gap: var(--space-xs); width: 100%; min-height: var(--control); padding: var(--space-xs); border: 0; border-radius: var(--radius-control); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .editor-add__choices button:hover { background: var(--color-paper-2); }
@@ -873,7 +903,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
   .editor-image .row > .btn { flex: 1; }
   .editor-product { flex-wrap: wrap; }
   .editor__toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 2 * var(--space-md)); }
-  .editor-add-modal { width: calc(100% - 2 * var(--space-sm)); max-height: calc(100dvh - 2 * var(--space-md)); }
   .editor-add__choices button { min-height: 36px; padding-block: var(--space-2xs); font-size: 13px; }
 }
 
@@ -1067,12 +1096,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .editor-icon-control__name small { font-size:9px;color:var(--color-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
 .editor-icon-control>.btn { padding:5px 8px;min-height:30px;font-size:11px;flex:none }
 .editor-icon-control>.btn--icon { width:26px;padding:0 }
-.icon-picker { width:min(850px,calc(100% - 32px));max-height:min(760px,calc(100dvh - 40px));padding:0;overflow:hidden;border-radius:14px }
-.icon-picker[open] { display:flex;flex-direction:column }
-.icon-picker__head { display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 24px 15px }
-.icon-picker__head h2 { margin:0;font-size:20px;letter-spacing:-.4px }
-.icon-picker__head p { font-size:12px;color:var(--color-muted);margin-top:5px }
-.icon-picker__head p span { opacity:.7 }
+.icon-picker { width:min(850px,calc(100% - 32px));max-height:min(760px,calc(100dvh - 40px)) }
 .icon-picker__search { display:flex;align-items:center;gap:10px;margin:0 24px;border:1px solid var(--color-rule-strong);border-radius:8px;padding:0 13px;color:var(--color-muted) }
 .icon-picker__search:focus-within { outline:2px solid #6b8e752c;border-color:#63876c }
 .icon-picker__search input { width:100%;min-width:0;min-height:42px;padding:10px 0;border:0;outline:0;background:transparent;color:var(--color-ink);font:inherit;font-size:13px }
@@ -1088,7 +1112,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .icon-picker__tile:hover { border-color:#8fa795;background:#f7faf6 }
 .icon-picker__tile[aria-pressed=true] { border-color:#456d50;box-shadow:0 0 0 1px #456d50;background:#edf4ee;color:#285a3f }
 .icon-picker__tile>.icon-picker__selected { position:absolute;right:5px;top:5px }
-.icon-picker__foot { display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 24px;border-top:1px solid var(--color-rule);background:var(--color-paper) }
+.icon-picker__foot { gap:var(--space-md) }
 .icon-picker__selection { display:flex;align-items:center;gap:12px;color:#285a3f;min-width:0 }
 .icon-picker__selection>span { display:grid;gap:3px;min-width:0;font-size:12px }
 .icon-picker__selection strong { font-size:12px;font-weight:600 }
@@ -1099,13 +1123,12 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .icon-picker__empty p { font-size:12px }
 .icon-picker button:focus-visible { outline:2px solid #285a3f;outline-offset:3px }
 @media(max-width:600px) {
- .icon-picker { width:calc(100% - 16px);max-height:calc(100dvh - 24px) }
- .icon-picker__head { padding:18px 16px 13px }.icon-picker__head h2 { font-size:18px }
- .icon-picker__search { margin-inline:16px }.icon-picker__search input { font-size:16px }
+
+  .icon-picker__search { margin-inline:16px }.icon-picker__search input { font-size:16px }
  .icon-picker__categories { padding:12px 16px;gap:6px }.icon-picker__categories button { font-size:10px;padding:6px 9px }
  .icon-picker__results { padding:10px 16px 18px }.icon-picker__grid { grid-template-columns:repeat(4,minmax(0,1fr));gap:7px }
  .icon-picker__tile { min-height:89px;padding:12px 4px 8px;gap:10px }.icon-picker__tile>span { font-size:9px }
- .icon-picker__foot { padding:12px 16px;flex-wrap:wrap;gap:12px }.icon-picker__selection { width:100% }.icon-picker__selection>svg { width:24px;height:24px }
+ .icon-picker__foot { gap:12px }.icon-picker__selection { width:100% }.icon-picker__selection>svg { width:24px;height:24px }
  .icon-picker__actions { width:100%;justify-content:flex-end }.icon-picker__actions .btn { min-height:38px;font-size:12px }
 }
 
@@ -1163,14 +1186,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 
 
 /* Campaign creation: fixed actions with a scrollable body on phones. */
-.campaign-dialog { width: min(36rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); padding: 0; }
-.campaign-dialog[open] { display: flex; flex-direction: column; }
-.campaign-dialog__form { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
-.campaign-dialog__header { display: flex; flex: none; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
-.campaign-dialog__header h2 { margin-top: var(--space-2xs); font-size: var(--text-xl); }
-.campaign-dialog__header p { font-size: var(--text-sm); }
-.campaign-dialog__body { display: grid; gap: var(--space-md); min-height: 0; overflow-y: auto; padding: var(--space-md); overscroll-behavior: contain; }
-.campaign-dialog__footer { display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule-strong); }
+.campaign-dialog { width: min(36rem, calc(100% - 2 * var(--space-md))); }
 .campaign-layouts { display: grid; gap: var(--space-xs); min-width: 0; border: 0; padding: 0; }
 .campaign-layouts legend { margin-bottom: var(--space-xs); font-weight: 500; }
 .campaign-layout { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); cursor: pointer; }
@@ -1178,9 +1194,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .campaign-layout:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .campaign-layout input { flex: none; accent-color: var(--color-primary); }
 .campaign-layout__copy { display: grid; flex: 1; gap: var(--space-2xs); min-width: 0; }
-/* Discounts: the type choices are buttons in the same card style, and the list tabs are buttons too. */
-.discount-types .campaign-layout { width: 100%; background: var(--color-paper); color: inherit; font: inherit; text-align: start; }
-@media (hover: hover) { .discount-types .campaign-layout:hover { border-color: var(--color-primary); background: var(--color-paper-2); } }
+/* Discounts: the list tabs are buttons. */
 button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .discount-products { display: grid; gap: var(--space-xs); }
 .discount-row__sub { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
@@ -1215,11 +1229,6 @@ button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .campaign-summary { padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper-2); }
 .campaign-summary ol { display: grid; gap: var(--space-2xs); padding-inline-start: var(--space-md); color: var(--color-muted); font-size: var(--text-sm); }
 .campaign-summary .table__sub { grid-column: auto; overflow-wrap: anywhere; }
-@media (max-width: 40rem) {
-  .campaign-dialog { width: calc(100% - var(--space-md)); max-height: calc(100dvh - var(--space-md)); }
-  .campaign-dialog__header, .campaign-dialog__body { padding: var(--space-sm); }
-  .campaign-dialog__footer { padding: var(--space-sm); }
-}
 
 /* Planned features stay discoverable without looking ready to use. */
 .nav-soon { flex: none; margin-inline-start: auto; padding-inline: var(--space-2xs); border: var(--rule-hair) solid currentColor; border-radius: var(--radius-control); color: var(--color-frame-muted); font-size: var(--text-sm); font-weight: 400; line-height: 1.4; white-space: nowrap; }
@@ -1274,18 +1283,14 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
 .order-row-flag--danger { color: var(--color-error); }
 .orders-more-error { margin: var(--space-xs); }
 .order-cards { display: none; margin: 0; padding: 0; list-style: none; }
-.order-filter-dialog { width: min(30rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); padding: 0; }
-.order-filter-dialog[open] { display: flex; flex-direction: column; }
+.order-filter-dialog { width: min(32rem, calc(100% - 2 * var(--space-md))); }
 .order-filter-form { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
-.order-filter-dialog__head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
-.order-filter-dialog__head h2 { font-size: var(--text-lg); }
-.order-filter-dialog__body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); min-height: 0; overflow-y: auto; padding: var(--space-md); }
+.order-filter-dialog__body { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
 .order-filter-dialog__body label { display: grid; gap: var(--space-2xs); min-width: 0; font-size: var(--text-sm); font-weight: 500; }
 .order-filter-dialog__body .input { width: 100%; min-width: 0; }
 .order-filter-dialog__tags { display: grid; gap: var(--space-2xs); }
 .order-filter-dialog__tags > label { font-weight: 500; }
 .order-filter-dialog__wide { grid-column: 1 / -1; font-size: var(--text-sm); }
-.order-filter-dialog__footer { display: flex; flex: none; justify-content: space-between; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper-2); }
 @media (hover: hover) {
   .order-card:hover { background: var(--color-paper-2); }
   .order-number:hover { text-decoration: underline; }
@@ -1309,22 +1314,15 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
   .order-card__total { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
   .order-card__meta { color: var(--color-muted); font-size: var(--text-sm); }
   .order-card__meta > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .order-filter-dialog { width: calc(100% - var(--space-md)); max-height: calc(100dvh - var(--space-md)); }
   .order-filter-dialog__body { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Saved-view dialogs share the compact hierarchy of the order workspace. */
-.order-view-dialog { width: min(26rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); }
-.order-view-dialog[open] { display: flex; flex-direction: column; }
-.order-view-dialog__form { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
-.order-view-dialog__head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
-.order-view-dialog__head h2 { font-size: var(--text-lg); font-weight: 600; line-height: 1.4; }
-.order-view-dialog__body { display: grid; gap: var(--space-sm); min-height: 0; overflow-y: auto; padding: var(--space-md); font-size: var(--text-sm); }
+.order-view-dialog { width: min(26rem, calc(100% - 2 * var(--space-md))); }
+.order-view-dialog__body { gap: var(--space-sm); font-size: var(--text-sm); }
 .order-view-dialog__body .field { gap: var(--space-2xs); }
 .order-view-dialog__body .field label { font-size: var(--text-sm); }
-.order-view-dialog__footer { display: flex; flex: none; justify-content: flex-end; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper-2); }
 @media (max-width: 40rem) {
-  .order-view-dialog { width: calc(100% - var(--space-lg)); max-height: calc(100dvh - var(--space-lg)); }
   .order-view-dialog__body .input { min-height: 36px; font-size: var(--text-lg); }
 }
 

@@ -429,3 +429,25 @@ Next, if sellers ask:
 - Discount editor redesign: either/or choices (method, percent/amount, any/specific products, free/percent, minimum) are compact segmented controls; Generate sits beside the code; the offer title shows only for automatic discounts; number fields keep a fixed width beside their choice; the end date is a checkbox beside the start; the summary list has its own bullets.
 - Discount editor: the box a choice needs (amount, minimum, percentage) sits under its switch at 14rem. The minimum purchase is a section of the Value card (and of the free-delivery card); buy X get Y keeps its own minimum card.
 - Discount editor: Maximum uses and Active dates share one card, dates as a divided section; the checkbox list has no extra space at its ends.
+
+## Polished dialogs everywhere (November 9, 2026)
+
+Every dialog now shares one design, so they look the same everywhere.
+- **Shared header:** `components/DialogHead.tsx`, with a title, an optional line above or below it, and a round close button.
+- **Shared parts:**
+  - `.dialog__body`: scrolls, with roomy padding.
+  - `.dialog__foot`: tinted, actions on the right (`--split` for left and right).
+  - `.dialog-list`: edge-to-edge choices with icon, help and chevron.
+- **Look:**
+  - New tokens: `--shadow-dialog` and `--color-scrim`.
+  - Centred dialogs have 16px corners and a 34rem default width.
+  - Side sheets float with a small margin and rounded corners, and go full screen on phones.
+- **Converted:**
+  - The media, product, delivery-option and warehouse panels.
+  - Order filters and saved views.
+  - The new landing page dialog.
+  - The discount type chooser, now a divided list with icons.
+  - The page editor's add-section and leave dialogs.
+  - The icon library.
+- Old per-dialog head, body and footer CSS is removed.
+- **Checked in the browser:** discount types, order filters, media picker, new landing page, the delivery option panel and add section.

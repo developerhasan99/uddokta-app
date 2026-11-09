@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Check, ImagePlus, Upload, X } from 'lucide-react'
+import { DialogHead } from './DialogHead'
+import { Check, ImagePlus, Upload } from 'lucide-react'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode, type MediaItem } from '../api'
 import { errorLabel, useLang } from '../i18n'
@@ -94,10 +95,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
 
   return (
     <dialog {...dialogProps} {...drop} className="picker" aria-labelledby="picker-title">
-      <div className="picker__head">
-        <h2 id="picker-title">{t('pickerTitle')}</h2>
-        <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-      </div>
+      <DialogHead id="picker-title" title={t('pickerTitle')} onClose={() => close()} />
       <div className="picker__tools">
         <SearchInput label={t('mediaSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <Button onClick={() => file.current?.click()}><Upload size={16} aria-hidden="true" />{t('mediaUpload')}</Button>
@@ -107,7 +105,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
         }} />
       </div>
 
-      <div className="picker__body">
+      <div className="dialog__body">
         {uploading > 0 && <p className="muted" role="status">{t('mediaUploading', { n: num(uploading) })}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         {failed && <Notice role="alert" title={t('mediaLoadFailed')} action={<Button onClick={() => void load(search.trim())}>{t('retry')}</Button>} />}
@@ -142,7 +140,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
       </div>
 
       {dragging && <div className="media__drop" aria-hidden="true"><Upload size={24} />{t('mediaDrop')}</div>}
-      <div className="picker__foot">
+      <div className="dialog__foot dialog__foot--split">
         <span className="muted">{t('pickerCount', { n: num(picked.length), max: num(max) })}</span>
         <div className="row">
           <Button onClick={() => close()}>{t('cancel')}</Button>

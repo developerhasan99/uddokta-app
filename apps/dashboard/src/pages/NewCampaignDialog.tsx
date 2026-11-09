@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react'
+import { DialogHead } from '../components/DialogHead'
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { campaignTemplates, type CampaignTemplate } from 'storefront/campaigns'
 import { defOf } from 'storefront/schema'
@@ -63,11 +64,8 @@ export function NewCampaignDialog({ onClose }: { onClose: () => void }) {
   return <>
     <dialog {...dialogProps} className="modal campaign-dialog" aria-labelledby="campaign-title-heading" onCancel={(e) => { e.preventDefault(); if (!submitting.current) close() }}>
       <form className="campaign-dialog__form" onSubmit={(e) => void submit(e)} noValidate>
-        <header className="campaign-dialog__header">
-          <div><p className="muted">{t('campaignStep', { n: num(step) })}</p><h2 id="campaign-title-heading">{t(step === 1 ? 'campaignStart' : 'campaignName')}</h2></div>
-          <button type="button" className="media__dismiss" disabled={busy} aria-label={t('mediaClose')} onClick={() => close()}><X size={18} aria-hidden="true" /></button>
-        </header>
-        <div className="campaign-dialog__body">
+        <DialogHead id="campaign-title-heading" kicker={t('campaignStep', { n: num(step) })} title={t(step === 1 ? 'campaignStart' : 'campaignName')} disabled={busy} onClose={() => close()} />
+        <div className="dialog__body">
           {step === 1 ? <>
             <fieldset className="campaign-layouts"><legend>{t('campaignLayout')}</legend>
               {campaignTemplates.map((item) => <label key={item.id} className="campaign-layout" data-selected={template === item.id}>
@@ -97,7 +95,7 @@ export function NewCampaignDialog({ onClose }: { onClose: () => void }) {
           </>}
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         </div>
-        <footer className="campaign-dialog__footer">
+        <footer className="dialog__foot dialog__foot--split">
           <Button disabled={busy} onClick={() => { if (step === 1) close(); else { setStep(1); setTried(false); setError(null) } }}>{step === 2 && <ArrowLeft size={14} aria-hidden="true" />}{t(step === 1 ? 'cancel' : 'campaignBack')}</Button>
           <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t(step === 1 ? 'campaignContinue' : 'campaignCreateDraft')}{step === 1 && <ArrowRight size={14} aria-hidden="true" />}</Button>
         </footer>

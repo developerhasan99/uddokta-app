@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { DialogHead } from '../components/DialogHead'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
@@ -236,11 +237,8 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
   const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
   useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
   return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId}>
-    <div className="modal__body">
-      <div className="picker__head">
-        <h2 id={titleId} className="editor__heading">{t('pageAddSection')}</h2>
-        <IconButton label={t('cancel')} onClick={() => close()}><X size={16} aria-hidden="true" /></IconButton>
-      </div>
+    <DialogHead id={titleId} title={t('pageAddSection')} onClose={() => close()} />
+    <div className="dialog__body">
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
         {matches.map((type) => {
@@ -258,14 +256,12 @@ function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; 
   const { ref, close: dismiss, props: leaveProps } = useDialog(onClose)
   useEffect(() => { ref.current?.showModal() }, [ref])
   return <dialog {...leaveProps} className="modal" aria-labelledby="leave-title" onCancel={(e) => { e.preventDefault(); if (!busy) dismiss() }}>
-    <div className="modal__body">
-      <h2 id="leave-title">{t('pageLeaveTitle')}</h2>
-      <p className="muted">{t('pageLeaveHelp')}</p>
-      <div className="row row--end">
-        <Button disabled={busy} onClick={() => dismiss()}>{t('cancel')}</Button>
-        <Button disabled={busy} onClick={onLeave}>{t('pageLeaveDiscard')}</Button>
-        <Button disabled={busy} variant="primary" onClick={onSave}>{t('pageLeaveSave')}</Button>
-      </div>
+    <DialogHead id="leave-title" title={t('pageLeaveTitle')} disabled={busy} onClose={() => dismiss()} />
+    <div className="dialog__body"><p className="muted">{t('pageLeaveHelp')}</p></div>
+    <div className="dialog__foot">
+      <Button disabled={busy} onClick={() => dismiss()}>{t('cancel')}</Button>
+      <Button disabled={busy} onClick={onLeave}>{t('pageLeaveDiscard')}</Button>
+      <Button disabled={busy} variant="primary" onClick={onSave}>{t('pageLeaveSave')}</Button>
     </div>
   </dialog>
 }
