@@ -503,6 +503,7 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
         {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
       </main>
       {content.canvas?.footer !== false && <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>}
+      {content.css && <style dangerouslySetInnerHTML={{ __html: content.css }} />}
     </div>
   )
 }

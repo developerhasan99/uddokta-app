@@ -7,6 +7,9 @@ test('legacy content preserves implicit chrome, and blank content persists expli
   assert.deepEqual(readContent(legacy), legacy)
   assert.deepEqual(readContent(blankContent()), blankContent())
   assert.equal(readContent({ ...blankContent(), canvas: { header: 'no', footer: false } }), null)
+  assert.equal(readContent({ ...blankContent(), css: '.sf-page { color: red }' })?.css, '.sf-page { color: red }')
+  assert.equal(readContent({ ...blankContent(), css: '  ' })?.css, undefined)
+  assert.equal(readContent({ ...blankContent(), css: 'a{}</style><script>x()</script>' }), null)
 })
 
 test('every section family survives validation, including layout variants and nested image references', () => {

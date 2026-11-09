@@ -452,3 +452,8 @@ Every dialog now shares one design, so they look the same everywhere.
 - Old per-dialog head, body and footer CSS is removed.
 - **Checked in the browser:** discount types, order filters, media picker, new landing page, the delivery option panel and add section.
 - List filter chips (filter bars on Orders, Products, Landing pages, Discounts) are smaller: 13px text on 28px chips with the count as a lighter suffix. Duplicate button.tab rule removed.
+
+## Page editor: sidebar views and custom CSS (2026-11-09)
+- Sidebar split into three tabs: Sections, Page (full-height page settings), CSS (full-height editor).
+- Custom CSS saved in the page content (`css`), validated by `readContent` (no `<`, max 20,000 chars), rendered in `PageView` so the preview and the live page match.
+- Phone bottom tabs made compact: 11px labels, 18px icons, active state as a small pill.

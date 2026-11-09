@@ -20,7 +20,9 @@ export type Value = string | number | null | Record<string, string | null>[]
 export type Settings = Record<string, Value>
 export type SectionStyle = Record<string, string | number>
 export type Section = { id: string; type: SectionType; hidden: boolean; settings: Settings; style?: SectionStyle }
-export type Content = { version: 1; sections: Section[]; canvas?: { header: boolean; footer: boolean } }
+// css: the seller's own styles for this page only. No '<', so it can never close the <style> tag it is written into.
+export type Content = { version: 1; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string }
+export const maxCss = 20000
 
 const heading = (max = 120): Leaf => ({ key: 'heading', kind: 'text', label: ['শিরোনাম', 'Heading'], max })
 
@@ -341,7 +343,8 @@ export function readContent(raw: unknown): Content | null {
     sections.push({ id: section.id, type: section.type, hidden: section.hidden === true, settings, ...(style && Object.keys(style).length ? { style } : {}) })
   }
   if (doc.canvas !== undefined && (!doc.canvas || typeof doc.canvas !== 'object' || typeof doc.canvas.header !== 'boolean' || typeof doc.canvas.footer !== 'boolean')) return null
-  return { version: 1, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}) }
+  if (doc.css !== undefined && (typeof doc.css !== 'string' || doc.css.length > maxCss || doc.css.includes('<'))) return null
+  return { version: 1, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}) }
 }
 
 export function readSectionStyle(raw: unknown): SectionStyle | null {
