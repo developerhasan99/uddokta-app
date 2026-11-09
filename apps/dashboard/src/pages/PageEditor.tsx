@@ -691,8 +691,10 @@ export function PageEditor() {
   const addAfter = (f: Found) => setAddingNode(f.node.kind === 'box' ? { sectionId: f.section.id, parentId: f.node.id, index: f.node.children?.length ?? 0 } : { sectionId: f.section.id, parentId: f.parent?.id ?? null, index: f.index + 1 })
   const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
     const Icon = nodeIcons[n.kind]
+    const name = nodeName(n, L)
+    const isOpen = open.has(n.id)
     return <Fragment key={n.id}>
-      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}${nodeDrop?.id === n.id ? ` editor-tree__row--drop-${nodeDrop.where}` : ''}`} style={{ paddingInlineStart: depth * 14 }}
+      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}${nodeDrop?.id === n.id ? ` editor-tree__row--drop-${nodeDrop.where}` : ''}`} style={{ ['--depth' as string]: depth }}
         draggable
         onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', n.id); nodeDrag.current = n.id }}
         onDragEnd={() => { nodeDrag.current = null; setNodeDrop(null) }}
@@ -715,11 +717,23 @@ export function PageEditor() {
           const next = relocate(sections.find((x) => x.id === sectionId)?.children ?? [], from, n.id, nodeDrop.where)
           if (next) { editTree(sectionId, () => next); setSelected(from) }
         }}>
-        {n.kind === 'box' ? <button type="button" className="editor-tree__toggle" aria-expanded={open.has(n.id)} aria-label={`${L(open.has(n.id) ? ['বন্ধ করুন', 'Collapse'] : ['খুলুন', 'Expand'])}: ${nodeName(n, L)}`} onClick={() => toggle(n.id)}><ChevronDown size={13} aria-hidden="true" /></button> : <span className="editor-tree__toggle" aria-hidden="true" />}
-        <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} onClick={() => choose(n.id)}><Icon size={14} aria-hidden="true" /><span>{nodeName(n, L)}</span></button>
-        {n.kind === 'box' && <IconButton label={L(['ভেতরে যোগ করুন', 'Add inside'])} title={L(['ভেতরে যোগ করুন', 'Add inside'])} onClick={() => setAddingNode({ sectionId, parentId: n.id, index: n.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" /></IconButton>}
+        {Array.from({ length: depth }, (_, i) => <span key={i} className="editor-tree__guide" aria-hidden="true" />)}
+        {n.kind === 'box'
+          ? <button type="button" className="editor-tree__toggle" aria-expanded={isOpen} aria-label={`${L(isOpen ? ['বন্ধ করুন', 'Collapse'] : ['খুলুন', 'Expand'])}: ${name}`} onClick={() => toggle(n.id)}><ChevronDown size={13} aria-hidden="true" /></button>
+          : <span className="editor-tree__toggle" aria-hidden="true" />}
+        <span className="editor-tree__handle" aria-hidden="true"><Icon className="editor-tree__icon" size={14} /><GripVertical className="editor-tree__drag" size={14} /></span>
+        <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} title={name} onClick={() => choose(n.id)}><span>{name}</span></button>
+        <span className="editor-tree__actions">
+          <span className="editor-tree__delete"><IconButton label={`${t('pageRemoveSection')}: ${name}`} title={t('pageRemoveSection')} onClick={() => {
+            editTree(sectionId, (list) => removeNode(list, n.id))
+            if (n.id === selected || pathTo(sections, selected ?? '').includes(n.id)) setSelected(sectionId)
+          }}><Trash2 size={14} aria-hidden="true" /></IconButton></span>
+          <IconButton label={`${L(n.hide === 'all' ? ['দেখান', 'Show'] : ['লুকান', 'Hide'])}: ${name}`} title={L(n.hide === 'all' ? ['দেখান', 'Show'] : ['লুকান', 'Hide'])} onClick={() => editTree(sectionId, (list) => updateNode(list, n.id, (x) => { const next = { ...x }; if (x.hide === 'all') delete next.hide; else next.hide = 'all'; return next }))}>
+            {n.hide === 'all' ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+          </IconButton>
+        </span>
       </div>
-      {n.children && open.has(n.id) && tree(sectionId, n.children, depth + 1)}
+      {n.children && isOpen && tree(sectionId, n.children, depth + 1)}
     </Fragment>
   })
   const nodePanel = (f: Found) => {
@@ -923,7 +937,7 @@ export function PageEditor() {
             </li>
             {s.type === 'layout' && open.has(s.id) && <li className="editor-tree">
               {tree(s.id, s.children ?? [], 1)}
-              <button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId: s.id, parentId: null, index: s.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button>
+              <div className="editor-tree__row editor-tree__row--add" style={{ ['--depth' as string]: 1 }}><span className="editor-tree__guide" aria-hidden="true" /><button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId: s.id, parentId: null, index: s.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button></div>
             </li>}
             </Fragment>
           ))}

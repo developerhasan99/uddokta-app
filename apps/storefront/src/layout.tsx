@@ -26,6 +26,7 @@ export function LayoutSection({ s, ctx, orderId }: { s: Section; ctx: Ctx; order
 }
 
 function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: string }): ReactNode {
+  if (node.hide === 'all') return null
   const className = `sf-n sf-n-${node.kind} n-${node.id}`
   const p = node.props
   switch (node.kind) {

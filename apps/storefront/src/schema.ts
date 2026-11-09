@@ -433,7 +433,8 @@ export const nodeKinds = ['box', 'heading', 'text', 'image', 'button', 'icon', '
 export type NodeKind = typeof nodeKinds[number]
 export type NodeStyle = Record<string, string | number>
 // block: a built-in section (order form, FAQ, reviews, …) placed inside a layout, with that section's own settings.
-export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'desktop' | 'mobile'; children?: PageNode[]; block?: { type: SectionType; settings: Settings } }
+// hide: 'all' takes it off the page (like a hidden section); 'desktop' / 'mobile' hide it on one kind of screen.
+export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'all' | 'desktop' | 'mobile'; children?: PageNode[]; block?: { type: SectionType; settings: Settings } }
 export type NodeDef = { label: Label; fields: Leaf[]; defaults: Settings }
 
 export const maxNodes = 400
@@ -548,7 +549,7 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
     const style = readNodeStyle(item.style)
     const mobile = readNodeStyle(item.mobile)
     if (!style || !mobile) return null
-    if (item.hide !== undefined && item.hide !== 'desktop' && item.hide !== 'mobile') return null
+    if (item.hide !== undefined && item.hide !== 'all' && item.hide !== 'desktop' && item.hide !== 'mobile') return null
     let block: PageNode['block']
     if (kind === 'block') {
       const raw = item.block as { type?: unknown; settings?: unknown } | undefined
@@ -562,7 +563,7 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
       children = readNodes(item.children ?? [], depth + 1, ids, budget) ?? undefined
       if (!children) return null
     } else if (item.children !== undefined) return null
-    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })
+    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'all' | 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })
   }
   return out
 }

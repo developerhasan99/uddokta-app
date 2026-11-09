@@ -1632,18 +1632,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .btn--danger:active:not(:disabled) { background: linear-gradient(180deg, oklch(48% 0.19 27) 0%, oklch(53% 0.2 27) 100%); }
 
 /* Layout sections: structure tree under the section row, the Add dialog and node spacing inputs. */
-.editor-tree { display: grid; gap: 1px; margin: 0 0 var(--space-2xs) var(--space-md); padding-inline-start: var(--space-2xs); border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
-.editor-tree__row { display: flex; align-items: center; gap: var(--space-3xs); min-width: 0; border-radius: var(--radius-control); }
-.editor-tree__row:hover { background: var(--color-paper-2); }
-.editor-tree__row--selected, .editor-tree__row--selected:hover { background: var(--color-paper-3); }
-.editor-tree__row--partial .editor-tree__name { opacity: .6; }
-.editor-tree__name { display: flex; flex: 1; align-items: center; gap: var(--space-xs); min-width: 0; min-height: 30px; padding: 0 var(--space-xs); border: 0; background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
-.editor-tree__name svg { flex: none; color: var(--color-muted); }
-.editor-tree__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.editor-tree__row--selected .editor-tree__name { color: var(--color-ink); font-weight: 500; }
-.editor-tree__row .btn--icon { width: 26px; min-width: 26px; min-height: 26px; box-shadow: none; background: transparent; color: var(--color-muted); }
-.editor-tree__add { display: flex; align-items: center; gap: var(--space-2xs); width: fit-content; min-height: 28px; margin: var(--space-3xs) 0 0 var(--space-xs); padding: 0 var(--space-xs); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-control); background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
-.editor-tree__add:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .node-add__label { margin: 0 0 var(--space-xs); color: var(--color-muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .node-add .dialog__body:first-of-type { padding-bottom: var(--space-xs); }
 .node-add__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); margin: 0 0 var(--space-md); padding: 0; list-style: none; }
@@ -1688,10 +1676,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .badge { background: var(--color-paper-3); color: var(--color-ink-2); }
 .editor .css-editor { border-color: var(--color-rule-strong); }
 .editor .editor-preview--mobile iframe, .editor .editor-preview iframe { background: #fff; }
-.editor-tree__row[draggable="true"] { cursor: grab; }
-.editor-tree__row--drop-before { box-shadow: inset 0 2px 0 var(--color-primary); }
-.editor-tree__row--drop-after { box-shadow: inset 0 -2px 0 var(--color-primary); }
-.editor-tree__row--drop-inside { background: color-mix(in oklab, var(--color-primary) 18%, transparent); box-shadow: inset 0 0 0 1px var(--color-primary); }
 .node-add__grid--blocks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .node-add__grid--blocks button { grid-template-columns: auto 1fr; justify-items: start; align-items: center; padding: var(--space-xs) var(--space-sm); text-align: left; }
 @media (max-width: 860px) { .node-add__grid--blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -1713,10 +1697,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-sections__row:is(:hover, :focus-within) .editor-sections__grip .editor-sections__drag, .editor-sections__row--dragging .editor-sections__grip .editor-sections__drag { display: block; }
 .editor-sections__grip { color: var(--color-ink-2); }
 @media (hover: none) { .editor-sections__row .editor-sections__grip .editor-sections__icon { display: block !important; } .editor-sections__row .editor-sections__grip .editor-sections__drag { display: none !important; } }
-.editor-tree__toggle { display: grid; place-items: center; flex: none; width: 18px; min-height: 26px; padding: 0; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
-.editor-tree__toggle svg { transform: rotate(-90deg); transition: transform var(--dur-micro) var(--ease-out); }
-.editor-tree__toggle[aria-expanded="true"] svg { transform: none; }
-.editor-tree__name { padding-inline-start: 2px; }
 .editor-add__note { margin-top: var(--space-sm); font-size: var(--text-sm); }
 .editor-sections__delete { display: none; }
 .editor-sections__row:is(:hover, :focus-within) .editor-sections__delete { display: contents; }
@@ -1725,3 +1705,38 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor__name-input { flex: 1; min-width: 0; height: 32px; margin-inline-start: calc(-1 * var(--space-xs)); padding: 0 var(--space-xs); border: var(--rule-hair) solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-ink); font: inherit; font-size: var(--text-md); font-weight: 600; }
 .editor__name-input:hover { border-color: var(--color-rule-strong); }
 .editor__name-input:focus { border-color: var(--color-primary); outline: 0; background: var(--color-paper-2); }
+
+/* Layout tree: one guide line per level, icon that becomes the drag handle, hover actions, straight drop markers. */
+.editor-tree { display: grid; margin: 0 0 var(--space-2xs); }
+.editor-tree__row { position: relative; display: flex; align-items: center; min-width: 0; min-height: 30px; padding-inline-end: var(--space-2xs); border-radius: calc(var(--radius-media) - 2px); }
+.editor-tree__row:hover { background: var(--color-paper-2); }
+.editor-tree__row--selected, .editor-tree__row--selected:hover { background: var(--color-paper-3); }
+.editor-tree__row--partial :is(.editor-tree__name, .editor-tree__handle) { opacity: .5; }
+.editor-tree__guide { position: relative; flex: none; align-self: stretch; width: 16px; }
+.editor-tree__guide::before { content: ""; position: absolute; top: 0; bottom: 0; left: 9px; width: 1px; background: var(--color-rule-strong); }
+.editor-tree__toggle { display: grid; place-items: center; flex: none; width: 18px; min-height: 26px; padding: 0; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
+.editor-tree__toggle svg { transform: rotate(-90deg); transition: transform var(--dur-micro) var(--ease-out); }
+.editor-tree__toggle[aria-expanded="true"] svg { transform: none; }
+.editor-tree__handle { display: grid; place-items: center; flex: none; width: 20px; color: var(--color-muted); cursor: grab; }
+.editor-tree__drag { display: none; }
+.editor-tree__row:is(:hover, :focus-within) .editor-tree__icon { display: none; }
+.editor-tree__row:is(:hover, :focus-within) .editor-tree__drag { display: block; }
+.editor-tree__name { flex: 1; min-width: 0; min-height: 30px; padding: 0 var(--space-2xs); border: 0; background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.editor-tree__name span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-tree__row--selected .editor-tree__name { color: var(--color-ink); font-weight: 500; }
+.editor-tree__actions { display: flex; flex: none; align-items: center; }
+.editor-tree__actions .btn--icon { width: 26px; min-width: 26px; min-height: 26px; box-shadow: none; background: transparent; color: var(--color-muted); }
+.editor-tree__actions .btn--icon:hover { color: var(--color-ink); }
+.editor-tree__delete { display: none; }
+.editor-tree__row:is(:hover, :focus-within) .editor-tree__delete { display: contents; }
+.editor-tree__delete .btn--icon:hover { color: var(--color-error); }
+.editor-tree__row--add:hover { background: transparent; }
+.editor-tree__add { display: flex; align-items: center; gap: var(--space-2xs); width: fit-content; min-height: 28px; margin: var(--space-3xs) 0; padding: 0 var(--space-xs); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: calc(var(--radius-media) - 2px); background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.editor-tree__add:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.editor-tree__row[draggable="true"] { cursor: grab; }
+.editor-tree__row--drop-before::after, .editor-tree__row--drop-after::after { content: ""; position: absolute; left: calc(var(--depth) * 16px + 18px); right: var(--space-2xs); height: 2px; border-radius: 1px; background: var(--color-primary); pointer-events: none; }
+.editor-tree__row--drop-before::after { top: -1px; }
+.editor-tree__row--drop-after::after { bottom: -1px; }
+.editor-tree__row--drop-inside { background: color-mix(in oklab, var(--color-primary) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-primary) 60%, transparent); }
+@media (hover: none) { .editor-tree__delete { display: contents; } .editor-tree__drag { display: none !important; } .editor-tree__icon { display: block !important; } }
+@media (max-width: 860px) { .editor-tree__row, .editor-tree__name { min-height: 36px; } }

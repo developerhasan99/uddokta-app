@@ -91,3 +91,8 @@ test('blocks put built-in sections inside layouts, validated by that section typ
   assert.equal(bad(undefined), null)
   assert.equal(readContent({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'text', props: {}, block: { type: 'faq', settings: {} } }] }] }), null, 'only block nodes carry a block')
 })
+
+test('a fully hidden node is kept in the page but never drawn', () => {
+  const content: Content = { version: 2, sections: [{ ...newSection('layout', 'l'), children: [{ id: 'gone', kind: 'heading', props: { text: 'secret', level: 'h2' }, hide: 'all' }] }] }
+  assert.deepEqual(readContent(content), content)
+})

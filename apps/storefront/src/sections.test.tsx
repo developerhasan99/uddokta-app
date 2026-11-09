@@ -90,3 +90,11 @@ test('flexbox controls: reversed rows, spacing, and per-item align, size and ord
   assert.match(html, /\.n-i1\{flex:1 1 0;width:auto;align-self:center;flex:none;order:99\}/, 'item rules come after the width rules')
   assert.match(html, /@media \(max-width:719\.98px\)\{\.n-f\{flex-direction:column\}[^}]*\}[^@]*\.n-i2\{[^}]*order:-1\}/, 'a reversed row stacks on phones too')
 })
+
+test('hidden layout elements are not drawn', () => {
+  const layout = newSection('layout', 'l')
+  layout.children = [{ id: 'gone', kind: 'heading', props: { text: 'secret heading', level: 'h2' }, hide: 'all' }, { id: 'shown', kind: 'text', props: { text: 'visible' } }]
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
+  assert.doesNotMatch(html, /secret heading/)
+  assert.match(html, /visible/)
+})
