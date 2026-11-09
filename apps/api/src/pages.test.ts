@@ -300,6 +300,23 @@ test('guided campaign creation connects a sellable product and real media in an 
   assert.equal((await storefrontPage(owner.handle, made.json.handle)).content.sections.at(-1).settings.product, product.id)
 })
 
+test('layout templates build editable trees from the real product and publish cleanly', async () => {
+  const owner = await storeOwner()
+  const image = await upload(owner)
+  const product = (await owner.call('POST', `/stores/${owner.handle}/products`, { name: 'Layout product', mediaIds: [image.id], variants: [{ options: [], price: 300, stock: 5 }] })).json
+  for (const template of ['modern', 'banner']) {
+    const made = await owner.call('POST', owner.base, { title: template, template, productId: product.id })
+    assert.equal(made.status, 201, template)
+    assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'order'])
+    const nodes = JSON.stringify(made.json.draft.sections[0].children)
+    assert.match(nodes, /"text":"Layout product"/, 'the product name is the heading')
+    assert.ok(JSON.stringify(made.json.draft).includes(image.id), 'the product image is placed')
+    assert.equal(made.json.draft.sections[2].settings.product, product.id)
+    assert.ok(made.json.media[image.id], 'layout images are tracked as page media')
+    assert.equal((await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })).status, 200)
+  }
+})
+
 test('guided creation and its product picker reject draft or sold-out products and isolate stores', async () => {
   const owner = await storeOwner()
   const other = await storeOwner()

@@ -33,9 +33,11 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
       return <div className={className} data-node={node.id}>{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty">খালি বক্স</span>}</div>
     case 'heading': {
       const Tag = (['h1', 'h2', 'h3'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3'
+      if (!str(p.text)) return ctx.preview ? <Tag className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text">শিরোনাম লিখুন</Tag> : null
       return <Tag className={className} data-node={node.id} data-edit="text">{str(p.text)}</Tag>
     }
     case 'text':
+      if (!str(p.text)) return ctx.preview ? <div className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text"><p>এখানে লেখা যোগ করুন</p></div> : null
       return <div className={className} data-node={node.id} data-edit="text">{str(p.text).split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}</div>
     case 'image': {
       const img = ctx.image(p.image as string | null)
@@ -161,4 +163,5 @@ h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(2
 .sf-n-video{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:var(--sf-radius);background:#000}.sf-n-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .sf-n-placeholder,.sf-n-empty{display:grid;place-items:center;min-height:96px;padding:16px;border:1px dashed var(--sf-rule);border-radius:var(--sf-radius);color:var(--sf-muted);font-size:14px}
 .sf-n-empty{min-height:64px;flex:1 1 auto}
+.sf-n-prompt{opacity:.45;font-style:italic}
 `

@@ -77,7 +77,7 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       if (box.contentEditable !== 'plaintext-only') box.contentEditable = 'true'
       for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color', 'textAlign', 'textTransform'] as const) box.style[prop] = cs[prop]
       Object.assign(box.style, { position: 'absolute', zIndex: '9999', left: `${rect.left + win.scrollX}px`, top: `${rect.top + win.scrollY}px`, width: `${Math.max(rect.width, 80)}px`, minHeight: `${rect.height}px`, whiteSpace: 'pre-wrap', outline: '2px solid #1f7a4d', outlineOffset: '3px', background: 'transparent', borderRadius: '2px' })
-      box.textContent = el.innerText
+      box.textContent = el.classList.contains('sf-n-prompt') ? '' : el.innerText
       el.style.visibility = 'hidden'
       doc.body.appendChild(box)
       editing = box
