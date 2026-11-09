@@ -426,3 +426,4 @@ Next, if sellers ask:
 - Collections as discount targets.
 - Combining discounts.
 - Per-buyer usage reports.
+- Discount editor redesign: either/or choices (method, percent/amount, any/specific products, free/percent, minimum) are compact segmented controls; Generate sits beside the code; the offer title shows only for automatic discounts; number fields keep a fixed width beside their choice; the end date is a checkbox beside the start; the summary list has its own bullets.

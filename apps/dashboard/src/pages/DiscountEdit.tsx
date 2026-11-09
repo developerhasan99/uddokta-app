@@ -206,20 +206,17 @@ export function DiscountEdit() {
             ))}
           </ul>
         )}
-        <div><Button onClick={() => setPicking(role)}><Plus size={16} aria-hidden="true" />{t('discPickProducts')}</Button></div>
+        <div><Button onClick={() => setPicking(role)}><Plus size={16} aria-hidden="true" />{t(items.length ? 'discChangeProducts' : 'discPickProducts')}</Button></div>
         {show_(key) && <p className="field__help field__help--error" role="alert">{t('errDiscountProductsRequired')}</p>}
       </div>
     )
   }
 
-  const radio = (group: string, checked: boolean, onChange: () => void, label: Key, help?: Key, extra?: ReactNode) => (
-    <div className="switch-row switch-row--with-field">
-      <input id={`${group}-${label}`} type="radio" name={group} className="check" checked={checked} onChange={onChange} />
-      <span className="switch-row__text">
-        <label htmlFor={`${group}-${label}`} className="switch-row__title">{t(label)}</label>
-        {help && <span className="muted">{t(help)}</span>}
-        {checked && extra}
-      </span>
+  const segmented = <T extends string>(name: string, value: T, options: [T, Key][], onChange: (v: T) => void) => (
+    <div className="segmented" role="radiogroup">
+      {options.map(([v, label]) => (
+        <label key={v}><input type="radio" name={`disc-${name}`} value={v} checked={value === v} onChange={() => onChange(v)} /><span>{t(label)}</span></label>
+      ))}
     </div>
   )
   const box = (key: 'limitTotal' | 'oncePerPhone' | 'hasEnd', label: Key, help?: Key, extra?: ReactNode) => (
@@ -251,74 +248,83 @@ export function DiscountEdit() {
       {error && <p className="form-error" role="alert">{t(error === 'productFix' ? 'productFix' : errorLabel(error))}</p>}
 
       <div className="detail-layout">
-        <div className="detail-layout__main">
+        <div className="detail-layout__main discount-form">
           <section className="card card--form">
             <div>
               <h2>{t(typeLabel(form.type))}</h2>
               <p className="muted">{t(`${typeLabel(form.type)}D` as Key)}</p>
             </div>
-            <div className="switch-list">
-              {radio('method', form.method === 'code', () => change({ method: 'code' }), 'discMethodCode', 'discMethodCodeD',
-                <Field id="disc-code" label={t('discCode')} help={t('discCodeHelp')} maxLength={30} autoComplete="off" value={form.code}
-                  error={show_('code') ? t('errCouponCodeInvalid') : undefined} onChange={(e) => change({ code: e.target.value.toUpperCase().replace(/\s/g, '') })}
-                  trailing={<Button onClick={() => change({ code: newCode() })}>{t('discGenerate')}</Button>} />)}
-              {radio('method', form.method === 'automatic', () => change({ method: 'automatic' }), 'discMethodAuto', 'discMethodAutoD')}
+            <div className="field">
+              <span className="field__label">{t('discMethod')}</span>
+              {segmented('method', form.method, [['code', 'discMethodCode'], ['automatic', 'discMethodAuto']], (method) => change({ method }))}
+              <p className="field__help">{t(form.method === 'code' ? 'discMethodCodeD' : 'discMethodAutoD')}</p>
             </div>
-            <Field id="disc-title" label={t('discTitle')} help={t('discTitleHelp')} maxLength={100} value={form.title}
-              error={show_('title') ? t('errDiscountTitleRequired') : undefined} onChange={(e) => change({ title: e.target.value })} />
+            {form.method === 'code'
+              ? <div className="field-action">
+                  <Field id="disc-code" label={t('discCode')} help={t('discCodeHelp')} maxLength={30} autoComplete="off" value={form.code}
+                    error={show_('code') ? t('errCouponCodeInvalid') : undefined} onChange={(e) => change({ code: e.target.value.toUpperCase().replace(/\s/g, '') })} />
+                  <Button onClick={() => change({ code: newCode() })}>{t('discGenerate')}</Button>
+                </div>
+              : <Field id="disc-title" label={t('discTitle')} help={t('discTitleHelp')} maxLength={100} value={form.title}
+                  error={show_('title') ? t('errDiscountTitleRequired') : undefined} onChange={(e) => change({ title: e.target.value })} />}
           </section>
 
           {(form.type === 'order' || form.type === 'products') && (
             <section className="card card--form">
               <h2>{t('discValueTitle')}</h2>
-              <div className="price-grid price-grid--two">
-                <div className="field">
-                  <label htmlFor="disc-kind">{t('discValue')}</label>
-                  <select id="disc-kind" className="input" value={form.kind} onChange={(e) => change({ kind: e.target.value as Form['kind'] })}>
-                    <option value="percent">{t('discPercent')}</option>
-                    <option value="amount">{t('discAmount')}</option>
-                  </select>
+              <div className="discount-row">
+                {segmented('kind', form.kind, [['percent', 'discPercent'], ['amount', 'discAmount']], (kind) => change({ kind }))}
+                <div className="discount-num">
+                  <Field id="disc-value" label={t('discValue')} unit={form.kind === 'percent' ? '%' : '৳'} inputMode="numeric" value={form.value}
+                    error={show_('value') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ value: digits(e.target.value).slice(0, 7) })} />
                 </div>
-                <Field id="disc-value" label={t('discValue')} unit={form.kind === 'percent' ? '%' : '৳'} inputMode="numeric" value={form.value}
-                  help={form.type === 'products' && form.kind === 'amount' ? t('discAmountEach') : undefined}
-                  error={show_('value') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ value: digits(e.target.value).slice(0, 7) })} />
               </div>
-              {form.type === 'products' && <>
-                <h3>{t('discAppliesTo')}</h3>
-                <div className="switch-list">
-                  {radio('applies', form.appliesAll, () => change({ appliesAll: true }), 'discAllProducts')}
-                  {radio('applies', !form.appliesAll, () => change({ appliesAll: false }), 'discSpecificProducts', undefined, products('get'))}
+              {form.type === 'products' && form.kind === 'amount' && <p className="field__help">{t('discAmountEach')}</p>}
+              {form.type === 'products' && (
+                <div className="field">
+                  <span className="field__label">{t('discAppliesTo')}</span>
+                  {segmented('applies', form.appliesAll ? 'all' : 'some', [['all', 'discAllProducts'], ['some', 'discSpecificProducts']], (v) => change({ appliesAll: v === 'all' }))}
+                  {!form.appliesAll && products('get')}
                 </div>
-              </>}
+              )}
             </section>
           )}
 
           {form.type === 'bxgy' && <>
             <section className="card card--form">
               <h2>{t('discBuys')}</h2>
-              <Field id="disc-buy-qty" label={t('discQty')} inputMode="numeric" value={form.buyQty} error={show_('buyQty') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ buyQty: digits(e.target.value).slice(0, 3) })} />
-              <div className="switch-list">
-                {radio('buys', form.buysAll, () => change({ buysAll: true }), 'discAnyProducts')}
-                {radio('buys', !form.buysAll, () => change({ buysAll: false }), 'discSpecificProducts', undefined, products('buy'))}
+              <div className="discount-row">
+                <div className="discount-num">
+                  <Field id="disc-buy-qty" label={t('discQty')} inputMode="numeric" value={form.buyQty} error={show_('buyQty') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ buyQty: digits(e.target.value).slice(0, 3) })} />
+                </div>
+                {segmented('buys', form.buysAll ? 'all' : 'some', [['all', 'discAnyProducts'], ['some', 'discSpecificProducts']], (v) => change({ buysAll: v === 'all' }))}
               </div>
+              {!form.buysAll && products('buy')}
             </section>
             <section className="card card--form">
               <div>
                 <h2>{t('discGets')}</h2>
                 <p className="muted">{t('discGetsHelp')}</p>
               </div>
-              <Field id="disc-get-qty" label={t('discQty')} inputMode="numeric" value={form.getQty} error={show_('getQty') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ getQty: digits(e.target.value).slice(0, 3) })} />
-              <div className="switch-list">
-                {radio('gets', form.appliesAll, () => change({ appliesAll: true }), 'discAnyProducts')}
-                {radio('gets', !form.appliesAll, () => change({ appliesAll: false }), 'discSpecificProducts', undefined, products('get'))}
+              <div className="discount-row">
+                <div className="discount-num">
+                  <Field id="disc-get-qty" label={t('discQty')} inputMode="numeric" value={form.getQty} error={show_('getQty') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ getQty: digits(e.target.value).slice(0, 3) })} />
+                </div>
+                {segmented('gets', form.appliesAll ? 'all' : 'some', [['all', 'discAnyProducts'], ['some', 'discSpecificProducts']], (v) => change({ appliesAll: v === 'all' }))}
               </div>
-              <h3>{t('discAt')}</h3>
-              <div className="switch-list">
-                {radio('at', form.at === 'free', () => change({ at: 'free' }), 'discFree')}
-                {radio('at', form.at === 'percent', () => change({ at: 'percent' }), 'discPercentOff', undefined,
-                  <Field id="disc-at-value" label={t('discValue')} unit="%" inputMode="numeric" value={form.value} error={show_('value') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ value: digits(e.target.value).slice(0, 3) })} />)}
+              {!form.appliesAll && products('get')}
+              <div className="field">
+                <span className="field__label">{t('discAt')}</span>
+                <div className="discount-row">
+                  {segmented('at', form.at, [['free', 'discFree'], ['percent', 'discPercentOff']], (at) => change({ at }))}
+                  {form.at === 'percent' && <div className="discount-num">
+                    <Field id="disc-at-value" label={t('discValue')} unit="%" inputMode="numeric" value={form.value} error={show_('value') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ value: digits(e.target.value).slice(0, 3) })} />
+                  </div>}
+                </div>
               </div>
-              <Field id="disc-per-order" label={t('discMaxPerOrder')} help={t('discMaxPerOrderHelp')} inputMode="numeric" value={form.maxPerOrder} onChange={(e) => change({ maxPerOrder: digits(e.target.value).slice(0, 3) })} />
+              <div className="discount-num discount-num--wide">
+                <Field id="disc-per-order" label={t('discMaxPerOrder')} help={t('discMaxPerOrderHelp')} inputMode="numeric" value={form.maxPerOrder} onChange={(e) => change({ maxPerOrder: digits(e.target.value).slice(0, 3) })} />
+              </div>
             </section>
           </>}
 
@@ -326,12 +332,14 @@ export function DiscountEdit() {
 
           <section className="card card--form">
             <h2>{t('discMinTitle')}</h2>
-            <div className="switch-list">
-              {radio('min', form.min === 'none', () => change({ min: 'none' }), 'discMinNone')}
-              {radio('min', form.min === 'amount', () => change({ min: 'amount' }), 'discMinAmount', undefined,
-                <Field id="disc-min-amount" label={t('discMinAmount')} unit="৳" inputMode="numeric" value={form.minSubtotal} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minSubtotal: digits(e.target.value).slice(0, 7) })} />)}
-              {radio('min', form.min === 'qty', () => change({ min: 'qty' }), 'discMinQty', undefined,
-                <Field id="disc-min-qty" label={t('discMinQty')} inputMode="numeric" value={form.minQty} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minQty: digits(e.target.value).slice(0, 4) })} />)}
+            <div className="discount-row">
+              {segmented('min', form.min, [['none', 'discMinNone'], ['amount', 'discMinAmountShort'], ['qty', 'discMinQtyShort']], (min) => change({ min }))}
+              {form.min === 'amount' && <div className="discount-num">
+                <Field id="disc-min-amount" label={t('discMinAmount')} unit="৳" inputMode="numeric" value={form.minSubtotal} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minSubtotal: digits(e.target.value).slice(0, 7) })} />
+              </div>}
+              {form.min === 'qty' && <div className="discount-num">
+                <Field id="disc-min-qty" label={t('discMinQty')} inputMode="numeric" value={form.minQty} error={show_('min') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ minQty: digits(e.target.value).slice(0, 4) })} />
+              </div>}
             </div>
           </section>
 
@@ -339,18 +347,18 @@ export function DiscountEdit() {
             <h2>{t('discLimits')}</h2>
             <div className="switch-list">
               {box('limitTotal', 'discLimitTotal', undefined,
-                <Field id="disc-max-uses" label={t('discLimits')} inputMode="numeric" value={form.maxUses} error={show_('maxUses') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ maxUses: digits(e.target.value).slice(0, 7) })} />)}
+                <div className="discount-num"><Field id="disc-max-uses" label={t('discLimits')} inputMode="numeric" value={form.maxUses} error={show_('maxUses') ? t('discNumberInvalid') : undefined} onChange={(e) => change({ maxUses: digits(e.target.value).slice(0, 7) })} /></div>)}
               {box('oncePerPhone', 'discOncePerPhone', 'discOncePerPhoneHelp')}
             </div>
           </section>
 
           <section className="card card--form">
             <h2>{t('discDates')}</h2>
-            <Field id="disc-starts" type="datetime-local" label={t('discStarts')} value={form.startsAt} onChange={(e) => change({ startsAt: e.target.value })} />
-            <div className="switch-list">
-              {box('hasEnd', 'discSetEnd', undefined,
-                <Field id="disc-ends" type="datetime-local" label={t('discEnds')} value={form.endsAt} error={show_('dates') ? t('errDiscountDatesInvalid') : undefined} onChange={(e) => change({ endsAt: e.target.value })} />)}
+            <div className="price-grid price-grid--two">
+              <Field id="disc-starts" type="datetime-local" label={t('discStarts')} value={form.startsAt} onChange={(e) => change({ startsAt: e.target.value })} />
+              {form.hasEnd && <Field id="disc-ends" type="datetime-local" label={t('discEnds')} value={form.endsAt} error={show_('dates') ? t('errDiscountDatesInvalid') : undefined} onChange={(e) => change({ endsAt: e.target.value })} />}
             </div>
+            <label className="check-line"><input type="checkbox" className="check" checked={form.hasEnd} onChange={(e) => change({ hasEnd: e.target.checked })} />{t('discSetEnd')}</label>
           </section>
         </div>
 

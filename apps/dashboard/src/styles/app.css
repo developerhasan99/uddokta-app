@@ -1186,7 +1186,20 @@ button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
 .discount-row__sub { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .discount-summary { display: grid; gap: var(--space-3xs); }
 .discount-summary strong { font-size: var(--text-lg); overflow-wrap: anywhere; }
-.discount-summary__lines { display: grid; gap: var(--space-2xs); margin: 0; padding-inline-start: var(--space-md); font-size: var(--text-sm); }
+.discount-summary__lines { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.discount-summary__lines li { position: relative; padding-inline-start: var(--space-sm); }
+.discount-summary__lines li::before { content: ''; position: absolute; top: 0.6em; inset-inline-start: 0; width: 4px; height: 4px; border-radius: var(--radius-pill); background: var(--color-muted); }
+/* Discount editor: either/or choices are segmented controls; a number sits beside its choice at a fixed width. */
+.discount-form .segmented { flex-wrap: wrap; justify-self: start; width: fit-content; max-width: 100%; }
+.discount-form .switch-list { margin-top: 0; }
+.discount-form .switch-row:first-child { padding-top: 0; }
+.discount-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs) var(--space-sm); }
+.discount-row > .segmented { margin-bottom: 1px; }
+.discount-num { width: 10rem; max-width: 100%; }
+.discount-num--wide { width: 20rem; }
+.field-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-xs); }
+.field-action > .btn { margin-top: calc(var(--text-md) * 1.55 + var(--space-2xs)); }
+.check-line { display: inline-flex; align-items: center; gap: var(--space-xs); width: fit-content; font-weight: 500; cursor: pointer; }
 .campaign-layout__copy strong { font-weight: 500; }
 .campaign-layout__copy .muted { font-size: var(--text-sm); }
 .campaign-layout__diagram { display: grid; gap: var(--space-3xs); flex: none; width: 3rem; padding: var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper); }
