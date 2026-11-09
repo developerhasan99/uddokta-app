@@ -25,11 +25,11 @@
   /* Only for the search result preview: the link blue of Google's results, so the preview looks like the real thing. */
   --color-serp-link: #1a0dab;
   --color-danger: oklch(55% 0.21 27); --color-danger-2: oklch(49% 0.2 27);
-  --shadow-btn: inset 0 -1px 0 0 oklch(72% 0 0), inset 0 0 0 1px oklch(0% 0 0 / 0.1), inset 0 1px 0 1px oklch(100% 0 0);
-  --shadow-btn-pressed: inset 0 1px 2px oklch(0% 0 0 / 0.22), inset 0 0 0 1px oklch(0% 0 0 / 0.12);
-  --shadow-btn-fill: inset 0 -1px 0 1px oklch(0% 0 0 / 0.32), inset 0 0 0 1px oklch(0% 0 0 / 0.22), inset 0 1px 0 1px oklch(100% 0 0 / 0.28);
-  --shadow-btn-fill-pressed: inset 0 2px 3px oklch(0% 0 0 / 0.4), inset 0 0 0 1px oklch(0% 0 0 / 0.25);
-  --radius-panel: 16px; --radius-card: 12px; --radius-control: 8px; --radius-pill: 999px; --rule-hair: 1px;
+  --shadow-btn: 0 0 0 1px oklch(0% 0 0 / 0.09), 0 1px 2px oklch(0% 0 0 / 0.06), 0 3px 8px oklch(0% 0 0 / 0.06);
+  --shadow-btn-pressed: inset 0 1px 3px oklch(0% 0 0 / 0.14), 0 0 0 1px oklch(0% 0 0 / 0.1);
+  --shadow-btn-fill: inset 0 1px 0 oklch(100% 0 0 / 0.3), inset 0 -1px 0 oklch(0% 0 0 / 0.25), 0 0 0 1px oklch(0% 0 0 / 0.32), 0 1px 2px oklch(0% 0 0 / 0.22), 0 4px 12px oklch(0% 0 0 / 0.18);
+  --shadow-btn-fill-pressed: inset 0 2px 4px oklch(0% 0 0 / 0.35), 0 0 0 1px oklch(0% 0 0 / 0.35);
+  --radius-panel: 16px; --radius-card: 12px; --radius-control: 999px; --radius-box: 12px; --radius-media: 8px; --radius-pill: 999px; --rule-hair: 1px;
   --shadow-card: 0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent);
   --shadow-bar: 0 1px 3px color-mix(in oklab, var(--color-ink) 10%, transparent);
   --shadow-menu: 0 4px 16px color-mix(in oklab, var(--color-ink) 18%, transparent);

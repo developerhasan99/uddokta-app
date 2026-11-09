@@ -51,9 +51,10 @@ main { outline: 0; }
 
 .drawer { width: min(20rem, 85vw); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--color-frame); color: var(--color-frame-ink); }
 .drawer::backdrop { background: color-mix(in oklab, var(--color-frame) 55%, transparent); }
-.drawer__close { display: flex; margin: var(--space-xs) var(--space-xs) 0 auto; }
-.drawer .sidebar { min-height: calc(100% - 48px); }
-.drawer .nav-link { min-height: 44px; }
+.drawer__close { position: absolute; top: 10px; right: var(--space-xs); z-index: 1; }
+.drawer .sidebar { min-height: 100%; }
+.drawer .brand { margin-inline-end: 44px; }
+.drawer .nav-link { min-height: 36px; }
 
 /* Page */
 .page { display: grid; gap: var(--space-md); width: 100%; max-width: var(--container); margin-inline: auto; padding: var(--space-lg) var(--space-lg) var(--space-xl); }
@@ -1595,3 +1596,37 @@ a.order-item__name:hover { text-decoration: underline; }
   .editor-list__item-head .btn--icon, .editor-icon-control > .btn--icon { width: 32px; min-width: 32px; min-height: 32px; }
 }
 @media (prefers-reduced-motion: reduce) { .design-group > summary > svg:last-child { transition: none; } }
+
+/* Pill shapes: --radius-control is fully round, so buttons, fields, chips, tabs and toggles are pills.
+   Anything that holds several lines, a list or a picture keeps soft corners instead. */
+.input.input--area, textarea.input, .rich-text, .chips, .css-editor, .option-box, .readout, .notice-line, .form-error, .success-note, .invite-link,
+.skeleton, .chart__tip, .crop-shapes, .collection-products, .picker__tile, .editor-add__choices button, .domain-item__confirm, .work-queue__link,
+.campaign-layout, .campaign-layout__diagram, .campaign-product__chosen, .campaign-summary, .new-order__add, .order-lines, .order-sum,
+.customer-known, .customer-search__list, .customer-picked, .order-items-list, .order-empty, .order-record > div, .activity__comment,
+.space-map, .space-map__content, .editor-icon-control, .editor-list__item { border-radius: var(--radius-box); }
+.data-table__thumb, .variant-table__image, .product-images__item, .product-images__add, .collection-image img, .editor-image img,
+.store-logo img, .editor-icon-control__preview, .courier-mark { border-radius: var(--radius-media); }
+.auth-page__language button, .crop-shapes button, .rich-text__tools button, .product-images__actions button, .chip, .menu__segment,
+.icon-picker__search, .icon-picker__categories button { border-radius: var(--radius-control); }
+.input, .input-affix { padding-inline: var(--space-sm); }
+select.input { padding-inline-end: 32px; background-position: right 10px center; }
+.field__unit { left: var(--space-sm); }
+.field__unit + .input { padding-inline-start: 26px; }
+.filter-search { padding-inline-start: var(--space-sm); }
+/* Status pills: small caps-style labels. Bangla has no capitals, so it keeps a readable size. */
+.badge { min-height: 20px; padding: 0 var(--space-xs); font-size: 11px; font-weight: 600; letter-spacing: .04em; line-height: 1; text-transform: uppercase; }
+:root:lang(bn) .badge { font-size: 12px; font-weight: 500; letter-spacing: 0; }
+/* "Soon" tags: filled soft-black pills with white caps, centred on a fixed height so they sit level with the nav text. */
+.nav-soon { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-xs); border: 0; border-radius: var(--radius-pill); background: var(--color-frame-3); color: var(--color-frame-ink); font-size: 10px; font-weight: 600; letter-spacing: .06em; line-height: 1; text-transform: uppercase; }
+.settings__nav .nav-soon { background: var(--color-ink-2); color: var(--color-paper); }
+:root:lang(bn) .nav-soon { font-size: 11px; font-weight: 500; letter-spacing: 0; }
+/* Pills need a little more air at the ends than square-cornered controls. */
+.btn:not(.btn--icon) { padding-inline: 14px; }
+.filter-bar .tab { padding-inline: 10px; }
+.segmented label > span { padding-inline: var(--space-md); }
+/* Filled buttons: a top-to-bottom sheen in the brand colour, so they read glossy and solid, not washed out. */
+.btn--primary { background: linear-gradient(180deg, oklch(56% 0.15 155) 0%, oklch(46% 0.14 155) 55%, oklch(40% 0.12 155) 100%); }
+.btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, oklch(59% 0.15 155) 0%, oklch(49% 0.14 155) 55%, oklch(42% 0.12 155) 100%); }
+.btn--primary:active:not(:disabled) { background: linear-gradient(180deg, oklch(40% 0.12 155) 0%, oklch(45% 0.13 155) 100%); }
+.btn--danger { background: linear-gradient(180deg, oklch(62% 0.2 27) 0%, oklch(54% 0.21 27) 55%, oklch(48% 0.19 27) 100%); }
+.btn--danger:active:not(:disabled) { background: linear-gradient(180deg, oklch(48% 0.19 27) 0%, oklch(53% 0.2 27) 100%); }
