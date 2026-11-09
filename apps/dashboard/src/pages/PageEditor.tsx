@@ -570,11 +570,11 @@ export function PageEditor() {
 
   // Shown in the top bar on wide screens and, with short labels, in the bottom dock on phones.
   const dockLabel = (dock: boolean, text: string) => dock && <span className="editor__dock-label">{text}</span>
-  const views = (dock: boolean) => <>
-    <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections' && pane !== 'preview'} onClick={() => { setView('sections'); setPane('sections') }}><LayoutTemplate size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, t('pageSections'))}</IconButton>
-    <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page' && pane !== 'preview'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L(['পেজ', 'Page']))}</IconButton>
-    <IconButton label={t('pagePreview')} title={t('pagePreview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, t('pagePreview'))}</IconButton>
-  </>
+  const views = (dock: boolean) => ({
+    sections:     <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections' && pane !== 'preview'} onClick={() => { setView('sections'); setPane('sections') }}><LayoutTemplate size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, t('pageSections'))}</IconButton>,
+    page: <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page' && pane !== 'preview'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L(['পেজ', 'Page']))}</IconButton>,
+    preview: <IconButton label={t('pagePreview')} title={t('pagePreview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, t('pagePreview'))}</IconButton>,
+  })
   const history = (dock: boolean) => <>
     <IconButton label={t('pageUndo')} title={t('pageUndo')} disabled={busy || past.length === 0} onClick={undo}><Undo2 size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L(['আনডু', 'Undo']))}</IconButton>
     <IconButton label={t('pageRedo')} title={t('pageRedo')} disabled={busy || future.length === 0} onClick={redo}><Redo2 size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L(['রিডু', 'Redo']))}</IconButton>
@@ -586,7 +586,7 @@ export function PageEditor() {
       <header className="editor__bar">
         <div className="editor__nav">
           <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
-          <span className="editor__views">{views(false)}</span>
+          <span className="editor__views">{(({ sections, page, preview }) => <>{sections}{page}{preview}</>)(views(false))}</span>
         </div>
         <div className="editor__title">
           <h1 title={doc.title}>{doc.title || t('pages')}</h1>
@@ -604,7 +604,7 @@ export function PageEditor() {
         </div>
       </header>
 
-      <nav className="editor__dock" aria-label={t('pageEditTab')}>{history(true)}{views(true)}</nav>
+      <nav className="editor__dock" aria-label={t('pageEditTab')}>{(({ sections, page, preview }) => <>{page}{history(true)}{sections}{preview}</>)(views(true))}</nav>
 
       {error && (
         <div className="editor__error" role="alert">
