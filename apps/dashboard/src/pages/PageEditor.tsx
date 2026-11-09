@@ -603,7 +603,7 @@ export function PageEditor() {
         </div>
       </header>
 
-      <nav className="editor__dock" aria-label={t('pageEditTab')}>{views(20)}{history(20)}</nav>
+      <nav className="editor__dock" aria-label={t('pageEditTab')}>{history(20)}{views(20)}</nav>
 
       {error && (
         <div className="editor__error" role="alert">

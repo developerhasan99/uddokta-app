@@ -885,10 +885,12 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .editor__bar { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-md); min-height: 56px; padding: max(var(--space-2xs), env(safe-area-inset-top)) var(--space-sm) var(--space-2xs); }
   .editor__title { justify-content: flex-start; }
   .editor__views, .editor__history { display: none; }
-  .editor__dock { grid-area: dock; display: flex; justify-content: space-around; padding: var(--space-2xs) var(--space-xs) calc(var(--space-2xs) + env(safe-area-inset-bottom)); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper); }
-  .editor .editor__dock .btn--icon { width: 48px; min-width: 48px; min-height: 40px; border-radius: 999px; box-shadow: none; background: transparent; color: var(--color-muted); }
-  .editor .editor__dock .btn--icon[aria-pressed="true"] { background: var(--color-paper-3); color: var(--color-primary); }
-  .editor .editor__dock .btn--icon:disabled { opacity: .35; }
+  .editor__dock { grid-area: dock; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper); }
+  .editor .editor__dock .btn--icon { width: auto; min-width: 0; min-height: 52px; padding: 0; border: 0; border-top: 3px solid transparent; border-radius: 0; box-shadow: none; background: transparent; color: var(--color-muted); }
+  .editor .editor__dock .btn--icon + .btn--icon { border-inline-start: var(--rule-hair) solid var(--color-rule); }
+  .editor .editor__dock .btn--icon:nth-child(2) { border-inline-end: var(--rule-hair) solid var(--color-rule-strong); }
+  .editor .editor__dock .btn--icon[aria-pressed="true"] { border-top-color: var(--color-primary); background: var(--color-paper-3); color: var(--color-primary); }
+  .editor .editor__dock .btn--icon:disabled { color: var(--color-rule-strong); }
   .editor__nav .btn--icon { width: 36px; min-width: 36px; min-height: 36px; }
   .css-editor .cm-editor { font-size: 16px; }
   .editor__title h1 { flex: 0 1 auto; min-width: 0; font-size: var(--text-lg); }
