@@ -371,3 +371,19 @@ Deferred:
 - The media picker is also a drop zone: images dragged onto the panel upload and are selected, with the Media page's drop overlay. Only files from outside count.
 - Settings › Store reworded around the business (profile, contact, address, registration). The invoice footer moved to a new Settings › Invoices tab (`pages/Invoices.tsx`), which explains that the header comes from the Store details. `PUT /settings` no longer requires `name`; an empty body is refused.
 - Store favicon (Settings › Store, Business profile, beside the logo). Migrations 0072 (`stores.favicon_media_id`) and 0073 (deferred `stores_favicon_fk`, `storefront_favicon(handle)`). The storefront answers `/favicon.ico` with a 302 to the image thumbnail (5-minute cache) or 404, and every page has `<link rel="icon" href="/favicon.ico">`, so landing pages and the future online store share it. Media usage lists "Store favicon", and deleting it while set is refused. The dashboard warns when the image is not square. Tests: API 126 and storefront 37 pass.
+
+## Team and permissions made clear (November 9, 2026)
+
+The three fixed roles (owner, admin, staff) stay as they were, enforced by row-level security and a few API checks. The Team page now explains them.
+
+- `apps/dashboard/src/permissions.ts` lists what each role can do, grouped by area, matching the database and API rules. Change the enforcement first, then this list.
+- Settings › Team:
+  - Members show their join date.
+  - Pending invites show when they were created.
+  - The invite form describes the chosen role.
+  - Changing your own role asks for confirmation first, because it only takes permissions away.
+  - A new "Roles and permissions" card has a short description of each role and a who-can-do-what table, with the viewer's own role column shaded.
+- API: `GET /members` adds `joinedAt` to members and `createdAt` to invites. A new test covers the rules no test had yet: staff cannot open analytics or delete discounts (they can create and pause them), admins can. API 127 pass.
+- Checked in the browser in English and Bangla on desktop. Not checked in the browser: the self-role confirmation (the dev store has one owner) and the phone layout (the window could not be resized; columns are narrowed below 40rem).
+
+Next, if sellers ask: per-staff permission areas, enforced in the database and API.

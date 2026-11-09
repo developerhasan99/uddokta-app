@@ -351,13 +351,13 @@ app.get('/stores/:handle/members', async (c) => {
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
     const members = await t
-      .select({ id: users.id, name: users.name, email: users.email, role: storeMembers.role })
+      .select({ id: users.id, name: users.name, email: users.email, role: storeMembers.role, joinedAt: storeMembers.createdAt })
       .from(storeMembers)
       .innerJoin(users, eq(users.id, storeMembers.userId))
       .where(eq(storeMembers.storeId, store.id))
       .orderBy(asc(storeMembers.createdAt))
     const invites = await t
-      .select({ id: storeInvites.id, role: storeInvites.role, expiresAt: storeInvites.expiresAt })
+      .select({ id: storeInvites.id, role: storeInvites.role, expiresAt: storeInvites.expiresAt, createdAt: storeInvites.createdAt })
       .from(storeInvites)
       .where(and(eq(storeInvites.storeId, store.id), sql`${storeInvites.expiresAt} > now()`))
       .orderBy(asc(storeInvites.createdAt))

@@ -315,6 +315,24 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .invite-list { display: grid; margin-top: var(--space-2xs); }
 .invite-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
 .invite-list__date { flex: 1; min-width: 6rem; }
+/* Settings › Team: what each role can do (permissions.ts). The viewer's own role column is shaded. */
+.role-notes { display: grid; gap: var(--space-xs); margin: 0; font-size: var(--text-sm); }
+.role-notes div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: var(--space-sm); }
+.role-notes dt { font-weight: 600; }
+.role-notes dd { margin: 0; color: var(--color-ink-2); }
+.perm-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); line-height: 1.4; }
+.perm-table th, .perm-table td { padding: var(--space-xs) var(--space-2xs); border-top: var(--rule-hair) solid var(--color-rule); text-align: center; vertical-align: middle; }
+.perm-table thead th { border-top: 0; font-weight: 600; width: 4.5rem; }
+.perm-table thead th:first-child { width: auto; }
+.perm-table tbody th[scope="row"] { font-weight: 400; text-align: start; }
+.perm-table .perm-table__group { padding-top: var(--space-md); color: var(--color-muted); font-weight: 600; text-align: start; }
+.perm-table__mine { background: var(--color-paper-2); }
+.perm-table__yes { color: var(--color-primary); vertical-align: middle; }
+.perm-table__no { color: var(--color-muted); vertical-align: middle; }
+@media (max-width: 40rem) {
+  .perm-table thead th { width: 3.25rem; font-size: var(--text-sm); }
+  .role-notes div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
 
 /* Media gallery */
 .media-shell { display: flex; height: 100%; }

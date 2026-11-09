@@ -1,25 +1,29 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { Check, Minus } from 'lucide-react'
 import { useAccount, useCurrentStore, type Role, type User } from '../account-context'
 import { api, errorCode } from '../api'
 import { roleLabels } from '../components/AppMenu'
 import { Badge, Button, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
+import { permissionGroups, roleDescriptions } from '../permissions'
 
-type Member = User & { role: Role }
-type PendingInvite = { id: string; role: Role; expiresAt: string }
+type Member = User & { role: Role; joinedAt: string }
+type PendingInvite = { id: string; role: Role; expiresAt: string; createdAt: string }
 type Team = { members: Member[]; invites: PendingInvite[] }
 
 const roles: Role[] = ['owner', 'admin', 'staff']
 
 export function Members() {
-  const { t, date } = useLang()
+  const { t, date, day } = useLang()
   const { me, refresh } = useAccount()
   const current = useCurrentStore()!
   const navigate = useNavigate()
   const [team, setTeam] = useState<Team | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const [confirming, setConfirming] = useState<string | null>(null)
+  // Changing your own role only ever takes permissions away, so it waits for a confirmation.
+  const [ownRole, setOwnRole] = useState<Role | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [role, setNewRole] = useState<Role>('staff')
   const [link, setLink] = useState<string | null>(null)
@@ -50,6 +54,23 @@ export function Members() {
     } catch (err) {
       setError(errorCode(err))
     }
+  }
+
+  const changeRole = (member: Member, next: Role) => {
+    if (member.id === me.id) {
+      setOwnRole(next)
+      return
+    }
+    void run(() => api(`${base}/members/${member.id}`, { method: 'PATCH', body: { role: next } }))
+  }
+
+  const confirmOwnRole = () => {
+    const next = ownRole!
+    setOwnRole(null)
+    void run(async () => {
+      await api(`${base}/members/${me.id}`, { method: 'PATCH', body: { role: next } })
+      await refresh()
+    })
   }
 
   const remove = async (userId: string) => {
@@ -93,6 +114,10 @@ export function Members() {
       <PageHeader title={t('members')} description={t('members.d')} />
 
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+      {ownRole && <div className="notice-line notice-line--warning order-confirm" role="alert">
+        <span>{t('roleSelfConfirm', { role: t(roleLabels[ownRole]) })}</span>
+        <span className="row"><Button onClick={() => setOwnRole(null)}>{t('cancel')}</Button><Button variant="danger" onClick={confirmOwnRole}>{t('roleSelfConfirmButton')}</Button></span>
+      </div>}
 
       <section className="data-list">
         {loadFailed && <Notice role="alert" title={t('teamLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} />}
@@ -108,6 +133,7 @@ export function Members() {
                 <th scope="col">{t('colMember')}</th>
                 <th scope="col">{t('emailLabel')}</th>
                 <th scope="col">{t('role')}</th>
+                <th scope="col">{t('colJoined')}</th>
                 <th scope="col" className="end"><span className="visually-hidden">{t('colActions')}</span></th>
               </tr>
             </thead>
@@ -129,14 +155,15 @@ export function Members() {
                           <select
                             className="input input--compact"
                             aria-label={`${t('role')}: ${member.name}`}
-                            value={member.role}
-                            onChange={(e) => void run(() => api(`${base}/members/${member.id}`, { method: 'PATCH', body: { role: e.target.value } }))}
+                            value={isMe && ownRole ? ownRole : member.role}
+                            onChange={(e) => changeRole(member, e.target.value as Role)}
                           >
                             {assignable.map((r) => <option key={r} value={r}>{t(roleLabels[r])}</option>)}
                           </select>
                         )
                         : <Badge>{t(roleLabels[member.role])}</Badge>}
                     </td>
+                    <td className="muted" data-label={t('colJoined')}>{day(member.joinedAt)}</td>
                     <td className="end" data-label={t('colActions')}>
                       {lastOwner && <span className="muted">{t('lastOwnerNote')}</span>}
                       {removable && confirming !== member.id && (
@@ -166,12 +193,13 @@ export function Members() {
           <div className="invite-form">
             <div className="field">
               <label htmlFor="invite-role">{t('role')}</label>
-              <select id="invite-role" name="role" className="input" value={role} onChange={(e) => setNewRole(e.target.value as Role)}>
+              <select id="invite-role" name="role" className="input" aria-describedby="invite-role-help" value={role} onChange={(e) => setNewRole(e.target.value as Role)}>
                 {assignable.map((r) => <option key={r} value={r}>{t(roleLabels[r])}</option>)}
               </select>
             </div>
             <Button type="submit" variant="primary">{t('createInvite')}</Button>
           </div>
+          <p id="invite-role-help" className="field__help">{t(roleDescriptions[role])}</p>
           {link && (
             <div className="invite-link">
               <label htmlFor="invite-url">{t('inviteLinkLabel')}</label>
@@ -189,7 +217,7 @@ export function Members() {
                 {team.invites.map((invite) => (
                   <li key={invite.id}>
                     <Badge>{t(roleLabels[invite.role])}</Badge>
-                    <span className="muted invite-list__date">{t('inviteExpires', { date: date(new Date(invite.expiresAt)) })}</span>
+                    <span className="muted invite-list__date">{t('inviteCreated', { date: day(invite.createdAt) })} · {t('inviteExpires', { date: date(new Date(invite.expiresAt)) })}</span>
                     <Button onClick={() => void run(() => api(`${base}/invites/${invite.id}`, { method: 'DELETE' }))}>{t('revokeInvite')}</Button>
                   </li>
                 ))}
@@ -198,6 +226,42 @@ export function Members() {
           )}
         </form>
       )}
+
+      <section className="card" aria-labelledby="perm-title">
+        <div>
+          <h2 id="perm-title">{t('permTitle')}</h2>
+          <p className="muted">{t('permD', { role: t(roleLabels[current.role]) })}</p>
+        </div>
+        <dl className="role-notes">
+          {roles.map((r) => <div key={r}><dt>{t(roleLabels[r])}</dt><dd>{t(roleDescriptions[r])}</dd></div>)}
+        </dl>
+        <table className="perm-table">
+          <thead>
+            <tr>
+              <th scope="col"><span className="visually-hidden">{t('permTitle')}</span></th>
+              {roles.map((r) => <th key={r} scope="col" className={r === current.role ? 'perm-table__mine' : undefined}>{t(roleLabels[r])}</th>)}
+            </tr>
+          </thead>
+          {permissionGroups.map((group) => (
+            <tbody key={group.title}>
+              <tr><th scope="colgroup" colSpan={roles.length + 1} className="perm-table__group">{t(group.title)}</th></tr>
+              {group.rows.map((row) => (
+                <tr key={row.label}>
+                  <th scope="row">{t(row.label)}</th>
+                  {roles.map((r) => (
+                    <td key={r} className={r === current.role ? 'perm-table__mine' : undefined}>
+                      {row.roles.includes(r)
+                        ? <><Check size={16} className="perm-table__yes" aria-hidden="true" /><span className="visually-hidden">{t('permAllowed')}</span></>
+                        : <><Minus size={16} className="perm-table__no" aria-hidden="true" /><span className="visually-hidden">{t('permNotAllowed')}</span></>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+        <p className="muted">{t('permLeaveNote')}</p>
+      </section>
     </div>
   )
 }

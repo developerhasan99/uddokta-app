@@ -49,6 +49,7 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 - Dashboard URLs are `/store/:handle/...`. Screens outside a store (`/stores`, `/stores/new`) use the account layout.
 - Every API query goes through `tx()` in `apps/api/src/db.ts`, which drops to the restricted `uddokta_app` role and sets the user for one transaction. Never query outside it. New tenant tables need `store_id`, row-level security policies and a test proving another store cannot reach them.
 - UI permission checks are only for display. The database and API are the real enforcement.
+- Settings › Team shows what each role can do from `apps/dashboard/src/permissions.ts`. That list only explains the rules: when a role rule changes in the database or API, update it in the same change.
 
 ## Development
 

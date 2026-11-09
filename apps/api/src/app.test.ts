@@ -264,6 +264,23 @@ test('store business details are checked, kept when left out, and only owners an
   await assert.rejects(pool.query(`update stores set facebook = 'javascript:x' where handle = $1`, [handle]))
 })
 
+// The rules Settings › Team lists (apps/dashboard/src/permissions.ts) that other tests do not already cover.
+test('the team list shows join and invite dates; staff cannot open analytics or delete discounts, admins can', async () => {
+  const { owner, handle } = await storeWithOwner()
+  const admin = await join(handle, owner, 'admin')
+  const staff = await join(handle, owner, 'staff')
+  await owner.call('POST', `/stores/${handle}/invites`, { role: 'staff' })
+  const team = (await staff.call('GET', `/stores/${handle}/members`)).json
+  assert.ok(team.members.every((m: any) => !Number.isNaN(Date.parse(m.joinedAt))))
+  assert.equal((await owner.call('GET', `/stores/${handle}/members`)).json.invites.every((i: any) => !Number.isNaN(Date.parse(i.createdAt))), true)
+  assert.equal((await staff.call('GET', `/stores/${handle}/analytics`)).status, 403)
+  assert.equal((await admin.call('GET', `/stores/${handle}/analytics`)).status, 200)
+  const coupon = (await staff.call('POST', `/stores/${handle}/discounts`, { code: 'EID10', kind: 'percent', value: 10 })).json
+  assert.equal((await staff.call('PATCH', `/stores/${handle}/discounts/${coupon.id}`, { active: false })).status, 200)
+  assert.equal((await staff.call('DELETE', `/stores/${handle}/discounts/${coupon.id}`)).status, 403)
+  assert.equal((await admin.call('DELETE', `/stores/${handle}/discounts/${coupon.id}`)).status, 200)
+})
+
 test('merchant handles cannot claim infrastructure hosts', async () => {
   const { call } = await signUp()
   for (const handle of ['media', 'admin', 'www', 'api', 'a'.repeat(64)]) {
