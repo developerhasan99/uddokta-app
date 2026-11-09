@@ -1703,3 +1703,13 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-sections__name[aria-expanded="true"] .editor-sections__chevron { transform: none; }
 .editor-sections__label { min-width: 0; }
 .editor-sections__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Section rows: arrow, then the section's icon, which becomes the drag handle on hover. */
+.editor-sections__toggle { display: grid; place-items: center; flex: none; width: 20px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
+.editor-sections__toggle svg { transform: rotate(-90deg); transition: transform var(--dur-micro) var(--ease-out); }
+.editor-sections__toggle[aria-expanded="true"] svg { transform: none; }
+.editor-sections__toggle:hover { color: var(--color-ink); }
+.editor-sections__grip .editor-sections__drag { display: none; }
+.editor-sections__row:is(:hover, :focus-within) .editor-sections__grip .editor-sections__icon, .editor-sections__row--dragging .editor-sections__grip .editor-sections__icon { display: none; }
+.editor-sections__row:is(:hover, :focus-within) .editor-sections__grip .editor-sections__drag, .editor-sections__row--dragging .editor-sections__grip .editor-sections__drag { display: block; }
+.editor-sections__grip { color: var(--color-ink-2); }
+@media (hover: none) { .editor-sections__row .editor-sections__grip .editor-sections__icon { display: block !important; } .editor-sections__row .editor-sections__grip .editor-sections__drag { display: none !important; } }

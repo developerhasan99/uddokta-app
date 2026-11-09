@@ -858,6 +858,10 @@ export function PageEditor() {
                 setDropAt(e.clientY < bounds.top + bounds.height / 2 ? i : i + 1)
               }}
             >
+              {(() => {
+                const open = s.type === 'layout' && (s.id === selected || found?.section.id === s.id)
+                return <button type="button" className="editor-sections__toggle" aria-expanded={open} aria-label={sectionName(s)} title={sectionName(s)} onClick={() => (open ? setSelected(null) : choose(s.id))}><ChevronDown size={14} aria-hidden="true" /></button>
+              })()}
               <button type="button" className="editor-sections__grip" aria-label={`${t('pageReorder')}: ${L(defOf(s.type).label)}`} title={t('pageReorder')}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -896,9 +900,9 @@ export function PageEditor() {
                 }}
                 onPointerCancel={endDrag}
                 onLostPointerCapture={endDrag}
-              ><GripVertical size={16} aria-hidden="true" /></button>
+              >{(() => { const Icon = sectionIcon(s); return <Icon className="editor-sections__icon" size={15} aria-hidden="true" /> })()}<GripVertical className="editor-sections__drag" size={16} aria-hidden="true" /></button>
               <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} aria-expanded={s.type === 'layout' ? (s.id === selected || found?.section.id === s.id) : undefined} onClick={() => choose(s.id)}>
-                <span className="editor-sections__label">{s.type === 'layout' && <ChevronDown className="editor-sections__chevron" size={14} aria-hidden="true" />}{(() => { const Icon = sectionIcon(s); return <Icon size={15} aria-hidden="true" /> })()}<span className="editor-sections__text">{sectionName(s)}</span></span>
+                <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span></span>
               </button>
               <IconButton label={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} title={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} onClick={() => updateSection(s.id, { hidden: !s.hidden })}>
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
