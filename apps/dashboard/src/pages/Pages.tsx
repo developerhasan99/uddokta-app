@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Copy, CopyPlus, ExternalLink, LayoutTemplate, Plus } from 'lucide-react'
+import * as Dropdown from '@radix-ui/react-dropdown-menu'
+import { Copy, CopyPlus, ExternalLink, LayoutTemplate, MoreHorizontal, Plus } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { pageHref } from 'storefront/paths'
 import { api, errorCode, storefrontUrl } from '../api'
@@ -75,6 +76,7 @@ export function Pages() {
     try {
       await navigator.clipboard.writeText(liveUrl(row))
       setCopied(row.id)
+      window.setTimeout(() => setCopied((c) => (c === row.id ? null : c)), 3000)
     } catch { setCopyFailed(true) }
   }
 
@@ -125,7 +127,7 @@ export function Pages() {
             </div>
           </div>
           {copyFailed && <p className="form-error pages-feedback" role="alert">{t('pagesCopyFailed')}</p>}
-          <span className="visually-hidden" role="status">{copied ? t('pagesCopied') : ''}</span>
+          <p className="muted pages-feedback" role="status" hidden={!copied}>{copied ? t('pagesCopied') : ''}</p>
           {visible.length === 0 ? <Notice title={t('pagesNoMatch')} body={t('pagesNoMatchHelp')} action={<Button onClick={() => setParams({}, { replace: true })}>{t('pagesClearFilters')}</Button>} /> : <table className="data-table pages-table">
             <thead>
               <tr>
@@ -150,7 +152,18 @@ export function Pages() {
                   <td className="pages-table__status"><PageStatus page={row} /></td>
                   <td className="data-table__meta">{time(row.updatedAt)}</td>
                   <td className="pages-table__actions" onClick={(e) => e.stopPropagation()}>
-                    <div className="row">{row.isPublished && <><a className="btn btn--default" href={liveUrl(row)} target="_blank" rel="noopener" aria-label={t('pagesViewNamed', { title: row.title })}><ExternalLink size={14} aria-hidden="true" />{t('pagesView')}</a><button type="button" className="btn btn--default" onClick={() => void copyLink(row)} aria-label={t('pagesCopyNamed', { title: row.title })}><Copy size={14} aria-hidden="true" />{t(copied === row.id ? 'pagesCopied' : 'mediaCopyLink')}</button></>}<button type="button" className="btn btn--default" disabled={duplicating !== null} aria-busy={duplicating === row.id} aria-label={t('campaignDuplicateNamed', { title: row.title })} title={t('campaignDuplicateHelp')} onClick={() => void duplicate(row)}><CopyPlus size={14} aria-hidden="true" />{t(duplicating === row.id ? 'loading' : 'campaignDuplicate')}</button></div>
+                    <Dropdown.Root>
+                      <Dropdown.Trigger className="btn btn--icon pages-table__more" aria-label={`${t('pagesActions')}: ${row.title}`} title={t('pagesActions')} aria-busy={duplicating === row.id}><MoreHorizontal size={16} aria-hidden="true" /></Dropdown.Trigger>
+                      <Dropdown.Portal><Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
+                        <div className="menu__section">
+                          {row.isPublished && <>
+                            <Dropdown.Item asChild className="menu__item menu__action"><a href={liveUrl(row)} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('pagesView')}</a></Dropdown.Item>
+                            <Dropdown.Item className="menu__item menu__action" onSelect={() => void copyLink(row)}><Copy size={16} aria-hidden="true" />{t('mediaCopyLink')}</Dropdown.Item>
+                          </>}
+                          <Dropdown.Item className="menu__item menu__action" disabled={duplicating !== null} onSelect={() => void duplicate(row)}><CopyPlus size={16} aria-hidden="true" />{t('campaignDuplicate')}</Dropdown.Item>
+                        </div>
+                      </Dropdown.Content></Dropdown.Portal>
+                    </Dropdown.Root>
                   </td>
                 </tr>
               ))}

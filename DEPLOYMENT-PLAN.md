@@ -469,3 +469,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Layout/Style controls used one-off sizes (8–12px text, 36–82px heights, hex colours) → rewritten on tokens: number boxes reuse `.input-affix`, selects reuse `.input`, 28px segmented toggles (32px on phones), device visibility is a segmented control instead of 82px cards, compact colour rows (24px swatch, 18px palette), spacing diagram labels no longer overlap.
 - Section-setting tabs match the dashboard segmented control; list item and icon remove buttons are flat 28px icons; empty image picker is a 64px row; long text boxes start at 4 rows.
 - Phones: every field is 36px with 16px text, toggles 32px, labels 13px.
+- Landing pages list: row actions (View, Copy link, Duplicate) moved into a ⋯ menu; on narrow screens the date and status share one line.
