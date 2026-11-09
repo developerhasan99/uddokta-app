@@ -341,3 +341,30 @@ Follow-up: each delivery option row ends with an edit (pencil) button, after the
 - Delivery option panel: delete button fits its text (no full-width stretch) and has the trash icon.
 - Every dialog (and the phone menu drawer) closes on a backdrop click, through useDialog; busy guards in onCancel still apply.
 - Self delivery in Settings › Couriers (on/off, owners and admins). Orders get a Deliver yourself button that records a 'self' shipment and moves the order to With courier; delivered/returned are set by hand. Migration 0069.
+
+## Store settings: business details and invoice (November 9, 2026)
+
+Settings › Store now holds who the business is, not online-store settings (theme, menus, domain and pixels stay where they were).
+
+- **Database:**
+  - `0070_store_details` adds these columns to `stores`: `phone`, `whatsapp`, `email`, `facebook`, `address`, `legal_name`, `trade_licence`, `bin` and `invoice_note`. Each defaults to blank, and the format and length checks live in the database.
+  - `0071_store_logo_fk` adds `logo_media_id` with a deferred `(id, logo_media_id) → media(store_id, id)` key. A logo must be the store's own image, and a logo in use cannot be deleted (`mediaInUse`).
+- **API:**
+  - `GET /stores/:handle/settings` also returns these details and `logo`.
+  - `PUT` changes only the fields it is sent. `logoId: null` removes the logo.
+  - Errors are `phoneInvalid`, `emailInvalid` and `facebookInvalid`.
+  - A Facebook link without a scheme gets `https://` added. `http:` and other schemes are refused.
+  - Media usage reports `logo: true`.
+- **Dashboard:**
+  - `pages/StoreSettings.tsx` has four cards: profile (name, logo through the media picker), contact and business address, business documents (optional), and the invoice footer.
+  - The old link to Delivery was removed.
+  - Order printing gets a print-only store header (logo, name, address, contacts, legal line) and the footer note.
+  - The media details panel lists "Store logo" under where an image is used.
+- **Tests:** two new API tests (details and permissions; logo ownership and delete blocking). API 126 pass, and the build passes.
+- **Checked in the browser:** saving, the Facebook error under its field, choosing the logo, and the invoice header on an order. The dev store Scent Haven keeps the sample hotline, address and logo; clear them in Settings › Store.
+
+Deferred:
+- Order-number prefix: it touches storefront receipts, Steadfast invoice IDs, CSV export, notifications and order search.
+- Store ownership transfer and deletion.
+- Reusing the store contact details in the landing-page contact section.
+- Merging Warehouses, Delivery and Couriers into one tab.

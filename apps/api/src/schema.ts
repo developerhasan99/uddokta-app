@@ -49,8 +49,25 @@ export const stores = pgTable('stores', {
   domainVerifiedAt: timestamp('domain_verified_at', { withTimezone: true }),
   domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
   domainPrimary: boolean('domain_primary').notNull().default(true),
+  // Business details from Settings › Store, printed on invoices. Blank means not given. The logo is a gallery image,
+  // held by a deferred foreign key to media (migration 0071) so a logo in use cannot be deleted.
+  logoMediaId: uuid('logo_media_id'),
+  phone: text('phone').notNull().default(''),
+  whatsapp: text('whatsapp').notNull().default(''),
+  email: text('email').notNull().default(''),
+  facebook: text('facebook').notNull().default(''),
+  address: text('address').notNull().default(''),
+  legalName: text('legal_name').notNull().default(''),
+  tradeLicence: text('trade_licence').notNull().default(''),
+  bin: text('bin').notNull().default(''),
+  invoiceNote: text('invoice_note').notNull().default(''),
   createdAt: createdAt(),
-}, (t) => [check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`), uniqueIndex('stores_verified_domain').on(t.domain).where(sql`${t.domainVerifiedAt} is not null`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
+}, (t) => [
+  check('stores_phones', sql`${t.phone} ~ '^(\\+?[0-9][0-9 -]{5,19})?$' and ${t.whatsapp} ~ '^(\\+?[0-9][0-9 -]{5,19})?$'`),
+  check('stores_email', sql`${t.email} ~ '^([^\\s@]+@[^\\s@]+\\.[^\\s@]+)?$' and char_length(${t.email}) <= 200`),
+  check('stores_facebook', sql`${t.facebook} ~ '^(https://[^\\s]+)?$' and char_length(${t.facebook}) <= 300`),
+  check('stores_details_length', sql`char_length(${t.address}) <= 300 and char_length(${t.legalName}) <= 100 and char_length(${t.tradeLicence}) <= 50 and char_length(${t.bin}) <= 50 and char_length(${t.invoiceNote}) <= 300`),
+  check('stores_handle_format', sql`${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),uniqueIndex('stores_verified_domain').on(t.domain).where(sql`${t.domainVerifiedAt} is not null`), check('stores_domain_format', sql`${t.domain} ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9-]{2,63}$'`)])
 
 export const storeMembers = pgTable('store_members', {
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),

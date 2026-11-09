@@ -224,3 +224,17 @@ test('production storage sends signed requests to R2', async () => {
   assert.match(seen[0].auth, /^AWS4-HMAC-SHA256/)
   assert.equal(seen[0].type, 'image/webp')
 })
+
+test('a store logo must be the store’s own image and cannot be deleted while set', async () => {
+  const owner = await storeOwner()
+  const other = await storeOwner()
+  const logo = (await owner.call('POST', `/stores/${owner.handle}/media`, form(await png(40, 40)))).json
+  const foreign = (await other.call('POST', `/stores/${other.handle}/media`, form(await png(40, 40)))).json
+  const settings = `/stores/${owner.handle}/settings`
+  assert.equal((await owner.call('PUT', settings, { name: 'Shop', logoId: foreign.id })).status, 400)
+  assert.equal((await owner.call('PUT', settings, { name: 'Shop', logoId: logo.id })).json.logo.id, logo.id)
+  assert.equal((await owner.call('GET', `/stores/${owner.handle}/media/${logo.id}/usage`)).json.logo, true)
+  assert.deepEqual(await owner.call('DELETE', `/stores/${owner.handle}/media/${logo.id}`).then((r) => [r.status, r.json.error]), [409, 'mediaInUse'])
+  assert.equal((await owner.call('PUT', settings, { name: 'Shop', logoId: null })).json.logo, null)
+  assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${logo.id}`)).status, 200)
+})

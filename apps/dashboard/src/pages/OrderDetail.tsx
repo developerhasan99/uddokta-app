@@ -10,6 +10,7 @@ import { OrderTagsField } from '../components/OrderTags'
 import { OrderLines, linesSubtotal, type Line, type Product } from '../components/OrderLines'
 import { loadRates, previewCharge, type ShippingRate } from '../shipping'
 import { statuses, type Status } from './Orders'
+import type { StoreSettingsData } from './StoreSettings'
 
 type OrderEvent = { id: string; kind: 'placed' | 'status' | 'edited' | 'contact' | 'note' | 'tags' | 'shipped' | 'comment'; data: Record<string, any>; userName: string; hasUser: boolean; createdAt: string }
 
@@ -85,6 +86,12 @@ export function OrderDetail() {
 
   useEffect(() => {
     api<{ courier: string }[]>(`/stores/${handle}/couriers`).then((rows) => setCouriers(rows.map((r) => r.courier)), () => {})
+  }, [handle])
+
+  // The store's details head and foot the printed invoice; without them it prints as before.
+  const [shop, setShop] = useState<StoreSettingsData | null>(null)
+  useEffect(() => {
+    api<StoreSettingsData>(`/stores/${handle}/settings`).then(setShop, () => {})
   }, [handle])
 
   useEffect(() => {
@@ -260,11 +267,22 @@ export function OrderDetail() {
       case 'comment': return event.data.text
     }
   }
+  const shopContact = shop && [shop.phone, shop.whatsapp && shop.whatsapp !== shop.phone ? `${t('storeWhatsapp')}: ${shop.whatsapp}` : '', shop.email, shop.facebook].filter(Boolean).join(' · ')
+  const shopLegal = shop && [shop.legalName, shop.tradeLicence && `${t('storeTradeLicence')}: ${shop.tradeLicence}`, shop.bin && `${t('storeBin')}: ${shop.bin}`].filter(Boolean).join(' · ')
   const sourceLabel = order.source === 'landing_page' && order.page ? order.page.title : t(`source_${order.source}` as Key)
 
   return (
     <div className="page page--detail order-page">
       <PageTitle title={t('orderTitle', { n: orderNo })} />
+      {shop && <header className="invoice-head">
+        {shop.logo && <img src={shop.logo.thumbUrl} alt="" />}
+        <div>
+          <strong>{shop.name}</strong>
+          {shop.address && <p>{shop.address}</p>}
+          {shopContact && <p>{shopContact}</p>}
+          {shopLegal && <p>{shopLegal}</p>}
+        </div>
+      </header>}
       <header className="detail-head order-head">
         <div className="detail-head__title">
           <Link className="detail-head__back" to={path('/orders')} aria-label={t('orderBack')} title={t('orderBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
@@ -453,6 +471,7 @@ export function OrderDetail() {
         </aside>
       </div>
 
+      {shop?.invoiceNote && <p className="invoice-foot">{shop.invoiceNote}</p>}
       <div className="toast-anchor" role="status">
         {toast && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{toast}</p>}
       </div>

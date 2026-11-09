@@ -1406,12 +1406,28 @@ a.order-item__name:hover { text-decoration: underline; }
 @media print {
   body, .shell__main { background: white; }
   .shell { display: block; height: auto; }
+  .invoice-head, .invoice-foot { display: flex !important; }
   .shell__sidebar, .mobilebar, .detail-head__back, .order-head__actions, .order-confirm, .toast-anchor, .order-page .btn, .order-empty .row, .field__help, .order-card-head__edit { display: none !important; }
   .shell__main { margin: 0; overflow: visible; border-radius: 0; }
   .detail-head { position: static; }
   .card { box-shadow: none; break-inside: avoid; }
   .order-page textarea { border: 0; padding: 0; resize: none; }
 }
+
+/* The printed invoice's store header and footer, from Settings › Store. Only shown on paper. */
+.invoice-head, .invoice-foot { display: none; }
+.invoice-head { align-items: center; gap: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule-strong); font-size: var(--text-sm); }
+.invoice-head img { width: 56px; height: 56px; object-fit: contain; }
+.invoice-head div { display: grid; gap: 2px; }
+.invoice-head strong { font-size: var(--text-lg); }
+.invoice-head p, .invoice-foot { margin: 0; color: var(--color-ink-2); white-space: pre-line; }
+.invoice-foot { justify-content: center; padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); font-size: var(--text-sm); text-align: center; }
+
+/* Store logo in Settings › Store. */
+.store-logo { display: flex; align-items: center; gap: var(--space-sm); }
+.store-logo img { width: 64px; height: 64px; border-radius: var(--radius-control); outline: var(--rule-hair) solid var(--color-rule-strong); outline-offset: -1px; background: var(--color-paper-2); object-fit: contain; }
+.store-logo__empty { display: flex; justify-self: start; width: auto; padding: var(--space-sm) var(--space-md); }
+.store-logo__empty:disabled { cursor: default; }
 
 /* Order activity: comments and every change, newest first. */
 .activity-form { display: grid; gap: var(--space-xs); }

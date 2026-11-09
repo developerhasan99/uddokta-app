@@ -19,12 +19,13 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
-import { registerProducts } from './products.ts'
+import { isId, registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { readLocalFile } from './storage.ts'
-import { roles, shippingRates, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
+import { present } from './media.ts'
+import { media, roles, shippingRates, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
 import { defaultRateNames, isPrice, registerShipping } from './shipping.ts'
 
 const sessionDays = 30
@@ -102,7 +103,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -230,11 +231,32 @@ app.post('/stores', async (c) => {
   return c.json({ id, handle, name, role: 'owner' }, 201)
 })
 
+// Business details from Settings › Store. Formats match the checks on stores; the database refuses anything else too.
+const phoneFormat = /^(\+?[0-9][0-9 -]{5,19})?$/
+const detailRules = {
+  phone: (v: string) => phoneFormat.test(v) || 'phoneInvalid',
+  whatsapp: (v: string) => phoneFormat.test(v) || 'phoneInvalid',
+  email: (v: string) => (v.length <= 200 && /^([^\s@]+@[^\s@]+\.[^\s@]+)?$/.test(v)) || 'emailInvalid',
+  facebook: (v: string) => (v.length <= 300 && /^(https:\/\/[^\s]+)?$/.test(v)) || 'facebookInvalid',
+  address: (v: string) => v.length <= 300 || 'invalidRequest',
+  legalName: (v: string) => v.length <= 100 || 'invalidRequest',
+  tradeLicence: (v: string) => v.length <= 50 || 'invalidRequest',
+  bin: (v: string) => v.length <= 50 || 'invalidRequest',
+  invoiceNote: (v: string) => v.length <= 300 || 'invalidRequest',
+} as const
+type DetailKey = keyof typeof detailRules
+const detailKeys = Object.keys(detailRules) as DetailKey[]
+
+async function storeSettings(t: Tx, store: typeof stores.$inferSelect) {
+  const [logo] = store.logoMediaId ? await t.select().from(media).where(and(eq(media.storeId, store.id), eq(media.id, store.logoMediaId))) : []
+  return {
+    name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu,
+    logo: logo ? present(logo) : null, ...Object.fromEntries(detailKeys.map((k) => [k, store[k]])) as Record<DetailKey, string>,
+  }
+}
+
 app.get('/stores/:handle/settings', async (c) => {
-  return tx(c.get('userId'), async (t) => {
-    const store = await storeByHandle(t, c.req.param('handle'))
-    return c.json({ name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu })
-  })
+  return tx(c.get('userId'), async (t) => c.json(await storeSettings(t, await storeByHandle(t, c.req.param('handle')))))
 })
 
 // Header links. A link is a path inside the store or an https address, so a menu can never run script.
@@ -280,15 +302,35 @@ app.put('/stores/:handle/theme', async (c) => {
 })
 
 // Owners and admins only: row-level security updates nothing for staff, which is answered as forbidden.
+// Fields left out of the body keep their saved value; logoId null removes the logo.
 app.put('/stores/:handle/settings', async (c) => {
   const body = await readBody(c)
   const name = text(body, 'name')
   if (!name || name.length > 100) throw fail(400, 'nameRequired')
+  const set: Partial<typeof stores.$inferInsert> = { name }
+  for (const key of detailKeys) {
+    if (body[key] === undefined) continue
+    if (typeof body[key] !== 'string') throw fail(400, 'invalidRequest')
+    // Sellers paste "facebook.com/page"; the scheme is added for them.
+    const typed = text(body, key)
+    const value = key === 'facebook' && typed && !/^[a-z]+:/i.test(typed) ? `https://${typed}` : typed
+    const ok = detailRules[key](value)
+    if (ok !== true) throw fail(400, ok)
+    set[key] = value
+  }
+  if (body.logoId !== undefined) {
+    if (body.logoId !== null && !isId(body.logoId)) throw fail(400, 'invalidRequest')
+    set.logoMediaId = body.logoId
+  }
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
-    const [row] = await t.update(stores).set({ name }).where(eq(stores.id, store.id)).returning()
+    if (set.logoMediaId) {
+      const [found] = await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, store.id), eq(media.id, set.logoMediaId)))
+      if (!found) throw fail(400, 'invalidRequest')
+    }
+    const [row] = await t.update(stores).set(set).where(eq(stores.id, store.id)).returning()
     if (!row) throw fail(403, 'forbidden')
-    return c.json({ name: row.name })
+    return c.json(await storeSettings(t, row))
   })
 })
 

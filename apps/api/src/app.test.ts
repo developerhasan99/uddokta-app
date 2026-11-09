@@ -219,9 +219,10 @@ test('owners and admins set the store name and delivery charges; staff can only 
   const admin = await join(handle, owner, 'admin')
   const staff = await join(handle, owner, 'staff')
   const base = `/stores/${handle}/settings`
-  assert.deepEqual((await owner.call('GET', base)).json, { name: 'Shop', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  const online = ({ name, theme, metaPixel, tiktokPixel, menu }: any) => ({ name, theme, metaPixel, tiktokPixel, menu })
+  assert.deepEqual(online((await owner.call('GET', base)).json), { name: 'Shop', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
   assert.equal((await admin.call('PUT', base, { name: 'নতুন নাম' })).status, 200)
-  assert.deepEqual((await staff.call('GET', base)).json, { name: 'নতুন নাম', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  assert.deepEqual(online((await staff.call('GET', base)).json), { name: 'নতুন নাম', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
   assert.equal((await admin.call('PUT', `/stores/${handle}/theme`, { theme: 'night' })).status, 200)
   assert.equal((await staff.call('PUT', `/stores/${handle}/theme`, { theme: 'bold' })).status, 403)
   assert.equal((await owner.call('PUT', `/stores/${handle}/theme`, { theme: 'neon' })).status, 400)
@@ -241,6 +242,23 @@ test('owners and admins set the store name and delivery charges; staff can only 
   }
   const other = await storeWithOwner()
   assert.equal((await other.owner.call('PUT', base, { name: 'x' })).status, 404)
+})
+
+test('store business details are checked, kept when left out, and only owners and admins change them', async () => {
+  const { owner, handle } = await storeWithOwner()
+  const staff = await join(handle, owner, 'staff')
+  const base = `/stores/${handle}/settings`
+  const details = { phone: '01712-345678', whatsapp: '+8801712345678', email: 'shop@example.com', facebook: 'https://facebook.com/shop', address: 'বাড়ি ১২, মিরপুর, ঢাকা', legalName: 'রিনা ফ্যাশন', tradeLicence: 'TRAD/DNCC/1234', bin: '000123456-0101', invoiceNote: 'পণ্য দেখে টাকা দিন' }
+  const saved = (await owner.call('PUT', base, { name: 'Shop', ...details })).json
+  assert.deepEqual({ logo: saved.logo, ...Object.fromEntries(Object.keys(details).map((k) => [k, saved[k]])) }, { logo: null, ...details })
+  assert.equal((await owner.call('PUT', base, { name: 'Renamed' })).json.phone, details.phone)
+  assert.equal((await owner.call('PUT', base, { name: 'Shop', facebook: 'facebook.com/rina' })).json.facebook, 'https://facebook.com/rina')
+  for (const [bad, error] of [[{ phone: 'call me' }, 'phoneInvalid'], [{ whatsapp: '12' }, 'phoneInvalid'], [{ email: 'shop@' }, 'emailInvalid'], [{ facebook: 'javascript:alert(1)' }, 'facebookInvalid'], [{ facebook: 'http://facebook.com/x' }, 'facebookInvalid'], [{ address: 'x'.repeat(301) }, 'invalidRequest'], [{ bin: 5 }, 'invalidRequest'], [{ logoId: 'nope' }, 'invalidRequest']] as const) {
+    assert.equal((await owner.call('PUT', base, { name: 'Shop', ...bad })).json.error, error, JSON.stringify(bad))
+  }
+  assert.equal((await staff.call('GET', base)).json.address, details.address)
+  assert.equal((await staff.call('PUT', base, { name: 'Shop', phone: '' })).status, 403)
+  await assert.rejects(pool.query(`update stores set facebook = 'javascript:x' where handle = $1`, [handle]))
 })
 
 test('merchant handles cannot claim infrastructure hosts', async () => {
