@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app as api } from '../../api/src/app.ts'
 import { pool } from '../../api/src/db.ts'
 import { app } from './server.tsx'
-import { blankContent, newSection } from './schema.ts'
+import { blankContent, newBlock, newSection } from './schema.ts'
 
 before(async () => {
   await pool.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public')
@@ -625,4 +625,27 @@ test('a store’s favicon is served at /favicon.ico, and stores without one answ
   assert.equal(res.status, 302)
   assert.match(res.headers.get('location') ?? '', new RegExp(`${id}-thumb\\.webp$`))
   assert.match(await (await visit(s.handle, s.url)).text(), /<link rel="icon" href="\/favicon\.ico"\/>/)
+})
+
+test('an order form placed inside a layout takes real orders; one in a hidden layout does not', async () => {
+  const s = await publishedPage()
+  const base = `/stores/${s.handle}/pages/${s.page.id}`
+  const current = (await s.call('GET', base)).json
+  let n = 0
+  const form = newBlock('order', () => `form${n++}`)
+  form.block!.settings.product = s.product.id
+  const hiddenForm = newBlock('order', () => `hidden${n++}`)
+  hiddenForm.block!.settings.product = s.product.id
+  const layout = { ...newSection('layout', 'split'), children: [{ id: 'row', kind: 'box' as const, props: {}, style: { direction: 'row' }, children: [{ id: 'note', kind: 'heading' as const, props: { text: 'অর্ডার দিন', level: 'h2' } }, form] }] }
+  const hidden = { ...newSection('layout', 'gone'), hidden: true, children: [hiddenForm] }
+  const saved = await s.call('PUT', base, { title: current.title, handle: current.handle, revision: current.revision, draft: { ...blankContent(), sections: [layout, hidden] } })
+  assert.equal(saved.status, 200)
+  assert.equal((await s.call('POST', `${base}/publish`, { revision: saved.json.revision })).status, 200)
+  const html = await (await visit(s.handle, s.url)).text()
+  assert.match(html, /<section class="sf-section sf-section--tint" id="form0"/, 'the form is its own anchor for buttons')
+  assert.doesNotMatch(html, /hidden1/)
+  const fields = { variant: s.product.variants[0].id, quantity: '1', name: 'রাফি', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
+  const res = await order(s.handle, s.url, { section: 'form0', ...fields })
+  assert.equal(res.status, 303)
+  assert.equal((await order(s.handle, s.url, { section: 'hidden1', ...fields })).status, 404)
 })

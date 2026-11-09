@@ -7,7 +7,7 @@ import { tx, type Tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
-import { readPhone, references, type Content } from './schema.ts'
+import { orderBlocks, readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
 import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type MenuLink } from './catalog.tsx'
 import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
@@ -434,7 +434,7 @@ const submitLandingPage = async (c: Context) => {
   const page = store && await loadPage(store, c.req.param('handle')!)
   if (!page) return notFound(c)
   const form = await c.req.raw.clone().formData().catch(() => null)
-  const section = page.content.sections.find((s) => s.id === form?.get('section') && s.type === 'order' && !s.hidden)
+  const section = orderBlocks(page.content).find((s) => s.id === form?.get('section'))
   const product = section && page.products.get(section.settings.product as string)
   if (!section || !product) return notFound(c)
   return takeOrder(c, {

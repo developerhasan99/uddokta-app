@@ -9,7 +9,7 @@ import {
   Sparkles, LayoutGrid, Box, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
-import { defOf, isSectionLink, maxCss, maxSections, newNode, newSection, nodeDefs, nodeKinds, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { blockTypes, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
@@ -36,7 +36,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 const sectionIcons = { layout: LayoutGrid, icon: Sparkles, iconCards: LayoutTemplate, iconList: ListChecks, announcement: MessageSquare, header: LayoutTemplate, footer: LayoutTemplate, imageText: Image, trust: CircleCheck, steps: ListChecks, specifications: ListChecks, comparison: ListChecks, cards: Images, cta: ShoppingBag, hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
-const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video }
+const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: LayoutTemplate }
 const historyLimit = 100
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
 const newId = () => crypto.randomUUID().slice(0, 8)
@@ -322,9 +322,16 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
     <div className="dialog__body">
       <p className="node-add__label">{L(['এলিমেন্ট', 'Elements'])}</p>
       <ul className="node-add__grid">
-        {nodeKinds.filter((kind) => kind !== 'box').map((kind) => {
+        {nodeKinds.filter((kind) => kind !== 'box' && kind !== 'block').map((kind) => {
           const Icon = nodeIcons[kind]
           return <li key={kind}><button type="button" onClick={() => close(() => onAdd((id) => newNode(kind, id)))}><Icon size={20} strokeWidth={1.75} aria-hidden="true" /><span>{L(nodeDefs[kind].label)}</span></button></li>
+        })}
+      </ul>
+      <p className="node-add__label">{L(['ব্লক', 'Blocks'])}</p>
+      <ul className="node-add__grid node-add__grid--blocks">
+        {blockTypes.map((type) => {
+          const Icon = sectionIcons[type]
+          return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
         })}
       </ul>
       <p className="node-add__label">{L(['লেআউট', 'Layouts'])}</p>
@@ -427,7 +434,7 @@ export function PageEditor() {
   }, [current.store.handle])
 
   // Products shown by order forms, loaded once each for the preview.
-  const productIds = useMemo(() => (doc ? doc.content.sections.flatMap((s) => (s.type === 'order' && typeof s.settings.product === 'string' ? [s.settings.product] : [])) : []), [doc])
+  const productIds = useMemo(() => (doc ? orderBlocks(doc.content).flatMap((o) => (typeof o.settings.product === 'string' ? [o.settings.product] : [])) : []), [doc])
   useEffect(() => {
     for (const pid of productIds) {
       if (pid in products) continue
@@ -694,8 +701,9 @@ export function PageEditor() {
     </Fragment>
   })
   const nodePanel = (f: Found) => {
-    const def = nodeDefs[f.node.kind]
-    const tab = def.fields.length === 0 && settingsTab === 'content' ? 'layout' : settingsTab
+    const def = f.node.block ? { ...nodeDefs.block, label: defOf(f.node.block.type).label } : nodeDefs[f.node.kind]
+    const hasContent = def.fields.length > 0 || Boolean(f.node.block)
+    const tab = !hasContent && settingsTab === 'content' ? 'layout' : settingsTab
     const at = (fn: (n: PageNode) => PageNode, key?: string) => editTree(f.section.id, (nodes) => updateNode(nodes, f.node.id, fn), key)
     const patch = (values: Record<string, string | number | undefined>, typingKey?: string) => at((n) => {
       const slot = device === 'mobile' ? 'mobile' : 'style'
@@ -722,12 +730,14 @@ export function PageEditor() {
         </div>
       </div>
       <div className="editor-setting-tabs" role="group" aria-label={L(def.label)}>
-        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || def.fields.length > 0).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{L(x === 'content' ? ['কন্টেন্ট', 'Content'] : x === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{L(x === 'content' ? ['কন্টেন্ট', 'Content'] : x === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
       </div>
       <div className="editor__form">
         {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
         {tab === 'content'
-          ? <div className="editor__fields">{['heading', 'text', 'button'].includes(f.node.kind) && <p className="design-help">{L(['টিপ: প্রিভিউতে লেখার উপর আবার ক্লিক করে সরাসরি লিখুন।', 'Tip: click the text in the preview again to type straight on the page.'])}</p>}{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
+          ? f.node.block ? <div className="editor__fields">{(['content', 'layout'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
+              onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />)}</div>
+          : <div className="editor__fields">{['heading', 'text', 'button'].includes(f.node.kind) && <p className="design-help">{L(['টিপ: প্রিভিউতে লেখার উপর আবার ক্লিক করে সরাসরি লিখুন।', 'Tip: click the text in the preview again to type straight on the page.'])}</p>}{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
               onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
           : <NodeDesignControls key={`${f.node.id}:${tab}:${device}`} node={f.node} tab={tab} device={device} media={media} onPatch={patch}
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}

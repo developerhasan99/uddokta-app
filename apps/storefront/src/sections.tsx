@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { IconBadge } from './icons/Icon.tsx'
 import { iconCatalog, isIconName } from './icons/catalog.ts'
-import { videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
+import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
 
 export type Img = { url: string; alt: string; width: number; height: number }
@@ -64,7 +64,7 @@ function Lines({ text, className }: { text: string; className?: string }) {
   return <div className={className}>{text.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}</div>
 }
 
-const firstOrderId = (content: Content) => content.sections.find((s) => s.type === 'order' && !s.hidden)?.id
+const firstOrderId = (content: Content) => orderBlocks(content)[0]?.id
 
 function Hero({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   const image = ctx.image(s.settings.image as string | null)

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { blankContent, maxDepth, maxNodes, newSection, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
+import { blankContent, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
 
 test('legacy content preserves implicit chrome, and blank content persists explicit empty canvas', () => {
   const legacy = { version: 2, sections: [newSection('text', 'old-section')] }
@@ -73,4 +73,22 @@ test('layout sections hold a validated tree of boxes and elements', () => {
   assert.equal(readContent(layout(Array.from({ length: maxNodes + 1 }, (_, i) => ({ id: `n${i}`, kind: 'spacer', props: {} })))), null, 'too many nodes')
   assert.equal(readContent({ version: 2, sections: [{ ...newSection('text', 't'), children: [] }] }), null, 'only layout sections have children')
   assert.equal(readContent(layout([{ id: 'h', kind: 'heading', props: { text: 'x'.repeat(301) } }])), null)
+})
+
+test('blocks put built-in sections inside layouts, validated by that section type', () => {
+  const product = '00000000-0000-4000-8000-000000000009'
+  let n = 0
+  const order = newBlock('order', () => `b${n++}`)
+  order.block!.settings.product = product
+  const faq = newBlock('faq', () => `b${n++}`)
+  const content: Content = { version: 2, sections: [{ ...newSection('layout', 'l'), children: [{ id: 'row', kind: 'box', props: {}, children: [order, faq] }] }] }
+  assert.deepEqual(readContent(content), content)
+  assert.deepEqual(references(content).products, [product])
+  assert.deepEqual(orderBlocks(content).map((o) => o.id), ['b0'])
+  const bad = (block: unknown) => readContent({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'block', props: {}, block }] }] })
+  assert.equal(bad({ type: 'layout', settings: {} }), null, 'no layouts inside layouts')
+  assert.equal(bad({ type: 'header', settings: {} }), null)
+  assert.equal(bad({ type: 'order', settings: { product: 'nope' } }), null, 'the section type\'s own rules apply')
+  assert.equal(bad(undefined), null)
+  assert.equal(readContent({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'text', props: {}, block: { type: 'faq', settings: {} } }] }] }), null, 'only block nodes carry a block')
 })

@@ -1,4 +1,4 @@
-import { newNode, nodeDefs, walk, type NodeKind, type PageNode, type Section } from 'storefront/schema'
+import { defOf, newNode, nodeDefs, walk, type NodeKind, type PageNode, type Section } from 'storefront/schema'
 import type { Label } from 'storefront/schema'
 
 // Pure edits on a layout section's tree. Every function returns new arrays and leaves the input untouched.
@@ -59,6 +59,7 @@ export const countNodes = (sections: Section[]) => sections.reduce((n, s) => n +
 // What the editor lists for a node: its kind, plus the first words of its text.
 export function nodeName(node: PageNode, L: (label: Label) => string) {
   const text = typeof node.props.text === 'string' ? node.props.text.trim().split('\n')[0].slice(0, 40) : ''
+  if (node.block) return L(defOf(node.block.type).label)
   return text || L(nodeDefs[node.kind].label)
 }
 

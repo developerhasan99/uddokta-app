@@ -303,6 +303,39 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
   }
 }
 
+
+// A section's (or a block's) settings, checked against its type's fields. Unknown keys are dropped.
+function readSettings(type: SectionType, raw: unknown): Settings | null {
+  if (raw !== undefined && (!raw || typeof raw !== 'object' || Array.isArray(raw))) return null
+  const given = (raw ?? {}) as Record<string, unknown>
+  const settings: Settings = {}
+  for (const field of defOf(type).fields) {
+    if (field.kind === 'icon' && given[field.key] === undefined && defOf(type).defaults[field.key] === undefined) continue
+    const value = given[field.key] ?? defOf(type).defaults[field.key] ?? null
+    if (field.kind === 'list') {
+      if (!Array.isArray(value) || value.length > field.max) return null
+      const items: Record<string, string | null>[] = []
+      for (const item of value as Record<string, unknown>[]) {
+        if (!item || typeof item !== 'object') return null
+        const read: Record<string, string | null> = {}
+        for (const sub of field.fields) {
+          if (sub.kind === 'icon' && item[sub.key] === undefined) continue
+          const v = readLeaf(sub, item[sub.key] ?? (sub.kind === 'image' ? null : ''))
+          if (v === undefined || typeof v === 'number') return null
+          read[sub.key] = v
+        }
+        items.push(read)
+      }
+      settings[field.key] = items
+    } else {
+      const v = readLeaf(field, value)
+      if (v === undefined) return null
+      settings[field.key] = v
+    }
+  }
+  return settings
+}
+
 // The trust boundary for page content: anything that does not match the section's schema is refused, and unknown keys are dropped.
 export function readContent(raw: unknown): Content | null {
   const doc = raw as Content
@@ -315,33 +348,8 @@ export function readContent(raw: unknown): Content | null {
     if (!section || typeof section !== 'object' || !(sectionTypes as string[]).includes(section.type)) return null
     if (typeof section.id !== 'string' || !/^[a-z0-9-]{1,40}$/i.test(section.id) || ids.has(section.id)) return null
     ids.add(section.id)
-    if (section.settings !== undefined && (!section.settings || typeof section.settings !== 'object' || Array.isArray(section.settings))) return null
-    const given = (section.settings ?? {}) as Record<string, unknown>
-    const settings: Settings = {}
-    for (const field of defOf(section.type).fields) {
-      if (field.kind === 'icon' && given[field.key] === undefined && defOf(section.type).defaults[field.key] === undefined) continue
-      const value = given[field.key] ?? defOf(section.type).defaults[field.key] ?? null
-      if (field.kind === 'list') {
-        if (!Array.isArray(value) || value.length > field.max) return null
-        const items: Record<string, string | null>[] = []
-        for (const item of value as Record<string, unknown>[]) {
-          if (!item || typeof item !== 'object') return null
-          const read: Record<string, string | null> = {}
-          for (const sub of field.fields) {
-            if (sub.kind === 'icon' && item[sub.key] === undefined) continue
-            const v = readLeaf(sub, item[sub.key] ?? (sub.kind === 'image' ? null : ''))
-            if (v === undefined || typeof v === 'number') return null
-            read[sub.key] = v
-          }
-          items.push(read)
-        }
-        settings[field.key] = items
-      } else {
-        const v = readLeaf(field, value)
-        if (v === undefined) return null
-        settings[field.key] = v
-      }
-    }
+    const settings = readSettings(section.type, section.settings)
+    if (!settings) return null
     const style = section.style === undefined ? undefined : readSectionStyle(section.style)
     if (style === null) return null
     let children: PageNode[] | undefined
@@ -377,12 +385,17 @@ export function references(content: Content) {
   const products = new Set<string>()
   for (const section of content.sections) {
     for (const node of walk(section.children ?? [])) {
+      if (node.block) add(node.block.type, node.block.settings)
       if (typeof node.props.image === 'string') media.add(node.props.image)
       if (typeof node.style?.backgroundImage === 'string') media.add(node.style.backgroundImage)
       if (typeof node.mobile?.backgroundImage === 'string') media.add(node.mobile.backgroundImage)
     }
-    for (const field of defOf(section.type).fields) {
-      const value = section.settings[field.key]
+    add(section.type, section.settings)
+  }
+  return { media: [...media], products: [...products] }
+  function add(type: SectionType, settings: Settings) {
+    for (const field of defOf(type).fields) {
+      const value = settings[field.key]
       if (field.kind === 'image' && typeof value === 'string') media.add(value)
       if (field.kind === 'product' && typeof value === 'string') products.add(value)
       if (field.kind === 'list' && Array.isArray(value)) {
@@ -390,7 +403,6 @@ export function references(content: Content) {
       }
     }
   }
-  return { media: [...media], products: [...products] }
 }
 
 // Only YouTube and Facebook links are embedded; anything else shows nothing rather than an arbitrary frame.
@@ -417,10 +429,11 @@ export function readPhone(raw: string) {
 // Each node has content (props, per kind), desktop style and mobile overrides. Everything is from fixed lists and
 // ranges, so the storefront can turn it into CSS without escaping anything the seller typed.
 
-export const nodeKinds = ['box', 'heading', 'text', 'image', 'button', 'icon', 'divider', 'spacer', 'video'] as const
+export const nodeKinds = ['box', 'heading', 'text', 'image', 'button', 'icon', 'divider', 'spacer', 'video', 'block'] as const
 export type NodeKind = typeof nodeKinds[number]
 export type NodeStyle = Record<string, string | number>
-export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'desktop' | 'mobile'; children?: PageNode[] }
+// block: a built-in section (order form, FAQ, reviews, …) placed inside a layout, with that section's own settings.
+export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'desktop' | 'mobile'; children?: PageNode[]; block?: { type: SectionType; settings: Settings } }
 export type NodeDef = { label: Label; fields: Leaf[]; defaults: Settings }
 
 export const maxNodes = 400
@@ -445,6 +458,22 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
   divider: { label: ['ভাগ রেখা', 'Divider'], fields: [], defaults: {} },
   spacer: { label: ['ফাঁকা জায়গা', 'Spacer'], fields: [], defaults: {} },
   video: { label: ['ভিডিও', 'Video'], fields: [{ key: 'url', kind: 'url', label: ['ইউটিউব বা ফেসবুক লিংক', 'YouTube or Facebook link'] }], defaults: { url: '' } },
+  block: { label: ['ব্লক', 'Block'], fields: [], defaults: {} },
+}
+
+// Built-in sections that can also sit inside a layout. Page chrome and layouts themselves cannot.
+export const blockTypes = sectionTypes.filter((type) => !['layout', 'header', 'footer'].includes(type))
+export const newBlock = (type: SectionType, id: () => string): PageNode => ({ id: id(), kind: 'block', props: {}, block: { type, settings: structuredClone(defOf(type).defaults) } })
+
+// Every order form a buyer can submit: visible order sections and order blocks in visible layouts, in page order.
+export function orderBlocks(content: Content): { id: string; settings: Settings }[] {
+  const out: { id: string; settings: Settings }[] = []
+  for (const section of content.sections) {
+    if (section.hidden) continue
+    if (section.type === 'order') out.push({ id: section.id, settings: section.settings })
+    for (const node of walk(section.children ?? [])) if (node.block?.type === 'order') out.push({ id: node.id, settings: node.block.settings })
+  }
+  return out
 }
 
 const px = (key: string, label: Label, max: number, min = 0, group: 'layout' | 'style' = 'layout') => ({ key, kind: 'number' as const, min, max, label, group })
@@ -516,12 +545,20 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
     const mobile = readNodeStyle(item.mobile)
     if (!style || !mobile) return null
     if (item.hide !== undefined && item.hide !== 'desktop' && item.hide !== 'mobile') return null
+    let block: PageNode['block']
+    if (kind === 'block') {
+      const raw = item.block as { type?: unknown; settings?: unknown } | undefined
+      if (!raw || typeof raw !== 'object' || !(blockTypes as unknown[]).includes(raw.type)) return null
+      const settings = readSettings(raw.type as SectionType, raw.settings)
+      if (!settings) return null
+      block = { type: raw.type as SectionType, settings }
+    } else if (item.block !== undefined) return null
     let children: PageNode[] | undefined
     if (kind === 'box') {
       children = readNodes(item.children ?? [], depth + 1, ids, budget) ?? undefined
       if (!children) return null
     } else if (item.children !== undefined) return null
-    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}) })
+    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })
   }
   return out
 }

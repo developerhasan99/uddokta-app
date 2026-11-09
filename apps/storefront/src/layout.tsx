@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { IconBadge } from './icons/Icon.tsx'
 import { videoEmbed, walk, type Content, type NodeStyle, type PageNode, type Section } from './schema.ts'
-import type { Ctx } from './sections.tsx'
+import { SectionView, type Ctx } from './sections.tsx'
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 export const rootGap = 24
@@ -57,6 +57,8 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
       return <hr className={className} data-node={node.id} />
     case 'spacer':
       return <div className={className} data-node={node.id} aria-hidden="true" />
+    case 'block':
+      return node.block ? <div className={className} data-node={node.id}><SectionView s={{ id: node.id, type: node.block.type, hidden: false, settings: node.block.settings }} ctx={ctx} orderId={orderId} /></div> : null
     case 'video': {
       const src = videoEmbed(str(p.url))
       if (!src) return ctx.preview ? <div className={`${className} sf-n-placeholder`} data-node={node.id}>ইউটিউব বা ফেসবুক লিংক দিন</div> : null
@@ -164,4 +166,5 @@ h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(2
 .sf-n-placeholder,.sf-n-empty{display:grid;place-items:center;min-height:96px;padding:16px;border:1px dashed var(--sf-rule);border-radius:var(--sf-radius);color:var(--sf-muted);font-size:14px}
 .sf-n-empty{min-height:64px;flex:1 1 auto}
 .sf-n-prompt{opacity:.45;font-style:italic}
+.sf-n-block{width:100%}.sf-n-block>.sf-section{padding:0;background:transparent}.sf-n-block .sf-wrap{max-width:none;padding:0}
 `
