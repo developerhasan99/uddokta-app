@@ -24,7 +24,8 @@ h3 { font-size: var(--text-md); font-weight: 500; line-height: 1.5; }
 .mobilebar { display: none; }
 .brand { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-2xs) var(--space-xs); color: var(--color-frame-ink); font-size: var(--text-lg); font-weight: 600; text-decoration: none; }
 .shell__sidebar { min-height: 0; overflow-y: auto; scrollbar-color: var(--color-frame-3) transparent; }
-.shell__main { min-width: 0; margin: var(--frame-gap) var(--frame-gap) var(--frame-gap) 0; overflow-y: auto; border-radius: var(--radius-panel); background: var(--color-paper-2); }
+/* Positioned so absolute descendants (such as .visually-hidden labels) stay inside this scroller instead of stretching the page below the frame. */
+.shell__main { position: relative; min-width: 0; margin: var(--frame-gap) var(--frame-gap) var(--frame-gap) 0; overflow-y: auto; border-radius: var(--radius-panel); background: var(--color-paper-2); }
 main { outline: 0; }
 
 /* Sidebar */

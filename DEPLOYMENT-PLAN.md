@@ -387,3 +387,4 @@ The three fixed roles (owner, admin, staff) stay as they were, enforced by row-l
 - Checked in the browser in English and Bangla on desktop. Not checked in the browser: the self-role confirmation (the dev store has one owner) and the phone layout (the window could not be resized; columns are narrowed below 40rem).
 
 Next, if sellers ask: per-staff permission areas, enforced in the database and API.
+- Fix: black space below the app frame on long pages (Team showed it most). Hidden screen-reader labels were positioned against the whole page because the scrolling `.shell__main` was not positioned; it now is, so they stay inside it.
