@@ -434,6 +434,19 @@ test('a coupon is priced by the database, counts its uses, and stops at its limi
   assert.equal((await other.call('PATCH', `/stores/${other.handle}/discounts/${eid.id}`, { active: true })).status, 404)
 })
 
+test('an automatic buy-one-get-one offer is shown on the order form and taken off by the database', async () => {
+  const s = await publishedPage()
+  const made = await s.call('POST', `/stores/${s.handle}/discounts`, { method: 'automatic', title: '১টা কিনলে ১টা ফ্রি', type: 'bxgy', buyQty: 1, getQty: 1, value: 100, buysAll: false, buyProducts: [s.product.id], appliesAll: false, getProducts: [s.product.id] })
+  assert.equal(made.status, 201)
+  assert.match(await (await visit(s.handle, s.url)).text(), /<ul class="sf-offers"><li>১টা কিনলে ১টা ফ্রি<\/li><\/ul>/)
+  const fields = { section: s.orderSection, variant: s.product.variants[1].id, quantity: '2', name: 'রাফি', phone: '01711110021', address: 'বাসা ১২, ধানমন্ডি', rate: s.inside }
+  const placed = await order(s.handle, s.url, fields)
+  assert.equal(placed.status, 303)
+  assert.match(await (await visit(s.handle, placed.headers.get('location')!)).text(), /৳১,৩৬০/, '2 × 1300 − 1300 + 60')
+  await s.call('PATCH', `/stores/${s.handle}/discounts/${made.json.id}`, { active: false })
+  assert.doesNotMatch(await (await visit(s.handle, s.url)).text(), /<ul class="sf-offers">/, 'a paused offer is not shown')
+})
+
 test('a store’s pixels load on its pages, are allowed by the page’s own policy, and report the order on thanks', async () => {
   const plain = await publishedPage()
   assert.doesNotMatch(await (await visit(plain.handle, plain.url)).text(), /fbq\(|ttq\./, 'no pixels unless the store sets them')

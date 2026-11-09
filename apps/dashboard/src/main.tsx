@@ -41,6 +41,7 @@ import { Analytics } from './pages/Analytics'
 import { Couriers } from './pages/Couriers'
 import { Customers } from './pages/Customers'
 import { DesignSystem } from './pages/DesignSystem'
+import { DiscountEdit } from './pages/DiscountEdit'
 import { Discounts } from './pages/Discounts'
 import { NewStore, Stores } from './pages/Stores'
 
@@ -89,6 +90,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="landing-pages" element={<Pages />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="discounts" element={<Discounts />} />
+                <Route path="discounts/new" element={<DiscountEdit key="discount" />} />
+                <Route path="discounts/:id" element={<DiscountEdit key="discount" />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="customers/repeat-sales" element={<RepeatSales />} />
                 <Route path="online-store" element={<OnlineStore />} />

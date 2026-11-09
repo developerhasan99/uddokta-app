@@ -389,3 +389,40 @@ The three fixed roles (owner, admin, staff) stay as they were, enforced by row-l
 Next, if sellers ask: per-staff permission areas, enforced in the database and API.
 - Fix: black space below the app frame on long pages (Team showed it most). Hidden screen-reader labels were positioned against the whole page because the scrolling `.shell__main` was not positioned; it now is, so they stay inside it.
 - Settings menu stays in place while a settings page scrolls: sticky beside the content on desktop, and a sticky tab strip with its own background on phones.
+
+## Discounts like Shopify (November 9, 2026)
+
+Discounts grew from one kind of coupon into four types, each either a code or automatic.
+
+- **Types:**
+  - Amount off order (percent or fixed).
+  - Amount off products (percent, or a fixed amount per item, on all or chosen products).
+  - Buy X get Y: buy N of any or chosen products, get M of any or chosen products free or at a percent off, optionally capped per order.
+  - Free delivery.
+- **Rules:** minimum amount or minimum quantity, total use limit, once per phone number (cancelled orders do not count), start and end dates, on/off.
+- **Database:**
+  - `0074_discount_types` adds the new columns and checks, `discount_products` (role buy/get, store-scoped foreign keys) and `orders.discount_id`. Orders may now discount up to subtotal plus delivery, for free delivery. Existing coupons keep working, and their start date is backfilled from when they were made.
+  - `0075_discount_engine`:
+    - Row-level security for `discount_products`.
+    - Backfills `orders.discount_id` from codes.
+    - `discount_amount()` is the only calculator. For buy X get Y, the cheapest qualifying units are the ones discounted, as many times as fit.
+    - `pick_discount()`: one discount per order, the typed code or the best automatic one, with the use counted race-free.
+    - `place_order_lines` and `edit_order_lines` use them. Edits re-run the same discount on the new lines.
+    - `storefront_offers()` lists running automatic offers for a product.
+- **API** (`discounts.ts`):
+  - GET list (with product counts), GET one (with products), POST, PUT (rules change for new orders only), PATCH on/off, DELETE (owners and admins).
+  - New errors: `discountTitleRequired`, `discountDatesInvalid`, `discountProductsRequired`.
+- **Dashboard:**
+  - The Discounts list has All/Active/Scheduled/Expired tabs, search, status badges, method and uses.
+  - "Create discount" opens a type chooser.
+  - `DiscountEdit.tsx` has method (code with Generate, or automatic title), value, applies-to or buy/get product lists via the product picker, minimum requirements, limits and dates, plus a live summary, on/off and delete.
+  - The order page labels the line "Discount (name)".
+- **Storefront:** the order form lists running automatic offers under the product. The note says offers and coupons are taken off when the order is confirmed.
+- **Tests:** `discounts.test.ts` (6 tests: validation, BOGO free and half price, cross-product BOGO, product and order amounts, free delivery, best-wins, scheduled, paused, once-per-phone, edits, deleted products) and a storefront BOGO test. API 133 and storefront 38 pass.
+- **Checked in the browser:** created an automatic Buy 1 get 1 free through the UI and saw it on the live landing page's order form. The test discount was deleted afterwards.
+
+Next, if sellers ask:
+- Show the discounted total live in the order form script (display only).
+- Collections as discount targets.
+- Combining discounts.
+- Per-buyer usage reports.

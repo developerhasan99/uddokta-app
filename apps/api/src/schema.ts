@@ -295,7 +295,9 @@ export const orders = pgTable('orders', {
   subtotal: integer('subtotal').notNull(),
   deliveryCharge: integer('delivery_charge').notNull(),
   discount: integer('discount').notNull().default(0),
+  // What the discount was called (its code or automatic title) and which one, for once-per-phone and order edits.
   discountCode: text('discount_code').notNull().default(''),
+  discountId: uuid('discount_id').references(() => discounts.id, { onDelete: 'set null' }),
   total: integer('total').notNull(),
   source: text('source').notNull(),
   pageId: uuid('page_id'),
@@ -311,7 +313,7 @@ export const orders = pgTable('orders', {
   index('orders_store_phone').on(t.storeId, t.phone),
   check('orders_status', sql`${t.status} in ('new', 'hold', 'confirmed', 'packed', 'courier', 'delivered', 'returned', 'cancelled')`),
   check('orders_tags', sql`cardinality(${t.tags}) <= 10`),
-  check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
+  check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} + ${t.deliveryCharge} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
 ])
 
 // Name, option and price are copied at the time of sale, so editing the product later never changes an old order.
@@ -418,25 +420,61 @@ export const shipments = pgTable('shipments', {
 ])
 
 export const discountKinds = ['percent', 'amount'] as const
+// order: off the products total. products: off chosen products. bxgy: buy buy_qty, get get_qty at value% off (100 = free).
+// shipping: free delivery. Amounts are worked out only by discount_amount() in the database (migration 0075).
+export const discountTypes = ['order', 'products', 'bxgy', 'shipping'] as const
 
 // Coupon codes buyers type at checkout. place_order checks and applies them; codes are stored in capitals.
 export const discounts = pgTable('discounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  code: text('code').notNull(),
+  type: text('type', { enum: discountTypes }).notNull().default('order'),
+  // A code the buyer types, or null for an automatic discount, which then needs a title buyers see.
+  code: text('code'),
+  title: text('title').notNull().default(''),
   kind: text('kind', { enum: discountKinds }).notNull(),
   value: integer('value').notNull(),
   minSubtotal: integer('min_subtotal').notNull().default(0),
+  minQty: integer('min_qty').notNull().default(0),
   maxUses: integer('max_uses'),
   uses: integer('uses').notNull().default(0),
+  oncePerPhone: boolean('once_per_phone').notNull().default(false),
+  // Which products count: all, or those in discount_products (role 'get' for what is discounted, 'buy' for what must be bought).
+  appliesAll: boolean('applies_all').notNull().default(true),
+  buysAll: boolean('buys_all').notNull().default(true),
+  buyQty: integer('buy_qty'),
+  getQty: integer('get_qty'),
+  maxPerOrder: integer('max_per_order'),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
   endsAt: timestamp('ends_at', { withTimezone: true }),
   active: boolean('active').notNull().default(true),
   createdAt: createdAt(),
 }, (t) => [
   unique('discounts_store_code').on(t.storeId, t.code),
+  unique('discounts_store_id').on(t.storeId, t.id),
   check('discounts_kind', sql`${t.kind} in ('percent', 'amount')`),
-  check('discounts_code', sql`${t.code} ~ '^[A-Z0-9]{2,30}$'`),
-  check('discounts_value', sql`${t.value} > 0 and (${t.kind} = 'amount' or ${t.value} <= 100) and ${t.minSubtotal} >= 0 and (${t.maxUses} is null or ${t.maxUses} > 0) and ${t.uses} >= 0`),
+  check('discounts_type', sql`${t.type} in ('order', 'products', 'bxgy', 'shipping')`),
+  check('discounts_code', sql`${t.code} is null or ${t.code} ~ '^[A-Z0-9]{2,30}$'`),
+  check('discounts_title', sql`char_length(${t.title}) <= 100 and (${t.code} is not null or ${t.title} <> '')`),
+  check('discounts_value', sql`${t.value} > 0 and (${t.kind} = 'amount' or ${t.value} <= 100) and ${t.minSubtotal} >= 0 and ${t.minQty} >= 0 and (${t.maxUses} is null or ${t.maxUses} > 0) and ${t.uses} >= 0`),
+  check('discounts_bxgy', sql`case when ${t.type} = 'bxgy' then ${t.kind} = 'percent' and ${t.buyQty} between 1 and 100 and ${t.getQty} between 1 and 100 and (${t.maxPerOrder} is null or ${t.maxPerOrder} between 1 and 100)
+    else ${t.buyQty} is null and ${t.getQty} is null and ${t.maxPerOrder} is null end`),
+  check('discounts_shipping', sql`${t.type} <> 'shipping' or (${t.kind} = 'percent' and ${t.value} = 100)`),
+  check('discounts_dates', sql`${t.endsAt} is null or ${t.endsAt} > ${t.startsAt}`),
+])
+
+// The products a discount names. Deleting a product drops it from the list; an empty list then matches nothing, never everything.
+export const discountProducts = pgTable('discount_products', {
+  storeId: uuid('store_id').notNull(),
+  discountId: uuid('discount_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  role: text('role', { enum: ['buy', 'get'] }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.discountId, t.productId, t.role] }),
+  index('discount_products_product').on(t.storeId, t.productId),
+  foreignKey({ name: 'discount_products_discount', columns: [t.storeId, t.discountId], foreignColumns: [discounts.storeId, discounts.id] }).onDelete('cascade'),
+  foreignKey({ name: 'discount_products_product_fk', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
+  check('discount_products_role', sql`${t.role} in ('buy', 'get')`),
 ])
 
 // Opaque checkout receipts also hold the idempotency result. Public reads expose only number and total.

@@ -75,9 +75,11 @@ export async function loadPage(store: string, handle: string) {
     const mediaRows = await t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(
       sql`select * from storefront_media(${page.store_id}::uuid, ${`{${refs.media.join(',')}}`}::uuid[])`)
     const images = new Map<string, Img>(mediaRows.rows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
+    const offers = await offersFor(t, page.store_id, refs.products)
     const products = new Map<string, Product>(productRows.rows.map((p) => [p.id, {
       id: p.id,
       name: p.name,
+      offers: offers.get(p.id),
       image: p.image_key ? { url: publicUrl(p.image_key), alt: p.image_alt || p.name, width: p.image_width, height: p.image_height } : null,
       variants: p.variants.map((v) => ({ id: v.id, label: v.options.join(' / ') || p.name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 })),
     }]))
@@ -85,6 +87,16 @@ export async function loadPage(store: string, handle: string) {
   })
 }
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadPage>>>
+
+// Automatic discounts running for each product, shown on its order form.
+async function offersFor(t: Tx, storeId: string, productIds: string[]) {
+  const found = new Map<string, string[]>()
+  for (const id of productIds) {
+    const rows = (await t.execute<{ title: string }>(sql`select title from storefront_offers(${storeId}::uuid, ${id}::uuid)`)).rows
+    if (rows.length > 0) found.set(id, rows.map((r) => r.title))
+  }
+  return found
+}
 
 type VariantRow = { id: string; options: string[]; price: number; comparePrice: number | null; stock: number | null }
 type StoreRow = { id: string; name: string; theme: string }
@@ -122,7 +134,8 @@ async function loadProduct(storeId: string, handle: string) {
     sql`select * from storefront_product(${storeId}::uuid, ${handle})`))).rows[0]
   if (!row) return null
   const images = row.images.map((m) => image(m.key, m.alt || row.name, m.width, m.height)!)
-  const product: Product = { id: row.id, name: row.name, image: images[0] ?? null, variants: toVariants(row.variants, row.name) }
+  const offers = await tx(null, (t) => offersFor(t, storeId, [row.id]))
+  const product: Product = { id: row.id, name: row.name, image: images[0] ?? null, variants: toVariants(row.variants, row.name), offers: offers.get(row.id) }
   return { ...row, images, product }
 }
 type LoadedProduct = NonNullable<Awaited<ReturnType<typeof loadProduct>>>

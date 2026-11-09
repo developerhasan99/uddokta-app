@@ -139,7 +139,9 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 ## Sales tools
 
-- Coupons (`discounts`) are applied inside `place_order`, which counts each use in the same statement that checks the limit. `place_order` returns the order number and the total; show that total, never one worked out in app code.
+- Discounts (`discounts`, `discount_products`): amount off the order, amount off chosen products (percent, or a fixed amount per item), buy X get Y (value = percent off the cheapest qualifying items, 100 = free) and free delivery. Each is a code or automatic (no code, with a title shown on the order form via `storefront_offers`), with minimum amount or quantity, total use limit, once per phone, start/end dates and on/off.
+- Only `discount_amount()` (migration 0075) works out what a discount takes off. `pick_discount()` gives each order one discount, the typed code or the best automatic one, whichever saves more, and counts its use in the statement that checks the limit. A typed code that does not apply is refused. `place_order` returns the order number and the total; show that total, never one worked out in app code.
+- An empty product list means no products, never all: deleting a product can only narrow a discount. Order edits re-run the order's own discount on the new lines; a deleted discount keeps the agreed amount.
 - Incomplete orders: the page script saves what a buyer typed once the phone is valid (`save_checkout_draft`), one row per number, swept after 90 days. Ordering marks it ordered.
 - Fake-order protection: `blocked_phones` refuses storefront orders (typed-in orders still work). Repeat orders for the same product within 24 hours are marked, never refused.
 - Repeat sales: buyers whose last order was delivered `days` ago and who have not ordered since; a logged call hides them for 7 days, or 90 if not interested.

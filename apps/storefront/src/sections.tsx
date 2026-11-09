@@ -7,7 +7,8 @@ import { videoEmbed, type Content, type Section, type SectionStyle } from './sch
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
-export type Product = { id: string; name: string; image: Img | null; variants: Variant[] }
+// offers: titles of the automatic discounts running for it (storefront_offers); the database decides what each takes off.
+export type Product = { id: string; name: string; image: Img | null; variants: Variant[]; offers?: string[] }
 export type OrderValues = Partial<Record<'variant' | 'quantity' | 'name' | 'phone' | 'address' | 'rate' | 'coupon' | 'checkout', string>>
 // A delivery option from Settings › Delivery, as the storefront shows it.
 export type ShippingOption = { id: string; name: string; note: string; price: number; freeOver: number | null; freeMinQty: number | null; freeProducts: string[] }
@@ -227,6 +228,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             <Picture img={product.image ?? undefined} />
             <p>{product.name}</p>
           </div>
+          {product.offers && product.offers.length > 0 && <ul className="sf-offers">{product.offers.map((o) => <li key={o}>{o}</li>)}</ul>}
           {available.length === 0 && <p className="sf-error" role="alert">{orderErrors.soldOut}</p>}
 
           {product.variants.length > 1 && product.variants.length <= maxChoices && (
@@ -297,7 +299,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             <input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} />
           </label>
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
-          <p className="sf-note">কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
+          <p className="sf-note">অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
           <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
         </form>
@@ -565,6 +567,8 @@ h1,h2,h3,p{margin:0}
 .sf-choice input{accent-color:var(--sf-accent);width:18px;height:18px;margin:0}
 .sf-total{display:flex;justify-content:space-between;font-size:18px;border-top:1px solid var(--sf-rule);padding-top:12px}
 .sf-note{color:var(--sf-muted);font-size:14px}
+.sf-offers{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.sf-offers li{padding:6px 10px;border-radius:6px;background:color-mix(in oklab,var(--sf-accent) 12%,transparent);color:var(--sf-ink);font-size:14px;font-weight:600}
 .sf-error{color:var(--sf-error);font-weight:600}
 .sf-contact{text-align:center}
 .sf-gallery{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}

@@ -1178,6 +1178,15 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .campaign-layout:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .campaign-layout input { flex: none; accent-color: var(--color-primary); }
 .campaign-layout__copy { display: grid; flex: 1; gap: var(--space-2xs); min-width: 0; }
+/* Discounts: the type choices are buttons in the same card style, and the list tabs are buttons too. */
+.discount-types .campaign-layout { width: 100%; background: var(--color-paper); color: inherit; font: inherit; text-align: start; }
+@media (hover: hover) { .discount-types .campaign-layout:hover { border-color: var(--color-primary); background: var(--color-paper-2); } }
+button.tab { border: 0; background: none; font: inherit; cursor: pointer; }
+.discount-products { display: grid; gap: var(--space-xs); }
+.discount-row__sub { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.discount-summary { display: grid; gap: var(--space-3xs); }
+.discount-summary strong { font-size: var(--text-lg); overflow-wrap: anywhere; }
+.discount-summary__lines { display: grid; gap: var(--space-2xs); margin: 0; padding-inline-start: var(--space-md); font-size: var(--text-sm); }
 .campaign-layout__copy strong { font-weight: 500; }
 .campaign-layout__copy .muted { font-size: var(--text-sm); }
 .campaign-layout__diagram { display: grid; gap: var(--space-3xs); flex: none; width: 3rem; padding: var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper); }
