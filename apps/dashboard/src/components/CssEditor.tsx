@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { basicSetup, EditorView } from 'codemirror'
 import { css } from '@codemirror/lang-css'
+import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorState } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
@@ -21,6 +22,7 @@ export default function CssEditor({ value, onChange, label, describedBy, maxLeng
         extensions: [
           basicSetup,
           css(),
+          oneDark,
           keymap.of([indentWithTab]),
           EditorState.changeFilter.of((tr) => tr.newDoc.length <= maxLength),
           EditorView.contentAttributes.of({ 'aria-label': label, ...(describedBy ? { 'aria-describedby': describedBy } : {}) }),

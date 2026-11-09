@@ -1660,3 +1660,31 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
   .node-add__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .editor-tree__name { min-height: 36px; }
 }
+
+/* The page editor is dark. Only its own panels change: the preview iframe is a separate document and keeps the
+   storefront's colours, so sellers judge their page against a neutral frame. Dialogs opened from the editor live
+   inside .editor and turn dark with it. */
+.editor, .editor-loading {
+  color-scheme: dark;
+  --color-paper: oklch(22% 0.004 155); --color-paper-2: oklch(18.5% 0.004 155); --color-paper-3: oklch(28% 0.005 155);
+  --color-ink: oklch(96% 0 0); --color-ink-2: oklch(85% 0 0); --color-muted: oklch(68% 0 0);
+  --color-rule: oklch(29% 0.004 155); --color-rule-strong: oklch(35% 0.005 155); --color-field: oklch(42% 0 0);
+  --color-primary: oklch(62% 0.15 155); --color-primary-2: oklch(56% 0.14 155); --color-focus: oklch(70% 0.15 155);
+  --color-error: oklch(70% 0.17 27); --color-error-soft: oklch(32% 0.07 27);
+  --shadow-btn: 0 0 0 1px oklch(100% 0 0 / 0.1), 0 1px 2px oklch(0% 0 0 / 0.4);
+  --shadow-btn-pressed: inset 0 1px 3px oklch(0% 0 0 / 0.5), 0 0 0 1px oklch(100% 0 0 / 0.08);
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4);
+  --shadow-dialog: 0 0 0 1px oklch(100% 0 0 / 0.08), 0 24px 56px oklch(0% 0 0 / 0.6);
+  --color-scrim: oklch(0% 0 0 / 0.6);
+  background: var(--color-paper-2); color: var(--color-ink);
+}
+.editor .btn--default { background: var(--color-paper-3); color: var(--color-ink); }
+.editor .btn--default:hover { background: oklch(32% 0.005 155); }
+.editor .btn--primary { color: oklch(100% 0 0); }
+.editor .input, .editor .input-affix, .editor .design-color__input, .editor .space-value input { background: var(--color-paper-2); }
+.editor select.input { background-color: var(--color-paper-2); }
+.editor .space-map--margin { background: var(--color-paper-2); }
+.editor .space-map--padding { background: color-mix(in oklab, var(--color-primary) 10%, var(--color-paper)); }
+.editor .badge { background: var(--color-paper-3); color: var(--color-ink-2); }
+.editor .css-editor { border-color: var(--color-rule-strong); }
+.editor .editor-preview--mobile iframe, .editor .editor-preview iframe { background: #fff; }
