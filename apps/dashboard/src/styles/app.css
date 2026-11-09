@@ -886,9 +886,10 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .editor__title { justify-content: flex-start; }
   .editor__views, .editor__history { display: none; }
   .editor__dock { grid-area: dock; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper); }
-  .editor .editor__dock .btn--icon { width: auto; min-width: 0; min-height: 52px; padding: 0; border: 0; border-top: 3px solid transparent; border-radius: 0; box-shadow: none; background: transparent; color: var(--color-muted); }
+  .editor .editor__dock .btn--icon { flex-direction: column; gap: 2px; width: auto; min-width: 0; min-height: 56px; padding: 0; border: 0; border-top: 3px solid transparent; border-radius: 0; box-shadow: none; background: transparent; color: var(--color-muted); }
   .editor .editor__dock .btn--icon + .btn--icon { border-inline-start: var(--rule-hair) solid var(--color-rule); }
   .editor .editor__dock .btn--icon:nth-child(2) { border-inline-end: var(--rule-hair) solid var(--color-rule-strong); }
+  .editor__dock-label { max-width: 100%; overflow: hidden; font-size: 11px; font-weight: 500; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .editor .editor__dock .btn--icon[aria-pressed="true"] { border-top-color: var(--color-primary); background: var(--color-paper-3); color: var(--color-primary); }
   .editor .editor__dock .btn--icon:disabled { color: var(--color-rule-strong); }
   .editor__nav .btn--icon { width: 36px; min-width: 36px; min-height: 36px; }
