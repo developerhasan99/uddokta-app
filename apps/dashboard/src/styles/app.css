@@ -882,7 +882,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 /* Phones and small tablets: full-screen work area with thumb-accessible navigation. */
 @media (max-width: 860px) {
   .editor { --text-md: 0.8125rem; --text-lg: 0.875rem; height: 100dvh; grid-template: "bar" auto "error" auto "main" minmax(0, 1fr) "dock" auto / minmax(0, 1fr); font-size: var(--text-md); line-height: 1.45; }
-  .editor__bar { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-xs); min-height: 48px; padding: max(var(--space-2xs), env(safe-area-inset-top)) var(--space-sm) var(--space-2xs); }
+  .editor__bar { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-md); min-height: 56px; padding: max(var(--space-2xs), env(safe-area-inset-top)) var(--space-sm) var(--space-2xs); }
   .editor__title { justify-content: flex-start; }
   .editor__views, .editor__history { display: none; }
   .editor__dock { grid-area: dock; display: flex; justify-content: space-around; padding: var(--space-2xs) var(--space-xs) calc(var(--space-2xs) + env(safe-area-inset-bottom)); border-top: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper); }
@@ -891,7 +891,11 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .editor .editor__dock .btn--icon:disabled { opacity: .35; }
   .editor__nav .btn--icon { width: 36px; min-width: 36px; min-height: 36px; }
   .css-editor .cm-editor { font-size: 16px; }
-  .editor__title h1 { flex: 1; font-size: var(--text-lg); }
+  .editor__title h1 { flex: 0 1 auto; min-width: 0; font-size: var(--text-lg); }
+  .editor__nav, .editor__tools { position: relative; }
+  .editor__nav::after, .editor__tools::before { content: ""; position: absolute; top: 50%; width: 1px; height: 20px; background: var(--color-rule-strong); transform: translateY(-50%); }
+  .editor__nav::after { right: calc(-1 * var(--space-md) / 2); }
+  .editor__tools::before { left: calc(-1 * var(--space-md) / 2); }
   .editor__nav .detail-head__back { display: grid; place-items: center; width: 36px; min-height: 36px; flex-shrink: 0; }
   .editor__tools { gap: var(--space-2xs); }
   .editor .editor__tools .btn--icon { width: 36px; min-width: 36px; min-height: 36px; }
