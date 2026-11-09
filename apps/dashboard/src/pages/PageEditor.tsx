@@ -1,13 +1,15 @@
-import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
+import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
+import { findNode, insertNode, layoutPresets, moveNode, nodeName, reId, reIdSection, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, LayoutGrid, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, LayoutGrid, Box, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
-import { defOf, isSectionLink, maxCss, maxSections, newSection, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { defOf, isSectionLink, maxCss, maxSections, newNode, newSection, nodeDefs, nodeKinds, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
@@ -34,6 +36,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 const sectionIcons = { layout: LayoutGrid, icon: Sparkles, iconCards: LayoutTemplate, iconList: ListChecks, announcement: MessageSquare, header: LayoutTemplate, footer: LayoutTemplate, imageText: Image, trust: CircleCheck, steps: ListChecks, specifications: ListChecks, comparison: ListChecks, cards: Images, cta: ShoppingBag, hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video }
 const historyLimit = 100
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: p.draft })
 const newId = () => crypto.randomUUID().slice(0, 8)
@@ -48,7 +51,9 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
 
   useEffect(() => {
     if (!body || !selected) return
-    body.querySelector(`[data-section="${selected}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    const node = body.querySelector(`[data-node="${selected}"]`)
+    if (node) node.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    else body.querySelector(`[data-section="${selected}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }, [body, selected])
 
   const attach = (frame: HTMLIFrameElement) => {
@@ -63,8 +68,8 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
         const hash = link.getAttribute('href')
         if (hash?.startsWith('#')) doc.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth' })
       }
-      const section = target.closest('[data-section]')
-      if (section) select.current(section.getAttribute('data-section')!)
+      const picked = target.closest('[data-node]') ?? target.closest('[data-section]')
+      if (picked) select.current(picked.getAttribute('data-node') ?? picked.getAttribute('data-section')!)
     })
     doc.addEventListener('submit', (e) => e.preventDefault())
     setBody(doc.body)
@@ -77,7 +82,7 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect }:
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
-          <style>{`[data-section]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}` : ''}`}</style>
+          <style>{`[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={ctx} storeName={storeName} />}
         </>,
         body,
@@ -252,6 +257,33 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (typ
   </dialog>
 }
 
+function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void }) {
+  const { lang } = useLang()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
+  const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
+  const titleId = useId()
+  useEffect(() => { dialog.current?.showModal() }, [])
+  return <dialog {...dialogProps} className="modal node-add" aria-labelledby={titleId}>
+    <DialogHead id={titleId} title={L(['কী যোগ করবেন?', 'Add to the layout'])} onClose={() => close()} />
+    <div className="dialog__body">
+      <p className="node-add__label">{L(['এলিমেন্ট', 'Elements'])}</p>
+      <ul className="node-add__grid">
+        {nodeKinds.filter((kind) => kind !== 'box').map((kind) => {
+          const Icon = nodeIcons[kind]
+          return <li key={kind}><button type="button" onClick={() => close(() => onAdd((id) => newNode(kind, id)))}><Icon size={20} strokeWidth={1.75} aria-hidden="true" /><span>{L(nodeDefs[kind].label)}</span></button></li>
+        })}
+      </ul>
+      <p className="node-add__label">{L(['লেআউট', 'Layouts'])}</p>
+    </div>
+    <div className="dialog__body dialog__body--flush">
+      <ul className="dialog-list">
+        <li><button type="button" className="dialog-list__item" onClick={() => close(() => onAdd((id) => newNode('box', id)))}><Box className="dialog-list__icon" size={18} aria-hidden="true" /><span className="dialog-list__text"><strong>{L(['খালি বক্স', 'Empty box'])}</strong><span>{L(['যেকোনো কিছু রাখার পাত্র, নিচে নিচে বা পাশাপাশি', 'A container for anything, stacked or side by side'])}</span></span><ChevronDown className="dialog-list__chevron" size={18} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }} /></button></li>
+        {layoutPresets.map((preset) => <li key={preset.key}><button type="button" className="dialog-list__item" onClick={() => close(() => onAdd(preset.build))}><LayoutGrid className="dialog-list__icon" size={18} aria-hidden="true" /><span className="dialog-list__text"><strong>{L(preset.label)}</strong><span>{L(preset.help)}</span></span><ChevronDown className="dialog-list__chevron" size={18} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }} /></button></li>)}
+      </ul>
+    </div>
+  </dialog>
+}
+
 function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; onLeave: () => void; onSave: () => void; busy: boolean }) {
   const { t } = useLang()
   const { ref, close: dismiss, props: leaveProps } = useDialog(onClose)
@@ -289,6 +321,8 @@ export function PageEditor() {
   const [theme, setTheme] = useState<PresetId>('fresh')
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | null>(null)
+  const [device, setDevice] = useState<Device>('desktop')
+  const [addingNode, setAddingNode] = useState<{ sectionId: string; parentId: string | null; index: number } | null>(null)
   const [view, setView] = useState<'sections' | 'page'>('sections')
   const settingsPanel = useRef<HTMLElement>(null)
   useEffect(() => { settingsPanel.current?.scrollTo({ top: 0 }) }, [selected, settingsTab])
@@ -536,8 +570,8 @@ export function PageEditor() {
     ><span /></li>
   )
   const add = (type: SectionType) => {
-    const section = newSection(type, newId())
-    const at = sections.findIndex((s) => s.id === selected)
+    const section = type === 'layout' ? { ...newSection(type, newId()), children: starterNodes(newId) } : newSection(type, newId())
+    const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
     const next = [...sections]
     next.splice(at === -1 ? next.length : at + 1, 0, section)
     setSections(next)
@@ -547,7 +581,7 @@ export function PageEditor() {
     setPane('edit')
   }
   const duplicate = (s: Section) => {
-    const copy = { ...structuredClone(s), id: newId() }
+    const copy = reIdSection(s, newId)
     const next = [...sections]
     next.splice(sections.indexOf(s) + 1, 0, copy)
     setSections(next)
@@ -559,6 +593,76 @@ export function PageEditor() {
     setAdding(false)
     setSelected(sid)
     setPane('edit')
+  }
+
+  const found = findNode(sections, selected)
+  const editTree = (sectionId: string, fn: (nodes: PageNode[]) => PageNode[], key?: string) => setSections(sections.map((s) => (s.id === sectionId ? { ...s, children: fn(s.children ?? []) } : s)), key)
+  const addNode = (build: (id: () => string) => PageNode) => {
+    if (!addingNode) return
+    const node = build(newId)
+    editTree(addingNode.sectionId, (nodes) => insertNode(nodes, addingNode.parentId, addingNode.index, node))
+    setAddingNode(null)
+    choose(node.id)
+  }
+  const addAfter = (f: Found) => setAddingNode(f.node.kind === 'box' ? { sectionId: f.section.id, parentId: f.node.id, index: f.node.children?.length ?? 0 } : { sectionId: f.section.id, parentId: f.parent?.id ?? null, index: f.index + 1 })
+  const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
+    const Icon = nodeIcons[n.kind]
+    return <Fragment key={n.id}>
+      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}`} style={{ paddingInlineStart: depth * 14 }}>
+        <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} onClick={() => choose(n.id)}><Icon size={14} aria-hidden="true" /><span>{nodeName(n, L)}</span></button>
+        {n.kind === 'box' && <IconButton label={L(['ভেতরে যোগ করুন', 'Add inside'])} title={L(['ভেতরে যোগ করুন', 'Add inside'])} onClick={() => setAddingNode({ sectionId, parentId: n.id, index: n.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" /></IconButton>}
+      </div>
+      {n.children && tree(sectionId, n.children, depth + 1)}
+    </Fragment>
+  })
+  const nodePanel = (f: Found) => {
+    const def = nodeDefs[f.node.kind]
+    const tab = def.fields.length === 0 && settingsTab === 'content' ? 'layout' : settingsTab
+    const at = (fn: (n: PageNode) => PageNode, key?: string) => editTree(f.section.id, (nodes) => updateNode(nodes, f.node.id, fn), key)
+    const patch = (values: Record<string, string | number | undefined>, typingKey?: string) => at((n) => {
+      const slot = device === 'mobile' ? 'mobile' : 'style'
+      const style = { ...(n[slot] ?? {}) }
+      for (const [k, v] of Object.entries(values)) {
+        if (v === undefined || v === '') delete style[k]
+        else style[k] = v
+      }
+      const next = { ...n }
+      if (Object.keys(style).length) next[slot] = style
+      else delete next[slot]
+      return next
+    }, typingKey ? `${f.node.id}:${device}:${typingKey}` : undefined)
+    const remove = () => {
+      editTree(f.section.id, (nodes) => removeNode(nodes, f.node.id))
+      setSelected(f.parent?.id ?? f.section.id)
+    }
+    return <>
+      <div className="editor__settings-head">
+        <h2 className="editor__heading">{L(def.label)}</h2>
+        <div className="row">
+          <IconButton label={L(['বাইরের স্তর বাছুন', 'Select the box around it'])} title={L(['বাইরের স্তর বাছুন', 'Select the box around it'])} onClick={() => choose(f.parent?.id ?? f.section.id)}><CornerLeftUp size={16} aria-hidden="true" /></IconButton>
+          <button type="button" className="media__dismiss" aria-label={t('mediaClose')} onClick={() => { setSelected(null); setPane('sections') }}><X size={16} aria-hidden="true" /></button>
+        </div>
+      </div>
+      <div className="editor-setting-tabs" role="group" aria-label={L(def.label)}>
+        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || def.fields.length > 0).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{L(x === 'content' ? ['কন্টেন্ট', 'Content'] : x === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+      </div>
+      <div className="editor__form">
+        {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
+        {tab === 'content'
+          ? <div className="editor__fields">{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
+              onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
+          : <NodeDesignControls key={`${f.node.id}:${tab}:${device}`} node={f.node} tab={tab} device={device} media={media} onPatch={patch}
+              onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
+              onPickImage={(apply) => setPicking({ kind: 'image', apply })} />}
+        <Button onClick={() => addAfter(f)}><Plus size={16} aria-hidden="true" />{f.node.kind === 'box' ? L(['এই বক্সের ভেতরে যোগ করুন', 'Add inside this box']) : L(['এর নিচে যোগ করুন', 'Add below this'])}</Button>
+      </div>
+      <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
+        <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={f.index === 0} onClick={() => editTree(f.section.id, (nodes) => moveNode(nodes, f, -1))}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
+        <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={f.index === f.siblings.length - 1} onClick={() => editTree(f.section.id, (nodes) => moveNode(nodes, f, 1))}><ArrowDown size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveDown')}</span></IconButton>
+        <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} onClick={() => { const copy = reId(f.node, newId); editTree(f.section.id, (nodes) => insertNode(nodes, f.parent?.id ?? null, f.index + 1, copy)); setSelected(copy.id) }}><Copy size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageDuplicateSection')}</span></IconButton>
+        <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={remove}><Trash2 size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageRemoveSection')}</span></IconButton>
+      </div>
+    </>
   }
 
 
@@ -613,7 +717,7 @@ export function PageEditor() {
         </div>
       )}
 
-      <div className="editor__sidebar" data-view={view} data-editing={view !== 'sections' || Boolean(section)}>
+      <div className="editor__sidebar" data-view={view} data-editing={view !== 'sections' || Boolean(section || found)}>
       {view === 'sections' && <>
       <aside className="editor__sections" inert={busy} aria-label={t('pageSections')}>
         <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
@@ -700,6 +804,10 @@ export function PageEditor() {
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
               </IconButton>
             </li>
+            {s.type === 'layout' && (s.id === selected || found?.section.id === s.id) && <li className="editor-tree">
+              {tree(s.id, s.children ?? [], 1)}
+              <button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId: s.id, parentId: null, index: s.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button>
+            </li>}
             </Fragment>
           ))}
           {dropSpace(sections.length)}
@@ -709,7 +817,7 @@ export function PageEditor() {
       </aside>
 
       <aside ref={settingsPanel} className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
-        {section ? (
+        {found ? nodePanel(found) : section ? (
           <>
             <div className="editor__settings-head">
               <h2 className="editor__heading">{L(defOf(section.type).label)}</h2>
@@ -745,6 +853,10 @@ export function PageEditor() {
                   for (const field of styleFieldsFor(section.type).filter((f) => f.group === settingsTab)) delete style[field.key]
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
                 }}>{L(settingsTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
+              </>}
+              {section.type === 'layout' && settingsTab === 'content' && <>
+                <p className="muted">{L(['এই সেকশনে বক্স আর এলিমেন্ট সাজিয়ে নিজের মতো ডিজাইন করুন। প্রিভিউতে বা বাঁয়ের তালিকায় ক্লিক করে যেকোনো অংশ বদলান।', 'Arrange boxes and elements in this section however you like. Click any part in the preview or the list on the left to change it.'])}</p>
+                <Button onClick={() => setAddingNode({ sectionId: section.id, parentId: null, index: section.children?.length ?? 0 })}><Plus size={16} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</Button>
               </>}
               {section.type === 'order' && settingsTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
             </div>
@@ -815,6 +927,7 @@ export function PageEditor() {
       </section>
 
       {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
+      {addingNode && <AddNodeDialog onClose={() => setAddingNode(null)} onAdd={addNode} />}
 
       {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(path('/landing-pages'))} onSave={() => void run(async () => { if (await save()) navigate(path('/landing-pages')); else setLeaving(false) })} busy={busy} />}
 

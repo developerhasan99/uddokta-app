@@ -9,7 +9,7 @@ type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPat
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
 const swatches = ['#ffffff', '#f6f4ee', '#163b2e', '#285a3f', '#e2c86c', '#c34732', '#272b30', '#000000']
 
-function Group({ title, icon, children, open = true, note }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
+export function Group({ title, icon, children, open = true, note }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
   return <details className="design-group" open={open}>
     <summary><span className="design-group__icon">{icon}</span><strong>{title}</strong><ChevronDown size={14} aria-hidden="true" /></summary>
     <div className="design-group__body">{note && <p className="design-help">{note}</p>}{children}</div>
@@ -85,9 +85,9 @@ export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
 }
 
 // Keep incomplete typing local so min=320 does not turn the first "6" of "680" into 320.
-function NumericInput({ id, field, value, onChange }: { id: string; field: Extract<Leaf, { kind: 'number' }>; value: string | number | undefined; onChange: (value: number | undefined) => void }) {
+export function NumericInput({ id, field, value, onChange, placeholder = '—' }: { id: string; field: Extract<Leaf, { kind: 'number' }>; value: string | number | undefined; onChange: (value: number | undefined) => void; placeholder?: string }) {
   const [draft, setDraft] = useState<string | null>(null)
-  return <input id={id} type="number" min={field.min} max={field.max} step={1} placeholder="—" value={draft ?? value ?? ''} onChange={(e) => {
+  return <input id={id} type="number" min={field.min} max={field.max} step={1} placeholder={placeholder} value={draft ?? value ?? ''} onChange={(e) => {
     const text = e.target.value
     setDraft(text)
     if (text === '') onChange(undefined)
@@ -101,7 +101,7 @@ function NumericInput({ id, field, value, onChange }: { id: string; field: Extra
   }} />
 }
 
-function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
+export function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
   const { lang } = useLang()
   const valid = /^#[0-9a-f]{6}$/i.test(value)
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en

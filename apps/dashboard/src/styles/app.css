@@ -1630,3 +1630,33 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .btn--primary:active:not(:disabled) { background: linear-gradient(180deg, oklch(40% 0.12 155) 0%, oklch(45% 0.13 155) 100%); }
 .btn--danger { background: linear-gradient(180deg, oklch(62% 0.2 27) 0%, oklch(54% 0.21 27) 55%, oklch(48% 0.19 27) 100%); }
 .btn--danger:active:not(:disabled) { background: linear-gradient(180deg, oklch(48% 0.19 27) 0%, oklch(53% 0.2 27) 100%); }
+
+/* Layout sections: structure tree under the section row, the Add dialog and node spacing inputs. */
+.editor-tree { display: grid; gap: 1px; margin: 0 0 var(--space-2xs) var(--space-md); padding-inline-start: var(--space-2xs); border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
+.editor-tree__row { display: flex; align-items: center; gap: var(--space-3xs); min-width: 0; border-radius: var(--radius-control); }
+.editor-tree__row:hover { background: var(--color-paper-2); }
+.editor-tree__row--selected, .editor-tree__row--selected:hover { background: var(--color-paper-3); }
+.editor-tree__row--partial .editor-tree__name { opacity: .6; }
+.editor-tree__name { display: flex; flex: 1; align-items: center; gap: var(--space-xs); min-width: 0; min-height: 30px; padding: 0 var(--space-xs); border: 0; background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.editor-tree__name svg { flex: none; color: var(--color-muted); }
+.editor-tree__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-tree__row--selected .editor-tree__name { color: var(--color-ink); font-weight: 500; }
+.editor-tree__row .btn--icon { width: 26px; min-width: 26px; min-height: 26px; box-shadow: none; background: transparent; color: var(--color-muted); }
+.editor-tree__add { display: flex; align-items: center; gap: var(--space-2xs); width: fit-content; min-height: 28px; margin: var(--space-3xs) 0 0 var(--space-xs); padding: 0 var(--space-xs); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-control); background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.editor-tree__add:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.node-add__label { margin: 0 0 var(--space-xs); color: var(--color-muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.node-add .dialog__body:first-of-type { padding-bottom: var(--space-xs); }
+.node-add__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); margin: 0 0 var(--space-md); padding: 0; list-style: none; }
+.node-add__grid button { display: grid; justify-items: center; gap: var(--space-2xs); width: 100%; padding: var(--space-sm) var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.node-add__grid button:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.node-spacing { display: grid; gap: var(--space-2xs); }
+.node-spacing__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2xs); }
+.node-spacing__grid[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.node-spacing__cell { display: grid; gap: 2px; color: var(--color-muted); font-size: 12px; }
+.node-spacing__cell .input-affix { padding-inline: var(--space-xs); }
+.node-bg { display: flex; align-items: center; gap: var(--space-xs); }
+.node-bg img { width: 48px; height: 48px; object-fit: cover; border-radius: var(--radius-media); }
+@media (max-width: 860px) {
+  .node-add__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .editor-tree__name { min-height: 36px; }
+}
