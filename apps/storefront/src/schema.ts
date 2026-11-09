@@ -73,7 +73,7 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
 ]
 
 export const sectionDefs = {
-  layout: { label: ['নিজের লেআউট', 'Custom layout'], fields: [], defaults: {} },
+  layout: { label: ['নিজের লেআউট', 'Custom layout'], fields: [{ key: 'name', kind: 'text', label: ['সেকশনের নাম', 'Section name'], max: 60 }], defaults: { name: '' } },
   hero: {
     label: ['শুরুর ব্যানার', 'Hero banner'],
     fields: [

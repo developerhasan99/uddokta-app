@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { findNode, insertNode, layoutPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -291,24 +291,27 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
   )
 }
 
-function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (type: SectionType) => void }) {
+function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void }) {
   const { t, lang } = useLang()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
   const titleId = useId()
   const [search, setSearch] = useState('')
-  const matches = sectionTypes.filter((type) => defOf(type).label.some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
+  const matches = sectionPresets.filter((preset) => [...preset.label, ...preset.help].some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
+  const previews = useMemo(() => {
+    let n = 0
+    return Object.fromEntries(sectionPresets.map((preset) => [preset.key, { ...newSection('layout', `thumb-${preset.key}`), children: [preset.build(() => `t${n++}`)] }]))
+  }, [])
   useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
   return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId}>
     <DialogHead id={titleId} title={t('pageAddSection')} onClose={() => close()} />
     <div className="dialog__body">
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
-        {matches.map((type) => {
-          const Icon = sectionIcons[type]
-          return <li key={type}><button type="button" onClick={() => close(() => onAdd(type))}><SectionThumbnail type={type} /><span className="editor-section-label"><Icon size={16} aria-hidden="true" />{defOf(type).label[lang === 'bn' ? 0 : 1]}<Plus size={14} aria-hidden="true" /></span></button></li>
-        })}
+        {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset.build))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><LayoutGrid size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
       </ul>
       {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
+      <p className="muted editor-add__note">{L(['অর্ডার ফর্ম, রিভিউ, প্রশ্নোত্তরের মতো জিনিস সেকশনের ভেতরে "এলিমেন্ট যোগ করুন" থেকে ব্লক হিসেবে বসান।', 'Order forms, reviews, questions and similar pieces go inside a section: use "Add element" and pick a block.'])}</p>
     </div>
   </dialog>
 }
@@ -385,6 +388,8 @@ export function PageEditor() {
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | null>(null)
   const [device, setDevice] = useState<Device>('desktop')
+  const [open, setOpen] = useState<Set<string>>(() => new Set())
+  const toggle = (id: string) => setOpen((o) => { const next = new Set(o); if (next.has(id)) next.delete(id); else next.add(id); return next })
   const [addingNode, setAddingNode] = useState<{ sectionId: string; parentId: string | null; index: number } | null>(null)
   const [view, setView] = useState<'sections' | 'page'>('sections')
   const settingsPanel = useRef<HTMLElement>(null)
@@ -634,8 +639,9 @@ export function PageEditor() {
       }}
     ><span /></li>
   )
-  const add = (type: SectionType) => {
-    const section = type === 'layout' ? { ...newSection(type, newId()), children: starterNodes(newId) } : toLayout(newSection(type, newId()), newId)
+  const add = (build: (id: () => string) => PageNode) => {
+    const section: Section = { ...newSection('layout', newId()), children: [build(newId)] }
+    setOpen((o) => new Set([...o, section.id, section.children![0].id]))
     const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
     const next = [...sections]
     next.splice(at === -1 ? next.length : at + 1, 0, section)
@@ -653,6 +659,7 @@ export function PageEditor() {
     setSelected(copy.id)
   }
   const choose = (sid: string) => {
+    setOpen((o) => new Set([...o, ...pathTo(sections, sid)]))
     setView('sections')
     setSettingsTab('content')
     setAdding(false)
@@ -664,6 +671,7 @@ export function PageEditor() {
   // A layout section is listed by what it shows: its block, or its first heading or text.
   const sectionName = (s: Section) => {
     if (s.type !== 'layout') return L(defOf(s.type).label)
+    if (typeof s.settings.name === 'string' && s.settings.name.trim()) return s.settings.name.trim()
     const first = [...walk(s.children ?? [])].find((n) => n.block || (typeof n.props.text === 'string' && n.props.text.trim()))
     return first ? nodeName(first, L) : L(defOf('layout').label)
   }
@@ -706,10 +714,11 @@ export function PageEditor() {
           const next = relocate(sections.find((x) => x.id === sectionId)?.children ?? [], from, n.id, nodeDrop.where)
           if (next) { editTree(sectionId, () => next); setSelected(from) }
         }}>
+        {n.kind === 'box' ? <button type="button" className="editor-tree__toggle" aria-expanded={open.has(n.id)} aria-label={`${L(open.has(n.id) ? ['বন্ধ করুন', 'Collapse'] : ['খুলুন', 'Expand'])}: ${nodeName(n, L)}`} onClick={() => toggle(n.id)}><ChevronDown size={13} aria-hidden="true" /></button> : <span className="editor-tree__toggle" aria-hidden="true" />}
         <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} onClick={() => choose(n.id)}><Icon size={14} aria-hidden="true" /><span>{nodeName(n, L)}</span></button>
         {n.kind === 'box' && <IconButton label={L(['ভেতরে যোগ করুন', 'Add inside'])} title={L(['ভেতরে যোগ করুন', 'Add inside'])} onClick={() => setAddingNode({ sectionId, parentId: n.id, index: n.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" /></IconButton>}
       </div>
-      {n.children && tree(sectionId, n.children, depth + 1)}
+      {n.children && open.has(n.id) && tree(sectionId, n.children, depth + 1)}
     </Fragment>
   })
   const nodePanel = (f: Found) => {
@@ -859,8 +868,7 @@ export function PageEditor() {
               }}
             >
               {(() => {
-                const open = s.type === 'layout' && (s.id === selected || found?.section.id === s.id)
-                return <button type="button" className="editor-sections__toggle" aria-expanded={open} aria-label={sectionName(s)} title={sectionName(s)} onClick={() => (open ? setSelected(null) : choose(s.id))}><ChevronDown size={14} aria-hidden="true" /></button>
+                return <button type="button" className="editor-sections__toggle" aria-expanded={open.has(s.id)} aria-label={`${L(open.has(s.id) ? ['বন্ধ করুন', 'Collapse'] : ['খুলুন', 'Expand'])}: ${sectionName(s)}`} onClick={() => toggle(s.id)}><ChevronDown size={14} aria-hidden="true" /></button>
               })()}
               <button type="button" className="editor-sections__grip" aria-label={`${t('pageReorder')}: ${L(defOf(s.type).label)}`} title={t('pageReorder')}
                 onKeyDown={(e) => {
@@ -901,14 +909,14 @@ export function PageEditor() {
                 onPointerCancel={endDrag}
                 onLostPointerCapture={endDrag}
               >{(() => { const Icon = sectionIcon(s); return <Icon className="editor-sections__icon" size={15} aria-hidden="true" /> })()}<GripVertical className="editor-sections__drag" size={16} aria-hidden="true" /></button>
-              <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} aria-expanded={s.type === 'layout' ? (s.id === selected || found?.section.id === s.id) : undefined} onClick={() => choose(s.id)}>
+              <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
                 <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span></span>
               </button>
               <IconButton label={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} title={t(s.hidden ? 'pageShow' : 'pageHide', { value: L(defOf(s.type).label) })} onClick={() => updateSection(s.id, { hidden: !s.hidden })}>
                 {s.hidden ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
               </IconButton>
             </li>
-            {s.type === 'layout' && (s.id === selected || found?.section.id === s.id) && <li className="editor-tree">
+            {s.type === 'layout' && open.has(s.id) && <li className="editor-tree">
               {tree(s.id, s.children ?? [], 1)}
               <button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId: s.id, parentId: null, index: s.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button>
             </li>}
@@ -959,6 +967,7 @@ export function PageEditor() {
                 }}>{L(settingsTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
               </>}
               {section.type === 'layout' && settingsTab === 'content' && <>
+                <Field id="section-name" label={L(['সেকশনের নাম', 'Section name'])} maxLength={60} placeholder={sectionName({ ...section, settings: { ...section.settings, name: '' } })} value={typeof section.settings.name === 'string' ? section.settings.name : ''} help={L(['শুধু আপনি দেখবেন, তালিকায় চেনার জন্য।', 'Only you see this, to find it in the list.'])} onChange={(e) => updateSection(section.id, { settings: { ...section.settings, name: e.target.value } }, `${section.id}:name`)} />
                 <p className="muted">{L(['এই সেকশনে বক্স আর এলিমেন্ট সাজিয়ে নিজের মতো ডিজাইন করুন। প্রিভিউতে বা বাঁয়ের তালিকায় ক্লিক করে যেকোনো অংশ বদলান।', 'Arrange boxes and elements in this section however you like. Click any part in the preview or the list on the left to change it.'])}</p>
                 <Button onClick={() => setAddingNode({ sectionId: section.id, parentId: null, index: section.children?.length ?? 0 })}><Plus size={16} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</Button>
               </>}

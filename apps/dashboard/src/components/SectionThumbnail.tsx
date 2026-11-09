@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { defOf, newSection, type SectionType } from 'storefront/schema'
-import { css, SectionFrame, SectionView, type Ctx } from 'storefront/sections'
+import { defOf, newSection, type Section, type SectionType } from 'storefront/schema'
+import { css, PageView, SectionFrame, SectionView, type Ctx } from 'storefront/sections'
 import previewPhoto from '../assets/section-preview.jpg'
 
 const photoId = '00000000-0000-4000-8000-000000000001'
@@ -13,7 +13,8 @@ const ctx: Ctx = {
 }
 
 // The actual shared renderer, with inert sample content. These IDs never enter a seller's document.
-export function SectionThumbnail({ type }: { type: SectionType }) {
+// Pass `section` to draw a ready-made layout section (its images all show the sample photo).
+export function SectionThumbnail({ type = 'layout', section: given }: { type?: SectionType; section?: Section }) {
   const host = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.3)
   useEffect(() => {
@@ -35,6 +36,6 @@ export function SectionThumbnail({ type }: { type: SectionType }) {
   const shell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><style>${css}body{--sf-accent:#285a3f;--sf-accent-ink:#fff;--sf-ink:#253127;--sf-paper:#fff;--sf-tint:#f3f5ef;--sf-rule:#dde3d8;--sf-radius:12px;--sf-muted:#64705e;--sf-error:#b62222;overflow:hidden}a,button,input,summary{pointer-events:none}</style></head><body></body></html>`
   return <div ref={host} className="editor-section-thumb" aria-hidden="true">
     <iframe title="" style={{ transform: `scale(${scale})` }} srcDoc={shell} onLoad={(e) => setBody(e.currentTarget.contentDocument?.body ?? null)} tabIndex={-1} inert sandbox="allow-same-origin" loading="lazy" />
-    {body && createPortal(<SectionFrame s={section}><SectionView s={section} ctx={ctx} orderId="sample-order" /></SectionFrame>, body)}
+    {body && createPortal(given ? <PageView content={{ version: 2, canvas: { header: false, footer: false }, sections: [given] }} ctx={ctx} storeName="" /> : <SectionFrame s={section}><SectionView s={section} ctx={ctx} orderId="sample-order" /></SectionFrame>, body)}
   </div>
 }

@@ -64,4 +64,4 @@ function children(section: Section, id: Id): PageNode[] {
 }
 
 export const toLayout = (section: Section, id: Id): Section =>
-  section.type === 'layout' ? section : { id: section.id, type: 'layout', hidden: section.hidden, settings: {}, ...(section.style ? { style: section.style } : {}), children: children(section, id) }
+  section.type === 'layout' ? section : { id: section.id, type: 'layout', hidden: section.hidden, settings: { name: '' }, ...(section.style ? { style: section.style } : {}), children: children(section, id) }

@@ -1713,3 +1713,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-sections__row:is(:hover, :focus-within) .editor-sections__grip .editor-sections__drag, .editor-sections__row--dragging .editor-sections__grip .editor-sections__drag { display: block; }
 .editor-sections__grip { color: var(--color-ink-2); }
 @media (hover: none) { .editor-sections__row .editor-sections__grip .editor-sections__icon { display: block !important; } .editor-sections__row .editor-sections__grip .editor-sections__drag { display: none !important; } }
+.editor-tree__toggle { display: grid; place-items: center; flex: none; width: 18px; min-height: 26px; padding: 0; border: 0; background: transparent; color: var(--color-muted); cursor: pointer; }
+.editor-tree__toggle svg { transform: rotate(-90deg); transition: transform var(--dur-micro) var(--ease-out); }
+.editor-tree__toggle[aria-expanded="true"] svg { transform: none; }
+.editor-tree__name { padding-inline-start: 2px; }
+.editor-add__note { margin-top: var(--space-sm); font-size: var(--text-sm); }

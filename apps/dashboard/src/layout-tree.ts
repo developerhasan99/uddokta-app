@@ -79,7 +79,7 @@ export const layoutPresets: { key: string; label: Label; help: Label; build: Bui
   { key: 'imageText', label: ['ছবি আর লেখা', 'Image and text'], help: ['এক পাশে ছবি, অন্য পাশে লেখা ও বাটন', 'An image beside text and a button'],
     build: (id) => box(id, { direction: 'row', gap: 32, align: 'center' }, [el('image', id, {}, { width: 50 }), box(id, { width: 50 }, [el('heading', id), el('text', id), el('button', id)])]) },
   { key: 'banner', label: ['রঙিন ব্যানার', 'Colour banner'], help: ['রঙিন পটভূমিতে মাঝখানে শিরোনাম ও বাটন', 'A centred heading and button on a coloured band'],
-    build: (id) => box(id, { align: 'center', textAlign: 'center', paddingTop: 48, paddingBottom: 48, paddingLeft: 24, paddingRight: 24, radius: 20, background: '#163b2e', color: '#ffffff' }, [el('heading', id, { level: 'h2', text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'সীমিত সময়ের অফার। ক্যাশ অন ডেলিভারি।' }), el('button', id, {}, { background: '#e2c86c', color: '#163b2e' })]) },
+    build: (id) => box(id, { align: 'center', textAlign: 'center', paddingTop: 48, paddingBottom: 48, paddingLeft: 24, paddingRight: 24, radius: 20, background: '#163b2e', color: '#ffffff' }, [el('heading', id, { level: 'h2', text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id, {}, { background: '#e2c86c', color: '#163b2e' })]) },
 ]
 
 // What a new layout section starts with: something to click on, not an empty box.
@@ -104,3 +104,33 @@ export function relocate(nodes: PageNode[], id: string, targetId: string, where:
   if (where === 'inside') return target.node.kind === 'box' ? insertNode(rest, targetId, target.node.children?.length ?? 0, moving.node) : null
   return insertNode(rest, target.parentId, target.index + (where === 'after' ? 1 : 0), moving.node)
 }
+
+// The section and boxes that contain a node, outermost first, so the tree can open down to it.
+export function pathTo(sections: Section[], id: string): string[] {
+  for (const section of sections) {
+    if (section.id === id) return [section.id]
+    const search = (nodes: PageNode[], trail: string[]): string[] | null => {
+      for (const n of nodes) {
+        if (n.id === id) return trail
+        const inner = n.children && search(n.children, [...trail, n.id])
+        if (inner) return inner
+      }
+      return null
+    }
+    const hit = search(section.children ?? [], [section.id])
+    if (hit) return hit
+  }
+  return []
+}
+
+// What "Add section" offers: generic building pieces, not purpose-made sections. Specific things (order form,
+// reviews, FAQ, …) are blocks placed inside these from "Add element".
+export const sectionPresets: { key: string; label: Label; help: Label; build: Build }[] = [
+  { key: 'empty', label: ['খালি সেকশন', 'Empty section'], help: ['শূন্য থেকে নিজের মতো সাজান', 'Start from nothing and build your own'], build: (id) => box(id, { minHeight: 120 }, []) },
+  { key: 'headingText', label: ['শিরোনাম ও লেখা', 'Heading and text'], help: ['একটি শিরোনাম আর তার নিচে লেখা', 'A heading with text below it'], build: (id) => box(id, { gap: 12 }, [el('heading', id), el('text', id)]) },
+  ...layoutPresets.filter((p) => p.key !== 'banner'),
+  { key: 'image', label: ['ছবি', 'Image'], help: ['পুরো প্রস্থে একটি ছবি', 'One full-width image'], build: (id) => box(id, undefined, [el('image', id)]) },
+  { key: 'video', label: ['ভিডিও', 'Video'], help: ['ইউটিউব বা ফেসবুক ভিডিও', 'A YouTube or Facebook video'], build: (id) => box(id, { gap: 16 }, [el('heading', id, { text: 'ভিডিওতে দেখুন' }, { textAlign: 'center' }), el('video', id)]) },
+  ...layoutPresets.filter((p) => p.key === 'banner'),
+  { key: 'cta', label: ['বাটনসহ আহ্বান', 'Call to action'], help: ['মাঝখানে শিরোনাম, লেখা আর বাটন', 'A centred heading, text and button'], build: (id) => box(id, { align: 'center', textAlign: 'center', gap: 16 }, [el('heading', id, { text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id)]) },
+]
