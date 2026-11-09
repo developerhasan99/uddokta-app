@@ -10,8 +10,8 @@ export const rootGap = 24
 export const boxGap = 16
 // Rows stack on phones unless the seller says otherwise.
 export function directionOf(node: { style?: NodeStyle; mobile?: NodeStyle }, mobile: boolean): 'row' | 'column' {
-  if (mobile) return node.mobile?.direction === 'row' ? 'row' : 'column'
-  return node.style?.direction === 'row' ? 'row' : 'column'
+  const dir = mobile ? node.mobile?.direction : node.style?.direction
+  return typeof dir === 'string' && dir.startsWith('row') ? 'row' : 'column'
 }
 
 export function LayoutSection({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
@@ -67,7 +67,7 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
   }
 }
 
-const justify: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end', between: 'space-between' }
+const justify: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end', between: 'space-between', around: 'space-around', evenly: 'space-evenly' }
 const align: Record<string, string> = { stretch: 'stretch', start: 'flex-start', center: 'center', end: 'flex-end' }
 const shadows: Record<string, string> = { none: 'none', soft: '0 6px 24px #00000014', strong: '0 14px 40px #0000002e' }
 
@@ -107,6 +107,18 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx): string[] {
   return out
 }
 
+// Item settings that must win over the width rules, so they are written after them.
+function itemRules(st: NodeStyle | undefined): string[] {
+  if (!st) return []
+  const out: string[] = []
+  if (st.alignSelf) out.push(`align-self:${align[st.alignSelf as string]}`)
+  if (st.grow === 'grow') out.push('flex-grow:1')
+  if (st.grow === 'shrink') out.push('flex-shrink:1', 'flex-grow:0')
+  if (st.grow === 'none') out.push('flex:none')
+  if (st.order) out.push(`order:${st.order === 'first' ? -1 : 99}`)
+  return out
+}
+
 // How much of its box a node takes. In a row, width is a share of the row (gaps included); in a column it is a plain width.
 const grows = new Set(['box', 'heading', 'text', 'image', 'video', 'divider'])
 function sizing(node: PageNode, width: number | undefined, direction: 'row' | 'column', gap: number): string[] {
@@ -131,12 +143,13 @@ export function layoutCss(content: Content, ctx: Ctx): string {
       const sel = `.n-${node.id}`
       const widthD = node.style?.width as number | undefined
       const widthM = (node.mobile?.width as number | undefined) ?? (dirM === dirD ? widthD : undefined)
-      const own = [...declarations(node, node.style ?? {}, ctx), ...(parent || widthD !== undefined ? sizing(node, widthD, dirD, gapD) : [])]
+      const own = [...declarations(node, node.style ?? {}, ctx), ...(parent || widthD !== undefined ? sizing(node, widthD, dirD, gapD) : []), ...itemRules(node.style)]
       if (own.length) desktop.push(`${sel}{${own.join(';')}}`)
       const mobileOwn = node.mobile ? declarations(node, node.mobile, ctx) : []
-      if (node.kind === 'box' && node.style?.direction === 'row' && !node.mobile?.direction) mobileOwn.push('flex-direction:column')
+      if (node.kind === 'box' && String(node.style?.direction ?? '').startsWith('row') && !node.mobile?.direction) mobileOwn.push('flex-direction:column')
       const changed = dirM !== dirD || node.mobile?.width !== undefined || (dirM === 'row' && gapM !== gapD)
-      if (changed) mobileOwn.push(...sizing(node, widthM, dirM, gapM))
+      if (changed) mobileOwn.push(...sizing(node, widthM, dirM, gapM), ...itemRules({ ...node.style, ...node.mobile }))
+      else mobileOwn.push(...itemRules(node.mobile))
       if (node.hide === 'mobile') mobileOwn.push('display:none')
       if (mobileOwn.length) phone.push(`${sel}{${mobileOwn.join(';')}}`)
       if (node.hide === 'desktop') hideDesktop.push(`${sel}{display:none}`)

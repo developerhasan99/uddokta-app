@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowRight, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
@@ -76,12 +76,46 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
   const textual = ['heading', 'text', 'button', 'box'].includes(node.kind)
 
   if (tab === 'layout') return <div className="design-controls">
-    {isBox && <Group title={L('সাজানো', 'Arrangement')} icon={<SlidersHorizontal size={15} />}>
-      {segments('direction', L('দিক', 'Direction'), [{ value: 'column', label: L('নিচে নিচে', 'Down'), icon: <><ArrowDown size={14} aria-hidden="true" /><span>{L('নিচে নিচে', 'Down')}</span></> }, { value: 'row', label: L('পাশাপাশি', 'Across'), icon: <><ArrowRight size={14} aria-hidden="true" /><span>{L('পাশাপাশি', 'Across')}</span></> }])}
-      {device === 'mobile' && <p className="design-help">{L('ডেস্কটপে পাশাপাশি থাকলে ফোনে নিজে থেকেই নিচে নিচে আসে।', 'Boxes side by side on desktop stack on phones unless you choose Across here.')}</p>}
-      <div className="design-grid">{select('justify')}{select('align')}</div>
-      <div className="design-grid">{number('gap')}{select('wrap')}</div>
-    </Group>}
+    {isBox && (() => {
+      const dir = String(value('direction') ?? (device === 'mobile' ? 'column' : desktop.direction ?? 'column'))
+      const row = dir.startsWith('row')
+      const i = (Icon: typeof ArrowDown) => <Icon size={16} aria-hidden="true" />
+      return <Group title={L('সাজানো (ফ্লেক্সবক্স)', 'Arrangement (flexbox)')} icon={<SlidersHorizontal size={15} />}>
+        {segments('direction', L('দিক', 'Direction'), [
+          { value: 'row', label: L('পাশাপাশি', 'Across'), icon: i(ArrowRight) },
+          { value: 'column', label: L('নিচে নিচে', 'Down'), icon: i(ArrowDown) },
+          { value: 'row-reverse', label: L('ডান থেকে বামে', 'Across, reversed'), icon: i(ArrowLeft) },
+          { value: 'column-reverse', label: L('নিচ থেকে উপরে', 'Up'), icon: i(ArrowUp) },
+        ])}
+        {device === 'mobile' && <p className="design-help">{L('ডেস্কটপে পাশাপাশি থাকলে ফোনে নিজে থেকেই নিচে নিচে আসে।', 'Boxes side by side on desktop stack on phones unless you choose a direction here.')}</p>}
+        {segments('justify', L('মূল দিকে সাজানো', 'Justify content'), [
+          { value: 'start', label: L('শুরুতে', 'Start'), icon: i(row ? AlignHorizontalJustifyStart : AlignVerticalJustifyStart) },
+          { value: 'center', label: L('মাঝে', 'Center'), icon: i(row ? AlignHorizontalJustifyCenter : AlignVerticalJustifyCenter) },
+          { value: 'end', label: L('শেষে', 'End'), icon: i(row ? AlignHorizontalJustifyEnd : AlignVerticalJustifyEnd) },
+          { value: 'between', label: L('ছড়িয়ে', 'Space between'), icon: i(row ? AlignHorizontalSpaceBetween : AlignVerticalSpaceBetween) },
+          { value: 'around', label: L('চারপাশে ফাঁক', 'Space around'), icon: i(row ? AlignHorizontalSpaceAround : AlignVerticalSpaceAround) },
+          { value: 'evenly', label: L('সমান ফাঁক', 'Space evenly'), icon: i(row ? AlignHorizontalDistributeCenter : AlignVerticalDistributeCenter) },
+        ])}
+        {segments('align', L('আড়াআড়ি সাজানো', 'Align items'), [
+          { value: 'start', label: L('শুরুতে', 'Start'), icon: i(row ? AlignStartHorizontal : AlignStartVertical) },
+          { value: 'center', label: L('মাঝে', 'Center'), icon: i(row ? AlignCenterHorizontal : AlignCenterVertical) },
+          { value: 'end', label: L('শেষে', 'End'), icon: i(row ? AlignEndHorizontal : AlignEndVertical) },
+          { value: 'stretch', label: L('পুরো জায়গা', 'Stretch'), icon: i(row ? StretchVertical : StretchHorizontal) },
+        ])}
+        <div className="design-grid">{number('gap')}{select('wrap')}</div>
+      </Group>
+    })()}
+    <Group title={L('বক্সের ভেতরে অবস্থান', 'Position in its box')} icon={<Crosshair size={15} />} open={false}>
+      {segments('alignSelf', L('নিজের অবস্থান', 'Align self'), [
+        { value: 'start', label: L('শুরুতে', 'Start'), icon: <AlignStartVertical size={16} aria-hidden="true" /> },
+        { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenterVertical size={16} aria-hidden="true" /> },
+        { value: 'end', label: L('শেষে', 'End'), icon: <AlignEndVertical size={16} aria-hidden="true" /> },
+        { value: 'stretch', label: L('পুরো জায়গা', 'Stretch'), icon: <StretchHorizontal size={16} aria-hidden="true" /> },
+      ])}
+      {segments('grow', L('মাপ', 'Size'), [{ value: 'none', label: L('নিজের মাপে', 'Fit') }, { value: 'grow', label: L('বড় হোক', 'Grow') }, { value: 'shrink', label: L('ছোট হোক', 'Shrink') }])}
+      {segments('order', L('ক্রম', 'Order'), [{ value: 'first', label: L('সবার আগে', 'First') }, { value: 'last', label: L('সবার শেষে', 'Last') }])}
+      <p className="design-help">{L('বাক্সের অন্য জিনিসের তুলনায় এটি কোথায় ও কত জায়গা নেবে। ক্রম বদলালে শুধু দেখানো বদলায়, তালিকা নয়।', 'Where this sits among the other things in its box, and how much room it takes. Order changes only what buyers see, not the list.')}</p>
+    </Group>
     <Group title={L('মাপ', 'Size')} icon={<Move size={15} />}>
       <div className="design-grid">{number('width', undefined, '%')}{number('maxWidth')}</div>
       {number('minHeight', node.kind === 'spacer' ? L('উচ্চতা', 'Height') : undefined)}

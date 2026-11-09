@@ -479,11 +479,15 @@ export function orderBlocks(content: Content): { id: string; settings: Settings 
 const px = (key: string, label: Label, max: number, min = 0, group: 'layout' | 'style' = 'layout') => ({ key, kind: 'number' as const, min, max, label, group })
 // One list for desktop and mobile; mobile values override desktop ones under 720px.
 export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
-  { key: 'direction', kind: 'select', group: 'layout', label: ['দিক', 'Direction'], options: opts(['column', ['নিচে নিচে', 'Down']], ['row', ['পাশাপাশি', 'Across']]) },
-  { key: 'justify', kind: 'select', group: 'layout', label: ['মূল দিকে সাজানো', 'Justify'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['between', ['ছড়িয়ে', 'Space between']]) },
+  { key: 'direction', kind: 'select', group: 'layout', label: ['দিক', 'Direction'], options: opts(['column', ['নিচে নিচে', 'Down']], ['row', ['পাশাপাশি', 'Across']], ['column-reverse', ['নিচ থেকে উপরে', 'Up']], ['row-reverse', ['ডান থেকে বামে', 'Across, reversed']]) },
+  { key: 'justify', kind: 'select', group: 'layout', label: ['মূল দিকে সাজানো', 'Justify'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['between', ['ছড়িয়ে', 'Space between']], ['around', ['চারপাশে ফাঁক', 'Space around']], ['evenly', ['সমান ফাঁক', 'Space evenly']]) },
   { key: 'align', kind: 'select', group: 'layout', label: ['আড়াআড়ি সাজানো', 'Align'], options: opts(['stretch', ['পুরো জায়গা', 'Stretch']], ['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']]) },
   { key: 'wrap', kind: 'select', group: 'layout', label: ['জায়গা না হলে', 'When out of room'], options: opts(['nowrap', ['এক লাইনে', 'Keep on one line']], ['wrap', ['পরের লাইনে', 'Wrap']]) },
   px('gap', ['ফাঁক (px)', 'Gap (px)'], 160),
+  // How an item sits inside its box (Elementor's "Align self", "Size" and "Order").
+  { key: 'alignSelf', kind: 'select', group: 'layout', label: ['নিজের অবস্থান', 'Align self'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['stretch', ['পুরো জায়গা', 'Stretch']]) },
+  { key: 'grow', kind: 'select', group: 'layout', label: ['মাপ', 'Size'], options: opts(['none', ['নিজের মাপে', 'Fit content']], ['grow', ['ফাঁকা জায়গা নিন', 'Grow']], ['shrink', ['দরকারে ছোট হোন', 'Shrink']]) },
+  { key: 'order', kind: 'select', group: 'layout', label: ['ক্রম', 'Order'], options: opts(['first', ['সবার আগে', 'First']], ['last', ['সবার শেষে', 'Last']]) },
   px('width', ['প্রস্থ (%)', 'Width (%)'], 100, 1),
   px('maxWidth', ['সর্বোচ্চ প্রস্থ (px)', 'Max width (px)'], 1600, 40),
   px('minHeight', ['সর্বনিম্ন উচ্চতা (px)', 'Min height (px)'], 1200),

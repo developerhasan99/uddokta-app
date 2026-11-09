@@ -78,3 +78,15 @@ test('layout sections render their tree, escape text and generate row/stack CSS 
   assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-left\{font-size:28px;flex:none;width:auto\}/, "a desktop share does not carry into a stacked phone column")
   assert.match(html, /@media \(min-width:720px\)\{\.n-right\{display:none\}\}/)
 })
+
+test('flexbox controls: reversed rows, spacing, and per-item align, size and order', () => {
+  const layout = newSection('layout', 'flex')
+  layout.children = [{ id: 'f', kind: 'box', props: {}, style: { direction: 'row-reverse', justify: 'evenly' }, children: [
+    { id: 'i1', kind: 'text', props: { text: 'a' }, style: { alignSelf: 'center', grow: 'none', order: 'last' } },
+    { id: 'i2', kind: 'text', props: { text: 'b' }, mobile: { order: 'first' } },
+  ] }]
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
+  assert.match(html, /\.n-f\{flex-direction:row-reverse;justify-content:space-evenly\}/)
+  assert.match(html, /\.n-i1\{flex:1 1 0;width:auto;align-self:center;flex:none;order:99\}/, 'item rules come after the width rules')
+  assert.match(html, /@media \(max-width:719\.98px\)\{\.n-f\{flex-direction:column\}[^}]*\}[^@]*\.n-i2\{[^}]*order:-1\}/, 'a reversed row stacks on phones too')
+})
