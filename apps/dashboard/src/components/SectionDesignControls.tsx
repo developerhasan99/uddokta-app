@@ -32,8 +32,8 @@ export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
     const id = `${uid}-${key}`
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field).replace(' (px)', '')}</label>{reset(key)}</div>
-      {field.kind === 'number' ? <div className="design-number"><NumericInput id={id} field={field} value={values[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">px</span>}</div>
-        : field.kind === 'select' ? <select id={id} value={values[key] ?? ''} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}><option value="">{L('ডিফল্ট', 'Inherit')}</option>{field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}</select> : null}
+      {field.kind === 'number' ? <div className="input-affix design-number"><NumericInput id={id} field={field} value={values[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">px</span>}</div>
+        : field.kind === 'select' ? <select className="input" id={id} value={values[key] ?? ''} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}><option value="">{L('ডিফল্ট', 'Inherit')}</option>{field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}</select> : null}
     </div>
   }
 
@@ -61,8 +61,8 @@ export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
         <SpacingBox values={values} onPatch={onPatch} />
       </Group>
       <Group title={L('ডিভাইসে দেখানো', 'Device visibility')} icon={<Monitor size={15} />}>
-        <div className="design-visibility" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
-          {([{ value: 'all', label: L('সব ডিভাইস', 'All devices'), Icon: Layers }, { value: 'desktop', label: L('ডেস্কটপ', 'Desktop'), Icon: Monitor }, { value: 'mobile', label: L('মোবাইল', 'Mobile'), Icon: Smartphone }]).map(({ value, label, Icon }) => <button key={value} type="button" aria-pressed={(values.visibility ?? 'all') === value} onClick={() => onPatch({ visibility: value === 'all' ? undefined : value })}><Icon size={19} aria-hidden="true" /><span>{label}</span><i aria-hidden="true" /></button>)}
+        <div className="design-segments" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
+          {([{ value: 'all', label: L('সব', 'All'), Icon: Layers }, { value: 'desktop', label: L('ডেস্কটপ', 'Desktop'), Icon: Monitor }, { value: 'mobile', label: L('মোবাইল', 'Mobile'), Icon: Smartphone }]).map(({ value, label, Icon }) => <button key={value} type="button" aria-pressed={(values.visibility ?? 'all') === value} onClick={() => onPatch({ visibility: value === 'all' ? undefined : value })}><Icon size={14} aria-hidden="true" /><span>{label}</span></button>)}
         </div><p className="design-help">{values.visibility === 'desktop' ? L('মোবাইলে এই সেকশন দেখা যাবে না।', 'This section is hidden on mobile.') : values.visibility === 'mobile' ? L('ডেস্কটপে এই সেকশন দেখা যাবে না।', 'This section is hidden on desktop.') : L('সব স্ক্রিনে এই সেকশন দেখা যাবে।', 'This section appears on every screen.')}</p>
       </Group>
     </> : <>
@@ -145,7 +145,7 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
       <button type="button" aria-pressed={device === 'desktop'} onClick={() => setDevice('desktop')}><Monitor size={14} aria-hidden="true" />{L('ডেস্কটপ', 'Desktop')}</button><button type="button" aria-pressed={device === 'mobile'} onClick={() => setDevice('mobile')}><Smartphone size={14} aria-hidden="true" />{L('মোবাইল', 'Mobile')}</button>
     </div>
     <div className="space-map space-map--margin"><span className="space-map__label">{L('মার্জিন', 'MARGIN')}</span>{sides.map((s) => sideInput('margin', s))}
-      <div className="space-map space-map--padding"><span className="space-map__label">{L('প্যাডিং', 'PADDING')}</span>{sides.map((s) => sideInput('padding', s))}<div className="space-map__content"><Square size={16} aria-hidden="true" /><span>{L('কন্টেন্ট', 'CONTENT')}</span></div></div>
+      <div className="space-map space-map--padding"><span className="space-map__label">{L('প্যাডিং', 'PADDING')}</span>{sides.map((s) => sideInput('padding', s))}<div className="space-map__content" aria-hidden="true"><Square size={14} /></div></div>
     </div>
     <div className="spacing-links">{(['margin', 'padding'] as const).map((kind) => <div key={kind}><button className="spacing-link" type="button" aria-pressed={linked[kind]} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={13} aria-hidden="true" /> : <Unlink2 size={13} aria-hidden="true" />}<span>{kind === 'margin' ? L('মার্জিন', 'Margin') : L('প্যাডিং', 'Padding')}</span></button><button type="button" className="design-reset" aria-label={`${kind}: ${L('রিসেট', 'Reset spacing')}`} onClick={() => resetBox(kind)}><RotateCcw size={12} aria-hidden="true" /></button></div>)}</div>
     <p className="design-help">{L('px এককে। লিংক চালু করলে চার দিক একসাথে বদলাবে।', 'Values in px. Link sides to edit all four together.')}</p>

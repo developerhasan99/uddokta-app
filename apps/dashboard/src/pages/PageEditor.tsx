@@ -4,7 +4,7 @@ const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { defOf, isSectionLink, maxCss, maxSections, newSection, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
@@ -116,7 +116,7 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       return (
         <div className="field">
           <label htmlFor={id}>{label}</label>
-          <textarea id={id} className="input input--area" rows={field.max > 1000 ? 6 : 3} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
+          <textarea id={id} className="input input--area" rows={field.max > 1000 ? 4 : 3} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
         </div>
       )
     case 'url': {
@@ -720,7 +720,7 @@ export function PageEditor() {
               {(['content', 'layout', 'style'] as const).map((tab) => <button key={tab} type="button" aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
             </div>
             <div className="editor__form">
-              {settingsTab !== 'style' && <div className={settingsTab === 'layout' ? 'design-structure' : undefined}><SectionForm
+              {settingsTab !== 'style' && <div className={settingsTab === 'layout' ? 'design-structure' : 'editor__fields'}><SectionForm
                 key={`${section.id}:${settingsTab}`}
                 group={settingsTab === 'layout' ? 'layout' : 'content'}
                 section={section}
@@ -739,7 +739,7 @@ export function PageEditor() {
                   }
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined }, typingKey ? `${section.id}:style:${typingKey}` : undefined)
                 }} />
-                {settingsTab === 'layout' && <details className="design-group design-anchor"><summary><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
+                {settingsTab === 'layout' && <details className="design-group design-anchor"><summary><span className="design-group__icon"><Link2 size={15} aria-hidden="true" /></span><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
                 <Button onClick={() => {
                   const style = { ...section.style }
                   for (const field of styleFieldsFor(section.type).filter((f) => f.group === settingsTab)) delete style[field.key]

@@ -461,3 +461,11 @@ Every dialog now shares one design, so they look the same everywhere.
 - Phone editor: bottom Sections/Preview/Edit bar removed (the empty "Edit" screen confused); the top-bar icons now switch Sections, Page settings and Preview.
 - Custom CSS uses CodeMirror 6 (highlighting, line numbers, completion, bracket matching, search, Tab indent), loaded only when Page settings opens (~145 KB gzip chunk).
 - Phone editor: one-line top bar (back, title, status, view live, Save, Publish); bottom dock with Sections, Page settings, Preview, Undo, Redo.
+
+## Page builder settings audit (2026-11-09)
+Measured every control on all 24 section types × Content/Layout/Style at desktop and 390px widths, then fixed:
+- Order form content overflowed the panel (auto grid column took the product row's min width) → `.editor__form` uses `minmax(0, 1fr)`.
+- Content fields had no spacing between them → `.editor__fields` grid.
+- Layout/Style controls used one-off sizes (8–12px text, 36–82px heights, hex colours) → rewritten on tokens: number boxes reuse `.input-affix`, selects reuse `.input`, 28px segmented toggles (32px on phones), device visibility is a segmented control instead of 82px cards, compact colour rows (24px swatch, 18px palette), spacing diagram labels no longer overlap.
+- Section-setting tabs match the dashboard segmented control; list item and icon remove buttons are flat 28px icons; empty image picker is a 64px row; long text boxes start at 4 rows.
+- Phones: every field is 36px with 16px text, toggles 32px, labels 13px.
