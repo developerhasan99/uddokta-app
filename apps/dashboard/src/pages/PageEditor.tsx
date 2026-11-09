@@ -3,7 +3,7 @@ import { DialogHead } from '../components/DialogHead'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings, Settings2, Code, Smartphone, Trash2, Undo2, X,
+  Sparkles, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { defOf, isSectionLink, maxCss, maxSections, newSection, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
@@ -288,7 +288,7 @@ export function PageEditor() {
   const [theme, setTheme] = useState<PresetId>('fresh')
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | null>(null)
-  const [view, setView] = useState<'sections' | 'page' | 'css'>('sections')
+  const [view, setView] = useState<'sections' | 'page'>('sections')
   const settingsPanel = useRef<HTMLElement>(null)
   useEffect(() => { settingsPanel.current?.scrollTo({ top: 0 }) }, [selected, settingsTab])
   const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>(() => window.matchMedia('(max-width: 860px)').matches ? 'sections' : 'preview')
@@ -571,8 +571,14 @@ export function PageEditor() {
     <div className="editor" data-pane={pane}>
       <PageTitle title={doc.title || t('pages')} />
       <header className="editor__bar">
-        <div className="editor__title">
+        <div className="editor__nav">
           <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
+          <span className="editor__views">
+            <IconButton label={t('pageSections')} title={t('pageSections')} aria-pressed={view === 'sections'} onClick={() => setView('sections')}><LayoutTemplate size={16} aria-hidden="true" /></IconButton>
+            <IconButton label={t('pageSettings')} title={t('pageSettings')} aria-pressed={view === 'page'} onClick={() => { setView('page'); setPane('edit') }}><Settings size={16} aria-hidden="true" /></IconButton>
+          </span>
+        </div>
+        <div className="editor__title">
           <h1 title={doc.title}>{doc.title || t('pages')}</h1>
           <PageStatus page={status} />
         </div>
@@ -591,7 +597,7 @@ export function PageEditor() {
 
       <nav className="editor__panes" aria-label={t('pageSections')}>
         {(['sections', 'preview', 'edit'] as const).map((p) => (
-          <button key={p} type="button" className="tab" aria-current={pane === p ? 'page' : undefined} onClick={() => setPane(p)}>
+          <button key={p} type="button" className="tab" aria-current={pane === p ? 'page' : undefined} onClick={() => { setPane(p); if (p === 'sections') setView('sections') }}>
             <span className="editor__pane-icon">{p === 'sections' ? <LayoutTemplate size={18} aria-hidden="true" /> : p === 'preview' ? <Eye size={18} aria-hidden="true" /> : <Settings2 size={18} aria-hidden="true" />}</span>
             {t(p === 'sections' ? 'pageSections' : p === 'preview' ? 'pagePreview' : 'pageEditTab')}
           </button>
@@ -606,11 +612,6 @@ export function PageEditor() {
       )}
 
       <div className="editor__sidebar" data-view={view} data-editing={view !== 'sections' || Boolean(section)}>
-      <div className="editor__views" role="group" aria-label={t('pageEditTab')}>
-        {([['sections', LayoutTemplate, t('pageSections'), t('pageSections')], ['page', Settings, L(['পেজ', 'Page']), t('pageSettings')], ['css', Code, 'CSS', L(['কাস্টম CSS', 'Custom CSS'])]] as const).map(([v, Icon, label, full]) => (
-          <button key={v} type="button" aria-pressed={view === v} aria-label={full} title={full} onClick={() => setView(v)}><Icon size={16} aria-hidden="true" /><span>{label}</span></button>
-        ))}
-      </div>
       {view === 'sections' && <>
       <aside className="editor__sections" inert={busy} aria-label={t('pageSections')}>
         <div className="editor__settings-head"><h2 className="editor__heading">{t('pageSections')}</h2><span className="muted">{sections.length}/{maxSections}</span></div>
@@ -776,6 +777,14 @@ export function PageEditor() {
                 <label htmlFor="page-seo-description">{t('pageSeoDescription')}</label>
                 <textarea id="page-seo-description" className="input input--area" rows={3} maxLength={1000} value={doc.seoDescription} onChange={(e) => edit({ ...doc, seoDescription: e.target.value }, 'seoDescription')} />
               </div>
+              <div className="field">
+                <label htmlFor="page-css">{L(['কাস্টম CSS', 'Custom CSS'])}</label>
+                <textarea id="page-css" className="input editor__css-input" aria-describedby="page-css-help" spellCheck={false} autoCapitalize="off" autoCorrect="off" rows={12} maxLength={maxCss}
+                  placeholder={'.sf-page h2 {\n  letter-spacing: -0.02em;\n}'} value={doc.content.css ?? ''} onChange={(e) => edit({ ...doc, content: { ...doc.content, css: e.target.value } }, 'css')} />
+                {doc.content.css?.includes('<')
+                  ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
+                  : <p className="field__help" id="page-css-help">{L(['শুধু এই পেজে কাজ করবে। পুরো পেজ .sf-page, আর প্রতিটি সেকশন [data-section="…"] দিয়ে ধরুন।', 'Applies to this page only. Target the page with .sf-page and a section with [data-section="…"].'])}</p>}
+              </div>
             </div>
             <div className="editor__section-actions">
               {page.isPublished && <Button disabled={busy} onClick={() => void unpublish()}>{t('pageUnpublish')}</Button>}
@@ -796,15 +805,6 @@ export function PageEditor() {
           </aside>
       )}
 
-      {view === 'css' && (
-        <aside className="editor__settings editor__css" inert={busy} aria-label={L(['কাস্টম CSS', 'Custom CSS'])}>
-          <div className="editor__settings-head"><h2 className="editor__heading">{L(['কাস্টম CSS', 'Custom CSS'])}</h2></div>
-          <p className="muted" id="page-css-help">{L(['শুধু এই পেজে কাজ করবে। পুরো পেজ .sf-page, আর প্রতিটি সেকশন [data-section="…"] দিয়ে ধরুন।', 'Applies to this page only. Target the page with .sf-page and a section with [data-section="…"].'])}</p>
-          <textarea className="input editor__css-input" aria-label={L(['কাস্টম CSS', 'Custom CSS'])} aria-describedby="page-css-help" spellCheck={false} autoCapitalize="off" autoCorrect="off" maxLength={maxCss}
-            placeholder={'.sf-page h2 {\n  letter-spacing: -0.02em;\n}'} value={doc.content.css ?? ''} onChange={(e) => edit({ ...doc, content: { ...doc.content, css: e.target.value } }, 'css')} />
-          {doc.content.css?.includes('<') && <p className="form-error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>}
-        </aside>
-      )}
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>

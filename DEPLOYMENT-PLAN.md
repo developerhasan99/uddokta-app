@@ -457,3 +457,4 @@ Every dialog now shares one design, so they look the same everywhere.
 - Sidebar split into three tabs: Sections, Page (full-height page settings), CSS (full-height editor).
 - Custom CSS saved in the page content (`css`), validated by `readContent` (no `<`, max 20,000 chars), rendered in `PageView` so the preview and the live page match.
 - Phone bottom tabs made compact: 11px labels, 18px icons, active state as a small pill.
+- Follow-up: sidebar tabs replaced by icon toggles in the top bar after the back button; title and status centred; Custom CSS moved into Page settings.

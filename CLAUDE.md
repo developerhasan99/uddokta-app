@@ -62,9 +62,9 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 
 1. Style presets: one click sets colours, fonts and corners.
 2. Section editor: add, drag and configure sections with a live preview.
-3. Custom CSS per landing page (`content.css`, the editor's CSS tab). `readContent` refuses `<` and more than 20,000 characters so it can never leave its `<style>` tag. Plan limits come with billing. No Liquid-style theme language.
+3. Custom CSS per landing page (`content.css`, in the editor's Page settings). `readContent` refuses `<` and more than 20,000 characters so it can never leave its `<style>` tag. Plan limits come with billing. No Liquid-style theme language.
 
-The page editor sidebar has three views: Sections (list plus the selected section's settings), Page (page settings, full height) and CSS.
+The page editor's top bar has back, then icon toggles for the sidebar (Sections: list plus the selected section's settings; Page settings: full height, including Custom CSS), with the title and status centred.
 
 ## Navigation
 
