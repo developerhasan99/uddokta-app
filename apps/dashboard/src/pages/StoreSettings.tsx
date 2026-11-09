@@ -8,7 +8,7 @@ import { errorLabel, useLang, type Key } from '../i18n'
 
 // The business behind the store. Blank means not given. The invoice footer (invoiceNote) is edited in Settings › Invoices.
 export type StoreDetails = { phone: string; whatsapp: string; email: string; facebook: string; address: string; legalName: string; tradeLicence: string; bin: string; invoiceNote: string }
-export type StoreSettingsData = StoreDetails & { name: string; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[]; logo: MediaItem | null }
+export type StoreSettingsData = StoreDetails & { name: string; theme: string; metaPixel: string; tiktokPixel: string; menu: { label: string; href: string }[]; logo: MediaItem | null; favicon: MediaItem | null }
 
 // Which field each API error belongs to, so the message shows under it.
 const fieldOf: Record<string, keyof StoreDetails | 'name'> = { nameRequired: 'name', emailInvalid: 'email', facebookInvalid: 'facebook' }
@@ -25,7 +25,7 @@ export function StoreSettings() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ code: string; field?: string } | null>(null)
   const [done, setDone] = useState(false)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState<'logo' | 'favicon' | null>(null)
 
   const show = (data: StoreSettingsData) => {
     setForm(data)
@@ -55,8 +55,8 @@ export function StoreSettings() {
     }
     setBusy(true)
     try {
-      const { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logo } = form
-      show(await api<StoreSettingsData>(base, { method: 'PUT', body: { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logoId: logo?.id ?? null } }))
+      const { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logo, favicon } = form
+      show(await api<StoreSettingsData>(base, { method: 'PUT', body: { name, phone, whatsapp, email, facebook, address, legalName, tradeLicence, bin, logoId: logo?.id ?? null, faviconId: favicon?.id ?? null } }))
       setDone(true)
       void refresh()
     } catch (err) {
@@ -90,6 +90,25 @@ export function StoreSettings() {
     </div>
   )
 
+  const image = (key: 'logo' | 'favicon', label: Key, pick: Key, help: Key) => {
+    const item = form[key]
+    return (
+      <div className="field">
+        <span className="field__label">{t(label)}</span>
+        {item
+          ? <div className="store-logo">
+              <img src={item.thumbUrl} alt={item.alt || item.name} />
+              {canEdit && <div className="row"><Button onClick={() => setPicking(key)}>{t('storeLogoChange')}</Button><Button onClick={() => setForm({ ...form, [key]: null })}>{t('storeLogoRemove')}</Button></div>}
+            </div>
+          : <button type="button" className="media__empty store-logo__empty" disabled={!canEdit} onClick={() => setPicking(key)}>
+              <ImagePlus size={20} strokeWidth={1.5} aria-hidden="true" />
+              <strong>{t(pick)}</strong>
+            </button>}
+        <p className="field__help">{t(help)}</p>
+      </div>
+    )
+  }
+
   return (
     <form className="page page--narrow" onSubmit={(e) => void save(e)} noValidate>
       <PageHeader title={t('sStore')} description={t('sStore.d')} action={canEdit ? <Button type="submit" variant="primary" disabled={busy || !dirty} aria-busy={busy}>{t('productSave')}</Button> : undefined} />
@@ -99,18 +118,9 @@ export function StoreSettings() {
       <section className="card card--form" aria-labelledby="store-profile">
         <h2 id="store-profile">{t('storeProfile')}</h2>
         <Field id="store-name" label={t('storeSettingsName')} maxLength={100} disabled={!canEdit} value={form.name} error={fieldError('name') && t('errNameRequired')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <div className="field">
-          <span className="field__label">{t('storeLogo')}</span>
-          {form.logo
-            ? <div className="store-logo">
-                <img src={form.logo.thumbUrl} alt={form.logo.alt || form.logo.name} />
-                {canEdit && <div className="row"><Button onClick={() => setPicking(true)}>{t('storeLogoChange')}</Button><Button onClick={() => setForm({ ...form, logo: null })}>{t('storeLogoRemove')}</Button></div>}
-              </div>
-            : <button type="button" className="media__empty store-logo__empty" disabled={!canEdit} onClick={() => setPicking(true)}>
-                <ImagePlus size={20} strokeWidth={1.5} aria-hidden="true" />
-                <strong>{t('storeLogoPick')}</strong>
-              </button>}
-          <p className="field__help">{t('storeLogoHelp')}</p>
+        <div className="price-grid price-grid--two">
+          {image('logo', 'storeLogo', 'storeLogoPick', 'storeLogoHelp')}
+          {image('favicon', 'storeFavicon', 'storeFaviconPick', form.favicon && form.favicon.width !== form.favicon.height ? 'storeFaviconNotSquare' : 'storeFaviconHelp')}
         </div>
       </section>
 
@@ -142,12 +152,12 @@ export function StoreSettings() {
 
       {picking && (
         <MediaPicker
-          selected={form.logo ? [form.logo] : []}
+          selected={form[picking] ? [form[picking]] : []}
           max={1}
-          onClose={() => setPicking(false)}
+          onClose={() => setPicking(null)}
           onDone={(items) => {
-            setForm({ ...form, logo: items[0] ?? null })
-            setPicking(false)
+            setForm({ ...form, [picking]: items[0] ?? null })
+            setPicking(null)
           }}
         />
       )}

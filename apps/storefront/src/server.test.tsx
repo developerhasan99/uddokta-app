@@ -600,3 +600,16 @@ test('the order form offers the store’s delivery options, says when delivery i
   assert.equal((await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[1].id, quantity: '1', name: 'রাফি', phone: '01712340097', address: 'বাসা ১২, ধানমন্ডি' })).status, 422)
   assert.equal((await pool.query('select count(*)::int as n from orders where phone in ($1, $2)', ['01712340098', '01712340097'])).rows[0].n, 0)
 })
+
+test('a store’s favicon is served at /favicon.ico, and stores without one answer 404', async () => {
+  const s = await publishedPage()
+  assert.equal((await visit(s.handle, '/favicon.ico')).status, 404)
+  const id = randomUUID()
+  const { rows: [store] } = await pool.query('select id from stores where handle = $1', [s.handle])
+  await pool.query(`insert into media (id, store_id, name, key, thumb_key, width, height, size_bytes) values ($1, $2, 'icon.png', $3, $4, 64, 64, 100)`, [id, store.id, `${store.id}/${id}.webp`, `${store.id}/${id}-thumb.webp`])
+  await pool.query('update stores set favicon_media_id = $1 where id = $2', [id, store.id])
+  const res = await visit(s.handle, '/favicon.ico')
+  assert.equal(res.status, 302)
+  assert.match(res.headers.get('location') ?? '', new RegExp(`${id}-thumb\\.webp$`))
+  assert.match(await (await visit(s.handle, s.url)).text(), /<link rel="icon" href="\/favicon\.ico"\/>/)
+})

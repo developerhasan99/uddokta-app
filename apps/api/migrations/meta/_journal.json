@@ -505,6 +505,20 @@
       "when": 1794204721415,
       "tag": "0071_store_logo_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1794206742399,
+      "tag": "0072_store_favicon",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1794206742944,
+      "tag": "0073_store_favicon_functions",
+      "breakpoints": true
     }
   ]
 }

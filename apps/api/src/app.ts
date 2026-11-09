@@ -103,7 +103,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -247,11 +247,18 @@ const detailRules = {
 type DetailKey = keyof typeof detailRules
 const detailKeys = Object.keys(detailRules) as DetailKey[]
 
+// The store's gallery images: body key → column. Both are held by deferred keys to media (migrations 0071, 0073).
+const storeImages = { logoId: 'logoMediaId', faviconId: 'faviconMediaId' } as const
+
 async function storeSettings(t: Tx, store: typeof stores.$inferSelect) {
-  const [logo] = store.logoMediaId ? await t.select().from(media).where(and(eq(media.storeId, store.id), eq(media.id, store.logoMediaId))) : []
+  const image = async (id: string | null) => {
+    const [row] = id ? await t.select().from(media).where(and(eq(media.storeId, store.id), eq(media.id, id))) : []
+    return row ? present(row) : null
+  }
   return {
     name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu,
-    logo: logo ? present(logo) : null, ...Object.fromEntries(detailKeys.map((k) => [k, store[k]])) as Record<DetailKey, string>,
+    logo: await image(store.logoMediaId), favicon: await image(store.faviconMediaId),
+    ...Object.fromEntries(detailKeys.map((k) => [k, store[k]])) as Record<DetailKey, string>,
   }
 }
 
@@ -302,7 +309,7 @@ app.put('/stores/:handle/theme', async (c) => {
 })
 
 // Owners and admins only: row-level security updates nothing for staff, which is answered as forbidden.
-// Fields left out of the body keep their saved value (Settings › Invoices sends only its own); logoId null removes the logo.
+// Fields left out of the body keep their saved value (Settings › Invoices sends only its own); logoId or faviconId null removes that image.
 app.put('/stores/:handle/settings', async (c) => {
   const body = await readBody(c)
   const set: Partial<typeof stores.$inferInsert> = {}
@@ -321,15 +328,17 @@ app.put('/stores/:handle/settings', async (c) => {
     if (ok !== true) throw fail(400, ok)
     set[key] = value
   }
-  if (body.logoId !== undefined) {
-    if (body.logoId !== null && !isId(body.logoId)) throw fail(400, 'invalidRequest')
-    set.logoMediaId = body.logoId
+  for (const [key, column] of Object.entries(storeImages)) {
+    if (body[key] === undefined) continue
+    if (body[key] !== null && !isId(body[key])) throw fail(400, 'invalidRequest')
+    set[column] = body[key] as string | null
   }
   if (Object.keys(set).length === 0) throw fail(400, 'invalidRequest')
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
-    if (set.logoMediaId) {
-      const [found] = await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, store.id), eq(media.id, set.logoMediaId)))
+    for (const id of [set.logoMediaId, set.faviconMediaId]) {
+      if (!id) continue
+      const [found] = await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, store.id), eq(media.id, id)))
       if (!found) throw fail(400, 'invalidRequest')
     }
     const [row] = await t.update(stores).set(set).where(eq(stores.id, store.id)).returning()

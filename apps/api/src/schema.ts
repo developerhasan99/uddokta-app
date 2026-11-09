@@ -52,6 +52,8 @@ export const stores = pgTable('stores', {
   // Business details from Settings › Store, printed on invoices. Blank means not given. The logo is a gallery image,
   // held by a deferred foreign key to media (migration 0071) so a logo in use cannot be deleted.
   logoMediaId: uuid('logo_media_id'),
+  // The browser-tab icon on every sales channel (landing pages now, the online store later). Held like the logo (migration 0073).
+  faviconMediaId: uuid('favicon_media_id'),
   phone: text('phone').notNull().default(''),
   whatsapp: text('whatsapp').notNull().default(''),
   email: text('email').notNull().default(''),

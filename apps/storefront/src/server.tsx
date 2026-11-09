@@ -138,6 +138,7 @@ function Document({ title, description, noindex, canonical, shareImage, theme, p
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
+        <link rel="icon" href="/favicon.ico" />
         {description && <meta name="description" content={description} />}
         {(noindex || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
         <meta property="og:title" content={title} />
@@ -289,6 +290,13 @@ app.get('/_domains/allowed', async (c) => {
 })
 
 app.get('/robots.txt', (c) => c.text(process.env.ROBOTS_NOINDEX === 'true' ? 'User-agent: *\nDisallow: /\n' : 'User-agent: *\nAllow: /\n'))
+// Every page links here, and browsers ask on their own: the store's favicon from Settings › Store, or nothing.
+app.get('/favicon.ico', async (c) => {
+  const handle = storeHandle(c)
+  const key = handle && (await tx(null, (t) => t.execute<{ key: string | null }>(sql`select storefront_favicon(${handle}) as key`))).rows[0].key
+  c.header('cache-control', 'public, max-age=300')
+  return key ? c.redirect(publicUrl(key), 302) : c.body(null, 404)
+})
 app.get('/_health', async (c) => {
   c.header('Cache-Control', 'no-store')
   try { await tx(null, (t) => t.execute(sql`select 1`)); return c.json({ status: 'ok' }) }

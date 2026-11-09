@@ -161,8 +161,8 @@ export function registerMedia(app: Hono<Env>) {
         .innerJoin(pages, eq(pages.id, pageMedia.pageId))
         .where(and(eq(pageMedia.storeId, store.id), eq(pageMedia.mediaId, c.req.param('id'))))
         .orderBy(asc(pages.title))
-      const logo = await t.select({ id: stores.id }).from(stores).where(and(eq(stores.id, store.id), eq(stores.logoMediaId, c.req.param('id'))))
-      return c.json({ products: used, collections: usedCollections, pages: usedPages, logo: logo.length > 0 })
+      const [own] = await t.select({ logo: stores.logoMediaId, favicon: stores.faviconMediaId }).from(stores).where(eq(stores.id, store.id))
+      return c.json({ products: used, collections: usedCollections, pages: usedPages, logo: own?.logo === c.req.param('id'), favicon: own?.favicon === c.req.param('id') })
     })
   })
 

@@ -225,7 +225,7 @@ test('production storage sends signed requests to R2', async () => {
   assert.equal(seen[0].type, 'image/webp')
 })
 
-test('a store logo must be the store’s own image and cannot be deleted while set', async () => {
+test('a store logo and favicon must be the store’s own images and cannot be deleted while set', async () => {
   const owner = await storeOwner()
   const other = await storeOwner()
   const logo = (await owner.call('POST', `/stores/${owner.handle}/media`, form(await png(40, 40)))).json
@@ -237,4 +237,10 @@ test('a store logo must be the store’s own image and cannot be deleted while s
   assert.deepEqual(await owner.call('DELETE', `/stores/${owner.handle}/media/${logo.id}`).then((r) => [r.status, r.json.error]), [409, 'mediaInUse'])
   assert.equal((await owner.call('PUT', settings, { name: 'Shop', logoId: null })).json.logo, null)
   assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${logo.id}`)).status, 200)
+
+  const icon = (await owner.call('POST', `/stores/${owner.handle}/media`, form(await png(64, 64)))).json
+  assert.equal((await owner.call('PUT', settings, { faviconId: foreign.id })).status, 400)
+  assert.equal((await owner.call('PUT', settings, { faviconId: icon.id })).json.favicon.id, icon.id)
+  assert.deepEqual(await owner.call('GET', `/stores/${owner.handle}/media/${icon.id}/usage`).then((r) => [r.json.favicon, r.json.logo]), [true, false])
+  assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${icon.id}`)).json.error, 'mediaInUse')
 })

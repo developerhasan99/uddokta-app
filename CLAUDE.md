@@ -145,7 +145,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Profit (owners and admins only): delivered sales − buying price copied at sale (`order_item_costs`). Delivery charges go to the courier and are left out.
 - Out of scope: expense tracking, team tasks, attendance and referral pages. We are not a bookkeeping, project or HR tool.
 - Couriers: Steadfast logins are encrypted with `COURIER_KEY` (`apps/api/src/secrets.ts`) and never returned. Booking locks the order row so a double click cannot book twice. `STEADFAST_URL` points tests at a stand-in. Self delivery (`courier = 'self'`) is turned on in Settings › Couriers by owners and admins; sending an order that way records a shipment with no booking or tracking, and the team marks it delivered or returned by hand.
-- Settings › Store is the business itself (name, logo, contact, address, optional registration), never online-store settings. Settings › Invoices holds what printed orders add; its header reads the Store details.
+- Settings › Store is the business itself (name, logo, favicon, contact, address, optional registration), never online-store settings. The favicon is shared by every sales channel: the storefront serves it at `/favicon.ico` (`storefront_favicon`) and every page links there. Settings › Invoices holds what printed orders add; its header reads the Store details.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
 

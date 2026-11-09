@@ -1,0 +1,1 @@
+ALTER TABLE "stores" ADD COLUMN "favicon_media_id" uuid;
