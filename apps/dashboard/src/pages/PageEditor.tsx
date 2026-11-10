@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { columns, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -325,6 +325,13 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
   return <dialog {...dialogProps} className="modal node-add" aria-labelledby={titleId}>
     <DialogHead id={titleId} title={L(['কী যোগ করবেন?', 'Add to the layout'])} onClose={() => close()} />
     <div className="dialog__body">
+      <p className="node-add__label">{L(['কাঠামো', 'Structure'])}</p>
+      <ul className="node-add__grid node-add__structure">
+        {[1, 2, 3, 4].map((n) => <li key={n}><button type="button" onClick={() => close(() => onAdd((id) => columns(n, id)))}>
+          <span className="node-add__cols" aria-hidden="true">{Array.from({ length: n }, (_, i) => <span key={i} />)}</span>
+          <span>{n === 1 ? L(['এক কলাম', 'One column']) : L([`${['', '', 'দুই', 'তিন', 'চার'][n]} কলাম`, `${['', '', 'Two', 'Three', 'Four'][n]} columns`])}</span>
+        </button></li>)}
+      </ul>
       <p className="node-add__label">{L(['এলিমেন্ট', 'Elements'])}</p>
       <ul className="node-add__grid">
         {nodeKinds.filter((kind) => kind !== 'box' && kind !== 'block').map((kind) => {
@@ -338,12 +345,6 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
           const Icon = sectionIcons[type]
           return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
         })}
-      </ul>
-      <p className="node-add__label">{L(['কন্টেইনার', 'Container'])}</p>
-    </div>
-    <div className="dialog__body dialog__body--flush">
-      <ul className="dialog-list">
-        <li><button type="button" className="dialog-list__item" onClick={() => close(() => onAdd((id) => newNode('box', id)))}><Box className="dialog-list__icon" size={18} aria-hidden="true" /><span className="dialog-list__text"><strong>{L(['খালি বক্স', 'Empty box'])}</strong><span>{L(['যেকোনো কিছু রাখার পাত্র, নিচে নিচে বা পাশাপাশি', 'A container for anything, stacked or side by side'])}</span></span><ChevronDown className="dialog-list__chevron" size={18} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }} /></button></li>
       </ul>
     </div>
   </dialog>

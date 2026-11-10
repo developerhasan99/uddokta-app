@@ -1741,3 +1741,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 @media (hover: none) { .editor-tree__delete { display: contents; } .editor-tree__drag { display: none !important; } .editor-tree__icon { display: block !important; } }
 @media (max-width: 860px) { .editor-tree__row, .editor-tree__name { min-height: 36px; } }
 .editor-tree__row--add .editor-tree__add { min-height: 26px; margin-inline-start: 18px; color: var(--color-muted); }
+.node-add__structure { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.node-add__cols { display: flex; gap: 3px; width: 100%; max-width: 88px; height: 36px; }
+.node-add__cols span { flex: 1; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: 4px; background: var(--color-paper-3); }
+.node-add__grid button:hover .node-add__cols span { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 14%, transparent); }
+@media (max-width: 860px) { .node-add__structure { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

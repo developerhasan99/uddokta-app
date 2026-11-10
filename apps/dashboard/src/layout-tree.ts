@@ -134,3 +134,8 @@ export const sectionPresets: { key: string; label: Label; help: Label; build: Bu
   ...layoutPresets.filter((p) => p.key === 'banner'),
   { key: 'cta', label: ['বাটনসহ আহ্বান', 'Call to action'], help: ['মাঝখানে শিরোনাম, লেখা আর বাটন', 'A centred heading, text and button'], build: (id) => box(id, { align: 'center', textAlign: 'center', gap: 16 }, [el('heading', id, { text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id)]) },
 ]
+
+// "Structure" in Add element: one box, or a row of 2–4 equal column boxes (stacked on phones). More columns or
+// rows are just more boxes, added like anything else.
+export const columns = (n: number, id: () => string): PageNode =>
+  n === 1 ? box(id, undefined, []) : box(id, { direction: 'row', gap: 20 }, Array.from({ length: n }, () => box(id, undefined, [])))
