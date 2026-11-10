@@ -143,25 +143,32 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
     const fallback = kind === 'padding' && (side === 'Left' || side === 'Right') ? (device === 'mobile' ? values[`padding${side}`] ?? values.paddingX : values.paddingX) : undefined
     const sideLabel = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side.toLowerCase())
     const label = `${device === 'mobile' ? L('মোবাইল', 'Mobile') : L('ডেস্কটপ', 'Desktop')} ${kind === 'margin' ? L('মার্জিন', 'margin') : L('প্যাডিং', 'padding')} ${sideLabel}`
-    return <label key={side} className={`space-value space-value--${side.toLowerCase()}`} htmlFor={`${uid}-${key}`}><span className="visually-hidden">{label}</span><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
+    return <label key={side} className="spacing-side" htmlFor={`${uid}-${key}`}><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
       const value = e.target.value === '' ? undefined : Math.max(0, Math.min(side === 'Top' || side === 'Bottom' ? 300 : 160, Math.round(Number(e.target.value) || 0)))
       const patch = Object.fromEntries((linked[kind] ? sides : [side]).map((s) => [keyFor(kind, s), value]))
       onPatch(patch, `${device}:${kind}:${linked[kind] ? 'all' : side}`)
-    }} /></label>
+    }} /><span aria-hidden="true">{L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)}</span></label>
   }
   const resetBox = (kind: 'margin' | 'padding') => {
     const patch: Patch = Object.fromEntries(sides.map((side) => [keyFor(kind, side), undefined]))
     if (kind === 'padding' && device === 'desktop') patch.paddingX = undefined
     onPatch(patch)
   }
+  // Two compact rows (padding, then margin), four sides each. Link edits all four together.
+  const row = (kind: 'padding' | 'margin') => <div className="spacing-row" key={kind}>
+    <div className="spacing-row__head">
+      <span>{kind === 'padding' ? L('ভেতরের ফাঁকা', 'Padding') : L('বাইরের ফাঁকা', 'Margin')}</span>
+      <button className="design-reset spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={13} aria-hidden="true" /> : <Unlink2 size={13} aria-hidden="true" />}</button>
+      <button type="button" className="design-reset" aria-label={`${kind}: ${L('রিসেট', 'Reset spacing')}`} title={L('রিসেট', 'Reset')} onClick={() => resetBox(kind)}><RotateCcw size={12} aria-hidden="true" /></button>
+    </div>
+    <div className="spacing-row__sides">{sides.map((side) => sideInput(kind, side))}</div>
+  </div>
   return <div className="spacing-control">
-    <div className="design-segments spacing-devices" role="group" aria-label={L('স্পেসিং ডিভাইস', 'Spacing device')}>
-      <button type="button" aria-pressed={device === 'desktop'} onClick={() => setDevice('desktop')}><Monitor size={14} aria-hidden="true" />{L('ডেস্কটপ', 'Desktop')}</button><button type="button" aria-pressed={device === 'mobile'} onClick={() => setDevice('mobile')}><Smartphone size={14} aria-hidden="true" />{L('মোবাইল', 'Mobile')}</button>
+    <div className="design-segments node-device spacing-devices" role="group" aria-label={L('স্পেসিং ডিভাইস', 'Spacing device')}>
+      <button type="button" aria-pressed={device === 'desktop'} onClick={() => setDevice('desktop')}><Monitor size={13} aria-hidden="true" /><span>{L('ডেস্কটপ', 'Desktop')}</span></button><button type="button" aria-pressed={device === 'mobile'} onClick={() => setDevice('mobile')}><Smartphone size={13} aria-hidden="true" /><span>{L('মোবাইল', 'Mobile')}</span></button>
     </div>
-    <div className="space-map space-map--margin"><span className="space-map__label">{L('মার্জিন', 'MARGIN')}</span>{sides.map((s) => sideInput('margin', s))}
-      <div className="space-map space-map--padding"><span className="space-map__label">{L('প্যাডিং', 'PADDING')}</span>{sides.map((s) => sideInput('padding', s))}<div className="space-map__content" aria-hidden="true"><Square size={14} /></div></div>
-    </div>
-    <div className="spacing-links">{(['margin', 'padding'] as const).map((kind) => <div key={kind}><button className="spacing-link" type="button" aria-pressed={linked[kind]} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={13} aria-hidden="true" /> : <Unlink2 size={13} aria-hidden="true" />}<span>{kind === 'margin' ? L('মার্জিন', 'Margin') : L('প্যাডিং', 'Padding')}</span></button><button type="button" className="design-reset" aria-label={`${kind}: ${L('রিসেট', 'Reset spacing')}`} onClick={() => resetBox(kind)}><RotateCcw size={12} aria-hidden="true" /></button></div>)}</div>
-    <p className="design-help">{L('px এককে। লিংক চালু করলে চার দিক একসাথে বদলাবে।', 'Values in px. Link sides to edit all four together.')}</p>
+    {row('padding')}
+    {row('margin')}
   </div>
 }
+
