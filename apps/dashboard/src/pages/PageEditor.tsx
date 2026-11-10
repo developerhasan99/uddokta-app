@@ -416,6 +416,7 @@ export function PageEditor() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [resetting, setResetting] = useState<string | null>(null)
   const dragFrom = useRef<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
@@ -1005,13 +1006,21 @@ export function PageEditor() {
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined }, typingKey ? `${section.id}:style:${typingKey}` : undefined)
                 }} />
                 {sTab === 'layout' && <details className="design-group design-anchor"><summary><span className="design-group__icon"><Link2 size={15} aria-hidden="true" /></span><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
-                <Button onClick={() => {
-                  const style = { ...section.style }
-                  for (const field of styleFieldsFor(section.type).filter((f) => f.group === sTab)) delete style[field.key]
-                  updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
-                }}>{L(sTab === 'layout' ? ['বিন্যাস রিসেট করুন', 'Reset layout overrides'] : ['স্টাইল রিসেট করুন', 'Reset style overrides'])}</Button>
+                <div className="editor__reset-all">
+                  {resetting === `${section.id}:${sTab}`
+                    ? <>
+                      <span>{L(sTab === 'layout' ? ['এই সেকশনের সব বিন্যাস মুছবেন?', 'Reset all layout settings of this section?'] : ['এই সেকশনের সব স্টাইল মুছবেন?', 'Reset all style settings of this section?'])}</span>
+                      <Button onClick={() => setResetting(null)}>{t('cancel')}</Button>
+                      <Button variant="danger" onClick={() => {
+                        const style = { ...section.style }
+                        for (const field of styleFieldsFor(section.type).filter((f) => f.group === sTab)) delete style[field.key]
+                        updateSection(section.id, { style: Object.keys(style).length ? style : undefined })
+                        setResetting(null)
+                      }}>{L(['রিসেট', 'Reset'])}</Button>
+                    </>
+                    : <button type="button" className="editor__reset-link" onClick={() => setResetting(`${section.id}:${sTab}`)}>{L(sTab === 'layout' ? ['সব বিন্যাস রিসেট…', 'Reset all layout…'] : ['সব স্টাইল রিসেট…', 'Reset all style…'])}</button>}
+                </div>
               </>}
-              {section.type === 'layout' && sTab === 'layout' && <Button onClick={() => setAddingNode({ sectionId: section.id, parentId: null, index: section.children?.length ?? 0 })}><Plus size={16} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</Button>}
               {section.type === 'order' && sTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
             </div>
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>

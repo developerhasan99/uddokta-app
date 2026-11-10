@@ -1836,3 +1836,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 @media (max-width: 860px) { .spacing-side input { height: 36px; font-size: 16px; } }
 .editor .editor__settings .spacing-row__link { opacity: 1; }
 .editor .editor__settings .spacing-row:is(:hover, :focus-within) .design-reset:not(:disabled) { opacity: 1; }
+.editor__reset-all { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-xs); padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); font-size: 12px; color: var(--color-muted); }
+.editor__reset-all > span { flex: 1 1 100%; }
+.editor__reset-link { padding: 0; border: 0; background: none; color: var(--color-muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.editor__reset-link:hover { color: var(--color-error); }
