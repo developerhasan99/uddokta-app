@@ -689,6 +689,13 @@ export function PageEditor() {
     choose(node.id)
   }
   const addAfter = (f: Found) => setAddingNode(f.node.kind === 'box' ? { sectionId: f.section.id, parentId: f.node.id, index: f.node.children?.length ?? 0 } : { sectionId: f.section.id, parentId: f.parent?.id ?? null, index: f.index + 1 })
+  // "Add element" at the end of every open container, at the level of its children.
+  const addRow = (sectionId: string, parentId: string | null, index: number, depth: number) => (
+    <div className="editor-tree__row editor-tree__row--add" style={{ ['--depth' as string]: depth }}>
+      {Array.from({ length: depth }, (_, i) => <span key={i} className="editor-tree__guide" aria-hidden="true" />)}
+      <button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId, parentId, index })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button>
+    </div>
+  )
   const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
     const Icon = nodeIcons[n.kind]
     const name = nodeName(n, L)
@@ -733,7 +740,7 @@ export function PageEditor() {
           </IconButton>
         </span>
       </div>
-      {n.children && isOpen && tree(sectionId, n.children, depth + 1)}
+      {n.children && isOpen && <>{tree(sectionId, n.children, depth + 1)}{addRow(sectionId, n.id, n.children.length, depth + 1)}</>}
     </Fragment>
   })
   const nodePanel = (f: Found) => {
@@ -937,7 +944,7 @@ export function PageEditor() {
             </li>
             {s.type === 'layout' && open.has(s.id) && <li className="editor-tree">
               {tree(s.id, s.children ?? [], 1)}
-              <div className="editor-tree__row editor-tree__row--add" style={{ ['--depth' as string]: 1 }}><span className="editor-tree__guide" aria-hidden="true" /><button type="button" className="editor-tree__add" onClick={() => setAddingNode({ sectionId: s.id, parentId: null, index: s.children?.length ?? 0 })}><Plus size={14} aria-hidden="true" />{L(['এলিমেন্ট যোগ করুন', 'Add element'])}</button></div>
+              {addRow(s.id, null, s.children?.length ?? 0, 1)}
             </li>}
             </Fragment>
           ))}

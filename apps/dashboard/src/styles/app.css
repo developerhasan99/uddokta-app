@@ -1740,3 +1740,4 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-tree__row--drop-inside { background: color-mix(in oklab, var(--color-primary) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-primary) 60%, transparent); }
 @media (hover: none) { .editor-tree__delete { display: contents; } .editor-tree__drag { display: none !important; } .editor-tree__icon { display: block !important; } }
 @media (max-width: 860px) { .editor-tree__row, .editor-tree__name { min-height: 36px; } }
+.editor-tree__row--add .editor-tree__add { min-height: 26px; margin-inline-start: 18px; color: var(--color-muted); }
