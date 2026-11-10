@@ -96,3 +96,12 @@ test('a fully hidden node is kept in the page but never drawn', () => {
   const content: Content = { version: 2, sections: [{ ...newSection('layout', 'l'), children: [{ id: 'gone', kind: 'heading', props: { text: 'secret', level: 'h2' }, hide: 'all' }] }] }
   assert.deepEqual(readContent(content), content)
 })
+
+test('text elements keep safe rich text and drop everything else', () => {
+  const content = (text: string) => ({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 't', kind: 'text', props: { text } }] }] })
+  const read = (text: string) => readContent(content(text))!.sections[0].children![0].props.text
+  assert.equal(read('<p>Hello <b>world</b></p><ul><li>One</li></ul>'), '<p>Hello <strong>world</strong></p><ul><li>One</li></ul>')
+  assert.equal(read('<p onclick="x()">Hi</p><script>alert(1)</script><img src=x onerror=alert(1)>'), '<p>Hi</p>alert(1)')
+  assert.equal(read('<a href="javascript:alert(1)">x</a><a href="https://ok.test/a">y</a>'), 'x</a><a href="https://ok.test/a">y</a>')
+  assert.equal(read('plain\n\ntext'), 'plain\n\ntext', 'older plain text stays as it was')
+})

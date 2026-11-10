@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
+import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
 import { columns, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
+import { toRich } from 'storefront/rich'
 import { blockTypes, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
@@ -78,11 +80,13 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       const cs = win.getComputedStyle(el)
       const box = doc.createElement('div')
       box.className = 'editor-inline'
-      box.setAttribute('contenteditable', 'plaintext-only')
-      if (box.contentEditable !== 'plaintext-only') box.contentEditable = 'true'
+      const rich = el.dataset.edit === 'rich'
+      box.setAttribute('contenteditable', rich ? 'true' : 'plaintext-only')
+      if (!rich && box.contentEditable !== 'plaintext-only') box.contentEditable = 'true'
       for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color', 'textAlign', 'textTransform'] as const) box.style[prop] = cs[prop]
       Object.assign(box.style, { position: 'absolute', zIndex: '9999', left: `${rect.left + win.scrollX}px`, top: `${rect.top + win.scrollY}px`, width: `${Math.max(rect.width, 80)}px`, minHeight: `${rect.height}px`, whiteSpace: 'pre-wrap', outline: '2px solid #1f7a4d', outlineOffset: '3px', background: 'transparent', borderRadius: '2px' })
-      box.textContent = el.classList.contains('sf-n-prompt') ? '' : el.innerText
+      if (rich) box.innerHTML = el.innerHTML
+      else box.textContent = el.classList.contains('sf-n-prompt') ? '' : el.innerText
       el.style.visibility = 'hidden'
       doc.body.appendChild(box)
       editing = box
@@ -96,10 +100,10 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       const finish = (save: boolean) => {
         if (editing !== box) return
         editing = null
-        const text = box.innerText.replace(/\n{3,}/g, '\n\n').trim()
+        const text = rich ? box.innerHTML.trim() : box.innerText.replace(/\n{3,}/g, '\n\n').trim()
         box.remove()
         el.style.visibility = ''
-        if (save && text !== el.innerText.trim()) typed.current(id, text)
+        if (save && text !== (rich ? el.innerHTML.trim() : el.innerText.trim())) typed.current(id, text)
       }
       box.addEventListener('blur', () => finish(true))
       box.addEventListener('keydown', (e) => {
@@ -179,6 +183,8 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       return <Field id={id} label={label} placeholder="https://… / #section-id" maxLength={500} value={String(value ?? '')} error={!isSectionLink(value ?? '') ? (lang === 'bn' ? 'https://, #সেকশন, tel: বা mailto: লিংক দিন।' : 'Use https://, #section, tel: or mailto: links.') : undefined} onChange={(e) => onChange(e.target.value.trim(), true)} />
     case 'text':
       return <Field id={id} label={label} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
+    case 'richtext':
+      return <div className="field"><span className="field__label" id={`${id}-label`}>{label}</span><RichText labelledBy={`${id}-label`} value={toRich(String(value ?? ''))} onChange={(html) => onChange(html, true)} /></div>
     case 'textarea':
       return (
         <div className="field">

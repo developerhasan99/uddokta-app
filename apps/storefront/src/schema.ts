@@ -1,4 +1,5 @@
 import { isIconName, type IconName } from './icons/catalog.ts'
+import { cleanRichText } from './rich.ts'
 
 // Page content: versioned JSON, shared by the API (which validates it), the editor (which builds its forms from it)
 // and the storefront (which renders it). No JSX here, so the API can import it without a build step.
@@ -7,7 +8,7 @@ export type Label = readonly [bn: string, en: string]
 
 export type Leaf =
   | { key: string; kind: 'icon'; label: Label; defaultIcon?: IconName }
-  | { key: string; kind: 'text' | 'textarea'; label: Label; max: number }
+  | { key: string; kind: 'text' | 'textarea' | 'richtext'; label: Label; max: number }
   | { key: string; kind: 'image' | 'product' | 'url' | 'link' | 'color'; label: Label }
   | { key: string; kind: 'number'; label: Label; min: number; max: number }
   | { key: string; kind: 'select'; label: Label; options: readonly { value: string; label: Label }[] }
@@ -283,6 +284,8 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
     case 'text':
     case 'textarea':
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
+    case 'richtext':
+      return typeof raw === 'string' && raw.length <= field.max ? cleanRichText(raw) : undefined
     case 'select':
       return typeof raw === 'string' && field.options.some((o) => o.value === raw) ? raw : undefined
     case 'number':
@@ -447,7 +450,7 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
     { key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 300 },
     { key: 'level', kind: 'select', label: ['ট্যাগ', 'Tag'], options: opts(['h1', ['H1 · সবচেয়ে বড়', 'H1 · Largest']], ['h2', ['H2', 'H2']], ['h3', ['H3', 'H3']], ['h4', ['H4', 'H4']], ['h5', ['H5', 'H5']], ['h6', ['H6 · সবচেয়ে ছোট', 'H6 · Smallest']], ['p', ['P · সাধারণ লেখা', 'P · Paragraph']]) },
   ], defaults: { text: 'আপনার শিরোনাম লিখুন', level: 'h2' } },
-  text: { label: ['লেখা', 'Text'], fields: [{ key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 3000 }], defaults: { text: 'এখানে আপনার লেখা লিখুন। পণ্যের সুবিধা, ব্যবহার বা গল্প।' } },
+  text: { label: ['লেখা', 'Text'], fields: [{ key: 'text', kind: 'richtext', label: ['লেখা', 'Text'], max: 6000 }], defaults: { text: 'এখানে আপনার লেখা লিখুন। পণ্যের সুবিধা, ব্যবহার বা গল্প।' } },
   image: { label: ['ছবি', 'Image'], fields: [{ key: 'image', kind: 'image', label: ['ছবি', 'Image'] }, { key: 'link', kind: 'link', label: ['লিংক (ঐচ্ছিক)', 'Link (optional)'] }], defaults: { image: null, link: '' } },
   button: { label: ['বাটন', 'Button'], fields: [
     { key: 'text', kind: 'text', label: ['বাটনের লেখা', 'Button text'], max: 80 },

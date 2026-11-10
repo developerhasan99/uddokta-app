@@ -1,3 +1,4 @@
+import { cleanRichText } from 'storefront/rich'
 import { and, asc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
@@ -15,7 +16,6 @@ const maxImages = 20
 const maxAmount = 1_000_000_000
 const maxDescription = 50_000
 const maxTags = 30
-const descriptionTags: Record<string, string> = { p: 'p', div: 'p', br: 'br', b: 'strong', strong: 'strong', i: 'em', em: 'em', u: 'u', ul: 'ul', ol: 'ol', li: 'li', h2: 'h2' }
 
 export const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 export const isAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= maxAmount
@@ -26,18 +26,8 @@ type VariantInput = { id?: string; options: string[]; price: number; comparePric
 
 // Descriptions are shown as HTML, so this is the safety boundary: afterwards every "<" starts a known tag,
 // and the only attribute left is a link's href, limited to schemes that cannot run code.
-export function cleanDescription(html: string) {
-  return html.replace(/<(\/?)([a-z][a-z0-9]*)\b[^<>]*>|</gi, (match, close: string, tag?: string) => {
-    if (!tag) return '&lt;'
-    if (tag.toLowerCase() === 'a') {
-      if (close) return '</a>'
-      const href = /\shref="((?:https?:\/\/|mailto:|tel:)[^"<>\s]*)"/i.exec(match)?.[1]
-      return href ? `<a href="${href}">` : ''
-    }
-    const known = descriptionTags[tag.toLowerCase()]
-    return known ? `<${close}${known}>` : ''
-  })
-}
+// Product descriptions use the shared rich-text cleaner (apps/storefront/src/rich.ts).
+export const cleanDescription = cleanRichText
 
 // Letters of any language stay, so a Bangla name gets a Bangla address. The joiners are part of how Bangla is spelled.
 export const slugify = (text: string) => text.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}\u200c\u200d]+/gu, '-').slice(0, 100).replace(/^-+|-+$/g, '')

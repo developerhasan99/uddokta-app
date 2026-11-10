@@ -97,7 +97,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Buying prices live in `product_variant_costs`, which row-level security hides from staff. Staff saves leave the field out and keep the existing price.
 - Staff can add and edit products; only owners and admins can delete them.
 - Statuses: active (listed and on sale), unlisted (on sale through its direct link, never in listings or search), draft (hidden). The storefront must honour all three.
-- Descriptions are HTML. `cleanDescription` in `apps/api/src/products.ts` allows a few tags with no attributes, plus links with an http, https, mailto or tel `href`, and it is the only thing that makes them safe to render.
+- Descriptions and layout Text elements are rich text. `cleanRichText` in `apps/storefront/src/rich.ts` allows a few tags with no attributes, plus links with an http, https, mailto or tel `href`, and it is the only thing that makes them safe to render. The API runs it on save (`cleanDescription`, and `readContent` for `richtext` fields); the layout renderer runs it again before drawing, so the editor preview is safe too.
 - Each product has a `handle`, unique in its store and allowed to contain Bangla. Saves keep it when the name changes. A blank search title or description means the storefront uses the name and `searchDescription` from `apps/dashboard/src/product-form.ts`.
 - A variant image must be one of its product's images, enforced by a deferred foreign key to `product_media`.
 - `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.

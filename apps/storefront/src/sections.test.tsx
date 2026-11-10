@@ -105,3 +105,11 @@ test('headings render every tag from h1 to h6 and p', () => {
   const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
   for (const level of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p']) assert.match(html, new RegExp(`<${level} class="sf-n sf-n-heading n-t-${level}"`))
 })
+
+test('rich text elements render their formatting, cleaned again at render time', () => {
+  const layout = newSection('layout', 'r')
+  layout.children = [{ id: 'rich', kind: 'text', props: { text: '<p>Big <strong>deal</strong></p><img src=x onerror=alert(1)>' } }, { id: 'plain', kind: 'text', props: { text: 'a <b>\n\nb' } }]
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
+  assert.match(html, /<p>Big <strong>deal<\/strong><\/p>/)
+  assert.doesNotMatch(html, /onerror|<img src=x/)
+})

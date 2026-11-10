@@ -2,6 +2,7 @@
 // Every style value was checked by readContent against a fixed list or range, so it goes into CSS as it is.
 import type { ReactNode } from 'react'
 import { IconBadge } from './icons/Icon.tsx'
+import { cleanRichText, isRich } from './rich.ts'
 import { videoEmbed, walk, type Content, type NodeStyle, type PageNode, type Section } from './schema.ts'
 import { SectionView, type Ctx } from './sections.tsx'
 
@@ -39,7 +40,9 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
     }
     case 'text':
       if (!str(p.text)) return ctx.preview ? <div className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text"><p>এখানে লেখা যোগ করুন</p></div> : null
-      return <div className={className} data-node={node.id} data-edit="text">{str(p.text).split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}</div>
+      return isRich(str(p.text))
+        ? <div className={className} data-node={node.id} data-edit="rich" dangerouslySetInnerHTML={{ __html: cleanRichText(str(p.text)) }} />
+        : <div className={className} data-node={node.id} data-edit="text">{str(p.text).split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}</div>
     case 'image': {
       const img = ctx.image(p.image as string | null)
       if (!img) return ctx.preview ? <div className={`${className} sf-n-placeholder`} data-node={node.id}>ছবি বেছে নিন</div> : null
@@ -170,7 +173,7 @@ export const layoutBaseCss = `
 .sf-n{box-sizing:border-box;min-width:0}
 .sf-n-heading{margin:0;color:var(--sf-ink);font-weight:700;line-height:1.25;overflow-wrap:anywhere}
 h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(24px,3.6vw,34px)}h3.sf-n-heading{font-size:clamp(20px,2.6vw,24px)}h4.sf-n-heading{font-size:19px}h5.sf-n-heading{font-size:17px}h6.sf-n-heading{font-size:15px;letter-spacing:.02em}p.sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
-.sf-n-text{line-height:1.7;overflow-wrap:anywhere}.sf-n-text p{margin:0 0 .8em}.sf-n-text p:last-child{margin-bottom:0}
+.sf-n-text{line-height:1.7;overflow-wrap:anywhere}.sf-n-text :is(p,ul,ol,h2,h3){margin:0 0 .8em}.sf-n-text>:last-child{margin-bottom:0}.sf-n-text :is(ul,ol){padding-inline-start:1.4em}.sf-n-text h2{font-size:1.4em;line-height:1.3}.sf-n-text h3{font-size:1.2em;line-height:1.35}.sf-n-text a{color:var(--sf-accent)}
 .sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-radius)}.sf-n-image img{display:block;width:100%;height:auto}
 .sf-n.sf-button{margin:0;width:fit-content;gap:8px}
 .sf-n-icon{display:inline-flex;width:fit-content;color:var(--sf-accent)}

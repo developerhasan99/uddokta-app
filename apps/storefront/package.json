@@ -6,6 +6,7 @@
     "./order-filters": "./src/order-filters.ts",
     "./campaigns": "./src/campaigns.ts",
     "./convert": "./src/convert.ts",
+    "./rich": "./src/rich.ts",
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
     "./themes": "./src/themes.ts",
