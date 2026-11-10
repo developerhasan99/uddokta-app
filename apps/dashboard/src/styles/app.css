@@ -1810,3 +1810,13 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .design-group__title { display: flex; align-items: center; gap: var(--space-xs); min-height: 34px; margin: 0; padding: 0 var(--space-sm); font-size: var(--text-sm); }
 .design-group__title strong { font-weight: 600; }
 .editor .editor__settings .design-group__title { padding: 0; color: var(--color-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+
+/* Planted panels: the sections tree and the settings sit flush in the sidebar, split by one line. Shorter panel header. */
+@media (min-width: 861px) {
+  .editor .editor__sidebar { gap: 0; padding: 0; }
+  .editor .editor__sidebar > aside { border: 0; border-radius: 0; }
+  .editor .editor__sidebar > aside + aside { border-top: var(--rule-hair) solid var(--color-rule-strong); }
+}
+.editor .editor__settings > .editor__settings-head { min-height: 44px; padding-block: 6px; }
+.editor .editor__settings-head :is(.btn--icon, .media__dismiss) { width: 28px; min-width: 28px; min-height: 28px; }
+.editor .editor__settings > .editor-setting-tabs { top: 33px; }
