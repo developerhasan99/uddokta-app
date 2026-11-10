@@ -105,3 +105,12 @@ test('text elements keep safe rich text and drop everything else', () => {
   assert.equal(read('<a href="javascript:alert(1)">x</a><a href="https://ok.test/a">y</a>'), 'x</a><a href="https://ok.test/a">y</a>')
   assert.equal(read('plain\n\ntext'), 'plain\n\ntext', 'older plain text stays as it was')
 })
+
+test('section backgrounds are validated, spacing goes to 300px, and background images are tracked', () => {
+  const photo = '00000000-0000-4000-8000-000000000012'
+  const page = (style: object) => readContent({ version: 2, sections: [{ ...newSection('layout', 'l'), style }] })
+  const ok = page({ bgType: 'image', bgImage: photo, overlayColor: '#000000', overlayOpacity: 60, paddingTop: 300, marginBottom: 300, mobilePaddingTop: 300 })!
+  assert.equal(ok.sections[0].style?.paddingTop, 300)
+  assert.deepEqual(references(ok).media, [photo])
+  for (const style of [{ paddingTop: 301 }, { overlayOpacity: 101 }, { bgVideo: 'http://insecure.test/a.mp4' }, { bgType: 'pattern' }, { gradientFrom: 'red' }, { bgImage: 'not-an-id' }]) assert.equal(page(style), null, JSON.stringify(style))
+})

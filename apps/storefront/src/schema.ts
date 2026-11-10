@@ -50,8 +50,20 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'maxWidth', kind: 'number', min: 320, max: 1600, label: ['কন্টেন্টের সর্বোচ্চ প্রস্থ (px)', 'Content max width (px)'], group: 'layout' },
   { key: 'columns', kind: 'number', min: 1, max: 4, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' },
   { key: 'mobileColumns', kind: 'number', min: 1, max: 2, label: ['মোবাইল কলাম', 'Mobile columns'], group: 'layout' },
-  ...(['paddingTop', 'paddingBottom', 'paddingX', 'mobilePaddingTop', 'mobilePaddingBottom', 'gap', 'marginTop', 'marginBottom'] as const).map((key, i) => ({ key, kind: 'number' as const, min: 0, max: 160, label: ([ ['উপরের প্যাডিং (px)', 'Top padding (px)'], ['নিচের প্যাডিং (px)', 'Bottom padding (px)'], ['পাশের প্যাডিং (px)', 'Side padding (px)'], ['মোবাইলে উপরের প্যাডিং (px)', 'Mobile top padding (px)'], ['মোবাইলে নিচের প্যাডিং (px)', 'Mobile bottom padding (px)'], ['আইটেমের ফাঁক (px)', 'Item gap (px)'], ['উপরের মার্জিন (px)', 'Top margin (px)'], ['নিচের মার্জিন (px)', 'Bottom margin (px)'] ] as const)[i], group: 'layout' as const })),
-  ...(['paddingLeft', 'paddingRight', 'marginLeft', 'marginRight', 'mobilePaddingLeft', 'mobilePaddingRight', 'mobileMarginTop', 'mobileMarginRight', 'mobileMarginBottom', 'mobileMarginLeft'] as const).map((key, i) => ({ key, kind: 'number' as const, min: 0, max: 160, label: ([['বামের প্যাডিং (px)', 'Left padding (px)'], ['ডানের প্যাডিং (px)', 'Right padding (px)'], ['বামের মার্জিন (px)', 'Left margin (px)'], ['ডানের মার্জিন (px)', 'Right margin (px)'], ['মোবাইলে বামের প্যাডিং (px)', 'Mobile left padding (px)'], ['মোবাইলে ডানের প্যাডিং (px)', 'Mobile right padding (px)'], ['মোবাইলে উপরের মার্জিন (px)', 'Mobile top margin (px)'], ['মোবাইলে ডানের মার্জিন (px)', 'Mobile right margin (px)'], ['মোবাইলে নিচের মার্জিন (px)', 'Mobile bottom margin (px)'], ['মোবাইলে বামের মার্জিন (px)', 'Mobile left margin (px)']] as const)[i], group: 'layout' as const })),
+  ...(['paddingTop', 'paddingBottom', 'paddingX', 'mobilePaddingTop', 'mobilePaddingBottom', 'gap', 'marginTop', 'marginBottom'] as const).map((key, i) => ({ key, kind: 'number' as const, min: 0, max: /Top|Bottom/.test(key) ? 300 : 160, label: ([ ['উপরের প্যাডিং (px)', 'Top padding (px)'], ['নিচের প্যাডিং (px)', 'Bottom padding (px)'], ['পাশের প্যাডিং (px)', 'Side padding (px)'], ['মোবাইলে উপরের প্যাডিং (px)', 'Mobile top padding (px)'], ['মোবাইলে নিচের প্যাডিং (px)', 'Mobile bottom padding (px)'], ['আইটেমের ফাঁক (px)', 'Item gap (px)'], ['উপরের মার্জিন (px)', 'Top margin (px)'], ['নিচের মার্জিন (px)', 'Bottom margin (px)'] ] as const)[i], group: 'layout' as const })),
+  ...(['paddingLeft', 'paddingRight', 'marginLeft', 'marginRight', 'mobilePaddingLeft', 'mobilePaddingRight', 'mobileMarginTop', 'mobileMarginRight', 'mobileMarginBottom', 'mobileMarginLeft'] as const).map((key, i) => ({ key, kind: 'number' as const, min: 0, max: /Top|Bottom/.test(key) ? 300 : 160, label: ([['বামের প্যাডিং (px)', 'Left padding (px)'], ['ডানের প্যাডিং (px)', 'Right padding (px)'], ['বামের মার্জিন (px)', 'Left margin (px)'], ['ডানের মার্জিন (px)', 'Right margin (px)'], ['মোবাইলে বামের প্যাডিং (px)', 'Mobile left padding (px)'], ['মোবাইলে ডানের প্যাডিং (px)', 'Mobile right padding (px)'], ['মোবাইলে উপরের মার্জিন (px)', 'Mobile top margin (px)'], ['মোবাইলে ডানের মার্জিন (px)', 'Mobile right margin (px)'], ['মোবাইলে নিচের মার্জিন (px)', 'Mobile bottom margin (px)'], ['মোবাইলে বামের মার্জিন (px)', 'Mobile left margin (px)']] as const)[i], group: 'layout' as const })),
+  { key: 'minHeight', kind: 'number', min: 0, max: 1200, label: ['সর্বনিম্ন উচ্চতা (px)', 'Min height (px)'], group: 'layout' },
+  // Section background: a colour (background), a gradient, an image or a looping muted video, with an optional overlay.
+  { key: 'bgType', kind: 'select', label: ['পটভূমির ধরন', 'Background type'], group: 'style', options: [{ value: 'color', label: ['রং', 'Colour'] }, { value: 'gradient', label: ['গ্রেডিয়েন্ট', 'Gradient'] }, { value: 'image', label: ['ছবি', 'Image'] }, { value: 'video', label: ['ভিডিও', 'Video'] }] },
+  { key: 'gradientFrom', kind: 'color', label: ['শুরুর রং', 'From'], group: 'style' },
+  { key: 'gradientTo', kind: 'color', label: ['শেষের রং', 'To'], group: 'style' },
+  { key: 'gradientAngle', kind: 'number', min: 0, max: 360, label: ['কোণ (°)', 'Angle (°)'], group: 'style' },
+  { key: 'bgImage', kind: 'image', label: ['পটভূমির ছবি', 'Background image'], group: 'style' },
+  { key: 'bgSize', kind: 'select', label: ['ছবি বসানো', 'Image fit'], group: 'style', options: [{ value: 'cover', label: ['পুরো জায়গা জুড়ে', 'Fill'] }, { value: 'contain', label: ['পুরো ছবি', 'Whole image'] }] },
+  { key: 'bgPosition', kind: 'select', label: ['ছবির অবস্থান', 'Image position'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Center'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }] },
+  { key: 'bgVideo', kind: 'url', label: ['ভিডিও ফাইলের লিংক (.mp4 / .webm)', 'Video file link (.mp4 / .webm)'], group: 'style' },
+  { key: 'overlayColor', kind: 'color', label: ['ওভারলের রং', 'Overlay colour'], group: 'style' },
+  { key: 'overlayOpacity', kind: 'number', min: 0, max: 100, label: ['ওভারলের গাঢ়ত্ব (%)', 'Overlay strength (%)'], group: 'style' },
   { key: 'visibility', kind: 'select', label: ['ডিভাইসে দেখানো', 'Device visibility'], group: 'layout', options: [{ value: 'all', label: ['সব ডিভাইস', 'All devices'] }, { value: 'desktop', label: ['শুধু ডেস্কটপ', 'Desktop only'] }, { value: 'mobile', label: ['শুধু মোবাইল', 'Mobile only'] }] },
   ...(['background', 'color', 'accent', 'buttonText', 'cardBackground', 'borderColor'] as const).map((key, i) => ({ key, kind: 'color' as const, label: ([['পটভূমি', 'Background'], ['লেখার রং', 'Text color'], ['বাটন ও হাইলাইট', 'Button / accent'], ['বাটনের লেখার রং', 'Button text'], ['কার্ডের পটভূমি', 'Card background'], ['বর্ডারের রং', 'Border color']] as const)[i], group: 'style' as const })),
   ...(['headingSize', 'mobileHeadingSize', 'bodySize', 'buttonSize'] as const).map((key, i) => ({ key, kind: 'number' as const, min: 12, max: key.includes('Heading') || key === 'headingSize' ? 88 : 32, label: ([['শিরোনামের মাপ (px)', 'Heading size (px)'], ['মোবাইলে শিরোনামের মাপ (px)', 'Mobile heading size (px)'], ['লেখার মাপ (px)', 'Body size (px)'], ['বাটনের লেখার মাপ (px)', 'Button font size (px)']] as const)[i], group: 'style' as const })),
@@ -394,6 +406,7 @@ export function references(content: Content) {
       if (typeof node.mobile?.backgroundImage === 'string') media.add(node.mobile.backgroundImage)
     }
     add(section.type, section.settings)
+    if (typeof section.style?.bgImage === 'string') media.add(section.style.bgImage)
   }
   return { media: [...media], products: [...products] }
   function add(type: SectionType, settings: Settings) {
@@ -495,8 +508,8 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   px('width', ['প্রস্থ (%)', 'Width (%)'], 100, 1),
   px('maxWidth', ['সর্বোচ্চ প্রস্থ (px)', 'Max width (px)'], 1600, 40),
   px('minHeight', ['সর্বনিম্ন উচ্চতা (px)', 'Min height (px)'], 1200),
-  ...(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => px(`padding${side}`, [`প্যাডিং ${side}`, `Padding ${side.toLowerCase()}`], 200)),
-  ...(['Top', 'Bottom'] as const).map((side) => px(`margin${side}`, [`মার্জিন ${side}`, `Margin ${side.toLowerCase()}`], 200)),
+  ...(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => px(`padding${side}`, [`প্যাডিং ${side}`, `Padding ${side.toLowerCase()}`], side === 'Top' || side === 'Bottom' ? 300 : 200)),
+  ...(['Top', 'Bottom'] as const).map((side) => px(`margin${side}`, [`মার্জিন ${side}`, `Margin ${side.toLowerCase()}`], 300)),
   { key: 'textAlign', kind: 'select', group: 'style', label: ['লেখার অবস্থান', 'Text alignment'], options: opts(['left', ['বামে', 'Left']], ['center', ['মাঝে', 'Center']], ['right', ['ডানে', 'Right']]) },
   px('fontSize', ['লেখার মাপ (px)', 'Font size (px)'], 120, 10, 'style'),
   { key: 'fontWeight', kind: 'select', group: 'style', label: ['লেখার ওজন', 'Weight'], options: opts(['400', ['স্বাভাবিক', 'Regular']], ['500', ['মাঝারি', 'Medium']], ['600', ['সেমিবোল্ড', 'Semibold']], ['700', ['বোল্ড', 'Bold']]) },

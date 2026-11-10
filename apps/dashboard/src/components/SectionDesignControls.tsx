@@ -3,9 +3,11 @@ import { AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monito
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
 import { useLang } from '../i18n'
+import type { MediaItem } from '../api'
+import { BackgroundImage } from './NodeDesignControls'
 
 type Patch = Record<string, string | number | undefined>
-type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPatch: (patch: Patch, typingKey?: string) => void }
+type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPatch: (patch: Patch, typingKey?: string) => void; media: Record<string, MediaItem>; onPickImage: (apply: (id: string | null) => void) => void }
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
 const swatches = ['#ffffff', '#f6f4ee', '#163b2e', '#285a3f', '#e2c86c', '#c34732', '#272b30', '#000000']
 
@@ -17,7 +19,7 @@ export function Group({ title, icon, children, note }: { title: string; icon: Re
   </section>
 }
 
-export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
+export function SectionDesignControls({ section, tab, theme, onPatch, media, onPickImage }: Props) {
   const { lang } = useLang()
   const uid = useId()
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en
@@ -33,7 +35,7 @@ export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
     const id = `${uid}-${key}`
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field).replace(' (px)', '')}</label>{reset(key)}</div>
-      {field.kind === 'number' ? <div className="input-affix design-number"><NumericInput id={id} field={field} value={values[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">px</span>}</div>
+      {field.kind === 'number' ? <div className="input-affix design-number"><NumericInput id={id} field={field} value={values[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">{key === 'gradientAngle' ? '°' : key === 'overlayOpacity' ? '%' : 'px'}</span>}</div>
         : field.kind === 'select' ? <select className="input" id={id} value={values[key] ?? ''} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}><option value="">{L('ডিফল্ট', 'Inherit')}</option>{field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}</select> : null}
     </div>
   }
@@ -43,44 +45,55 @@ export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
   const colorControl = (key: string) => {
     const field = fieldOf(key)
     if (!field) return null
-    return <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(field)} value={String(values[key] ?? '')} inherited={inherited[key]} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
+    return <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(field)} value={String(values[key] ?? '')} inherited={inherited[key] ?? ({ gradientFrom: themeVars.accent, gradientTo: themeVars.ink, overlayColor: '#000000' } as Record<string, string>)[key] ?? '#ffffff'} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
   }
 
-  const alignment = fieldOf('align')
+  const bgType = String(values.bgType ?? (values.background ? 'color' : 'none'))
+  const setType = (type: string) => onPatch(type === 'none' ? { bgType: undefined, background: undefined } : { bgType: type })
+  const picker = (key: string, label: string) => <BackgroundImage value={values[key]} media={media} label={label} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ [key]: id ?? undefined }))} onRemove={() => onPatch({ [key]: undefined })} />
+  const video = String(values.bgVideo ?? '')
+  const videoOk = !video || /^https:\/\/[^\s"'<>]+\.(mp4|webm)(\?[^\s"'<>]*)?$/i.test(video)
+
+  // Sections are containers: their panel is only size, spacing and visibility (Layout) and background, colours and border (Style).
   return <div className="design-controls">
     {tab === 'layout' ? <>
-      <Group title={L('আকার ও বিন্যাস', 'Size & arrangement')} icon={<SlidersHorizontal size={15} />}>
-        {alignment?.kind === 'select' && <div className="design-control"><div className="design-control__label"><span>{L('লেখার অবস্থান', 'Text alignment')}</span>{reset('align')}</div><div className="design-segments" role="group" aria-label={labelOf(alignment)}>
-          {[AlignLeft, AlignCenter, AlignRight].map((Icon, i) => <button key={i} type="button" aria-label={alignment.options[i].label[lang === 'bn' ? 0 : 1]} title={alignment.options[i].label[lang === 'bn' ? 0 : 1]} aria-pressed={values.align === alignment.options[i].value} onClick={() => onPatch({ align: values.align === alignment.options[i].value ? undefined : alignment.options[i].value })}><Icon size={16} aria-hidden="true" /></button>)}
-        </div></div>}
+      <Group title={L('মাপ', 'Size')} icon={<SlidersHorizontal size={15} />}>
         {control('maxWidth', L('কন্টেন্টের প্রস্থ', 'Content width'))}
-        <div className="design-widths" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1080, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}>{label}</button>)}</div>
-        {fieldOf('columns') && <div className="design-grid">{control('columns', L('ডেস্কটপ কলাম', 'Desktop columns'))}{control('mobileColumns', L('মোবাইল কলাম', 'Mobile columns'))}</div>}
-        {control('gap', L('আইটেমের ফাঁক', 'Item gap'))}
+        <div className="design-widths" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1080, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')], [1600, L('পুরো', 'Full')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}>{label}</button>)}</div>
+        {control('minHeight', L('সর্বনিম্ন উচ্চতা', 'Min height'))}
       </Group>
-      <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />} note={L('বাইরে মার্জিন, ভেতরে প্যাডিং। ফাঁকা মান ডিফল্ট অনুসরণ করে।', 'Margin outside, padding inside. Empty values inherit the defaults.')}>
+      <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>
         <SpacingBox values={values} onPatch={onPatch} />
       </Group>
       <Group title={L('ডিভাইসে দেখানো', 'Device visibility')} icon={<Monitor size={15} />}>
         <div className="design-segments" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
           {([{ value: 'all', label: L('সব', 'All'), Icon: Layers }, { value: 'desktop', label: L('ডেস্কটপ', 'Desktop'), Icon: Monitor }, { value: 'mobile', label: L('মোবাইল', 'Mobile'), Icon: Smartphone }]).map(({ value, label, Icon }) => <button key={value} type="button" aria-pressed={(values.visibility ?? 'all') === value} onClick={() => onPatch({ visibility: value === 'all' ? undefined : value })}><Icon size={14} aria-hidden="true" /><span>{label}</span></button>)}
-        </div><p className="design-help">{values.visibility === 'desktop' ? L('মোবাইলে এই সেকশন দেখা যাবে না।', 'This section is hidden on mobile.') : values.visibility === 'mobile' ? L('ডেস্কটপে এই সেকশন দেখা যাবে না।', 'This section is hidden on desktop.') : L('সব স্ক্রিনে এই সেকশন দেখা যাবে।', 'This section appears on every screen.')}</p>
+        </div>
       </Group>
     </> : <>
-      <Group title={L('রং', 'Colors')} icon={<Palette size={15} />} note={L('থিমের রং রাখুন, অথবা নিজের রং বাছুন।', 'Keep the theme colors, or choose your own.')}>
-        {['background', 'color', 'accent', 'buttonText', 'cardBackground'].map(colorControl)}
+      <Group title={L('পটভূমি', 'Background')} icon={<Palette size={15} />}>
+        <div className="design-segments design-bg-types" role="group" aria-label={L('পটভূমির ধরন', 'Background type')}>
+          {([['none', L('নেই', 'None')], ['color', L('রং', 'Colour')], ['gradient', L('গ্রেডিয়েন্ট', 'Gradient')], ['image', L('ছবি', 'Image')], ['video', L('ভিডিও', 'Video')]] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={bgType === type} onClick={() => setType(type)}>{label}</button>)}
+        </div>
+        {bgType === 'color' && colorControl('background')}
+        {bgType === 'gradient' && <>{colorControl('gradientFrom')}{colorControl('gradientTo')}{control('gradientAngle', L('কোণ', 'Angle'))}</>}
+        {bgType === 'image' && <>{picker('bgImage', L('ছবি', 'Image'))}{control('bgSize')}{control('bgPosition')}</>}
+        {bgType === 'video' && <>
+          <div className="design-control">
+            <div className="design-control__label"><label htmlFor={`${uid}-video`}>{L('ভিডিও লিংক', 'Video link')}</label></div>
+            <input id={`${uid}-video`} className="input" type="url" placeholder="https://…/video.mp4" value={video} aria-invalid={!videoOk} onChange={(e) => onPatch({ bgVideo: e.target.value.trim() || undefined }, 'bgVideo')} />
+          </div>
+          <p className={videoOk ? 'design-help' : 'design-help form-error'}>{videoOk ? L('সরাসরি .mp4 বা .webm ফাইলের লিংক দিন। শব্দ ছাড়া, বারবার চলবে। ইউটিউব লিংক এখানে চলবে না।', 'A direct .mp4 or .webm file link. It plays muted and loops. YouTube links do not work here.') : L('লিংকটি https দিয়ে শুরু হয়ে .mp4 বা .webm দিয়ে শেষ হতে হবে।', 'The link must start with https and end in .mp4 or .webm.')}</p>
+          {picker('bgImage', L('লোড হওয়ার আগে ছবি', 'Image while loading'))}
+        </>}
+        {(bgType === 'image' || bgType === 'video') && <>{colorControl('overlayColor')}{control('overlayOpacity', L('ওভারলের গাঢ়ত্ব', 'Overlay strength'))}</>}
       </Group>
-      {fieldOf('iconSize') && <Group title={L('আইকন', 'Icons')} icon={<Square size={15} />} open={false}>
-        <div className="design-grid">{control('iconSize')}{control('iconStroke')}</div>{control('iconSurface')}{colorControl('iconColor')}{colorControl('iconBackground')}{control('iconRadius')}
-      </Group>}
-      <Group title={L('টাইপোগ্রাফি', 'Typography')} icon={<Type size={15} />}>
-        {control('font')}<div className="design-grid">{control('headingSize', L('শিরোনাম', 'Heading'))}{control('mobileHeadingSize', L('মোবাইল শিরোনাম', 'Mobile heading'))}{control('bodySize', L('মূল লেখা', 'Body text'))}{control('buttonSize', L('বাটনের লেখা', 'Button text'))}</div>{control('headingWeight')}
+      <Group title={L('রং', 'Colours')} icon={<Type size={15} />}>
+        {colorControl('color')}{colorControl('accent')}
       </Group>
-      <Group title={L('বর্ডার ও কোণা', 'Border & corners')} icon={<Square size={15} />} open={false}>
-        <div className="design-grid">{control('borderWidth', L('বর্ডারের প্রস্থ', 'Border width'))}{control('borderStyle')}</div>{colorControl('borderColor')}
-        <div className="design-grid">{control('sectionRadius', L('সেকশনের কোণা', 'Section corners'))}{control('radius', L('কার্ড / ছবির কোণা', 'Card / media corners'))}{control('buttonRadius', L('বাটনের কোণা', 'Button corners'))}</div>{control('shadow')}
+      <Group title={L('বর্ডার ও কোণা', 'Border & corners')} icon={<Square size={15} />}>
+        {control('sectionRadius', L('কোণা', 'Corners'))}{control('borderWidth', L('বর্ডার', 'Border'))}{colorControl('borderColor')}{control('shadow')}
       </Group>
-      {fieldOf('imageFit') && <Group title={L('ছবির সেটিংস', 'Media')} icon={<ImageIcon size={15} />} open={false}>{control('imageFit')}{control('imageRatio')}</Group>}
     </>}
   </div>
 }
@@ -130,8 +143,8 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
     const fallback = kind === 'padding' && (side === 'Left' || side === 'Right') ? (device === 'mobile' ? values[`padding${side}`] ?? values.paddingX : values.paddingX) : undefined
     const sideLabel = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side.toLowerCase())
     const label = `${device === 'mobile' ? L('মোবাইল', 'Mobile') : L('ডেস্কটপ', 'Desktop')} ${kind === 'margin' ? L('মার্জিন', 'margin') : L('প্যাডিং', 'padding')} ${sideLabel}`
-    return <label key={side} className={`space-value space-value--${side.toLowerCase()}`} htmlFor={`${uid}-${key}`}><span className="visually-hidden">{label}</span><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
-      const value = e.target.value === '' ? undefined : Math.max(0, Math.min(160, Math.round(Number(e.target.value) || 0)))
+    return <label key={side} className={`space-value space-value--${side.toLowerCase()}`} htmlFor={`${uid}-${key}`}><span className="visually-hidden">{label}</span><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
+      const value = e.target.value === '' ? undefined : Math.max(0, Math.min(side === 'Top' || side === 'Bottom' ? 300 : 160, Math.round(Number(e.target.value) || 0)))
       const patch = Object.fromEntries((linked[kind] ? sides : [side]).map((s) => [keyFor(kind, s), value]))
       onPatch(patch, `${device}:${kind}:${linked[kind] ? 'all' : side}`)
     }} /></label>

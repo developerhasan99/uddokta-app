@@ -451,14 +451,41 @@ export function sectionStyle(style?: SectionStyle): CSSProperties {
   if (style?.borderStyle) out['--section-border-style'] = style.borderStyle
   if (style?.imageFit) out['--section-image-fit'] = style.imageFit
   if (style?.imageRatio) out['--section-image-ratio'] = style.imageRatio
+  if (typeof style?.minHeight === 'number') out['--section-min-height'] = `${style.minHeight}px`
   if (style?.font) out['--section-font'] = style.font === 'serif' ? '"Tiro Bangla", Georgia, serif' : '"Noto Sans Bengali", system-ui, sans-serif'
   if (style?.radius !== undefined) out['--sf-radius'] = `${style.radius}px`
   if (style?.shadow) out['--section-shadow'] = ({ none: 'none', soft: '0 6px 24px #00000012', strong: '0 12px 40px #00000029' } as Record<string, string>)[style.shadow] ?? 'none'
   return out as CSSProperties
 }
 
-export function SectionFrame({ s, children }: { s: Section; children: ReactNode }) {
-  return <div id={s.type === 'order' ? undefined : s.id} data-section={s.id} className={s.style ? 'sf-section-frame sf-styled' : 'sf-section-frame'} style={sectionStyle(s.style)} data-visibility={s.style?.visibility} data-align={s.style?.align} data-body-size={s.style?.bodySize} data-image-ratio={s.style?.imageRatio} data-background={s.style?.background}>
+// Background layers behind a section: gradient or image (painted), a looping muted video, and an overlay on top.
+// Values were checked by readSectionStyle; the video must be a direct .mp4/.webm link.
+const isVideoFile = (url: unknown): url is string => typeof url === 'string' && /^https:\/\/[^\s"'<>]+\.(mp4|webm)(\?[^\s"'<>]*)?$/i.test(url)
+function backgroundLayer(style: SectionStyle | undefined, ctx?: Ctx) {
+  if (!style) return null
+  const type = style.bgType
+  const image = typeof style.bgImage === 'string' ? ctx?.image(style.bgImage) : undefined
+  const paint: CSSProperties = {}
+  if (type === 'gradient' && style.gradientFrom && style.gradientTo) paint.backgroundImage = `linear-gradient(${Number(style.gradientAngle ?? 180)}deg, ${style.gradientFrom}, ${style.gradientTo})`
+  if ((type === 'image' || type === 'video') && image) {
+    paint.backgroundImage = `url(${JSON.stringify(image.url)})`
+    paint.backgroundSize = style.bgSize === 'contain' ? 'contain' : 'cover'
+    paint.backgroundPosition = String(style.bgPosition ?? 'center')
+    paint.backgroundRepeat = 'no-repeat'
+  }
+  const video = type === 'video' && isVideoFile(style.bgVideo) ? style.bgVideo : null
+  const overlay = (type === 'image' || type === 'video') && style.overlayColor ? { background: String(style.overlayColor), opacity: Number(style.overlayOpacity ?? 50) / 100 } : null
+  if (!paint.backgroundImage && !video && !overlay) return null
+  return <div className="sf-bg" aria-hidden="true" style={paint}>
+    {video && <video src={video} autoPlay muted loop playsInline preload="metadata" poster={image?.url} />}
+    {overlay && <span className="sf-bg__overlay" style={overlay} />}
+  </div>
+}
+
+export function SectionFrame({ s, children, ctx }: { s: Section; children: ReactNode; ctx?: Ctx }) {
+  const layer = backgroundLayer(s.style, ctx)
+  return <div id={s.type === 'order' ? undefined : s.id} data-section={s.id} className={`${s.style ? 'sf-section-frame sf-styled' : 'sf-section-frame'}${layer ? ' sf-has-bg' : ''}`} style={sectionStyle(s.style)} data-visibility={s.style?.visibility} data-align={s.style?.align} data-body-size={s.style?.bodySize} data-image-ratio={s.style?.imageRatio} data-background={s.style?.bgType && s.style.bgType !== 'color' ? undefined : s.style?.background} data-min-height={s.style?.minHeight}>
+    {layer}
     {children}
   </div>
 }
@@ -504,7 +531,7 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
       {nodes && <style dangerouslySetInnerHTML={{ __html: nodes }} />}
       {content.canvas?.header !== false && <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>}
       <main>
-        {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
+        {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s} ctx={ctx}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
       </main>
       {content.canvas?.footer !== false && <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>}
       {content.css && <style dangerouslySetInnerHTML={{ __html: content.css }} />}
@@ -684,4 +711,11 @@ h1,h2,h3,p{margin:0}
 .sf-button{gap:10px}.sf-button>.sf-icon-badge>.sf-marketing-icon{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px)}.sf-button>.sf-icon-badge[data-icon-surface=plain]{color:var(--section-icon-color,inherit)}
 
 ${layoutBaseCss}
+.sf-section-frame{position:relative}
+.sf-bg{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:var(--section-section-radius,0);pointer-events:none}
+.sf-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sf-bg__overlay{position:absolute;inset:0}
+.sf-has-bg>.sf-section{position:relative;z-index:1;background:transparent!important}
+.sf-section-frame[data-min-height]>.sf-section{display:flex;flex-direction:column;justify-content:center;min-height:var(--section-min-height)}
+.sf-section-frame[data-min-height]>.sf-section>.sf-wrap{width:100%}
 `

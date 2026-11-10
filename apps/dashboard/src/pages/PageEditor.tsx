@@ -996,7 +996,7 @@ export function PageEditor() {
               /></div>}
 
               {sTab !== 'content' && <>
-                <SectionDesignControls key={`${section.id}:${sTab}`} section={section} tab={sTab} theme={theme} onPatch={(patch, typingKey) => {
+                <SectionDesignControls key={`${section.id}:${sTab}`} section={section} tab={sTab} theme={theme} media={media} onPickImage={(apply) => setPicking({ kind: 'image', apply })} onPatch={(patch, typingKey) => {
                   const style = { ...section.style }
                   for (const [key, value] of Object.entries(patch)) {
                     if (value === undefined || value === '') delete style[key]

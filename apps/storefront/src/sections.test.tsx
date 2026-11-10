@@ -113,3 +113,21 @@ test('rich text elements render their formatting, cleaned again at render time',
   assert.match(html, /<p>Big <strong>deal<\/strong><\/p>/)
   assert.doesNotMatch(html, /onerror|<img src=x/)
 })
+
+test('section backgrounds: gradient, image with overlay, video, and a minimum height', () => {
+  const photo = '00000000-0000-4000-8000-000000000011'
+  const withImage: Ctx = { ...ctx, image: (id) => (id === photo ? { url: 'https://cdn.test/a.webp', alt: '', width: 10, height: 10 } : undefined) }
+  const section = (id: string, style: Record<string, string | number>) => ({ ...newSection('layout', id), style })
+  const html = renderToStaticMarkup(<PageView ctx={withImage} storeName="S" content={{ ...blankContent(), sections: [
+    section('g', { bgType: 'gradient', gradientFrom: '#112233', gradientTo: '#445566', gradientAngle: 90, minHeight: 600 }),
+    section('i', { bgType: 'image', bgImage: photo, bgPosition: 'top', overlayColor: '#000000', overlayOpacity: 40 }),
+    section('v', { bgType: 'video', bgVideo: 'https://cdn.test/loop.mp4', bgImage: photo }),
+    section('bad', { bgType: 'video', bgVideo: 'https://youtube.com/watch?v=x' }),
+  ] }} />)
+  assert.match(html, /background-image:linear-gradient\(90deg, #112233, #445566\)/)
+  assert.match(html, /--section-min-height:600px/)
+  assert.match(html, /background-image:url\(&quot;https:\/\/cdn\.test\/a\.webp&quot;\);background-size:cover;background-position:top/)
+  assert.match(html, /class="sf-bg__overlay" style="background:#000000;opacity:0\.4"/)
+  assert.match(html, /<video src="https:\/\/cdn\.test\/loop\.mp4" autoPlay="" muted="" loop="" playsInline="" preload="metadata" poster="https:\/\/cdn\.test\/a\.webp">/)
+  assert.equal(html.match(/<video/g)?.length, 1, 'only direct video files play')
+})

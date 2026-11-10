@@ -154,7 +154,7 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
   </div>
 }
 
-function BackgroundImage({ value, media, label, change, remove, choose, onPick, onRemove }: { value: string | number | undefined; media: Record<string, MediaItem>; label: string; change: string; remove: string; choose: string; onPick: () => void; onRemove: () => void }) {
+export function BackgroundImage({ value, media, label, change, remove, choose, onPick, onRemove }: { value: string | number | undefined; media: Record<string, MediaItem>; label: string; change: string; remove: string; choose: string; onPick: () => void; onRemove: () => void }) {
   const item = typeof value === 'string' ? media[value] : undefined
   return <div className="design-control">
     <div className="design-control__label"><span>{label}</span></div>

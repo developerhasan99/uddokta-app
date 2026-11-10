@@ -25,7 +25,7 @@ const hash = (script: string) => `'sha256-${createHash('sha256').update(script).
 const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
 // Each response allows exactly its own inline scripts by hash: the page script, and the store's pixel loader if it has one.
 const cspFor = (pixel: string) => [
-  "default-src 'self'", "img-src 'self' https: data:", `script-src ${hash(pageScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com', 'frame-src https://www.youtube-nocookie.com https://www.facebook.com',
   `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
