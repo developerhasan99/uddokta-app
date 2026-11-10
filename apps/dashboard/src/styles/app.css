@@ -1755,3 +1755,41 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor-setting-tabs button[aria-pressed="true"] svg { color: var(--color-primary); }
 @media (max-width: 860px) { .editor .editor-setting-tabs { margin-inline: calc(-1 * var(--space-md)); } }
 .editor .editor__settings > .editor-setting-tabs { margin-top: calc(-1 * var(--space-sm)); }
+
+/* Minimal control panel: no cards, quiet labels, flat controls. Groups are plain sections divided by a hairline. */
+.editor .editor__settings .design-controls { gap: 0; }
+.editor .editor__settings .design-group { border: 0; border-top: var(--rule-hair) solid var(--color-rule); border-radius: 0; background: transparent; overflow: visible; }
+.editor .editor__settings .design-controls > .design-group:first-child { border-top: 0; }
+.editor .editor__settings .design-group > summary { min-height: 34px; padding: 0; border: 0; color: var(--color-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.editor .editor__settings .design-group[open] > summary { border-bottom: 0; }
+.editor .editor__settings .design-group > summary strong { font-weight: 600; }
+.editor .editor__settings .design-group > summary:hover { color: var(--color-ink); }
+.editor .editor__settings .design-group__icon { display: none; }
+.editor .editor__settings .design-group__body { gap: var(--space-xs); padding: 0 0 var(--space-sm); }
+.editor .editor__settings .design-structure { padding: 0; border: 0; }
+.editor .editor__settings :is(.design-control__label > :first-child, .design-color__head, .field label, .field__label, .node-spacing__cell) { color: var(--color-muted); font-size: 12px; font-weight: 400; }
+.editor .editor__settings .design-control__label { min-height: 20px; }
+.editor .editor__settings .design-help, .editor .editor__settings .field__help { font-size: 12px; color: var(--color-muted); }
+.editor .editor__settings .design-reset { opacity: 0; transition: opacity var(--dur-micro); }
+.editor .editor__settings :is(.design-control, .design-color, .node-spacing):is(:hover, :focus-within) .design-reset:not(:disabled) { opacity: 1; }
+.editor .editor__settings :is(.input, .input-affix, .design-color__input) { background: transparent; border-color: var(--color-rule-strong); box-shadow: none; }
+.editor .editor__settings :is(.design-segments, .segmented) { background: transparent; box-shadow: inset 0 0 0 1px var(--color-rule-strong); }
+.editor .editor__settings .design-segments button[aria-pressed="true"] { background: var(--color-paper-3); box-shadow: none; font-weight: 400; }
+.editor .editor__settings .design-color__head > span { font-size: 11px; }
+.editor .editor__settings .design-palette { gap: 6px; }
+.editor .editor__settings .design-palette button { width: 14px; height: 14px; }
+.editor .editor__settings .node-device { width: fit-content; justify-self: end; }
+.editor .editor__settings .node-device button { min-height: 24px; padding: 0 var(--space-xs); font-size: 12px; }
+.editor .editor-setting-tabs button { min-height: 36px; border-bottom-width: 2px; font-weight: 400; }
+.editor .editor-setting-tabs button[aria-pressed="true"] { background: transparent; font-weight: 500; }
+.editor .editor__settings-head .editor__heading, .editor .editor__name-input { font-size: var(--text-sm); }
+@media (min-width: 861px) {
+  .editor .editor__settings :is(.input, .input-affix, .design-color__input) { min-height: 30px; font-size: 12px; }
+  .editor .editor__settings .input-affix input, .editor .editor__settings .design-color__input > input { font-size: 12px; }
+  .editor .editor__settings .design-segments button { min-height: 26px; font-size: 12px; }
+  .editor .editor__settings .design-color__swatch { width: 18px; height: 18px; }
+}
+.editor .editor__settings .node-device button { flex: none; }
+.editor .editor__settings .node-device button span { overflow: visible; }
+.editor .editor__settings-head .btn--icon { box-shadow: none; background: transparent; color: var(--color-muted); }
+.editor .editor__settings-head .btn--icon:hover { background: var(--color-paper-3); color: var(--color-ink); }
