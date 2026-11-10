@@ -445,7 +445,7 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
   box: { label: ['বক্স', 'Box'], fields: [], defaults: {} },
   heading: { label: ['শিরোনাম', 'Heading'], fields: [
     { key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 300 },
-    { key: 'level', kind: 'select', label: ['ধরন', 'Size'], options: opts(['h1', ['বড় (H1)', 'Large (H1)']], ['h2', ['মাঝারি (H2)', 'Medium (H2)']], ['h3', ['ছোট (H3)', 'Small (H3)']]) },
+    { key: 'level', kind: 'select', label: ['ট্যাগ', 'Tag'], options: opts(['h1', ['H1 · সবচেয়ে বড়', 'H1 · Largest']], ['h2', ['H2', 'H2']], ['h3', ['H3', 'H3']], ['h4', ['H4', 'H4']], ['h5', ['H5', 'H5']], ['h6', ['H6 · সবচেয়ে ছোট', 'H6 · Smallest']], ['p', ['P · সাধারণ লেখা', 'P · Paragraph']]) },
   ], defaults: { text: 'আপনার শিরোনাম লিখুন', level: 'h2' } },
   text: { label: ['লেখা', 'Text'], fields: [{ key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 3000 }], defaults: { text: 'এখানে আপনার লেখা লিখুন। পণ্যের সুবিধা, ব্যবহার বা গল্প।' } },
   image: { label: ['ছবি', 'Image'], fields: [{ key: 'image', kind: 'image', label: ['ছবি', 'Image'] }, { key: 'link', kind: 'link', label: ['লিংক (ঐচ্ছিক)', 'Link (optional)'] }], defaults: { image: null, link: '' } },

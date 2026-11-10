@@ -33,7 +33,7 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
     case 'box':
       return <div className={className} data-node={node.id}>{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
     case 'heading': {
-      const Tag = (['h1', 'h2', 'h3'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3'
+      const Tag = (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'
       if (!str(p.text)) return ctx.preview ? <Tag className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text">শিরোনাম লিখুন</Tag> : null
       return <Tag className={className} data-node={node.id} data-edit="text">{str(p.text)}</Tag>
     }
@@ -169,7 +169,7 @@ export const layoutBaseCss = `
 .sf-n-box{display:flex;flex-direction:column;gap:${boxGap}px;min-width:0;background-repeat:no-repeat}
 .sf-n{box-sizing:border-box;min-width:0}
 .sf-n-heading{margin:0;color:var(--sf-ink);font-weight:700;line-height:1.25;overflow-wrap:anywhere}
-h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(24px,3.6vw,34px)}h3.sf-n-heading{font-size:20px}
+h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(24px,3.6vw,34px)}h3.sf-n-heading{font-size:clamp(20px,2.6vw,24px)}h4.sf-n-heading{font-size:19px}h5.sf-n-heading{font-size:17px}h6.sf-n-heading{font-size:15px;letter-spacing:.02em}p.sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
 .sf-n-text{line-height:1.7;overflow-wrap:anywhere}.sf-n-text p{margin:0 0 .8em}.sf-n-text p:last-child{margin-bottom:0}
 .sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-radius)}.sf-n-image img{display:block;width:100%;height:auto}
 .sf-n.sf-button{margin:0;width:fit-content;gap:8px}

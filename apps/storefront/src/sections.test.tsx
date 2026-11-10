@@ -98,3 +98,10 @@ test('hidden layout elements are not drawn', () => {
   assert.doesNotMatch(html, /secret heading/)
   assert.match(html, /visible/)
 })
+
+test('headings render every tag from h1 to h6 and p', () => {
+  const layout = newSection('layout', 'tags')
+  layout.children = (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'] as const).map((level) => ({ id: `t-${level}`, kind: 'heading' as const, props: { text: level, level } }))
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
+  for (const level of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p']) assert.match(html, new RegExp(`<${level} class="sf-n sf-n-heading n-t-${level}"`))
+})
