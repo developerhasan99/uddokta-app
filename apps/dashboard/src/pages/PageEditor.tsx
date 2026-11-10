@@ -6,7 +6,7 @@ const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, LayoutGrid, Box, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, LayoutGrid, Box, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -36,8 +36,9 @@ type Doc = { title: string; handle: string; seoTitle: string; seoDescription: st
 type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
-const sectionIcons = { layout: LayoutGrid, icon: Sparkles, iconCards: LayoutTemplate, iconList: ListChecks, announcement: MessageSquare, header: LayoutTemplate, footer: LayoutTemplate, imageText: Image, trust: CircleCheck, steps: ListChecks, specifications: ListChecks, comparison: ListChecks, cards: Images, cta: ShoppingBag, hero: LayoutTemplate, text: Type, image: Image, features: ListChecks, video: Video, reviews: MessageSquare, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
-const nodeIcons: Record<NodeKind, typeof Box> = { box: Box, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: LayoutTemplate }
+// One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
+const sectionIcons = { layout: RectangleHorizontal, hero: PanelTop, header: PanelTop, footer: PanelBottom, announcement: Megaphone, text: Type, image: Image, imageText: PanelLeft, video: Video, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, icon: Sparkles, cta: MousePointerClick, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 const historyLimit = 100
 // Every section is edited as a layout; older built-in sections are turned into one when the page opens.
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => (s.type === 'layout' ? s : { ...toLayout(s, newId), settings: { name: defOf(s.type).label[document.documentElement.lang === 'en' ? 1 : 0] } })) } })
@@ -308,7 +309,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
     <div className="dialog__body">
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
-        {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><LayoutGrid size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
+        {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><RectangleHorizontal size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
       </ul>
       {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
       <p className="muted editor-add__note">{L(['অর্ডার ফর্ম, রিভিউ, প্রশ্নোত্তরের মতো জিনিস সেকশনের ভেতরে "এলিমেন্ট যোগ করুন" থেকে ব্লক হিসেবে বসান।', 'Order forms, reviews, questions and similar pieces go inside a section: use "Add element" and pick a block.'])}</p>
@@ -698,7 +699,7 @@ export function PageEditor() {
     </div>
   )
   const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
-    const Icon = nodeIcons[n.kind]
+    const Icon = n.block ? sectionIcons[n.block.type] : n.kind === 'box' ? (String(n.style?.direction ?? '').startsWith('row') ? Columns3 : Rows3) : nodeIcons[n.kind]
     const name = nodeName(n, L)
     const isOpen = open.has(n.id)
     return <Fragment key={n.id}>
