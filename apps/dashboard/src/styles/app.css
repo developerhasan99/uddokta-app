@@ -1841,3 +1841,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor__reset-link { padding: 0; border: 0; background: none; color: var(--color-muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .editor__reset-link:hover { color: var(--color-error); }
 .editor__reset-all[hidden] { display: none; }
+.node-stepper { display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; height: 30px; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); overflow: hidden; }
+.node-stepper button { height: 100%; border: 0; background: transparent; color: var(--color-ink-2); font: inherit; font-size: 16px; cursor: pointer; }
+.node-stepper button:hover:not(:disabled) { background: var(--color-paper-3); color: var(--color-ink); }
+.node-stepper button:disabled { opacity: .35; cursor: default; }
+.node-stepper output { text-align: center; font-size: var(--text-sm); }

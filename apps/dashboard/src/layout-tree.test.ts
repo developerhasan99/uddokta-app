@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { PageNode, Section } from 'storefront/schema'
-import { findNode, layoutPresets, reIdSection, relocate } from './layout-tree.ts'
+import { findNode, layoutPresets, reIdSection, relocate, setColumns } from './layout-tree.ts'
 
 const leaf = (id: string): PageNode => ({ id, kind: 'text', props: { text: id } })
 const tree = (): PageNode[] => [{ id: 'a', kind: 'box', props: {}, children: [leaf('a1'), leaf('a2')] }, { id: 'b', kind: 'box', props: {}, children: [] }, leaf('c')]
@@ -25,4 +25,18 @@ test('duplicated sections get fresh ids for every node, and presets are well for
   assert.equal(new Set([...all(section.children!), ...all(copy.children!)]).size, 10)
   assert.ok(findNode([copy], all(copy.children!)[1]))
   for (const preset of layoutPresets) assert.equal(preset.build(id).kind, 'box', preset.key)
+})
+
+test('the Columns setting adds empty columns and only removes empty ones from the end', () => {
+  let n = 0
+  const id = () => `c${n++}`
+  const one = { id: 'b', kind: 'box' as const, props: {}, children: [{ id: 'x', kind: 'box' as const, props: {}, children: [] }] }
+  const three = setColumns(one, 3, id)
+  assert.equal(three.node.children!.length, 3)
+  assert.equal(three.node.style?.direction, 'row', 'more than one column means side by side')
+  const filled = { ...three.node, children: [...three.node.children!.slice(0, 2), { ...three.node.children![2], children: [{ id: 't', kind: 'text' as const, props: { text: 'keep' } }] }] }
+  const back = setColumns(filled, 1, id)
+  assert.equal(back.blocked, true)
+  assert.equal(back.node.children!.length, 3, 'a column with content is never removed')
+  assert.equal(setColumns(three.node, 1, id).node.children!.length, 1)
 })

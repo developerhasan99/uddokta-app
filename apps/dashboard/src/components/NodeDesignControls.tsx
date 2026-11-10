@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
@@ -15,12 +15,14 @@ type Props = {
   onPatch: (patch: Patch, typingKey?: string) => void
   onHide: (hide: PageNode['hide']) => void
   onPickImage: (apply: (id: string | null) => void) => void
+  columns?: { count: number; set: (n: number) => boolean }
 }
 
 const fieldOf = (key: string) => nodeStyleFields.find((f) => f.key === key)!
 
 // Layout and Style for one box or element. On "Mobile" the same controls write phone overrides, with the desktop value as the hint.
-export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage }: Props) {
+export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage, columns }: Props) {
+  const [blocked, setBlocked] = useState(false)
   const { lang } = useLang()
   const uid = useId()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
@@ -81,6 +83,15 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
       const row = dir.startsWith('row')
       const i = (Icon: typeof ArrowDown) => <Icon size={16} aria-hidden="true" />
       return <Group title={L('সাজানো (ফ্লেক্সবক্স)', 'Arrangement (flexbox)')} icon={<SlidersHorizontal size={15} />}>
+        {columns && device === 'desktop' && <div className="design-control">
+          <div className="design-control__label"><span>{L('কলাম', 'Columns')}</span></div>
+          <div className="node-stepper" role="group" aria-label={L('কলাম', 'Columns')}>
+            <button type="button" aria-label={L('কলাম কমান', 'Fewer columns')} disabled={columns.count <= 1} onClick={() => setBlocked(!columns.set(columns.count - 1))}>−</button>
+            <output aria-live="polite">{columns.count}</output>
+            <button type="button" aria-label={L('কলাম বাড়ান', 'More columns')} disabled={columns.count >= 6} onClick={() => { setBlocked(false); columns.set(columns.count + 1) }}>+</button>
+          </div>
+        </div>}
+        {columns && blocked && <p className="design-help form-error">{L('শেষ কলামে জিনিস আছে। আগে সেগুলো সরান বা মুছুন।', 'The last column has things in it. Move or delete them first.')}</p>}
         {segments('direction', L('দিক', 'Direction'), [
           { value: 'row', label: L('পাশাপাশি', 'Across'), icon: i(ArrowRight) },
           { value: 'column', label: L('নিচে নিচে', 'Down'), icon: i(ArrowDown) },
