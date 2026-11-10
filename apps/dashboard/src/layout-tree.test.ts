@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { PageNode, Section } from 'storefront/schema'
-import { columns, findNode, layoutPresets, reIdSection, relocate, setGrid } from './layout-tree.ts'
+import { boxDepth, boxesAbove, columns, findNode, layoutPresets, reIdSection, relocate, setGrid } from './layout-tree.ts'
 
 const leaf = (id: string): PageNode => ({ id, kind: 'text', props: { text: id } })
 const tree = (): PageNode[] => [{ id: 'a', kind: 'box', props: {}, children: [leaf('a1'), leaf('a2')] }, { id: 'b', kind: 'box', props: {}, children: [] }, leaf('c')]
@@ -40,4 +40,16 @@ test('grid columns × rows add empty cells and only remove empty ones from the e
   assert.equal(back.blocked, true)
   assert.equal(back.node.children!.length, 6, 'a cell with content is never removed')
   assert.equal(setGrid(six.node, 2, 1, id).node.children!.length, 2)
+})
+
+test('box depth helpers count nesting so nothing goes past four boxes', () => {
+  let n = 0
+  const id = () => `d${n++}`
+  const grid = columns(2, id)
+  assert.equal(boxDepth(grid), 2, 'a structure is a grid with cell boxes inside')
+  const section: Section = { id: 's', type: 'layout', hidden: false, settings: {}, children: [grid] }
+  const cell = grid.children![0].id
+  assert.equal(boxesAbove([section], null), 0)
+  assert.equal(boxesAbove([section], grid.id), 1)
+  assert.equal(boxesAbove([section], cell), 2)
 })

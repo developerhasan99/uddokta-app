@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, 
 import { DialogHead } from '../components/DialogHead'
 import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { boxDepth, boxesAbove, columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -12,7 +12,7 @@ import {
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
 import { toRich } from 'storefront/rich'
-import { blockTypes, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { blockTypes, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
@@ -164,7 +164,7 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
-          <style>{`[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}` : ''}`}</style>
+          <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-box .sf-n-box>.sf-n-handle{top:3px;left:3px}.sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:6px;left:6px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:9px;left:9px}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={ctx} storeName={storeName} />}
         </>,
         body,
@@ -344,7 +344,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
   </dialog>
 }
 
-function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void }) {
+function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void; room: number }) {
   const { lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
@@ -355,7 +355,7 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
     <div className="dialog__body">
       <p className="node-add__label">{L(['কাঠামো', 'Structure'])}</p>
       <ul className="node-add__grid node-add__structure">
-        {[1, 2, 3, 4].map((n) => <li key={n}><button type="button" onClick={() => close(() => onAdd((id) => columns(n, id)))}>
+        {[1, 2, 3, 4].map((n) => <li key={n}><button type="button" disabled={room < 2} title={room < 2 ? L(['এখানে আর বক্স রাখা যাবে না', 'No room for more boxes here']) : undefined} onClick={() => close(() => onAdd((id) => columns(n, id)))}>
           <span className="node-add__cols" aria-hidden="true">{Array.from({ length: n }, (_, i) => <span key={i} />)}</span>
           <span>{n === 1 ? L(['এক কলাম', 'One column']) : L([`${['', '', 'দুই', 'তিন', 'চার'][n]} কলাম`, `${['', '', 'Two', 'Three', 'Four'][n]} columns`])}</span>
         </button></li>)}
@@ -762,11 +762,18 @@ export function PageEditor() {
   const addNode = (build: (id: () => string) => PageNode) => {
     if (!addingNode) return
     const node = build(newId)
+    if (!fits(addingNode.parentId, node)) return setAddingNode(null)
     editTree(addingNode.sectionId, (nodes) => insertNode(nodes, addingNode.parentId, addingNode.index, node))
     setAddingNode(null)
     choose(node.id)
   }
   const addAfter = (f: Found) => setAddingNode(f.node.kind === 'box' ? { sectionId: f.section.id, parentId: f.node.id, index: f.node.children?.length ?? 0 } : { sectionId: f.section.id, parentId: f.parent?.id ?? null, index: f.index + 1 })
+  // Boxes nest at most maxBoxDepth deep; anything that would go deeper is refused with a note.
+  const fits = (parentId: string | null, node: PageNode) => {
+    const ok = boxesAbove(sections, parentId) + boxDepth(node) <= maxBoxDepth
+    if (!ok) setToast(L([`বক্স সর্বোচ্চ ${num(maxBoxDepth)} স্তর পর্যন্ত একটির ভেতরে আরেকটি রাখা যায়।`, `Boxes can sit inside each other at most ${maxBoxDepth} levels deep.`]))
+    return ok
+  }
   const duplicateNode = (sectionId: string, id: string) => {
     const hit = findNode(sections, id)
     if (!hit) return
@@ -797,6 +804,7 @@ export function PageEditor() {
       setSelected(copy.id)
     } else {
       const node = reId(clip.node, newId)
+      if (!fits(hit ? (hit.node.kind === 'box' ? hit.node.id : hit.parent?.id ?? null) : null, node)) return
       if (hit) editTree(hit.section.id, (nodes) => hit.node.kind === 'box' ? insertNode(nodes, hit.node.id, hit.node.children?.length ?? 0, node) : insertNode(nodes, hit.parent?.id ?? null, hit.index + 1, node))
       else if (current?.type === 'layout') editTree(current.id, (nodes) => [...nodes, node])
       else setSections([...sections, { ...newSection('layout', newId()), settings: { name: '' }, children: [node] }])
@@ -867,6 +875,8 @@ export function PageEditor() {
           nodeDrag.current = null
           setNodeDrop(null)
           if (!from || !nodeDrop) return
+          const moving = findNode(sections, from)?.node
+          if (moving && !fits(nodeDrop.where === 'inside' ? n.id : findNode(sections, n.id)?.parent?.id ?? null, moving)) return
           const next = relocate(sections.find((x) => x.id === sectionId)?.children ?? [], from, n.id, nodeDrop.where)
           if (next) { editTree(sectionId, () => next); setSelected(from) }
         }}>
@@ -933,6 +943,7 @@ export function PageEditor() {
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
               onPickImage={(apply) => setPicking({ kind: 'image', apply })}
               grid={f.node.kind === 'box' && f.node.style?.display === 'grid' || f.node.kind === 'box' && (f.node.children ?? []).every((c) => c.kind === 'box') ? { columns: Number(f.node.style?.gridColumns ?? Math.max(1, f.node.children?.length ?? 1)), rows: Number(f.node.style?.gridRows ?? 1), set: (c, r) => {
+                if (boxesAbove(sections, f.node.id) + 1 > maxBoxDepth && c * r > (f.node.children?.length ?? 0)) { setToast(L([`বক্স সর্বোচ্চ ${num(maxBoxDepth)} স্তর পর্যন্ত একটির ভেতরে আরেকটি রাখা যায়।`, `Boxes can sit inside each other at most ${maxBoxDepth} levels deep.`])); return true }
                 const result = setGrid(f.node, c, r, newId)
                 at(() => result.node)
                 return !result.blocked
@@ -1243,7 +1254,7 @@ export function PageEditor() {
       </section>
 
       {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
-      {addingNode && <AddNodeDialog onClose={() => setAddingNode(null)} onAdd={addNode} />}
+      {addingNode && <AddNodeDialog room={maxBoxDepth - boxesAbove(sections, addingNode.parentId)} onClose={() => setAddingNode(null)} onAdd={addNode} />}
 
       {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(path('/landing-pages'))} onSave={() => void run(async () => { if (await save()) navigate(path('/landing-pages')); else setLeaving(false) })} busy={busy} />}
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { blankContent, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
+import { blankContent, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
 
 test('legacy content preserves implicit chrome, and blank content persists explicit empty canvas', () => {
   const legacy = { version: 2, sections: [newSection('text', 'old-section')] }
@@ -113,4 +113,14 @@ test('section backgrounds are validated, spacing goes to 300px, and background i
   assert.equal(ok.sections[0].style?.paddingTop, 300)
   assert.deepEqual(references(ok).media, [photo])
   for (const style of [{ paddingTop: 301 }, { overlayOpacity: 101 }, { bgVideo: 'http://insecure.test/a.mp4' }, { bgType: 'pattern' }, { gradientFrom: 'red' }, { bgImage: 'not-an-id' }]) assert.equal(page(style), null, JSON.stringify(style))
+})
+
+test('boxes nest at most four deep', () => {
+  const nest = (levels: number) => {
+    let node: Record<string, unknown> = { id: 'leaf', kind: 'text', props: {} }
+    for (let i = 0; i < levels; i++) node = { id: `b${i}`, kind: 'box', props: {}, children: [node] }
+    return { version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [node] }] }
+  }
+  assert.ok(readContent(nest(maxBoxDepth)), 'four boxes with an element inside is fine')
+  assert.equal(readContent(nest(maxBoxDepth + 1)), null, 'a fifth box is refused')
 })

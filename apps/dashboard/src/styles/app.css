@@ -1856,3 +1856,4 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor-menu__item:is(:hover, :focus-visible):not(:disabled) { outline: 0; background: var(--color-paper-3); color: var(--color-ink); }
 .editor-menu__item:disabled { opacity: .4; cursor: default; }
 .editor-menu__item--danger, .editor-menu__item--danger svg { color: var(--color-error); }
+.node-add__grid button:disabled { opacity: .35; cursor: not-allowed; }

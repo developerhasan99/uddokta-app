@@ -454,7 +454,9 @@ export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: No
 export type NodeDef = { label: Label; fields: Leaf[]; defaults: Settings }
 
 export const maxNodes = 400
-export const maxDepth = 6
+// Boxes nest at most 4 deep inside a section (so a page stays understandable); elements sit one level below.
+export const maxBoxDepth = 4
+export const maxDepth = maxBoxDepth + 1
 
 const opts = (...list: (readonly [string, Label])[]) => list.map(([value, label]) => ({ value, label }))
 export const nodeDefs: Record<NodeKind, NodeDef> = {
@@ -551,7 +553,7 @@ function readNodeStyle(raw: unknown): NodeStyle | null {
   return out
 }
 
-function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { nodes: number }): PageNode[] | null {
+function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { nodes: number }, boxes = 0): PageNode[] | null {
   if (!Array.isArray(raw) || depth > maxDepth) return null
   const out: PageNode[] = []
   for (const item of raw as Record<string, unknown>[]) {
@@ -582,7 +584,8 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
     } else if (item.block !== undefined) return null
     let children: PageNode[] | undefined
     if (kind === 'box') {
-      children = readNodes(item.children ?? [], depth + 1, ids, budget) ?? undefined
+      if (boxes + 1 > maxBoxDepth) return null
+      children = readNodes(item.children ?? [], depth + 1, ids, budget, boxes + 1) ?? undefined
       if (!children) return null
     } else if (item.children !== undefined) return null
     out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'all' | 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })

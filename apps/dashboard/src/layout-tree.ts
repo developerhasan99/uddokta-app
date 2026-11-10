@@ -169,3 +169,11 @@ export function readClip(): Clip | null {
   } catch { /* storage blocked or garbled */ }
   return null
 }
+
+// How many boxes deep a part goes (a box with a box inside is 2), and how many boxes sit above a place in a section.
+// Together they keep pasted, dropped or added parts within maxBoxDepth.
+export const boxDepth = (node: PageNode): number => (node.kind === 'box' ? 1 : 0) + Math.max(0, ...(node.children ?? []).map(boxDepth))
+export function boxesAbove(sections: Section[], parentId: string | null) {
+  if (!parentId) return 0
+  return pathTo(sections, parentId).length - 1 + (findNode(sections, parentId)?.node.kind === 'box' ? 1 : 0)
+}
