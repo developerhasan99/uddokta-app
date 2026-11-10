@@ -6,7 +6,7 @@ const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, LayoutGrid, Box, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, LayoutGrid, Box, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -674,6 +674,10 @@ export function PageEditor() {
   }
 
   const found = findNode(sections, selected)
+  const tabLabel = (tab: 'content' | 'layout' | 'style') => {
+    const Icon = tab === 'content' ? PenLine : tab === 'layout' ? SlidersHorizontal : Palette
+    return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</span></>
+  }
   const sTab = section0(selected)?.type === 'layout' && settingsTab === 'content' ? 'layout' : settingsTab
   // A layout section is listed by what it shows: its block, or its first heading or text.
   // Sections are listed by the name the seller gives them (or their place on the page until they do).
@@ -780,7 +784,7 @@ export function PageEditor() {
         </div>
       </div>
       <div className="editor-setting-tabs" role="group" aria-label={L(def.label)}>
-        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{L(x === 'content' ? ['কন্টেন্ট', 'Content'] : x === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{tabLabel(x)}</button>)}
       </div>
       <div className="editor__form">
         {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
@@ -972,7 +976,7 @@ export function PageEditor() {
             </div>
             {section.hidden && <p className="muted">{t('pageHidden')}</p>}
             <div className="editor-setting-tabs" role="group" aria-label={L(['সেকশন সেটিংস', 'Section settings'])}>
-              {(['content', 'layout', 'style'] as const).filter((tab) => tab !== 'content' || section.type !== 'layout').map((tab) => <button key={tab} type="button" aria-pressed={sTab === tab} onClick={() => setSettingsTab(tab)}>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</button>)}
+              {(['content', 'layout', 'style'] as const).filter((tab) => tab !== 'content' || section.type !== 'layout').map((tab) => <button key={tab} type="button" aria-pressed={sTab === tab} onClick={() => setSettingsTab(tab)}>{tabLabel(tab)}</button>)}
             </div>
             <div className="editor__form">
               {sTab !== 'style' && <div className={sTab === 'layout' ? 'design-structure' : 'editor__fields'}><SectionForm
