@@ -483,7 +483,7 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'direction', kind: 'select', group: 'layout', label: ['দিক', 'Direction'], options: opts(['column', ['নিচে নিচে', 'Down']], ['row', ['পাশাপাশি', 'Across']], ['column-reverse', ['নিচ থেকে উপরে', 'Up']], ['row-reverse', ['ডান থেকে বামে', 'Across, reversed']]) },
   { key: 'justify', kind: 'select', group: 'layout', label: ['মূল দিকে সাজানো', 'Justify'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['between', ['ছড়িয়ে', 'Space between']], ['around', ['চারপাশে ফাঁক', 'Space around']], ['evenly', ['সমান ফাঁক', 'Space evenly']]) },
   { key: 'align', kind: 'select', group: 'layout', label: ['আড়াআড়ি সাজানো', 'Align'], options: opts(['stretch', ['পুরো জায়গা', 'Stretch']], ['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']]) },
-  { key: 'wrap', kind: 'select', group: 'layout', label: ['জায়গা না হলে', 'When out of room'], options: opts(['nowrap', ['এক লাইনে', 'Keep on one line']], ['wrap', ['পরের লাইনে', 'Wrap']]) },
+  { key: 'wrap', kind: 'select', group: 'layout', label: ['মোড়ানো', 'Wrap'], options: opts(['nowrap', ['এক লাইনে', 'Keep on one line']], ['wrap', ['পরের লাইনে', 'Wrap']]) },
   px('gap', ['ফাঁক (px)', 'Gap (px)'], 160),
   // How an item sits inside its box (Elementor's "Align self", "Size" and "Order").
   { key: 'alignSelf', kind: 'select', group: 'layout', label: ['নিজের অবস্থান', 'Align self'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['stretch', ['পুরো জায়গা', 'Stretch']]) },

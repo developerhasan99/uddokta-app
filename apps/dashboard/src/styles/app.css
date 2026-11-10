@@ -1793,3 +1793,17 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .node-device button span { overflow: visible; }
 .editor .editor__settings-head .btn--icon { box-shadow: none; background: transparent; color: var(--color-muted); }
 .editor .editor__settings-head .btn--icon:hover { background: var(--color-paper-3); color: var(--color-ink); }
+
+/* One row per setting: label on the left, control on the right. Text areas, image pickers and spacing stay stacked. */
+.editor .editor__settings .design-grid { grid-template-columns: minmax(0, 1fr); }
+.editor .editor__settings .design-control { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
+.editor .editor__settings .design-control__label { min-height: 30px; }
+.editor .editor__settings .design-control > :not(.design-control__label) { grid-column: 2; }
+.editor .editor__settings .design-control > .media__empty, .editor .editor__settings .design-control > .node-bg { grid-column: 1 / -1; }
+.editor .editor__settings .design-color { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); row-gap: 6px; }
+.editor .editor__settings .design-color__head { grid-column: 1; grid-row: 1; }
+.editor .editor__settings .design-color__head > span { display: none; }
+.editor .editor__settings .design-color__input { grid-column: 2; grid-row: 1; }
+.editor .editor__settings :is(.design-palette, .design-color > .form-error) { grid-column: 2; }
+.editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
+.editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) > :not(label) { grid-column: 2; }
