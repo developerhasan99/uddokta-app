@@ -15,13 +15,14 @@ type Props = {
   onPatch: (patch: Patch, typingKey?: string) => void
   onHide: (hide: PageNode['hide']) => void
   onPickImage: (apply: (id: string | null) => void) => void
-  columns?: { count: number; set: (n: number) => boolean }
+  grid?: { columns: number; rows: number; set: (columns: number, rows: number) => boolean }
+  parentGrid?: { columns: number; rows: number }
 }
 
 const fieldOf = (key: string) => nodeStyleFields.find((f) => f.key === key)!
 
 // Layout and Style for one box or element. On "Mobile" the same controls write phone overrides, with the desktop value as the hint.
-export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage, columns }: Props) {
+export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage, grid, parentGrid }: Props) {
   const [blocked, setBlocked] = useState(false)
   const { lang } = useLang()
   const uid = useId()
@@ -82,16 +83,25 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
       const dir = String(value('direction') ?? (device === 'mobile' ? 'column' : desktop.direction ?? 'column'))
       const row = dir.startsWith('row')
       const i = (Icon: typeof ArrowDown) => <Icon size={16} aria-hidden="true" />
-      return <Group title={L('সাজানো (ফ্লেক্সবক্স)', 'Arrangement (flexbox)')} icon={<SlidersHorizontal size={15} />}>
-        {columns && device === 'desktop' && <div className="design-control">
-          <div className="design-control__label"><span>{L('কলাম', 'Columns')}</span></div>
-          <div className="node-stepper" role="group" aria-label={L('কলাম', 'Columns')}>
-            <button type="button" aria-label={L('কলাম কমান', 'Fewer columns')} disabled={columns.count <= 1} onClick={() => setBlocked(!columns.set(columns.count - 1))}>−</button>
-            <output aria-live="polite">{columns.count}</output>
-            <button type="button" aria-label={L('কলাম বাড়ান', 'More columns')} disabled={columns.count >= 6} onClick={() => { setBlocked(false); columns.set(columns.count + 1) }}>+</button>
+      const isGrid = desktop.display === 'grid'
+      return <Group title={L('সাজানো', 'Arrangement')} icon={<SlidersHorizontal size={15} />}>
+        {device === 'desktop' && <div className="design-control">
+          <div className="design-control__label"><span>{L('ধরন', 'Layout')}</span></div>
+          <div className="design-segments" role="group" aria-label={L('ধরন', 'Layout')}>
+            <button type="button" aria-pressed={!isGrid} onClick={() => onPatch({ display: undefined, gridColumns: undefined, gridRows: undefined })}>{L('ফ্লেক্স', 'Flex')}</button>
+            <button type="button" aria-pressed={isGrid} onClick={() => grid ? setBlocked(!grid.set(Math.max(1, grid.columns), Math.max(1, grid.rows))) : onPatch({ display: 'grid', gridColumns: 2, gridRows: 1 })}>{L('গ্রিড', 'Grid')}</button>
           </div>
         </div>}
-        {columns && blocked && <p className="design-help form-error">{L('শেষ কলামে জিনিস আছে। আগে সেগুলো সরান বা মুছুন।', 'The last column has things in it. Move or delete them first.')}</p>}
+        {isGrid && grid && device === 'desktop' && <>
+          <Stepper label={L('কলাম', 'Columns')} value={grid.columns} max={6} onChange={(c) => setBlocked(!grid.set(c, grid.rows))} />
+          <Stepper label={L('সারি', 'Rows')} value={grid.rows} max={6} onChange={(r) => setBlocked(!grid.set(grid.columns, r))} />
+          {blocked && <p className="design-help form-error">{L('শেষের ঘরে জিনিস আছে। আগে সেগুলো সরান বা মুছুন।', 'The last cells have things in them. Move or delete them first.')}</p>}
+        </>}
+        {isGrid && device === 'mobile' && <>
+          <Stepper label={L('ফোনে কলাম', 'Columns on phones')} value={Number(value('gridColumns') ?? 1)} max={4} onChange={(c) => onPatch({ gridColumns: c === 1 ? undefined : c })} />
+          <p className="design-help">{L('ফোনে গ্রিড নিজে থেকেই এক কলাম হয়।', 'On phones a grid is one column unless you choose more.')}</p>
+        </>}
+        {isGrid ? <div className="design-grid">{number('gap')}</div> : <>
         {segments('direction', L('দিক', 'Direction'), [
           { value: 'row', label: L('পাশাপাশি', 'Across'), icon: i(ArrowRight) },
           { value: 'column', label: L('নিচে নিচে', 'Down'), icon: i(ArrowDown) },
@@ -114,9 +124,14 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
           { value: 'stretch', label: L('পুরো জায়গা', 'Stretch'), icon: i(row ? StretchVertical : StretchHorizontal) },
         ])}
         <div className="design-grid">{number('gap')}{select('wrap')}</div>
+        </>}
       </Group>
     })()}
     <Group title={L('বক্সের ভেতরে অবস্থান', 'Position in its box')} icon={<Crosshair size={15} />} open={false}>
+      {parentGrid && <>
+        <Stepper label={L('কলাম জুড়ে', 'Column span')} value={Number(value('colSpan') ?? 1)} max={parentGrid.columns} onChange={(n) => onPatch({ colSpan: n === 1 ? undefined : n })} />
+        <Stepper label={L('সারি জুড়ে', 'Row span')} value={Number(value('rowSpan') ?? 1)} max={Math.max(parentGrid.rows, 1)} onChange={(n) => onPatch({ rowSpan: n === 1 ? undefined : n })} />
+      </>}
       {segments('alignSelf', L('নিজের অবস্থান', 'Align self'), [
         { value: 'start', label: L('শুরুতে', 'Start'), icon: <AlignStartVertical size={16} aria-hidden="true" /> },
         { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenterVertical size={16} aria-hidden="true" /> },
@@ -186,3 +201,15 @@ export function DeviceSwitch({ device, onChange }: { device: Device; onChange: (
 }
 
 export type { NodeStyle }
+
+function Stepper({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (n: number) => void }) {
+  const { lang } = useLang()
+  return <div className="design-control">
+    <div className="design-control__label"><span>{label}</span></div>
+    <div className="node-stepper" role="group" aria-label={label}>
+      <button type="button" aria-label={`${label} −`} disabled={value <= 1} onClick={() => onChange(value - 1)}>−</button>
+      <output aria-live="polite">{lang === 'bn' ? value.toLocaleString('bn-BD') : value}</output>
+      <button type="button" aria-label={`${label} +`} disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
+    </div>
+  </div>
+}

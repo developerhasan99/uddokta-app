@@ -131,3 +131,15 @@ test('section backgrounds: gradient, image with overlay, video, and a minimum he
   assert.match(html, /<video src="https:\/\/cdn\.test\/loop\.mp4" autoPlay="" muted="" loop="" playsInline="" preload="metadata" poster="https:\/\/cdn\.test\/a\.webp">/)
   assert.equal(html.match(/<video/g)?.length, 1, 'only direct video files play')
 })
+
+test('grid boxes: columns × rows, spans, and one column on phones', () => {
+  const layout = newSection('layout', 'grid')
+  layout.children = [{ id: 'g', kind: 'box', props: {}, style: { display: 'grid', gridColumns: 3, gridRows: 2, gap: 12 }, children: [
+    { id: 'wide', kind: 'box', props: {}, style: { colSpan: 2, rowSpan: 2 }, children: [] },
+    { id: 'cell', kind: 'box', props: {}, children: [] },
+  ] }]
+  const html = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [layout] }} ctx={ctx} storeName="S" />)
+  assert.match(html, /\.n-g\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:repeat\(2,auto\);gap:12px\}/)
+  assert.match(html, /\.n-wide\{grid-column:span 2;grid-row:span 2\}/, 'no flex sizing inside a grid')
+  assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-g\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:none\}[^@]*\.n-wide\{grid-column:auto;grid-row:auto\}/)
+})

@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, 
 import { DialogHead } from '../components/DialogHead'
 import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { columns, setColumns, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { columns, setGrid, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -803,11 +803,12 @@ export function PageEditor() {
           : <NodeDesignControls key={`${f.node.id}:${tab}:${device}`} node={f.node} tab={tab} device={device} media={media} onPatch={patch}
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
               onPickImage={(apply) => setPicking({ kind: 'image', apply })}
-              columns={f.node.kind === 'box' && (f.node.children ?? []).every((c) => c.kind === 'box') ? { count: Math.max(1, f.node.children?.length ?? 0), set: (n) => {
-                const result = setColumns(f.node, n, newId)
-                if (!result.blocked || result.node.children!.length !== f.node.children?.length) at(() => result.node)
+              grid={f.node.kind === 'box' && f.node.style?.display === 'grid' || f.node.kind === 'box' && (f.node.children ?? []).every((c) => c.kind === 'box') ? { columns: Number(f.node.style?.gridColumns ?? Math.max(1, f.node.children?.length ?? 1)), rows: Number(f.node.style?.gridRows ?? 1), set: (c, r) => {
+                const result = setGrid(f.node, c, r, newId)
+                at(() => result.node)
                 return !result.blocked
-              } } : undefined} />}
+              } } : undefined}
+              parentGrid={f.parent?.style?.display === 'grid' ? { columns: Number(f.parent.style.gridColumns ?? 1), rows: Number(f.parent.style.gridRows ?? 1) } : undefined} />}
         <Button onClick={() => addAfter(f)}><Plus size={16} aria-hidden="true" />{f.node.kind === 'box' ? L(['এই বক্সের ভেতরে যোগ করুন', 'Add inside this box']) : L(['এর নিচে যোগ করুন', 'Add below this'])}</Button>
       </div>
       <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>

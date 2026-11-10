@@ -137,19 +137,19 @@ export const sectionPresets: { key: string; label: Label; help: Label; build: (i
 
 // "Structure" in Add element: one box, or a row of 2–4 equal column boxes (stacked on phones). More columns or
 // rows are just more boxes, added like anything else.
-export const columns = (n: number, id: () => string): PageNode => box(id, { direction: 'row', gap: 20 }, Array.from({ length: n }, () => box(id, undefined, [])))
+export const columns = (n: number, id: () => string): PageNode => ({ ...box(id, { display: 'grid', gridColumns: n, gridRows: 1, gap: 20 }, Array.from({ length: n }, () => box(id, undefined, []))) })
 
-// The Columns setting on a box: add empty column boxes, or take empty ones off the end. A column with content is
-// never removed here, so nothing is lost; the result says so instead.
-export function setColumns(node: PageNode, n: number, id: () => string): { node: PageNode; blocked: boolean } {
+// The Columns × Rows settings on a grid box: one empty cell box per cell is added, and empty ones are taken off the
+// end when the grid shrinks. A cell with content is never removed here, so nothing is lost; the result says so.
+export function setGrid(node: PageNode, cols: number, rows: number, id: () => string): { node: PageNode; blocked: boolean } {
+  const cells = cols * rows
   const children = [...(node.children ?? [])]
-  while (children.length < n) children.push(box(id, undefined, []))
+  while (children.length < cells) children.push(box(id, undefined, []))
   let blocked = false
-  while (children.length > n) {
+  while (children.length > cells) {
     const last = children[children.length - 1]
     if (last.kind !== 'box' || last.children?.length) { blocked = true; break }
     children.pop()
   }
-  const style = n > 1 && !String(node.style?.direction ?? '').startsWith('row') ? { ...node.style, direction: 'row' } : node.style
-  return { node: { ...node, children, ...(style ? { style } : {}) }, blocked }
+  return { node: { ...node, children, style: { ...node.style, display: 'grid', gridColumns: cols, gridRows: rows } }, blocked }
 }

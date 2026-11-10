@@ -79,6 +79,9 @@ const shadows: Record<string, string> = { none: 'none', soft: '0 6px 24px #00000
 function declarations(node: PageNode, st: NodeStyle, ctx: Ctx): string[] {
   const out: string[] = []
   const n = (key: string) => (typeof st[key] === 'number' ? st[key] as number : undefined)
+  if (node.kind === 'box' && st.display === 'grid') out.push('display:grid')
+  if (node.kind === 'box' && n('gridColumns') !== undefined) out.push(`grid-template-columns:repeat(${n('gridColumns')},minmax(0,1fr))`)
+  if (node.kind === 'box' && n('gridRows') !== undefined) out.push(`grid-template-rows:repeat(${n('gridRows')},auto)`)
   if (node.kind === 'box') {
     if (st.direction) out.push(`flex-direction:${st.direction}`)
     if (st.justify) out.push(`justify-content:${justify[st.justify as string]}`)
@@ -115,6 +118,8 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx): string[] {
 function itemRules(st: NodeStyle | undefined): string[] {
   if (!st) return []
   const out: string[] = []
+  if (typeof st.colSpan === 'number') out.push(`grid-column:span ${st.colSpan}`)
+  if (typeof st.rowSpan === 'number') out.push(`grid-row:span ${st.rowSpan}`)
   if (st.alignSelf) out.push(`align-self:${align[st.alignSelf as string]}`)
   if (st.grow === 'grow') out.push('flex-grow:1')
   if (st.grow === 'shrink') out.push('flex-shrink:1', 'flex-grow:0')
@@ -139,6 +144,9 @@ export function layoutCss(content: Content, ctx: Ctx): string {
   const phone: string[] = []
   const hideDesktop: string[] = []
   const visit = (nodes: PageNode[], parent: PageNode | undefined) => {
+    // In a grid, cells size the items; on phones a grid is one column unless a phone column count is set.
+    const grid = parent?.kind === 'box' && parent.style?.display === 'grid'
+    const phoneGrid = grid && parent!.mobile?.gridColumns !== undefined
     const dirD = parent ? directionOf(parent, false) : 'column'
     const dirM = parent ? directionOf(parent, true) : 'column'
     const gapD = parent ? (parent.style?.gap as number | undefined) ?? boxGap : rootGap
@@ -147,13 +155,19 @@ export function layoutCss(content: Content, ctx: Ctx): string {
       const sel = `.n-${node.id}`
       const widthD = node.style?.width as number | undefined
       const widthM = (node.mobile?.width as number | undefined) ?? (dirM === dirD ? widthD : undefined)
-      const own = [...declarations(node, node.style ?? {}, ctx), ...(parent || widthD !== undefined ? sizing(node, widthD, dirD, gapD) : []), ...itemRules(node.style)]
+      const own = [...declarations(node, node.style ?? {}, ctx), ...(!grid && (parent || widthD !== undefined) ? sizing(node, widthD, dirD, gapD) : []), ...itemRules(node.style)]
       if (own.length) desktop.push(`${sel}{${own.join(';')}}`)
       const mobileOwn = node.mobile ? declarations(node, node.mobile, ctx) : []
-      if (node.kind === 'box' && String(node.style?.direction ?? '').startsWith('row') && !node.mobile?.direction) mobileOwn.push('flex-direction:column')
-      const changed = dirM !== dirD || node.mobile?.width !== undefined || (dirM === 'row' && gapM !== gapD)
-      if (changed) mobileOwn.push(...sizing(node, widthM, dirM, gapM), ...itemRules({ ...node.style, ...node.mobile }))
-      else mobileOwn.push(...itemRules(node.mobile))
+      if (node.kind === 'box' && node.style?.display !== 'grid' && String(node.style?.direction ?? '').startsWith('row') && !node.mobile?.direction) mobileOwn.push('flex-direction:column')
+      if (node.kind === 'box' && node.style?.display === 'grid' && node.mobile?.gridColumns === undefined) mobileOwn.push('grid-template-columns:minmax(0,1fr)', 'grid-template-rows:none')
+      if (grid) {
+        if (!phoneGrid) mobileOwn.push('grid-column:auto', 'grid-row:auto')
+        mobileOwn.push(...itemRules(node.mobile))
+      } else {
+        const changed = dirM !== dirD || node.mobile?.width !== undefined || (dirM === 'row' && gapM !== gapD)
+        if (changed) mobileOwn.push(...sizing(node, widthM, dirM, gapM), ...itemRules({ ...node.style, ...node.mobile }))
+        else mobileOwn.push(...itemRules(node.mobile))
+      }
       if (node.hide === 'mobile') mobileOwn.push('display:none')
       if (mobileOwn.length) phone.push(`${sel}{${mobileOwn.join(';')}}`)
       if (node.hide === 'desktop') hideDesktop.push(`${sel}{display:none}`)

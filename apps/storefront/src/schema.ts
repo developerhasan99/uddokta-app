@@ -496,6 +496,12 @@ export function orderBlocks(content: Content): { id: string; settings: Settings 
 const px = (key: string, label: Label, max: number, min = 0, group: 'layout' | 'style' = 'layout') => ({ key, kind: 'number' as const, min, max, label, group })
 // One list for desktop and mobile; mobile values override desktop ones under 720px.
 export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
+  // A box is a flex row/column, or a grid of columns × rows whose items can span cells.
+  { key: 'display', kind: 'select', group: 'layout', label: ['বিন্যাসের ধরন', 'Layout type'], options: opts(['flex', ['ফ্লেক্স', 'Flex']], ['grid', ['গ্রিড', 'Grid']]) },
+  px('gridColumns', ['কলাম', 'Columns'], 12, 1),
+  px('gridRows', ['সারি', 'Rows'], 12, 1),
+  px('colSpan', ['কলাম জুড়ে', 'Column span'], 12, 1),
+  px('rowSpan', ['সারি জুড়ে', 'Row span'], 12, 1),
   { key: 'direction', kind: 'select', group: 'layout', label: ['দিক', 'Direction'], options: opts(['column', ['নিচে নিচে', 'Down']], ['row', ['পাশাপাশি', 'Across']], ['column-reverse', ['নিচ থেকে উপরে', 'Up']], ['row-reverse', ['ডান থেকে বামে', 'Across, reversed']]) },
   { key: 'justify', kind: 'select', group: 'layout', label: ['মূল দিকে সাজানো', 'Justify'], options: opts(['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']], ['between', ['ছড়িয়ে', 'Space between']], ['around', ['চারপাশে ফাঁক', 'Space around']], ['evenly', ['সমান ফাঁক', 'Space evenly']]) },
   { key: 'align', kind: 'select', group: 'layout', label: ['আড়াআড়ি সাজানো', 'Align'], options: opts(['stretch', ['পুরো জায়গা', 'Stretch']], ['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Center']], ['end', ['শেষে', 'End']]) },
