@@ -19,6 +19,7 @@ export function LayoutSection({ s, ctx, orderId }: { s: Section; ctx: Ctx; order
   const children = s.children ?? []
   return (
     <section className="sf-section sf-layout">
+      {ctx.preview && <button type="button" className="sf-n-handle sf-n-handle--section" data-select={s.id} aria-label="সেকশন বাছুন"><span aria-hidden="true">▭</span></button>}
       <div className="sf-wrap sf-n-root">
         {children.length ? children.map((node) => <NodeView key={node.id} node={node} ctx={ctx} orderId={orderId} />) : ctx.preview ? <span className="sf-n-empty sf-n-add" data-add-into={s.id}>+ এলিমেন্ট যোগ করুন</span> : null}
       </div>
@@ -32,7 +33,7 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
   const p = node.props
   switch (node.kind) {
     case 'box':
-      return <div className={className} data-node={node.id}>{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
+      return <div className={className} data-node={node.id}>{ctx.preview && <button type="button" className="sf-n-handle" data-select={node.id} aria-label="বক্স বাছুন"><span aria-hidden="true">▦</span></button>}{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
     case 'heading': {
       const Tag = (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'
       if (!str(p.text)) return ctx.preview ? <Tag className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text">শিরোনাম লিখুন</Tag> : null
@@ -198,5 +199,9 @@ h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(2
 .sf-n-empty{min-height:64px;flex:1 1 auto}
 .sf-n-add{cursor:pointer;transition:border-color .12s,color .12s}.sf-n-add:hover{border-color:var(--sf-accent);color:var(--sf-accent)}
 .sf-n-prompt{opacity:.45;font-style:italic}
+.sf-layout{position:relative}.sf-n-box{position:relative}
+.sf-n-handle{position:absolute;top:0;left:0;z-index:6;display:none;align-items:center;justify-content:center;width:22px;height:20px;padding:0;border:0;border-radius:0 0 6px 0;background:#1f7a4d;color:#fff;font-size:12px;line-height:1;cursor:pointer}
+.sf-n-handle--section{width:26px;height:22px;background:#163b2e}
+.sf-n-box:hover>.sf-n-handle,.sf-layout:hover>.sf-n-handle{display:flex}
 .sf-n-block{width:100%}.sf-n-block>.sf-section{padding:0;background:transparent}.sf-n-block .sf-wrap{max-width:none;padding:0}
 `

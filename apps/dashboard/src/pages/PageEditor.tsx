@@ -2,12 +2,12 @@ import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, 
 import { DialogHead } from '../components/DialogHead'
 import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
-import { columns, setGrid, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
+import { columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, LayoutGrid, Box, RotateCcw, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -123,6 +123,9 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
     doc.addEventListener('click', (e) => {
       const target = e.target as Element
       if (editing?.contains(target)) return
+      // The small handle on a box or section selects that container (even an empty one).
+      const handle = target.closest('[data-select]')
+      if (handle) { e.preventDefault(); select.current(handle.getAttribute('data-select')!); return }
       // An empty section or box opens Add element for that container.
       const into = target.closest('[data-add-into]')
       if (into) { e.preventDefault(); adding.current(into.getAttribute('data-add-into')!); return }
@@ -148,7 +151,7 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
-          <style>{`[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}` : ''}`}</style>
+          <style>{`[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={ctx} storeName={storeName} />}
         </>,
         body,
@@ -579,12 +582,20 @@ export function PageEditor() {
     }
   })
 
-  const keys = useRef({ undo, redo, onSave })
-  keys.current = { undo, redo, onSave }
+  const keys = useRef({ undo, redo, onSave, copy: () => {}, paste: () => {}, duplicate: () => {} })
+  keys.current = { ...keys.current, undo, redo, onSave }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return
-      const typing = (e.target as Element).closest('input, textarea')
+      const typing = (e.target as Element).closest('input, textarea, select, [contenteditable]')
+      const selecting = !(window.getSelection()?.isCollapsed ?? true)
+      if (!typing && !selecting && ['c', 'v', 'd'].includes(e.key.toLowerCase())) {
+        e.preventDefault()
+        if (e.key.toLowerCase() === 'c') keys.current.copy()
+        else if (e.key.toLowerCase() === 'v') keys.current.paste()
+        else keys.current.duplicate()
+        return
+      }
       if (e.key === 's') {
         e.preventDefault()
         void keys.current.onSave()
@@ -707,6 +718,52 @@ export function PageEditor() {
     choose(node.id)
   }
   const addAfter = (f: Found) => setAddingNode(f.node.kind === 'box' ? { sectionId: f.section.id, parentId: f.node.id, index: f.node.children?.length ?? 0 } : { sectionId: f.section.id, parentId: f.parent?.id ?? null, index: f.index + 1 })
+  const duplicateNode = (sectionId: string, id: string) => {
+    const hit = findNode(sections, id)
+    if (!hit) return
+    const copy = reId(hit.node, newId)
+    editTree(sectionId, (nodes) => insertNode(nodes, hit.parent?.id ?? null, hit.index + 1, copy))
+    setSelected(copy.id)
+  }
+  const copySelected = () => {
+    const hit = findNode(sections, selected)
+    const sec = sections.find((x) => x.id === selected)
+    if (hit) writeClip({ kind: 'node', node: hit.node })
+    else if (sec?.type === 'layout') writeClip({ kind: 'section', section: sec })
+    else return
+    setToast(L(['কপি হয়েছে', 'Copied']))
+  }
+  // Paste: a section goes after the current section; an element goes into a selected box, after a selected element,
+  // or at the end of a selected section (or a new section when nothing is selected).
+  const paste = () => {
+    const clip = readClip()
+    if (!clip) return
+    const hit = findNode(sections, selected)
+    const current = hit?.section ?? sections.find((x) => x.id === selected)
+    if (clip.kind === 'section') {
+      if (sections.length >= maxSections) return
+      const copy = reIdSection(clip.section, newId)
+      const at = current ? sections.indexOf(current) + 1 : sections.length
+      setSections([...sections.slice(0, at), copy, ...sections.slice(at)])
+      setSelected(copy.id)
+    } else {
+      const node = reId(clip.node, newId)
+      if (hit) editTree(hit.section.id, (nodes) => hit.node.kind === 'box' ? insertNode(nodes, hit.node.id, hit.node.children?.length ?? 0, node) : insertNode(nodes, hit.parent?.id ?? null, hit.index + 1, node))
+      else if (current?.type === 'layout') editTree(current.id, (nodes) => [...nodes, node])
+      else setSections([...sections, { ...newSection('layout', newId()), settings: { name: '' }, children: [node] }])
+      setOpen((o) => new Set([...o, ...(current ? [current.id] : [])]))
+      setSelected(node.id)
+    }
+    setToast(L(['পেস্ট হয়েছে', 'Pasted']))
+  }
+  keys.current.copy = copySelected
+  keys.current.paste = paste
+  keys.current.duplicate = () => {
+    const hit = findNode(sections, selected)
+    const sec = sections.find((x) => x.id === selected)
+    if (hit) duplicateNode(hit.section.id, hit.node.id)
+    else if (sec && sections.length < maxSections) duplicate(sec)
+  }
   // "Add element" at the end of every open container, at the level of its children.
   const addRow = (sectionId: string, parentId: string | null, index: number, depth: number) => (
     <div className="editor-tree__row editor-tree__row--add" style={{ ['--depth' as string]: depth }}>
@@ -749,6 +806,7 @@ export function PageEditor() {
         <span className="editor-tree__handle" aria-hidden="true"><Icon className="editor-tree__icon" size={14} /><GripVertical className="editor-tree__drag" size={14} /></span>
         <button type="button" className="editor-tree__name" aria-current={n.id === selected ? 'true' : undefined} title={name} onClick={() => choose(n.id)}><span>{name}</span></button>
         <span className="editor-tree__actions">
+          <span className="editor-tree__delete"><IconButton label={`${t('pageDuplicateSection')}: ${name}`} title={t('pageDuplicateSection')} onClick={() => duplicateNode(sectionId, n.id)}><Copy size={14} aria-hidden="true" /></IconButton></span>
           <span className="editor-tree__delete"><IconButton label={`${t('pageRemoveSection')}: ${name}`} title={t('pageRemoveSection')} onClick={() => {
             editTree(sectionId, (list) => removeNode(list, n.id))
             if (n.id === selected || pathTo(sections, selected ?? '').includes(n.id)) setSelected(sectionId)
@@ -814,6 +872,8 @@ export function PageEditor() {
       <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
         <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={f.index === 0} onClick={() => editTree(f.section.id, (nodes) => moveNode(nodes, f, -1))}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
         <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={f.index === f.siblings.length - 1} onClick={() => editTree(f.section.id, (nodes) => moveNode(nodes, f, 1))}><ArrowDown size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveDown')}</span></IconButton>
+        <IconButton label={L(['কপি', 'Copy'])} title={L(['কপি (⌘C)', 'Copy (⌘C)'])} onClick={copySelected}><ClipboardCopy size={16} aria-hidden="true" /><span className="editor__action-label">{L(['কপি', 'Copy'])}</span></IconButton>
+        <IconButton label={L(['পেস্ট', 'Paste'])} title={L(['পেস্ট (⌘V)', 'Paste (⌘V)'])} onClick={paste}><ClipboardPaste size={16} aria-hidden="true" /><span className="editor__action-label">{L(['পেস্ট', 'Paste'])}</span></IconButton>
         <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} onClick={() => { const copy = reId(f.node, newId); editTree(f.section.id, (nodes) => insertNode(nodes, f.parent?.id ?? null, f.index + 1, copy)); setSelected(copy.id) }}><Copy size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageDuplicateSection')}</span></IconButton>
         <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={remove}><Trash2 size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageRemoveSection')}</span></IconButton>
       </div>
@@ -958,6 +1018,7 @@ export function PageEditor() {
               <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
                 <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span></span>
               </button>
+              <span className="editor-sections__delete"><IconButton label={`${t('pageDuplicateSection')}: ${sectionName(s)}`} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(s)}><Copy size={15} aria-hidden="true" /></IconButton></span>
               <span className="editor-sections__delete"><IconButton label={`${t('pageRemoveSection')}: ${sectionName(s)}`} title={t('pageRemoveSection')} onClick={() => {
                 setSections(sections.filter((x) => x.id !== s.id))
                 if (s.id === selected || found?.section.id === s.id) { setSelected(null); setPane('sections') }
@@ -1033,6 +1094,8 @@ export function PageEditor() {
               <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
               <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveDown')}</span></IconButton>
               {sTab !== 'content' && <IconButton label={L(sTab === 'layout' ? ['সব বিন্যাস রিসেট করুন', 'Reset all layout'] : ['সব স্টাইল রিসেট করুন', 'Reset all style'])} title={L(sTab === 'layout' ? ['সব বিন্যাস রিসেট করুন', 'Reset all layout'] : ['সব স্টাইল রিসেট করুন', 'Reset all style'])} aria-pressed={resetting === `${section.id}:${sTab}`} onClick={() => setResetting(resetting === `${section.id}:${sTab}` ? null : `${section.id}:${sTab}`)}><RotateCcw size={16} aria-hidden="true" /><span className="editor__action-label">{L(['রিসেট', 'Reset'])}</span></IconButton>}
+              <IconButton label={L(['কপি', 'Copy'])} title={L(['কপি (⌘C)', 'Copy (⌘C)'])} onClick={copySelected}><ClipboardCopy size={16} aria-hidden="true" /><span className="editor__action-label">{L(['কপি', 'Copy'])}</span></IconButton>
+              <IconButton label={L(['পেস্ট', 'Paste'])} title={L(['পেস্ট (⌘V)', 'Paste (⌘V)'])} onClick={paste}><ClipboardPaste size={16} aria-hidden="true" /><span className="editor__action-label">{L(['পেস্ট', 'Paste'])}</span></IconButton>
               <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageDuplicateSection')}</span></IconButton>
               <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null); setPane('sections') }}><Trash2 size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageRemoveSection')}</span></IconButton>
             </div>

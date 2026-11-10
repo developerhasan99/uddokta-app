@@ -153,3 +153,19 @@ export function setGrid(node: PageNode, cols: number, rows: number, id: () => st
   }
   return { node: { ...node, children, style: { ...node.style, display: 'grid', gridColumns: cols, gridRows: rows } }, blocked }
 }
+
+// Copy and paste between pages: the copied section or element is kept in this browser.
+// What is pasted gets fresh ids, and the API checks it like any other content when the page is saved.
+export type Clip = { kind: 'section'; section: Section } | { kind: 'node'; node: PageNode }
+const clipKey = 'uddokta.page-clipboard'
+export function writeClip(clip: Clip) {
+  try { localStorage.setItem(clipKey, JSON.stringify(clip)) } catch { /* storage blocked: copy is lost */ }
+}
+export function readClip(): Clip | null {
+  try {
+    const clip = JSON.parse(localStorage.getItem(clipKey) ?? 'null') as Clip | null
+    if (clip?.kind === 'section' && clip.section?.type === 'layout') return clip
+    if (clip?.kind === 'node' && clip.node?.kind) return clip
+  } catch { /* storage blocked or garbled */ }
+  return null
+}
