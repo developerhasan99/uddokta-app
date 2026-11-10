@@ -1807,3 +1807,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings :is(.design-palette, .design-color > .form-error) { grid-column: 2; }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) > :not(label) { grid-column: 2; }
+.design-group__title { display: flex; align-items: center; gap: var(--space-xs); min-height: 34px; margin: 0; padding: 0 var(--space-sm); font-size: var(--text-sm); }
+.design-group__title strong { font-weight: 600; }
+.editor .editor__settings .design-group__title { padding: 0; color: var(--color-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }

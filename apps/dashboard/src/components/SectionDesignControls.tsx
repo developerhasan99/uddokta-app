@@ -9,11 +9,12 @@ type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPat
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
 const swatches = ['#ffffff', '#f6f4ee', '#163b2e', '#285a3f', '#e2c86c', '#c34732', '#272b30', '#000000']
 
-export function Group({ title, icon, children, open = true, note }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
-  return <details className="design-group" open={open}>
-    <summary><span className="design-group__icon">{icon}</span><strong>{title}</strong><ChevronDown size={14} aria-hidden="true" /></summary>
+// A titled block of settings. Always open: each holds only a few controls.
+export function Group({ title, icon, children, note }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
+  return <section className="design-group">
+    <h3 className="design-group__title"><span className="design-group__icon">{icon}</span><strong>{title}</strong></h3>
     <div className="design-group__body">{note && <p className="design-help">{note}</p>}{children}</div>
-  </details>
+  </section>
 }
 
 export function SectionDesignControls({ section, tab, theme, onPatch }: Props) {
