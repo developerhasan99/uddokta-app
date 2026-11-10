@@ -48,7 +48,7 @@ const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
-function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void }) {
+function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
   const select = useRef(onSelect)
@@ -57,6 +57,8 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
   typed.current = onText
   const adding = useRef(onAddInto)
   adding.current = onAddInto
+  const menu = useRef(onMenu)
+  menu.current = onMenu
   const chosen = useRef(selected)
   chosen.current = selected
 
@@ -139,6 +141,17 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       }
       const picked = target.closest('[data-node]') ?? target.closest('[data-section]')
       if (picked) select.current(picked.getAttribute('data-node') ?? picked.getAttribute('data-section')!)
+    })
+    // Right-click: the editor's own menu for the element or section under the pointer.
+    doc.addEventListener('contextmenu', (e) => {
+      const target = e.target as Element
+      const picked = target.closest('[data-select]') ?? target.closest('[data-node]') ?? target.closest('[data-section]')
+      if (!picked) return
+      e.preventDefault()
+      const id = picked.getAttribute('data-select') ?? picked.getAttribute('data-node') ?? picked.getAttribute('data-section')!
+      const box = frame.getBoundingClientRect()
+      select.current(id)
+      menu.current(id, box.left + e.clientX, box.top + e.clientY)
     })
     doc.addEventListener('submit', (e) => e.preventDefault())
     setBody(doc.body)
@@ -365,6 +378,41 @@ function AddNodeDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (build:
   </dialog>
 }
 
+type MenuItem = { label: string; hint?: string; Icon: typeof Copy; run: () => void; disabled?: boolean; danger?: boolean } | 'rule'
+
+// The editor's right-click menu: the same actions as the panel's bottom bar. Closes on a click elsewhere, Esc or scroll.
+function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x, y })
+  useEffect(() => {
+    const el = ref.current
+    if (el) setPos({ x: Math.min(x, window.innerWidth - el.offsetWidth - 8), y: Math.min(y, window.innerHeight - el.offsetHeight - 8) })
+    el?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    const away = (e: Event) => { if (!el?.contains(e.target as Node)) onClose() }
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const list = [...(el?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])]
+        const i = list.indexOf(document.activeElement as HTMLButtonElement)
+        list[(i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length]?.focus()
+      }
+    }
+    window.addEventListener('pointerdown', away, true)
+    window.addEventListener('keydown', key)
+    window.addEventListener('blur', onClose)
+    document.addEventListener('scroll', onClose, true)
+    return () => { window.removeEventListener('pointerdown', away, true); window.removeEventListener('keydown', key); window.removeEventListener('blur', onClose); document.removeEventListener('scroll', onClose, true) }
+  }, [])
+  return <div ref={ref} className="editor-menu" role="menu" style={{ left: pos.x, top: pos.y }}>
+    {items.map((item, i) => item === 'rule'
+      ? <hr key={i} />
+      : <button key={i} type="button" role="menuitem" className={item.danger ? 'editor-menu__item editor-menu__item--danger' : 'editor-menu__item'} disabled={item.disabled} onClick={() => { onClose(); item.run() }}>
+        <item.Icon size={15} aria-hidden="true" /><span>{item.label}</span>{item.hint && <kbd>{item.hint}</kbd>}
+      </button>)}
+  </div>
+}
+
 function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; onLeave: () => void; onSave: () => void; busy: boolean }) {
   const { t } = useLang()
   const { ref, close: dismiss, props: leaveProps } = useDialog(onClose)
@@ -420,6 +468,7 @@ export function PageEditor() {
   const [toast, setToast] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [resetting, setResetting] = useState<string | null>(null)
+  const [menuAt, setMenuAt] = useState<{ id: string; x: number; y: number } | null>(null)
   const dragFrom = useRef<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
@@ -764,6 +813,28 @@ export function PageEditor() {
     if (hit) duplicateNode(hit.section.id, hit.node.id)
     else if (sec && sections.length < maxSections) duplicate(sec)
   }
+  const openMenu = (id: string, x: number, y: number) => { choose(id); setMenuAt({ id, x, y }) }
+  const menuItems = (id: string) => {
+    const hit = findNode(sections, id)
+    const sec = sections.find((x) => x.id === id)
+    const hidden = hit ? hit.node.hide === 'all' : Boolean(sec?.hidden)
+    const index = sec ? sections.indexOf(sec) : -1
+    return [
+      { label: L(['কপি', 'Copy']), hint: '⌘C', Icon: ClipboardCopy, run: copySelected },
+      { label: L(['পেস্ট', 'Paste']), hint: '⌘V', Icon: ClipboardPaste, run: paste },
+      { label: t('pageDuplicateSection'), hint: '⌘D', Icon: Copy, run: () => (hit ? duplicateNode(hit.section.id, hit.node.id) : sec && duplicate(sec)) },
+      'rule' as const,
+      { label: t('pageMoveUp'), Icon: ArrowUp, disabled: hit ? hit.index === 0 : index <= 0, run: () => (hit ? editTree(hit.section.id, (n) => moveNode(n, hit, -1)) : move(index, index - 1)) },
+      { label: t('pageMoveDown'), Icon: ArrowDown, disabled: hit ? hit.index === hit.siblings.length - 1 : index === sections.length - 1, run: () => (hit ? editTree(hit.section.id, (n) => moveNode(n, hit, 1)) : move(index, index + 1)) },
+      { label: L(hidden ? ['দেখান', 'Show'] : ['লুকান', 'Hide']), Icon: hidden ? Eye : EyeOff, run: () => (hit ? editTree(hit.section.id, (n) => updateNode(n, hit.node.id, (x) => { const next = { ...x }; if (x.hide === 'all') delete next.hide; else next.hide = 'all'; return next })) : sec && updateSection(sec.id, { hidden: !sec.hidden })) },
+      ...(hit ? [{ label: L(['বাইরের স্তর বাছুন', 'Select the box around it']), Icon: CornerLeftUp, run: () => choose(hit.parent?.id ?? hit.section.id) }] : []),
+      'rule' as const,
+      { label: L(['মুছুন', 'Delete']), Icon: Trash2, danger: true, run: () => {
+        if (hit) { editTree(hit.section.id, (n) => removeNode(n, hit.node.id)); setSelected(hit.parent?.id ?? hit.section.id) }
+        else if (sec) { setSections(sections.filter((x) => x.id !== sec.id)); setSelected(null); setPane('sections') }
+      } },
+    ]
+  }
   // "Add element" at the end of every open container, at the level of its children.
   const addRow = (sectionId: string, parentId: string | null, index: number, depth: number) => (
     <div className="editor-tree__row editor-tree__row--add" style={{ ['--depth' as string]: depth }}>
@@ -776,7 +847,7 @@ export function PageEditor() {
     const name = nodeName(n, L)
     const isOpen = open.has(n.id)
     return <Fragment key={n.id}>
-      <div className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}${nodeDrop?.id === n.id ? ` editor-tree__row--drop-${nodeDrop.where}` : ''}`} style={{ ['--depth' as string]: depth }}
+      <div onContextMenu={(e) => { e.preventDefault(); openMenu(n.id, e.clientX, e.clientY) }} className={`editor-tree__row${n.id === selected ? ' editor-tree__row--selected' : ''}${n.hide ? ' editor-tree__row--partial' : ''}${nodeDrop?.id === n.id ? ` editor-tree__row--drop-${nodeDrop.where}` : ''}`} style={{ ['--depth' as string]: depth }}
         draggable
         onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', n.id); nodeDrag.current = n.id }}
         onDragEnd={() => { nodeDrag.current = null; setNodeDrop(null) }}
@@ -957,6 +1028,7 @@ export function PageEditor() {
             {dropSpace(i)}
             <li
               data-section-index={i}
+              onContextMenu={(e) => { e.preventDefault(); openMenu(s.id, e.clientX, e.clientY) }}
               className={`editor-sections__row${s.id === selected ? ' editor-sections__row--selected' : ''}${s.hidden ? ' editor-sections__row--hidden' : ''}${dragging === i ? ' editor-sections__row--dragging' : ''}`}
               draggable
               onDragStart={(e) => {
@@ -1156,7 +1228,7 @@ export function PageEditor() {
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onAddInto={(cid) => {
+        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onMenu={openMenu} onAddInto={(cid) => {
           const sec = sections.find((x) => x.id === cid)
           if (sec) { setAddingNode({ sectionId: sec.id, parentId: null, index: sec.children?.length ?? 0 }); return }
           const hit = findNode(sections, cid)
@@ -1190,6 +1262,8 @@ export function PageEditor() {
           setPicking(null)
         }} />
       )}
+
+      {menuAt && <ContextMenu x={menuAt.x} y={menuAt.y} items={menuItems(menuAt.id)} onClose={() => setMenuAt(null)} />}
 
       <div className="editor__toast" role="status">
         {toast && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{toast}</p>}

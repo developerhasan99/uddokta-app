@@ -1846,3 +1846,13 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .node-stepper button:hover:not(:disabled) { background: var(--color-paper-3); color: var(--color-ink); }
 .node-stepper button:disabled { opacity: .35; cursor: default; }
 .node-stepper output { text-align: center; font-size: var(--text-sm); }
+/* Right-click menu in the editor. */
+.editor-menu { position: fixed; z-index: var(--z-tooltip); min-width: 220px; padding: 4px; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: calc(var(--radius-media) + 2px); background: var(--color-paper); box-shadow: var(--shadow-dialog); }
+.editor-menu hr { margin: 4px 0; border: 0; border-top: var(--rule-hair) solid var(--color-rule); }
+.editor-menu__item { display: flex; align-items: center; gap: var(--space-xs); width: 100%; min-height: 30px; padding: 0 var(--space-xs); border: 0; border-radius: calc(var(--radius-media) - 2px); background: transparent; color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.editor-menu__item span { flex: 1; }
+.editor-menu__item svg { color: var(--color-muted); }
+.editor-menu__item kbd { color: var(--color-muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.editor-menu__item:is(:hover, :focus-visible):not(:disabled) { outline: 0; background: var(--color-paper-3); color: var(--color-ink); }
+.editor-menu__item:disabled { opacity: .4; cursor: default; }
+.editor-menu__item--danger, .editor-menu__item--danger svg { color: var(--color-error); }
