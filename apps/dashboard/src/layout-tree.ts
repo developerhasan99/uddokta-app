@@ -125,14 +125,14 @@ export function pathTo(sections: Section[], id: string): string[] {
 
 // What "Add section" offers: generic building pieces, not purpose-made sections. Specific things (order form,
 // reviews, FAQ, …) are blocks placed inside these from "Add element".
-export const sectionPresets: { key: string; label: Label; help: Label; build: Build }[] = [
-  { key: 'empty', label: ['খালি সেকশন', 'Empty section'], help: ['শূন্য থেকে নিজের মতো সাজান', 'Start from nothing and build your own'], build: (id) => box(id, { minHeight: 120 }, []) },
-  { key: 'headingText', label: ['শিরোনাম ও লেখা', 'Heading and text'], help: ['একটি শিরোনাম আর তার নিচে লেখা', 'A heading with text below it'], build: (id) => box(id, { gap: 12 }, [el('heading', id), el('text', id)]) },
-  ...layoutPresets.filter((p) => p.key !== 'banner'),
-  { key: 'image', label: ['ছবি', 'Image'], help: ['পুরো প্রস্থে একটি ছবি', 'One full-width image'], build: (id) => box(id, undefined, [el('image', id)]) },
-  { key: 'video', label: ['ভিডিও', 'Video'], help: ['ইউটিউব বা ফেসবুক ভিডিও', 'A YouTube or Facebook video'], build: (id) => box(id, { gap: 16 }, [el('heading', id, { text: 'ভিডিওতে দেখুন' }, { textAlign: 'center' }), el('video', id)]) },
-  ...layoutPresets.filter((p) => p.key === 'banner'),
-  { key: 'cta', label: ['বাটনসহ আহ্বান', 'Call to action'], help: ['মাঝখানে শিরোনাম, লেখা আর বাটন', 'A centred heading, text and button'], build: (id) => box(id, { align: 'center', textAlign: 'center', gap: 16 }, [el('heading', id, { text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id)]) },
+export const sectionPresets: { key: string; label: Label; help: Label; build: (id: () => string) => PageNode[] }[] = [
+  { key: 'empty', label: ['খালি সেকশন', 'Empty section'], help: ['শূন্য থেকে নিজের মতো সাজান', 'Start from nothing and build your own'], build: () => [] },
+  { key: 'headingText', label: ['শিরোনাম ও লেখা', 'Heading and text'], help: ['একটি শিরোনাম আর তার নিচে লেখা', 'A heading with text below it'], build: (id) => [el('heading', id), el('text', id)] },
+  ...layoutPresets.filter((p) => p.key !== 'banner').map((p) => ({ ...p, build: (id: () => string) => [p.build(id)] })),
+  { key: 'image', label: ['ছবি', 'Image'], help: ['পুরো প্রস্থে একটি ছবি', 'One full-width image'], build: (id) => [el('image', id)] },
+  { key: 'video', label: ['ভিডিও', 'Video'], help: ['ইউটিউব বা ফেসবুক ভিডিও', 'A YouTube or Facebook video'], build: (id) => [el('heading', id, { text: 'ভিডিওতে দেখুন' }, { textAlign: 'center' }), el('video', id)] },
+  ...layoutPresets.filter((p) => p.key === 'banner').map((p) => ({ ...p, build: (id: () => string) => [p.build(id)] })),
+  { key: 'cta', label: ['বাটনসহ আহ্বান', 'Call to action'], help: ['মাঝখানে শিরোনাম, লেখা আর বাটন', 'A centred heading, text and button'], build: (id) => [box(id, { align: 'center', textAlign: 'center', gap: 16 }, [el('heading', id, { text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id)])] },
 ]
 
 // "Structure" in Add element: one box, or a row of 2–4 equal column boxes (stacked on phones). More columns or

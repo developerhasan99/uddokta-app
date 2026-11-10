@@ -301,7 +301,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
   const matches = sectionPresets.filter((preset) => [...preset.label, ...preset.help].some((label) => label.toLowerCase().includes(search.toLowerCase().trim())))
   const previews = useMemo(() => {
     let n = 0
-    return Object.fromEntries(sectionPresets.map((preset) => [preset.key, { ...newSection('layout', `thumb-${preset.key}`), children: [preset.build(() => `t${n++}`)] }]))
+    return Object.fromEntries(sectionPresets.map((preset) => [preset.key, { ...newSection('layout', `thumb-${preset.key}`), children: preset.build(() => `t${n++}`) }]))
   }, [])
   useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
   return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId}>
@@ -641,8 +641,8 @@ export function PageEditor() {
     ><span /></li>
   )
   const add = (preset: (typeof sectionPresets)[number]) => {
-    const section: Section = { ...newSection('layout', newId()), settings: { name: L(preset.label) }, children: [preset.build(newId)] }
-    setOpen((o) => new Set([...o, section.id, section.children![0].id]))
+    const section: Section = { ...newSection('layout', newId()), settings: { name: L(preset.label) }, children: preset.build(newId) }
+    setOpen((o) => new Set([...o, section.id, ...section.children!.map((n) => n.id)]))
     const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
     const next = [...sections]
     next.splice(at === -1 ? next.length : at + 1, 0, section)
