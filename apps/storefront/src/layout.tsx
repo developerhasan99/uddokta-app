@@ -19,7 +19,7 @@ export function LayoutSection({ s, ctx, orderId }: { s: Section; ctx: Ctx; order
   return (
     <section className="sf-section sf-layout">
       <div className="sf-wrap sf-n-root">
-        {children.length ? children.map((node) => <NodeView key={node.id} node={node} ctx={ctx} orderId={orderId} />) : ctx.preview ? <p className="sf-hint">বক্স বা এলিমেন্ট যোগ করুন</p> : null}
+        {children.length ? children.map((node) => <NodeView key={node.id} node={node} ctx={ctx} orderId={orderId} />) : ctx.preview ? <span className="sf-n-empty sf-n-add" data-add-into={s.id}>+ এলিমেন্ট যোগ করুন</span> : null}
       </div>
     </section>
   )
@@ -31,7 +31,7 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
   const p = node.props
   switch (node.kind) {
     case 'box':
-      return <div className={className} data-node={node.id}>{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty">খালি বক্স</span>}</div>
+      return <div className={className} data-node={node.id}>{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
     case 'heading': {
       const Tag = (['h1', 'h2', 'h3'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3'
       if (!str(p.text)) return ctx.preview ? <Tag className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text">শিরোনাম লিখুন</Tag> : null
@@ -179,6 +179,7 @@ h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(2
 .sf-n-video{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:var(--sf-radius);background:#000}.sf-n-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .sf-n-placeholder,.sf-n-empty{display:grid;place-items:center;min-height:96px;padding:16px;border:1px dashed var(--sf-rule);border-radius:var(--sf-radius);color:var(--sf-muted);font-size:14px}
 .sf-n-empty{min-height:64px;flex:1 1 auto}
+.sf-n-add{cursor:pointer;transition:border-color .12s,color .12s}.sf-n-add:hover{border-color:var(--sf-accent);color:var(--sf-accent)}
 .sf-n-prompt{opacity:.45;font-style:italic}
 .sf-n-block{width:100%}.sf-n-block>.sf-section{padding:0;background:transparent}.sf-n-block .sf-wrap{max-width:none;padding:0}
 `

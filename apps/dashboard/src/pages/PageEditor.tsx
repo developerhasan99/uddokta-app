@@ -46,13 +46,15 @@ const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
-function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void }) {
+function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void }) {
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
   const select = useRef(onSelect)
   select.current = onSelect
   const typed = useRef(onText)
   typed.current = onText
+  const adding = useRef(onAddInto)
+  adding.current = onAddInto
   const chosen = useRef(selected)
   chosen.current = selected
 
@@ -117,6 +119,9 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
     doc.addEventListener('click', (e) => {
       const target = e.target as Element
       if (editing?.contains(target)) return
+      // An empty section or box opens Add element for that container.
+      const into = target.closest('[data-add-into]')
+      if (into) { e.preventDefault(); adding.current(into.getAttribute('data-add-into')!); return }
       const hit = editable(target)
       if (hit && hit.id === chosen.current) { e.preventDefault(); startEdit(hit.field, hit.id); return }
       const link = target.closest('a')
@@ -1062,7 +1067,12 @@ export function PageEditor() {
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onText={(nid, text) => {
+        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onAddInto={(cid) => {
+          const sec = sections.find((x) => x.id === cid)
+          if (sec) { setAddingNode({ sectionId: sec.id, parentId: null, index: sec.children?.length ?? 0 }); return }
+          const hit = findNode(sections, cid)
+          if (hit) setAddingNode({ sectionId: hit.section.id, parentId: cid, index: hit.node.children?.length ?? 0 })
+        }} onText={(nid, text) => {
           const hit = findNode(sections, nid)
           if (!hit) return
           const field = nodeDefs[hit.node.kind].fields.find((f) => f.key === 'text')
