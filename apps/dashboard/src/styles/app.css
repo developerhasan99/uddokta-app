@@ -1754,3 +1754,4 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor-setting-tabs button[aria-pressed="true"] { border-bottom-color: var(--color-primary); background: var(--color-paper-3); color: var(--color-ink); box-shadow: none; }
 .editor .editor-setting-tabs button[aria-pressed="true"] svg { color: var(--color-primary); }
 @media (max-width: 860px) { .editor .editor-setting-tabs { margin-inline: calc(-1 * var(--space-md)); } }
+.editor .editor__settings > .editor-setting-tabs { margin-top: calc(-1 * var(--space-sm)); }
