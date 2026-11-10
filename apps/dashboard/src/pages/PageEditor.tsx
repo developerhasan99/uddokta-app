@@ -7,7 +7,7 @@ const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
-  Sparkles, LayoutGrid, Box, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Sparkles, LayoutGrid, Box, RotateCcw, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -1006,7 +1006,7 @@ export function PageEditor() {
                   updateSection(section.id, { style: Object.keys(style).length ? style : undefined }, typingKey ? `${section.id}:style:${typingKey}` : undefined)
                 }} />
                 {sTab === 'layout' && <details className="design-group design-anchor"><summary><span className="design-group__icon"><Link2 size={15} aria-hidden="true" /></span><strong>{L(['সেকশনের লিংক', 'Section link'])}</strong><ChevronDown size={14} aria-hidden="true" /></summary><div className="design-group__body"><Field id="section-anchor" label={L(['হেডার বা বাটনে ব্যবহার করুন', 'Use in a header or button'])} value={`#${section.id}`} readOnly /></div></details>}
-                <div className="editor__reset-all">
+                <div className="editor__reset-all" hidden={resetting !== `${section.id}:${sTab}`}>
                   {resetting === `${section.id}:${sTab}`
                     ? <>
                       <span>{L(sTab === 'layout' ? ['এই সেকশনের সব বিন্যাস মুছবেন?', 'Reset all layout settings of this section?'] : ['এই সেকশনের সব স্টাইল মুছবেন?', 'Reset all style settings of this section?'])}</span>
@@ -1018,7 +1018,7 @@ export function PageEditor() {
                         setResetting(null)
                       }}>{L(['রিসেট', 'Reset'])}</Button>
                     </>
-                    : <button type="button" className="editor__reset-link" onClick={() => setResetting(`${section.id}:${sTab}`)}>{L(sTab === 'layout' ? ['সব বিন্যাস রিসেট…', 'Reset all layout…'] : ['সব স্টাইল রিসেট…', 'Reset all style…'])}</button>}
+                    : null}
                 </div>
               </>}
               {section.type === 'order' && sTab === 'content' && <p className="muted">{t('pageDeliveryNote')} <Link to={path('/settings/delivery')} target="_blank">{t('shippingTitle')}</Link></p>}
@@ -1026,6 +1026,7 @@ export function PageEditor() {
             <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>
               <IconButton label={t('pageMoveUp')} title={t('pageMoveUp')} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveUp')}</span></IconButton>
               <IconButton label={t('pageMoveDown')} title={t('pageMoveDown')} disabled={index === sections.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageMoveDown')}</span></IconButton>
+              {sTab !== 'content' && <IconButton label={L(sTab === 'layout' ? ['সব বিন্যাস রিসেট করুন', 'Reset all layout'] : ['সব স্টাইল রিসেট করুন', 'Reset all style'])} title={L(sTab === 'layout' ? ['সব বিন্যাস রিসেট করুন', 'Reset all layout'] : ['সব স্টাইল রিসেট করুন', 'Reset all style'])} aria-pressed={resetting === `${section.id}:${sTab}`} onClick={() => setResetting(resetting === `${section.id}:${sTab}` ? null : `${section.id}:${sTab}`)}><RotateCcw size={16} aria-hidden="true" /><span className="editor__action-label">{L(['রিসেট', 'Reset'])}</span></IconButton>}
               <IconButton label={t('pageDuplicateSection')} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(section)}><Copy size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageDuplicateSection')}</span></IconButton>
               <IconButton label={t('pageRemoveSection')} title={t('pageRemoveSection')} onClick={() => { setSections(sections.filter((s) => s.id !== section.id)); setSelected(null); setPane('sections') }}><Trash2 size={16} aria-hidden="true" /><span className="editor__action-label">{t('pageRemoveSection')}</span></IconButton>
             </div>

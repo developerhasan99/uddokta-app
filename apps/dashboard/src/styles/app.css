@@ -1840,3 +1840,4 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor__reset-all > span { flex: 1 1 100%; }
 .editor__reset-link { padding: 0; border: 0; background: none; color: var(--color-muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .editor__reset-link:hover { color: var(--color-error); }
+.editor__reset-all[hidden] { display: none; }
