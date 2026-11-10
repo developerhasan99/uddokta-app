@@ -784,7 +784,7 @@ export function PageEditor() {
         </div>
       </div>
       <div className="editor-setting-tabs" role="group" aria-label={L(def.label)}>
-        {(['content', 'layout', 'style'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{tabLabel(x)}</button>)}
+        {(['content', 'style', 'layout'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{tabLabel(x)}</button>)}
       </div>
       <div className="editor__form">
         {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
@@ -976,7 +976,7 @@ export function PageEditor() {
             </div>
             {section.hidden && <p className="muted">{t('pageHidden')}</p>}
             <div className="editor-setting-tabs" role="group" aria-label={L(['সেকশন সেটিংস', 'Section settings'])}>
-              {(['content', 'layout', 'style'] as const).filter((tab) => tab !== 'content' || section.type !== 'layout').map((tab) => <button key={tab} type="button" aria-pressed={sTab === tab} onClick={() => setSettingsTab(tab)}>{tabLabel(tab)}</button>)}
+              {(['content', 'style', 'layout'] as const).filter((tab) => tab !== 'content' || section.type !== 'layout').map((tab) => <button key={tab} type="button" aria-pressed={sTab === tab} onClick={() => setSettingsTab(tab)}>{tabLabel(tab)}</button>)}
             </div>
             <div className="editor__form">
               {sTab !== 'style' && <div className={sTab === 'layout' ? 'design-structure' : 'editor__fields'}><SectionForm
