@@ -477,3 +477,9 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Templates: Modern product page and Colour banner page build layout trees from the seller's real product.
 - Editor is dark; preview keeps real colours.
 - Next: rebuild the remaining built-in sections as layout presets, a template gallery with previews, copy/paste between pages, undo-friendly keyboard shortcuts for the tree (delete, duplicate).
+
+## Editor settings panel tidy-up (2026-11-11)
+- Groups are collapsible with title-case headings (no more small uppercase labels); more space between groups.
+- Paired number fields (`.design-grid`) sit side by side with labels above, so long labels are no longer cut off. Rows of more than four icon toggles (Justify content) put the label above.
+- Spacing is Top/Right over Bottom/Left with labels above and `px` inside each field (sections and elements); the link-all-sides button is a bordered icon at the end of the row.
+- Section content-width presets are one segmented toggle.

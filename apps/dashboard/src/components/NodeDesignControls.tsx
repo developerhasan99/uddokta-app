@@ -43,7 +43,7 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
     </div>
   }
   const segments = (key: string, label: string, items: { value: string; label: string; icon?: ReactNode }[]) => (
-    <div className="design-control" key={key}>
+    <div className={items.length > 4 ? 'design-control design-control--stacked' : 'design-control'} key={key}>
       <div className="design-control__label"><span>{label}</span>{reset([key])}</div>
       <div className="design-segments" role="group" aria-label={label}>
         {items.map((item) => <button key={item.value} type="button" aria-pressed={value(key) === item.value} title={item.label} aria-label={item.label} onClick={() => onPatch({ [key]: value(key) === item.value ? undefined : item.value })}>{item.icon}{item.icon ? null : item.label}</button>)}
@@ -70,7 +70,7 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
         {sides.map((side) => {
           const key = `${kind}${side}`
           const label = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)
-          return <label key={side} className="node-spacing__cell"><span>{label}</span><span className="input-affix design-number"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key)} onChange={(v) => onPatch({ [key]: v }, key)} /></span></label>
+          return <label key={side} className="node-spacing__cell"><span>{label}</span><span className="input-affix design-number"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key)} onChange={(v) => onPatch({ [key]: v }, key)} /><span aria-hidden="true">px</span></span></label>
         })}
       </div>
     </div>

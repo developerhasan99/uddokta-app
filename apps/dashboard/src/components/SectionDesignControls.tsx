@@ -11,12 +11,12 @@ type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPat
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
 const swatches = ['#ffffff', '#f6f4ee', '#163b2e', '#285a3f', '#e2c86c', '#c34732', '#272b30', '#000000']
 
-// A titled block of settings. Always open: each holds only a few controls.
-export function Group({ title, icon, children, note }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
-  return <section className="design-group">
-    <h3 className="design-group__title"><span className="design-group__icon">{icon}</span><strong>{title}</strong></h3>
+// A titled, collapsible block of settings.
+export function Group({ title, icon, children, note, open = true }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
+  return <details className="design-group" open={open}>
+    <summary><span className="design-group__icon">{icon}</span><strong>{title}</strong><ChevronDown size={14} aria-hidden="true" /></summary>
     <div className="design-group__body">{note && <p className="design-help">{note}</p>}{children}</div>
-  </section>
+  </details>
 }
 
 export function SectionDesignControls({ section, tab, theme, onPatch, media, onPickImage }: Props) {
@@ -58,9 +58,8 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
   return <div className="design-controls">
     {tab === 'layout' ? <>
       <Group title={L('মাপ', 'Size')} icon={<SlidersHorizontal size={15} />}>
-        {control('maxWidth', L('কন্টেন্টের প্রস্থ', 'Content width'))}
-        <div className="design-widths" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1080, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')], [1600, L('পুরো', 'Full')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}>{label}</button>)}</div>
-        {control('minHeight', L('সর্বনিম্ন উচ্চতা', 'Min height'))}
+        <div className="design-grid">{control('maxWidth', L('কন্টেন্টের প্রস্থ', 'Content width'))}{control('minHeight', L('সর্বনিম্ন উচ্চতা', 'Min height'))}</div>
+        <div className="design-segments" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1080, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')], [1600, L('পুরো', 'Full')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}><span>{label}</span></button>)}</div>
       </Group>
       <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>
         <SpacingBox values={values} onPatch={onPatch} />
@@ -143,11 +142,11 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
     const fallback = kind === 'padding' && (side === 'Left' || side === 'Right') ? (device === 'mobile' ? values[`padding${side}`] ?? values.paddingX : values.paddingX) : undefined
     const sideLabel = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side.toLowerCase())
     const label = `${device === 'mobile' ? L('মোবাইল', 'Mobile') : L('ডেস্কটপ', 'Desktop')} ${kind === 'margin' ? L('মার্জিন', 'margin') : L('প্যাডিং', 'padding')} ${sideLabel}`
-    return <label key={side} className="spacing-side" htmlFor={`${uid}-${key}`}><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
+    return <label key={side} className="spacing-side" htmlFor={`${uid}-${key}`}><span aria-hidden="true">{L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)}</span><span className="input-affix design-number"><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
       const value = e.target.value === '' ? undefined : Math.max(0, Math.min(side === 'Top' || side === 'Bottom' ? 300 : 160, Math.round(Number(e.target.value) || 0)))
       const patch = Object.fromEntries((linked[kind] ? sides : [side]).map((s) => [keyFor(kind, s), value]))
       onPatch(patch, `${device}:${kind}:${linked[kind] ? 'all' : side}`)
-    }} /><span aria-hidden="true">{L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)}</span></label>
+    }} /><span aria-hidden="true">px</span></span></label>
   }
   const resetBox = (kind: 'margin' | 'padding') => {
     const patch: Patch = Object.fromEntries(sides.map((side) => [keyFor(kind, side), undefined]))
@@ -158,8 +157,8 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
   const row = (kind: 'padding' | 'margin') => <div className="spacing-row" key={kind}>
     <div className="spacing-row__head">
       <span>{kind === 'padding' ? L('ভেতরের ফাঁকা', 'Padding') : L('বাইরের ফাঁকা', 'Margin')}</span>
-      <button className="design-reset spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={13} aria-hidden="true" /> : <Unlink2 size={13} aria-hidden="true" />}</button>
       <button type="button" className="design-reset" aria-label={`${kind}: ${L('রিসেট', 'Reset spacing')}`} title={L('রিসেট', 'Reset')} onClick={() => resetBox(kind)}><RotateCcw size={12} aria-hidden="true" /></button>
+      <button className="design-reset spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={14} aria-hidden="true" /> : <Unlink2 size={14} aria-hidden="true" />}</button>
     </div>
     <div className="spacing-row__sides">{sides.map((side) => sideInput(kind, side))}</div>
   </div>
