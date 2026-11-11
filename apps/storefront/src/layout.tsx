@@ -19,7 +19,7 @@ export function LayoutSection({ s, ctx, orderId }: { s: Section; ctx: Ctx; order
   const children = s.children ?? []
   return (
     <section className="sf-section sf-layout">
-      {ctx.preview && <button type="button" className="sf-n-handle sf-n-handle--section" data-select={s.id} aria-label="সেকশন বাছুন"><span aria-hidden="true">▭</span></button>}
+      {ctx.preview && <button type="button" className="sf-n-handle sf-n-handle--section" data-select={s.id} aria-label="সেকশন বাছুন">{ctx.handleIcon?.(s.id) ?? <span aria-hidden="true">▭</span>}</button>}
       <div className="sf-wrap sf-n-root">
         {children.length ? children.map((node) => <NodeView key={node.id} node={node} ctx={ctx} orderId={orderId} />) : ctx.preview ? <span className="sf-n-empty sf-n-add" data-add-into={s.id}>+ এলিমেন্ট যোগ করুন</span> : null}
       </div>
@@ -33,7 +33,7 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
   const p = node.props
   switch (node.kind) {
     case 'box':
-      return <div className={className} data-node={node.id}>{ctx.preview && <button type="button" className="sf-n-handle" data-select={node.id} aria-label="বক্স বাছুন"><span aria-hidden="true">▦</span></button>}{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
+      return <div className={className} data-node={node.id}>{ctx.preview && <button type="button" className="sf-n-handle" data-select={node.id} aria-label="বক্স বাছুন">{ctx.handleIcon?.(node.id) ?? <span aria-hidden="true">▦</span>}</button>}{(node.children ?? []).map((child) => <NodeView key={child.id} node={child} ctx={ctx} orderId={orderId} />)}{ctx.preview && !node.children?.length && <span className="sf-n-empty sf-n-add" data-add-into={node.id}>+ এলিমেন্ট যোগ করুন</span>}</div>
     case 'heading': {
       const Tag = (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(str(p.level)) ? p.level : 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'
       if (!str(p.text)) return ctx.preview ? <Tag className={`${className} sf-n-prompt`} data-node={node.id} data-edit="text">শিরোনাম লিখুন</Tag> : null

@@ -41,6 +41,12 @@ type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
 const sectionIcons = { layout: RectangleHorizontal, hero: PanelTop, header: PanelTop, footer: PanelBottom, announcement: Megaphone, text: Type, image: Image, imageText: PanelLeft, video: Video, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, icon: Sparkles, cta: MousePointerClick, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
+// The tree's icon for a section or node; the preview's corner tags use the same ones.
+const sectionIconOf = (s: Section) => {
+  const only = s.children?.length === 1 ? s.children[0] : undefined
+  return only?.block ? sectionIcons[only.block.type] : sectionIcons[s.type]
+}
+const nodeIconOf = (n: PageNode) => n.block ? sectionIcons[n.block.type] : n.kind === 'box' ? (String(n.style?.direction ?? '').startsWith('row') ? Columns3 : Rows3) : nodeIcons[n.kind]
 const historyLimit = 100
 // Every section is edited as a layout; older built-in sections are turned into one when the page opens.
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => (s.type === 'layout' ? s : { ...toLayout(s, newId), settings: { name: defOf(s.type).label[document.documentElement.lang === 'en' ? 1 : 0] } })) } })
@@ -51,6 +57,14 @@ const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><
 function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
+  const iconFor = (id: string) => {
+    const s = content.sections.find((x) => x.id === id)
+    const found = s ? null : findNode(content.sections, id)
+    const Icon = s ? sectionIconOf(s) : found ? nodeIconOf(found.node) : null
+    return Icon ? <Icon size={12} aria-hidden="true" /> : null
+  }
+  // Boxes and sections carry their own handle; any other selected element gets a tag above its corner.
+  const tagged = selected ? findNode(content.sections, selected)?.node : undefined
   const select = useRef(onSelect)
   select.current = onSelect
   const typed = useRef(onText)
@@ -164,8 +178,9 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
-          <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-box .sf-n-box>.sf-n-handle{top:3px;left:3px}.sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:6px;left:6px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:9px;left:9px}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}` : ''}`}</style>
-          {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={ctx} storeName={storeName} />}
+          <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-box .sf-n-box>.sf-n-handle{top:3px;left:3px}.sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:6px;left:6px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box>.sf-n-handle{top:9px;left:9px}.sf-n-tag{position:absolute;position-anchor:--sf-picked;bottom:calc(anchor(top) + 4px);left:calc(anchor(left) - 4px);z-index:7;display:flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:6px 6px 0 0;background:#1f7a4d;color:#fff;pointer-events:none}.sf-n-handle svg{display:block}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-1px}[data-node]:hover{outline:1px dashed #1f7a4d;outline-offset:2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}[data-node="${selected}"]{anchor-name:--sf-picked}` : ''}`}</style>
+          {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={{ ...ctx, handleIcon: iconFor }} storeName={storeName} />}
+          {tagged && tagged.kind !== 'box' && <span className="sf-n-tag" aria-hidden="true">{iconFor(tagged.id)}</span>}
         </>,
         body,
       )}
@@ -753,10 +768,7 @@ export function PageEditor() {
     if (typeof s.settings.name === 'string' && s.settings.name.trim()) return s.settings.name.trim()
     return `${L(["সেকশন", "Section"])} ${num(sections.findIndex((x) => x.id === s.id) + 1)}`
   }
-  const sectionIcon = (s: Section) => {
-    const only = s.children?.length === 1 ? s.children[0] : undefined
-    return only?.block ? sectionIcons[only.block.type] : sectionIcons[s.type]
-  }
+  const sectionIcon = sectionIconOf
   function section0(id: string | null) { return sections.find((x) => x.id === id) }
   const editTree = (sectionId: string, fn: (nodes: PageNode[]) => PageNode[], key?: string) => setSections(sections.map((s) => (s.id === sectionId ? { ...s, children: fn(s.children ?? []) } : s)), key)
   const addNode = (build: (id: () => string) => PageNode) => {
@@ -851,7 +863,7 @@ export function PageEditor() {
     </div>
   )
   const tree = (sectionId: string, nodes: PageNode[], depth: number): ReactNode => nodes.map((n) => {
-    const Icon = n.block ? sectionIcons[n.block.type] : n.kind === 'box' ? (String(n.style?.direction ?? '').startsWith('row') ? Columns3 : Rows3) : nodeIcons[n.kind]
+    const Icon = nodeIconOf(n)
     const name = nodeName(n, L)
     const isOpen = open.has(n.id)
     return <Fragment key={n.id}>

@@ -32,6 +32,8 @@ export type Ctx = {
   product: (id: string | null) => Product | undefined
   // The editor's preview: forms never submit and empty sections show a hint for the seller.
   preview: boolean
+  // Editor only: the icon drawn in a section's or box's corner handle (the same one as in the editor's tree).
+  handleIcon?: (id: string) => ReactNode
   // The store's active delivery options, in the seller's order.
   shipping: ShippingOption[]
   checkoutToken?: string

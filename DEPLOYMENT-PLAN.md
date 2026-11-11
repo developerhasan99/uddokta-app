@@ -486,3 +486,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Settings rows: label and number/select/colour field 50/50 (toggle rows and steppers keep a 38% label). Colour palettes span the full row; the colour reset shows only once a custom colour is set.
 - Builder controls (settings panels only): 4px corners instead of pills, joined segment buttons with dividers and a green-tinted selection, spacing as four joined fields with side names underneath and the link button closing the strip (sections and elements).
 - Colour fields are one line (label, swatch, HEX). The swatch opens the palette (10 common colours + a + for the system picker) underneath; picking or clicking outside closes it.
+- Preview corner tags use the tree's icons: section and box handles show their tree icon, and a selected element gets a tag with its icon above its top-left corner (CSS anchor positioning).
