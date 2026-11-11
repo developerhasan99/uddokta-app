@@ -1118,7 +1118,7 @@ export function PageEditor() {
           {dropSpace(sections.length)}
         </ul>
         {sections.length === 0 && <p className="muted">{t('pageNoSections')}</p>}
-        {sections.length < maxSections && <Button onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('pageAddSection')}</Button>}
+        {sections.length < maxSections && <button type="button" className="editor-tree__add" onClick={() => setAdding(true)}><Plus size={14} aria-hidden="true" />{t('pageAddSection')}</button>}
       </aside>
 
       <aside ref={settingsPanel} className="editor__settings" inert={busy} aria-label={t('pageEditTab')}>
