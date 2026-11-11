@@ -787,7 +787,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .picker[data-closing]::backdrop, .drawer[data-closing]::backdrop { animation: backdrop-out var(--dur-sheet-exit) ease-in forwards; }
 
 /* Page editor: stacked controls beside the storefront preview. */
-.editor { position: fixed; inset: 0; display: grid; grid-template: "bar bar" auto "error error" auto "sidebar preview" minmax(0, 1fr) / 360px minmax(0, 1fr); background: var(--color-paper); }
+.editor { position: fixed; inset: 0; display: grid; grid-template: "bar bar" auto "error error" auto "sidebar preview" minmax(0, 1fr) / 306px minmax(0, 1fr); background: var(--color-paper); }
 .editor-loading { display: grid; place-items: center; min-height: 100dvh; padding: var(--space-md); background: var(--color-paper-2); }
 .editor__bar { grid-area: bar; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); align-items: center; gap: var(--space-sm); min-height: 52px; padding: var(--space-xs) var(--space-sm); color: var(--color-ink); border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
 .editor__bar .detail-head__back { color: var(--color-muted); }
@@ -878,7 +878,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .editor-list__item-head .row { gap: var(--space-3xs); }
 
 @media (max-width: 1100px) {
-  .editor { grid-template-columns: 320px minmax(0, 1fr); }
+  .editor { grid-template-columns: 272px minmax(0, 1fr); }
 }
 /* Phones and small tablets: full-screen work area with thumb-accessible navigation. */
 @media (max-width: 860px) {

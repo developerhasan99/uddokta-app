@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Copy, CopyPlus, ExternalLink, LayoutTemplate, MoreHorizontal, Plus } from 'lucide-react'
+import { Copy, CopyPlus, ExternalLink, LayoutTemplate, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { pageHref } from 'storefront/paths'
 import { api, errorCode, storefrontUrl } from '../api'
 import { Badge, Button, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
+import { DialogHead } from '../components/DialogHead'
+import { useDialog } from '../components/dialog'
 import { NewCampaignDialog } from './NewCampaignDialog'
 
 export type PageRow = { id: string; title: string; handle: string; publishedHandle: string | null; isPublished: boolean; hasChanges: boolean; updatedAt: string }
@@ -36,7 +38,9 @@ export function Pages() {
   const [copyFailed, setCopyFailed] = useState(false)
   const path = useStorePath()
   const navigate = useNavigate()
-  const handle = useCurrentStore()!.store.handle
+  const current = useCurrentStore()!
+  const handle = current.store.handle
+  const [deleting, setDeleting] = useState<PageRow | null>(null)
   const base = `/stores/${handle}/pages`
   const [rows, setRows] = useState<PageRow[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -161,6 +165,7 @@ export function Pages() {
                             <Dropdown.Item className="menu__item menu__action" onSelect={() => void copyLink(row)}><Copy size={16} aria-hidden="true" />{t('mediaCopyLink')}</Dropdown.Item>
                           </>}
                           <Dropdown.Item className="menu__item menu__action" disabled={duplicating !== null} onSelect={() => void duplicate(row)}><CopyPlus size={16} aria-hidden="true" />{t('campaignDuplicate')}</Dropdown.Item>
+                          {current.role !== 'staff' && <Dropdown.Item className="menu__item menu__action menu__item--danger" onSelect={() => setDeleting(row)}><Trash2 size={16} aria-hidden="true" />{t('pageDelete')}</Dropdown.Item>}
                         </div>
                       </Dropdown.Content></Dropdown.Portal>
                     </Dropdown.Root>
@@ -174,6 +179,34 @@ export function Pages() {
       )}
 
       {creating && <NewCampaignDialog key={handle} onClose={() => setCreating(false)} />}
+      {deleting && <DeletePageDialog url={`${base}/${deleting.id}`} title={deleting.title} onClose={() => setDeleting(null)} onDeleted={() => setRows((r) => r && r.filter((x) => x.id !== deleting.id))} />}
     </div>
   )
+}
+
+function DeletePageDialog({ url, title, onClose, onDeleted }: { url: string; title: string; onClose: () => void; onDeleted: () => void }) {
+  const { t } = useLang()
+  const { ref, close, props } = useDialog(onClose)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => { ref.current?.showModal() }, [ref])
+  const remove = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api(url, { method: 'DELETE' })
+      close(() => { onDeleted(); onClose() })
+    } catch (err) { setError(errorCode(err)); setBusy(false) }
+  }
+  return <dialog {...props} className="modal" aria-labelledby="page-delete-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
+    <DialogHead id="page-delete-title" title={t('pageDelete')} sub={title} disabled={busy} onClose={() => close()} />
+    <div className="dialog__body">
+      <p className="muted">{t('pageDeleteWarning')}</p>
+      {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+    </div>
+    <div className="dialog__foot">
+      <Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button>
+      <Button variant="danger" disabled={busy} onClick={() => void remove()}>{t('productConfirmDelete')}</Button>
+    </div>
+  </dialog>
 }
