@@ -499,3 +499,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Section background: type picker is one row (label + icon buttons with names on hover); gradients can be linear (with angle) or radial (from the centre).
 - Section background type: no None button; Classic (colour) is the default and an empty colour means no background. Gradient uses a small fading-square icon.
 - Colour fields: when an empty value means no colour at all (section and element backgrounds), the field shows no hint and the swatch shows a cross; fields that fall back to a theme colour keep the hint.
+- Section gradients: colour positions (0–100%) for both types; radial gets shape (circle/ellipse) and starting point (centre, sides, corners). Picking Gradient fills From/To with the hinted colours so it shows at once.

@@ -142,3 +142,12 @@ test('section gradients are linear or radial', () => {
   assert.equal(readContent(page('radial'))?.sections[0].style?.gradientType, 'radial')
   assert.equal(readContent(page('conic')), null)
 })
+
+test('gradient stops, shape and position are checked, and the CSS is built only from them', async () => {
+  const { gradientCss } = await import('./sections.tsx')
+  const page = (extra: Record<string, unknown>): Content => ({ version: 2, sections: [{ ...newSection('layout', 's1'), style: { bgType: 'gradient', gradientFrom: '#ffffff', gradientTo: '#00000080', ...extra } }] })
+  const read = readContent(page({ gradientType: 'radial', gradientShape: 'ellipse', gradientPosition: 'top left', gradientFromStop: 20, gradientToStop: 60 }))
+  assert.equal(gradientCss(read!.sections[0].style!), 'radial-gradient(ellipse at top left, #ffffff 20%, #00000080 60%)')
+  assert.equal(gradientCss(readContent(page({ gradientAngle: 90 }))!.sections[0].style!), 'linear-gradient(90deg, #ffffff 0%, #00000080 100%)')
+  for (const bad of [{ gradientPosition: 'center; color:red' }, { gradientShape: 'square' }, { gradientFromStop: 101 }]) assert.equal(readContent(page(bad)), null, JSON.stringify(bad))
+})

@@ -59,6 +59,11 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'gradientTo', kind: 'color', label: ['শেষের রং', 'To'], group: 'style' },
   { key: 'gradientType', kind: 'select', label: ['গ্রেডিয়েন্টের ধরন', 'Gradient type'], group: 'style', options: [{ value: 'linear', label: ['সরলরেখায়', 'Linear'] }, { value: 'radial', label: ['মাঝ থেকে চারদিকে', 'Radial'] }] },
   { key: 'gradientAngle', kind: 'number', min: 0, max: 360, label: ['কোণ (°)', 'Angle (°)'], group: 'style' },
+  // Where each colour sits along the gradient (0–100%), and for radial gradients the shape and where it starts.
+  { key: 'gradientFromStop', kind: 'number', min: 0, max: 100, label: ['শুরুর রঙের জায়গা (%)', 'From at (%)'], group: 'style' },
+  { key: 'gradientToStop', kind: 'number', min: 0, max: 100, label: ['শেষের রঙের জায়গা (%)', 'To at (%)'], group: 'style' },
+  { key: 'gradientShape', kind: 'select', label: ['আকার', 'Shape'], group: 'style', options: [{ value: 'circle', label: ['বৃত্ত', 'Circle'] }, { value: 'ellipse', label: ['উপবৃত্ত', 'Ellipse'] }] },
+  { key: 'gradientPosition', kind: 'select', label: ['কোথা থেকে', 'Starts from'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Centre'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'top right', label: ['উপরে ডানে', 'Top right'] }, { value: 'right', label: ['ডানে', 'Right'] }, { value: 'bottom right', label: ['নিচে ডানে', 'Bottom right'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }, { value: 'bottom left', label: ['নিচে বামে', 'Bottom left'] }, { value: 'left', label: ['বামে', 'Left'] }, { value: 'top left', label: ['উপরে বামে', 'Top left'] }] },
   { key: 'bgImage', kind: 'image', label: ['পটভূমির ছবি', 'Background image'], group: 'style' },
   { key: 'bgSize', kind: 'select', label: ['ছবি বসানো', 'Image fit'], group: 'style', options: [{ value: 'cover', label: ['পুরো জায়গা জুড়ে', 'Fill'] }, { value: 'contain', label: ['পুরো ছবি', 'Whole image'] }] },
   { key: 'bgPosition', kind: 'select', label: ['ছবির অবস্থান', 'Image position'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Center'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }] },

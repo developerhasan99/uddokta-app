@@ -29,14 +29,15 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
   const labelOf = (field: Leaf) => field.label[lang === 'bn' ? 0 : 1]
   const reset = (key: string) => <button type="button" className="design-reset" disabled={values[key] === undefined} onClick={() => onPatch({ [key]: undefined })} aria-label={`${L('ডিফল্ট করুন', 'Reset')} ${fieldOf(key) ? labelOf(fieldOf(key)!) : key}`} title={L('ডিফল্ট মান ব্যবহার করুন', 'Use inherited value')}><RotateCcw size={12} aria-hidden="true" /></button>
 
-  function control(key: string, label?: string) {
+  // fallback: the value used when none is set, shown selected in place of an "Inherit" option.
+  function control(key: string, label?: string, fallback?: string) {
     const field = fieldOf(key)
     if (!field) return null
     const id = `${uid}-${key}`
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field).replace(' (px)', '')}</label>{reset(key)}</div>
-      {field.kind === 'number' ? <div className="input-affix design-number"><NumericInput id={id} field={field} value={values[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">{key === 'gradientAngle' ? '°' : key === 'overlayOpacity' ? '%' : 'px'}</span>}</div>
-        : field.kind === 'select' ? <select className="input" id={id} value={values[key] ?? ''} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}><option value="">{L('ডিফল্ট', 'Inherit')}</option>{field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}</select> : null}
+      {field.kind === 'number' ? <div className="input-affix design-number"><NumericInput id={id} field={field} value={values[key]} placeholder={({ gradientFromStop: '0', gradientToStop: '100', gradientAngle: '180' } as Record<string, string>)[key]} onChange={(value) => onPatch({ [key]: value }, key)} />{key.toLowerCase().includes('columns') ? null : <span aria-hidden="true">{key === 'gradientAngle' ? '°' : key === 'overlayOpacity' || key.endsWith('Stop') ? '%' : 'px'}</span>}</div>
+        : field.kind === 'select' ? <select className="input" id={id} value={values[key] ?? fallback ?? ''} onChange={(e) => onPatch({ [key]: e.target.value && e.target.value !== fallback ? e.target.value : undefined })}>{fallback === undefined && <option value="">{L('ডিফল্ট', 'Inherit')}</option>}{field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}</select> : null}
     </div>
   }
 
@@ -51,7 +52,8 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
 
   // Classic (a colour) is the default; leaving its colour empty means no background.
   const bgType = String(values.bgType ?? 'color')
-  const setType = (type: string) => onPatch({ bgType: type === 'color' ? undefined : type })
+  // A new gradient starts from the two colours shown as hints, so it is visible straight away.
+  const setType = (type: string) => onPatch({ bgType: type === 'color' ? undefined : type, ...(type === 'gradient' && !(values.gradientFrom && values.gradientTo) ? { gradientFrom: values.gradientFrom ?? themeVars.accent, gradientTo: values.gradientTo ?? themeVars.ink } : {}) })
   const picker = (key: string, label: string) => <BackgroundImage value={values[key]} media={media} label={label} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ [key]: id ?? undefined }))} onRemove={() => onPatch({ [key]: undefined })} />
   const video = String(values.bgVideo ?? '')
   const videoOk = !video || /^https:\/\/[^\s"'<>]+\.(mp4|webm)(\?[^\s"'<>]*)?$/i.test(video)
@@ -89,7 +91,17 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
             </div>
           </div>
           {colorControl('gradientFrom')}{colorControl('gradientTo')}
-          {values.gradientType !== 'radial' && control('gradientAngle', L('কোণ', 'Angle'))}
+          <div className="design-grid">{control('gradientFromStop', L('শুরুর রং কোথায়', 'From at'))}{control('gradientToStop', L('শেষের রং কোথায়', 'To at'))}</div>
+          {values.gradientType === 'radial' ? <>
+            <div className="design-control design-control--half">
+              <div className="design-control__label"><span>{L('আকার', 'Shape')}</span></div>
+              <div className="design-segments" role="group" aria-label={L('আকার', 'Shape')}>
+                {([['circle', L('বৃত্ত', 'Circle')], ['ellipse', L('উপবৃত্ত', 'Ellipse')]] as const).map(([shape, label]) => <button key={shape} type="button" aria-pressed={(values.gradientShape ?? 'circle') === shape} onClick={() => onPatch({ gradientShape: shape === 'circle' ? undefined : shape })}>{label}</button>)}
+              </div>
+            </div>
+            {control('gradientPosition', L('কোথা থেকে', 'Starts from'), 'center')}
+          </> : control('gradientAngle', L('কোণ', 'Angle'))}
+          <p className="design-help">{L('রং কোথায় বসবে তা কাছাকাছি দিলে রেখা ধারালো হয়, দূরে দিলে নরম। স্বচ্ছ রং দিয়ে ছবির উপর হালকা আভা দেওয়া যায়।', 'Positions close together give a sharp edge, far apart a soft fade. A see-through colour fades to clear.')}</p>
         </>}
         {bgType === 'image' && <>{picker('bgImage', L('ছবি', 'Image'))}{control('bgSize')}{control('bgPosition')}</>}
         {bgType === 'video' && <>

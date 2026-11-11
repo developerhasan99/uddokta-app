@@ -462,13 +462,20 @@ export function sectionStyle(style?: SectionStyle): CSSProperties {
 
 // Background layers behind a section: gradient or image (painted), a looping muted video, and an overlay on top.
 // Values were checked by readSectionStyle; the video must be a direct .mp4/.webm link.
+// Values here were validated by readContent (colours, numbers in range, positions from a fixed list).
+export function gradientCss(style: SectionStyle): string {
+  const stops = `${style.gradientFrom} ${Number(style.gradientFromStop ?? 0)}%, ${style.gradientTo} ${Number(style.gradientToStop ?? 100)}%`
+  return style.gradientType === 'radial'
+    ? `radial-gradient(${style.gradientShape ?? 'circle'} at ${style.gradientPosition ?? 'center'}, ${stops})`
+    : `linear-gradient(${Number(style.gradientAngle ?? 180)}deg, ${stops})`
+}
 const isVideoFile = (url: unknown): url is string => typeof url === 'string' && /^https:\/\/[^\s"'<>]+\.(mp4|webm)(\?[^\s"'<>]*)?$/i.test(url)
 function backgroundLayer(style: SectionStyle | undefined, ctx?: Ctx) {
   if (!style) return null
   const type = style.bgType
   const image = typeof style.bgImage === 'string' ? ctx?.image(style.bgImage) : undefined
   const paint: CSSProperties = {}
-  if (type === 'gradient' && style.gradientFrom && style.gradientTo) paint.backgroundImage = style.gradientType === 'radial' ? `radial-gradient(circle at center, ${style.gradientFrom}, ${style.gradientTo})` : `linear-gradient(${Number(style.gradientAngle ?? 180)}deg, ${style.gradientFrom}, ${style.gradientTo})`
+  if (type === 'gradient' && style.gradientFrom && style.gradientTo) paint.backgroundImage = gradientCss(style)
   if ((type === 'image' || type === 'video') && image) {
     paint.backgroundImage = `url(${JSON.stringify(image.url)})`
     paint.backgroundSize = style.bgSize === 'contain' ? 'contain' : 'cover'
