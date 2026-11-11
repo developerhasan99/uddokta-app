@@ -1033,7 +1033,8 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .editor__settings > .editor__settings-head { z-index: 3; }
 
 /* Dedicated, curated SVG icon library. */
-.icon-picker { width:min(850px,calc(100% - 32px));max-height:min(760px,calc(100dvh - 40px)) }
+/* A fixed size: a filter or search with few icons leaves space in the results instead of shrinking the dialog. */
+.icon-picker { width:min(850px,calc(100% - 32px));height:min(760px,calc(100dvh - 40px));max-height:none }
 .icon-picker__search { display:flex;align-items:center;gap:10px;margin:0 24px;border:1px solid var(--color-rule-strong);border-radius:8px;padding:0 13px;color:var(--color-muted) }
 .icon-picker__search:focus-within { outline:2px solid #6b8e752c;border-color:#63876c }
 .icon-picker__search input { width:100%;min-width:0;min-height:42px;padding:10px 0;border:0;outline:0;background:transparent;color:var(--color-ink);font:inherit;font-size:13px }
