@@ -21,3 +21,8 @@ test('borders: per-side widths, style and colour, with phone rules adding to des
   assert.match(override, /\.n-c\{[^}]*border-width:1px;border-style:solid/)
   assert.match(override, /@media \(max-width:719\.98px\)\{\.n-c\{border-bottom-width:4px\}/, 'the phone rule keeps the desktop style and colour')
 })
+
+test('corners: one size per corner, after the older all-corners size so they win', () => {
+  const out = css({ id: 'd', kind: 'box', props: {}, children: [], style: { radius: 8, radiusTopLeft: 0, radiusBottomRight: 24 } })
+  assert.match(out, /\.n-d\{[^}]*border-radius:8px;border-top-left-radius:0px;border-bottom-right-radius:24px/)
+})

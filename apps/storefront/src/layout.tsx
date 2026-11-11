@@ -113,6 +113,7 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx, base: NodeStyle =
     if (img) out.push(`background-image:url(${JSON.stringify(img.url.replace(/[<>]/g, encodeURIComponent))})`, 'background-size:cover', 'background-position:center')
   }
   if (n('radius') !== undefined) out.push(`border-radius:${n('radius')}px`)
+  for (const corner of ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft']) if (n(`radius${corner}`) !== undefined) out.push(`border-${corner.replace(/([a-z])([A-Z])/, '$1-$2').toLowerCase()}-radius:${n(`radius${corner}`)}px`)
   // Border: widths per side (or the older all-sides borderWidth). Where this rule is the first to give the node a
   // border (desktop, or a phone border with none on desktop), unset sides start at 0 and style/colour get defaults;
   // otherwise only what this rule sets is written, so phone overrides keep the desktop values.

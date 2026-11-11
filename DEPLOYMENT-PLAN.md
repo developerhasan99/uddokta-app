@@ -493,3 +493,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Colour picker (`components/ColorPicker.tsx`): saturation/brightness area, hue and opacity sliders, recently used colours (this browser). Replaces the fixed palette in every colour field, including section settings. Colours may be #RRGGBBAA.
 - Colour picker opens as a popover under its field (native popover + anchor positioning: closes on outside click/Escape, flips above when there is no room, never clipped by the panel).
 - Colour picker: Recent is one row of 9 and a colour joins it only when the popover closes (if it changed); the popover has a small pointer at its swatch and flips it when opening above.
+- Corners: one size per corner (top-left, top-right, bottom-right, bottom-left) in the joined strip with a link button, placed after the border settings; each field is named by a small corner mark. Older single `radius` still renders and is split on first edit.

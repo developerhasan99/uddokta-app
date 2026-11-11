@@ -524,7 +524,9 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'color', kind: 'color', group: 'style', label: ['লেখার রং', 'Text color'] },
   { key: 'background', kind: 'color', group: 'style', label: ['পটভূমি', 'Background'] },
   { key: 'backgroundImage', kind: 'image', group: 'style', label: ['পটভূমির ছবি', 'Background image'] },
+  // radius is the older all-corners size; the editor now writes one size per corner and clears it.
   px('radius', ['কোণা (px)', 'Corners (px)'], 200, 0, 'style'),
+  ...(['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'] as const).map((corner) => px(`radius${corner}`, [`কোণা ${({ TopLeft: 'উপর-বাম', TopRight: 'উপর-ডান', BottomRight: 'নিচ-ডান', BottomLeft: 'নিচ-বাম' })[corner]} (px)`, `Corner ${corner.replace(/([a-z])([A-Z])/, '$1 $2').toLowerCase()} (px)`], 200, 0, 'style')),
   // borderWidth is the older all-sides width; the editor now writes one width per side and clears it.
   px('borderWidth', ['বর্ডার (px)', 'Border (px)'], 12, 0, 'style'),
   ...(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => px(`border${side}Width`, [`বর্ডার ${({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side]} (px)`, `Border ${side.toLowerCase()} (px)`], 40, 0, 'style')),
