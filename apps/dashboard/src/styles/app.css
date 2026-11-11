@@ -1670,7 +1670,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .btn--default { background: var(--color-paper-3); color: var(--color-ink); }
 .editor .btn--default:hover { background: oklch(32% 0.005 155); }
 .editor .btn--primary { color: oklch(100% 0 0); }
-.editor .input, .editor .input-affix, .editor .design-color__input, .editor .space-value input { background: var(--color-paper-2); }
+.editor .input, .editor .input-affix, .editor .design-color__input, .editor .space-value input { background-color: var(--color-paper-2); }
 .editor select.input { background-color: var(--color-paper-2); }
 .editor .space-map--margin { background: var(--color-paper-2); }
 .editor .space-map--padding { background: color-mix(in oklab, var(--color-primary) 10%, var(--color-paper)); }
@@ -1773,7 +1773,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-help, .editor .editor__settings .field__help { font-size: 12px; color: var(--color-muted); }
 .editor .editor__settings .design-reset { opacity: 0; transition: opacity var(--dur-micro); }
 .editor .editor__settings :is(.design-control, .design-color, .node-spacing):is(:hover, :focus-within) .design-reset:not(:disabled) { opacity: 1; }
-.editor .editor__settings :is(.input, .input-affix, .design-color__input) { background: transparent; border-color: var(--color-rule-strong); box-shadow: none; }
+.editor .editor__settings :is(.input, .input-affix, .design-color__input) { background-color: transparent; border-color: var(--color-rule-strong); box-shadow: none; }
 .editor .editor__settings :is(.design-segments, .segmented) { background: transparent; box-shadow: inset 0 0 0 1px var(--color-rule-strong); }
 .editor .editor__settings .design-segments button[aria-pressed="true"] { background: var(--color-paper-3); box-shadow: none; font-weight: 400; }
 .editor .editor__settings .design-color__head > span { font-size: 11px; }
