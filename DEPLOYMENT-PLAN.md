@@ -492,3 +492,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Element and box borders: type (solid, dashed, dotted), a width per side in the joined four-field strip with a link button, and colour. Padding and margin strips got the same link button. Phone border rules add to desktop ones (`layout.test.ts`).
 - Colour picker (`components/ColorPicker.tsx`): saturation/brightness area, hue and opacity sliders, recently used colours (this browser). Replaces the fixed palette in every colour field, including section settings. Colours may be #RRGGBBAA.
 - Colour picker opens as a popover under its field (native popover + anchor positioning: closes on outside click/Escape, flips above when there is no room, never clipped by the panel).
+- Colour picker: Recent is one row of 9 and a colour joins it only when the popover closes (if it changed); the popover has a small pointer at its swatch and flips it when opening above.

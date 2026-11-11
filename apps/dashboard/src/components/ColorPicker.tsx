@@ -21,36 +21,36 @@ export function toHex({ h, s, v, a }: Hsva): string {
   return `#${byte(f(5))}${byte(f(3))}${byte(f(1))}${a < 1 ? byte(a) : ''}`
 }
 
-// Recently used colours, newest first, kept in this browser and shared by every picker in the app.
+// Recently used colours (one row of 9), newest first, kept in this browser and shared by every picker in the app.
+// A colour is added when its picker closes, never while it is being dragged around.
 const recentKey = 'uddokta.recent-colors'
 export function readRecent(): string[] {
   try {
     const list = JSON.parse(localStorage.getItem(recentKey) ?? '[]')
-    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string' && isColor(c)).slice(0, 12) : []
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string' && isColor(c)).slice(0, 9) : []
   } catch { return [] }
 }
 export function rememberColor(color: string) {
   if (!isColor(color)) return
   const c = color.toLowerCase()
-  try { localStorage.setItem(recentKey, JSON.stringify([c, ...readRecent().filter((x) => x !== c)].slice(0, 12))) } catch { /* storage blocked */ }
+  try { localStorage.setItem(recentKey, JSON.stringify([c, ...readRecent().filter((x) => x !== c)].slice(0, 9))) } catch { /* storage blocked */ }
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 
 // The picker panel: saturation/brightness area, hue and opacity sliders, and recently used colours.
-// onChange runs while dragging (live preview); a finished pick is remembered as a recent colour.
+// onChange runs while dragging (live preview). The caller remembers the final colour when the picker closes.
 export function ColorPicker({ value, fallback, label, onChange }: { value: string; fallback: string; label: string; onChange: (color: string, live?: boolean) => void }) {
   const { lang } = useLang()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
   const current = isColor(value) ? value : isColor(fallback) ? fallback : '#ffffff'
   // Kept here so hue survives greys and black, where the hex alone cannot say it.
   const [hsva, setHsva] = useState(() => toHsva(current))
-  const [recent, setRecent] = useState(readRecent)
+  const [recent] = useState(readRecent)
   const area = useRef<HTMLDivElement>(null)
   useEffect(() => { if (toHex(hsva) !== current.toLowerCase()) setHsva(toHsva(current)) }, [current])
 
   const set = (next: Hsva, live = true) => { setHsva(next); onChange(toHex(next), live) }
-  const commit = () => { rememberColor(toHex(hsva)); setRecent(readRecent()) }
   const fromPointer = (e: PointerEvent<HTMLDivElement>) => {
     const box = area.current!.getBoundingClientRect()
     set({ ...hsva, s: clamp((e.clientX - box.left) / box.width), v: 1 - clamp((e.clientY - box.top) / box.height) })
@@ -69,18 +69,18 @@ export function ColorPicker({ value, fallback, label, onChange }: { value: strin
       aria-label={L('রঙের গাঢ়তা ও উজ্জ্বলতা', 'Saturation and brightness')} aria-valuetext={`${Math.round(hsva.s * 100)}%, ${Math.round(hsva.v * 100)}%`}
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); fromPointer(e) }}
       onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) fromPointer(e) }}
-      onPointerUp={commit} onKeyDown={areaKeys} onKeyUp={commit}>
+      onKeyDown={areaKeys}>
       <span className="color-picker__thumb" style={{ left: `${hsva.s * 100}%`, top: `${(1 - hsva.v) * 100}%`, backgroundColor: solid }} />
     </div>
     <input className="color-picker__hue" type="range" min={0} max={359} value={Math.round(hsva.h)} aria-label={L('রং', 'Hue')}
-      onChange={(e) => set({ ...hsva, h: Number(e.target.value) })} onPointerUp={commit} onKeyUp={commit} />
+      onChange={(e) => set({ ...hsva, h: Number(e.target.value) })} />
     <input className="color-picker__alpha" type="range" min={0} max={100} value={Math.round(hsva.a * 100)} aria-label={L('স্বচ্ছতা', 'Opacity')} aria-valuetext={`${Math.round(hsva.a * 100)}%`}
       style={{ '--picker-solid': solid } as CSSProperties}
-      onChange={(e) => set({ ...hsva, a: Number(e.target.value) / 100 })} onPointerUp={commit} onKeyUp={commit} />
+      onChange={(e) => set({ ...hsva, a: Number(e.target.value) / 100 })} />
     <div className="color-picker__recent">
       <span>{L('সম্প্রতি ব্যবহৃত', 'Recent')}</span>
       {recent.length
-        ? <div className="color-picker__swatches">{recent.map((c) => <button key={c} type="button" className="color-chip" title={c.toUpperCase()} aria-label={`${label} ${c.toUpperCase()}`} aria-pressed={c === value.toLowerCase()} onClick={() => { onChange(c); rememberColor(c); setRecent(readRecent()) }}><span style={{ backgroundColor: c }} /></button>)}</div>
+        ? <div className="color-picker__swatches">{recent.map((c) => <button key={c} type="button" className="color-chip" title={c.toUpperCase()} aria-label={`${label} ${c.toUpperCase()}`} aria-pressed={c === value.toLowerCase()} onClick={() => onChange(c)}><span style={{ backgroundColor: c }} /></button>)}</div>
         : <p>{L('যে রং ব্যবহার করবেন তা এখানে থাকবে।', 'Colours you use will show here.')}</p>}
     </div>
   </div>

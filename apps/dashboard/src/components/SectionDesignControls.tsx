@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type ReactNode } from 'react'
+import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
@@ -115,22 +115,39 @@ export function NumericInput({ id, field, value, onChange, placeholder = '—' }
 }
 
 // One line: label, then a swatch with the HEX code. The swatch opens the colour picker in a popover under it
-// (browser popover: closes on an outside click or Escape and is never clipped by the scrolling panel).
+// (browser popover: closes on an outside click or Escape and is never clipped by the scrolling panel). A small
+// pointer on the popover points at the swatch; the colour joins Recent when the popover closes, if it changed.
 export function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
   const { lang } = useLang()
   const [open, setOpen] = useState(false)
+  const opened = useRef('')
+  const pop = useRef<HTMLDivElement>(null)
+  const swatch = useRef<HTMLButtonElement>(null)
   const valid = isColor(value)
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en
   const anchor = `--color-${id.replace(/[^a-z0-9-]/gi, '')}`
   return <div className="design-color" onKeyDown={(e) => { if (open && e.key === 'Escape') e.stopPropagation() }}>
     <div className="design-color__head"><label htmlFor={id}>{label}</label><span>{value ? L('নিজস্ব', 'Custom') : L('থিম', 'Theme')}</span></div>
     <div className="design-color__input" style={{ anchorName: anchor } as CSSProperties}>
-      <button type="button" className="design-color__swatch color-chip" popoverTarget={`${id}-picker`} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`}><span style={{ backgroundColor: valid ? value : inherited }} /></button>
-      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited.slice(1).toUpperCase()} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} onBlur={() => rememberColor(value)} />
+      <button type="button" ref={swatch} className="design-color__swatch color-chip" popoverTarget={`${id}-picker`} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`}><span style={{ backgroundColor: valid ? value : inherited }} /></button>
+      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited.slice(1).toUpperCase()} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} />
       <button type="button" className="design-reset" aria-label={`${L('ডিফল্ট করুন', 'Reset')} ${label}`} title={L('থিমের রং ব্যবহার করুন', 'Use theme color')} disabled={!value} onClick={() => onChange('')}><RotateCcw size={13} aria-hidden="true" /></button>
     </div>
     {value && !valid && <p className="form-error" id={`${id}-error`}>{L('৬ বা ৮ সংখ্যার HEX রং দিন।', 'Enter a six- or eight-digit HEX color.')}</p>}
-    <div id={`${id}-picker`} className="color-popover" popover="auto" style={{ positionAnchor: anchor } as CSSProperties} onToggle={(e) => setOpen(e.newState === 'open')}>
+    <div ref={pop} id={`${id}-picker`} className="color-popover" popover="auto" style={{ positionAnchor: anchor } as CSSProperties} onToggle={(e) => {
+      const isOpen = e.newState === 'open'
+      setOpen(isOpen)
+      if (isOpen) {
+        opened.current = value
+        // Which side it opened on (it flips above when there is no room) and where the swatch is, for the pointer.
+        requestAnimationFrame(() => {
+          if (!pop.current || !swatch.current) return
+          const p = pop.current.getBoundingClientRect(), sw = swatch.current.getBoundingClientRect()
+          pop.current.dataset.side = p.top >= sw.top ? 'below' : 'above'
+          pop.current.style.setProperty('--caret-x', `${Math.max(14, Math.min(p.width - 14, sw.left + sw.width / 2 - p.left))}px`)
+        })
+      } else if (value !== opened.current) rememberColor(value)
+    }}>
       {open && <ColorPicker value={value} fallback={inherited} label={label} onChange={onChange} />}
     </div>
   </div>
