@@ -760,7 +760,7 @@ export function PageEditor() {
   const previewContent = showHover ? { ...doc.content, sections: doc.content.sections.map((s) => s.id === found.section.id ? { ...s, children: updateNode(s.children ?? [], found.node.id, (n) => ({ ...n, style: { ...n.style, ...n.hover }, ...(n.mobile ? { mobile: { ...n.mobile, ...n.hover } } : {}) })) } : s) } : doc.content
   const tabLabel = (tab: 'content' | 'layout' | 'style') => {
     const Icon = tab === 'content' ? PenLine : tab === 'layout' ? SlidersHorizontal : Palette
-    return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['অ্যাডভান্সড', 'Advanced'] : ['স্টাইল', 'Style'])}</span></>
+    return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['আরও', 'More'] : ['স্টাইল', 'Style'])}</span></>
   }
   const sTab = section0(selected)?.type === 'layout' && settingsTab === 'content' ? 'layout' : settingsTab
   // A layout section is listed by what it shows: its block, or its first heading or text.

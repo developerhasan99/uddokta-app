@@ -534,7 +534,7 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'borderStyle', kind: 'select', group: 'style', label: ['বর্ডারের ধরন', 'Border style'], options: opts(['solid', ['সলিড', 'Solid']], ['dashed', ['ড্যাশ', 'Dashed']], ['dotted', ['ডট', 'Dotted']]) },
   { key: 'borderColor', kind: 'color', group: 'style', label: ['বর্ডারের রং', 'Border color'] },
   { key: 'shadow', kind: 'select', group: 'style', label: ['ছায়া', 'Shadow'], options: opts(['none', ['নেই', 'None']], ['soft', ['হালকা', 'Soft']], ['strong', ['গাঢ়', 'Strong']]) },
-  // How smoothly colours, border, corners and shadow change (into the hover look and back). Advanced tab.
+  // How smoothly colours, border, corners and shadow change (into the hover look and back). More tab.
   px('transitionDuration', ['সময় (ms)', 'Duration (ms)'], 2000),
   { key: 'transitionEasing', kind: 'select', group: 'layout', label: ['গতির ধরন', 'Easing'], options: opts(['ease', ['স্বাভাবিক', 'Ease']], ['linear', ['সমান', 'Linear']], ['ease-in', ['ধীরে শুরু', 'Ease in']], ['ease-out', ['ধীরে শেষ', 'Ease out']], ['ease-in-out', ['ধীরে শুরু ও শেষ', 'Ease in and out']]) },
 ]
