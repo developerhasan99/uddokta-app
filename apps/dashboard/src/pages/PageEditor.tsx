@@ -947,8 +947,10 @@ export function PageEditor() {
         {(['content', 'style', 'layout'] as const).filter((x) => x !== 'content' || hasContent).map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => setSettingsTab(x)}>{tabLabel(x)}</button>)}
       </div>
       <div className="editor__form">
-        {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
-        {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
+        {tab !== 'content' && <div className="editing-for">
+          <DeviceSwitch compact={tab === 'style'} device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />
+          {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
+        </div>}
         {tab === 'content'
           ? f.node.block ? <div className="editor__fields">{(['content', 'layout'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
               onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />)}</div>

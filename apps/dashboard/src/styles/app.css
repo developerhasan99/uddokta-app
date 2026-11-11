@@ -1809,6 +1809,11 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 }
 .editor .editor__settings .node-device button { flex: none; }
 .editor .editor__settings .node-device button span { overflow: visible; }
+/* Device and Normal/Hover switches share one full-width row: device icons, then the state switch filling the rest. */
+.editor .editor__settings .editing-for { display: flex; gap: var(--space-xs); }
+.editor .editor__settings .editing-for > .node-device { flex: 1; width: auto; justify-self: auto; }
+.editor .editor__settings .editing-for > .node-device--icons { flex: none; }
+.editor .editor__settings .editing-for > .node-device:not(.node-device--icons) button { flex: 1; }
 .editor .editor__settings-head .btn--icon { box-shadow: none; background: transparent; color: var(--color-muted); }
 .editor .editor__settings-head .btn--icon:hover { background: var(--color-paper-3); color: var(--color-ink); }
 

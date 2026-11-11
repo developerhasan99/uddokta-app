@@ -185,6 +185,7 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
   </div>
 
   return <div className="design-controls">
+    {hover && <p className="design-help">{L('মাউস রাখলে যা বদলাবে। খালি ঘর সাধারণের মতো থাকে।', 'What changes under a mouse. Blank fields stay as normal.')}</p>}
     {textual && <Group title={L('লেখা', 'Text')} icon={<Type size={15} />}>
       {segments('textAlign', L('অবস্থান', 'Alignment'), [{ value: 'left', label: L('বামে', 'Left'), icon: <AlignLeft size={16} aria-hidden="true" /> }, { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenter size={16} aria-hidden="true" /> }, { value: 'right', label: L('ডানে', 'Right'), icon: <AlignRight size={16} aria-hidden="true" /> }])}
       <div className="design-grid">{number('fontSize', L('মাপ', 'Size'))}{select('fontWeight')}</div>
@@ -221,12 +222,13 @@ export function BackgroundImage({ value, media, label, change, remove, choose, o
 }
 
 // Desktop / Mobile switch shown above Layout and Style.
-export function DeviceSwitch({ device, onChange }: { device: Device; onChange: (d: Device) => void }) {
+// compact: icons only, so it shares a row with the Normal / Hover switch.
+export function DeviceSwitch({ device, onChange, compact = false }: { device: Device; onChange: (d: Device) => void; compact?: boolean }) {
   const { lang } = useLang()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
-  return <div className="design-segments node-device" role="group" aria-label={L('কোন স্ক্রিনের জন্য', 'Editing for')}>
-    <button type="button" aria-pressed={device === 'desktop'} onClick={() => onChange('desktop')}><Monitor size={14} aria-hidden="true" /><span>{L('ডেস্কটপ', 'Desktop')}</span></button>
-    <button type="button" aria-pressed={device === 'mobile'} onClick={() => onChange('mobile')}><Smartphone size={14} aria-hidden="true" /><span>{L('মোবাইল', 'Mobile')}</span></button>
+  const item = (d: Device, Icon: typeof Monitor, label: string) => <button type="button" aria-pressed={device === d} aria-label={compact ? label : undefined} title={compact ? label : undefined} onClick={() => onChange(d)}><Icon size={14} aria-hidden="true" />{!compact && <span>{label}</span>}</button>
+  return <div className={compact ? 'design-segments node-device node-device--icons' : 'design-segments node-device'} role="group" aria-label={L('কোন স্ক্রিনের জন্য', 'Editing for')}>
+    {item('desktop', Monitor, L('ডেস্কটপ', 'Desktop'))}{item('mobile', Smartphone, L('মোবাইল', 'Mobile'))}
   </div>
 }
 
@@ -234,13 +236,10 @@ export function DeviceSwitch({ device, onChange }: { device: Device; onChange: (
 export function StateSwitch({ state, onChange }: { state: State; onChange: (s: State) => void }) {
   const { lang } = useLang()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
-  return <>
-    <div className="design-segments node-device" role="group" aria-label={L('অবস্থা', 'State')}>
-      <button type="button" aria-pressed={state === 'normal'} onClick={() => onChange('normal')}><Square size={14} aria-hidden="true" /><span>{L('সাধারণ', 'Normal')}</span></button>
-      <button type="button" aria-pressed={state === 'hover'} onClick={() => onChange('hover')}><MousePointer2 size={14} aria-hidden="true" /><span>{L('হোভার', 'Hover')}</span></button>
-    </div>
-    {state === 'hover' && <p className="design-help">{L('মাউস রাখলে যা বদলাবে। খালি ঘর সাধারণের মতো থাকে।', 'What changes under a mouse. Blank fields stay as normal.')}</p>}
-  </>
+  return <div className="design-segments node-device" role="group" aria-label={L('অবস্থা', 'State')}>
+    <button type="button" aria-pressed={state === 'normal'} onClick={() => onChange('normal')}><Square size={14} aria-hidden="true" /><span>{L('সাধারণ', 'Normal')}</span></button>
+    <button type="button" aria-pressed={state === 'hover'} onClick={() => onChange('hover')}><MousePointer2 size={14} aria-hidden="true" /><span>{L('হোভার', 'Hover')}</span></button>
+  </div>
 }
 
 export type { NodeStyle }
