@@ -1037,20 +1037,24 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .icon-picker__search { display:flex;align-items:center;gap:10px;margin:0 24px;border:1px solid var(--color-rule-strong);border-radius:8px;padding:0 13px;color:var(--color-muted) }
 .icon-picker__search:focus-within { outline:2px solid #6b8e752c;border-color:#63876c }
 .icon-picker__search input { width:100%;min-width:0;min-height:42px;padding:10px 0;border:0;outline:0;background:transparent;color:var(--color-ink);font:inherit;font-size:13px }
+.editor-icon-control__own { display:inline-flex;align-items:center;gap:var(--space-2xs);margin-top:var(--space-2xs);padding:0;border:0;background:none;color:var(--color-primary);font:inherit;font-size:12px;cursor:pointer }
+.editor-icon-control__own:hover { text-decoration:underline }
+.editor-icon-control__preview img { display:block;width:28px;height:28px;object-fit:contain }
 .icon-picker__categories { display:flex;flex-wrap:wrap;gap:7px;padding:16px 24px;border-bottom:1px solid var(--color-rule) }
 .icon-picker__categories button { border:1px solid var(--color-rule);border-radius:20px;padding:6px 11px;background:var(--color-paper);color:var(--color-muted);font:inherit;font-size:11px;cursor:pointer }
-.icon-picker__categories button[aria-pressed=true] { border-color:#63876c;color:#285a3f;background:#edf4ee }
+.icon-picker__categories button[aria-pressed=true] { border-color:var(--color-primary);color:var(--color-primary);background:color-mix(in oklab, var(--color-primary) 14%, transparent) }
 .icon-picker__categories button span { font-size:10px;opacity:.6;margin-inline-start:4px }
 .icon-picker__results { flex:1;min-height:160px;overflow-y:auto;padding:12px 24px 24px;overscroll-behavior:contain }
 .icon-picker__count { font-size:11px;color:var(--color-muted);margin-bottom:12px }
 .icon-picker__grid { display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px }
 .icon-picker__tile { position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;min-width:0;min-height:96px;padding:15px 5px 10px;border:1px solid var(--color-rule);border-radius:8px;background:var(--color-paper);color:var(--color-ink);font:inherit;cursor:pointer }
 .icon-picker__tile>span { font-size:10px;line-height:1.4;text-align:center;overflow-wrap:anywhere }
-.icon-picker__tile:hover { border-color:#8fa795;background:#f7faf6 }
-.icon-picker__tile[aria-pressed=true] { border-color:#456d50;box-shadow:0 0 0 1px #456d50;background:#edf4ee;color:#285a3f }
+/* Tints of the theme's own colours, so icons stay readable in the light dashboard and the dark editor alike. */
+.icon-picker__tile:hover { border-color:var(--color-primary);background:color-mix(in oklab, var(--color-primary) 8%, transparent);color:var(--color-ink) }
+.icon-picker__tile[aria-pressed=true] { border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary);background:color-mix(in oklab, var(--color-primary) 16%, transparent);color:var(--color-primary) }
 .icon-picker__tile>.icon-picker__selected { position:absolute;right:5px;top:5px }
 .icon-picker__foot { gap:var(--space-md) }
-.icon-picker__selection { display:flex;align-items:center;gap:12px;color:#285a3f;min-width:0 }
+.icon-picker__selection { display:flex;align-items:center;gap:12px;color:var(--color-primary);min-width:0 }
 .icon-picker__selection>span { display:grid;gap:3px;min-width:0;font-size:12px }
 .icon-picker__selection strong { font-size:12px;font-weight:600 }
 .icon-picker__selection small { font-size:10px;color:var(--color-muted) }
@@ -1058,7 +1062,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .icon-picker__empty { display:grid;justify-items:center;align-content:center;gap:14px;min-height:240px;text-align:center;color:var(--color-muted) }
 .icon-picker__empty h3 { color:var(--color-ink);font-size:16px }
 .icon-picker__empty p { font-size:12px }
-.icon-picker button:focus-visible { outline:2px solid #285a3f;outline-offset:3px }
+.icon-picker button:focus-visible { outline:2px solid var(--color-focus);outline-offset:3px }
 @media(max-width:600px) {
 
   .icon-picker__search { margin-inline:16px }.icon-picker__search input { font-size:16px }

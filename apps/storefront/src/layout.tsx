@@ -52,12 +52,12 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
     }
     case 'button': {
       const href = str(p.link) || (orderId ? `#${orderId}` : '')
-      const inner = <><IconBadge name={str(p.icon)} /><span data-edit="text">{str(p.text)}</span></>
+      const inner = <><IconBadge name={str(p.icon)} image={ctx.image} /><span data-edit="text">{str(p.text)}</span></>
       const cls = `${className} sf-button${p.variant === 'outline' ? ' sf-button--outline' : ''}`
       return href && !ctx.preview ? <a className={cls} data-node={node.id} href={href}>{inner}</a> : <span className={cls} data-node={node.id}>{inner}</span>
     }
     case 'icon':
-      return <span className={className} data-node={node.id}><IconBadge name={str(p.icon) || 'check'} /></span>
+      return <span className={className} data-node={node.id}><IconBadge name={str(p.icon) || 'check'} image={ctx.image} /></span>
     case 'divider':
       return <hr className={className} data-node={node.id} />
     case 'spacer':

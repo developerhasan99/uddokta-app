@@ -151,3 +151,16 @@ test('gradient stops, shape and position are checked, and the CSS is built only 
   assert.equal(gradientCss(readContent(page({ gradientAngle: 90 }))!.sections[0].style!), 'linear-gradient(90deg, #ffffff 0%, #00000080 100%)')
   for (const bad of [{ gradientPosition: 'center; color:red' }, { gradientShape: 'square' }, { gradientFromStop: 101 }]) assert.equal(readContent(page(bad)), null, JSON.stringify(bad))
 })
+
+test('an icon can be a library icon or the seller’s own image, which counts as a page image', () => {
+  const id = '5b1f0c9e-1d2a-4c3b-9e8f-0a1b2c3d4e5f'
+  const page = (icon: string): Content => ({ version: 2, sections: [{ ...newSection('layout', 's1'), children: [
+    { id: 'i1', kind: 'icon', props: { icon } } as PageNode,
+    { id: 'l1', kind: 'block', props: {}, block: { type: 'iconList', settings: { items: [{ icon, text: 'x', link: '' }] } } } as PageNode,
+  ] }] })
+  assert.ok(readContent(page('check')))
+  const own = readContent(page(`media:${id}`))
+  assert.ok(own)
+  assert.deepEqual(references(own!).media, [id], 'tracked like other images, so it cannot be deleted while in use')
+  for (const bad of ['media:nope', `media:${id}x`, 'javascript:alert(1)', 'not-an-icon']) assert.equal(readContent(page(bad)), null, bad)
+})

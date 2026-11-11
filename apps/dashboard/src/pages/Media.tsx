@@ -15,7 +15,7 @@ type Upload = { id: number; name: string; error?: string }
 const formatLabels: Record<string, string> = { jpeg: 'JPG', png: 'PNG', webp: 'WebP', avif: 'AVIF' }
 const formatLabel = (format: string) => formatLabels[format] ?? format.toUpperCase()
 
-const accepted = 'image/jpeg,image/png,image/webp,image/avif'
+const accepted = 'image/jpeg,image/png,image/webp,image/avif,image/svg+xml'
 const parallelUploads = 3
 
 export function Media() {

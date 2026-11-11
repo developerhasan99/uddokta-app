@@ -99,7 +99,7 @@ export function MediaPicker({ selected, max, onDone, onClose }: { selected: Medi
       <div className="picker__tools">
         <SearchInput label={t('mediaSearch')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <Button onClick={() => file.current?.click()}><Upload size={16} aria-hidden="true" />{t('mediaUpload')}</Button>
-        <input ref={file} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple tabIndex={-1} aria-label={t('mediaUpload')} onChange={(e) => {
+        <input ref={file} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/svg+xml" multiple tabIndex={-1} aria-label={t('mediaUpload')} onChange={(e) => {
           void upload(Array.from(e.target.files ?? []))
           e.target.value = ''
         }} />

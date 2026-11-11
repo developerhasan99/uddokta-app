@@ -10,7 +10,8 @@ import { fail, storeByHandle, type Env } from './app.ts'
 
 const maxUploadBytes = 10 * 1024 * 1024
 const pageSize = 60
-const allowedFormats = ['jpeg', 'png', 'webp', 'avif']
+// SVG is rasterised to WebP like everything else, so no SVG (and nothing it could script) is ever served.
+const allowedFormats = ['jpeg', 'png', 'webp', 'avif', 'svg']
 // ponytail: one limit for every store; read it from the store's plan once plans exist.
 export const storeLimitBytes = 1024 * 1024 * 1024
 
@@ -37,8 +38,10 @@ async function processImage(input: Buffer) {
     const image = sharp(input)
     const { format } = await image.metadata()
     if (!format || !allowedFormats.includes(format)) throw fail(415, 'fileNotImage')
-    const full = await sharp(input).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true })
-    const thumb = await sharp(input).rotate().resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer()
+    // Vector icons are drawn large enough to stay sharp, then scaled down like any other image.
+    const load = () => (format === 'svg' ? sharp(input, { density: 600 }) : sharp(input))
+    const full = await load().rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true })
+    const thumb = await load().rotate().resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer()
     return { full: full.data, width: full.info.width, height: full.info.height, thumb, sourceFormat: format }
   } catch (err) {
     if (err instanceof Error && err.name === 'HTTPException') throw err

@@ -97,8 +97,19 @@ test('non-images are rejected even when they claim to be images', async () => {
   const { call, handle } = await storeOwner()
   const fake = await call('POST', `/stores/${handle}/media`, form('<script>alert(1)</script>', 'evil.png'))
   assert.equal(fake.json.error, 'fileNotImage')
-  const svg = await call('POST', `/stores/${handle}/media`, form('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>', 'a.svg', 'image/svg+xml'))
-  assert.equal(svg.json.error, 'fileNotImage')
+})
+
+test('SVG icons are accepted and stored as WebP pictures, so no SVG or script is ever served', async () => {
+  const { call, handle } = await storeOwner()
+  const anon = client()
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><script>alert(1)</script><circle cx="12" cy="12" r="10" fill="#1f7a4d" onload="alert(2)"/></svg>'
+  const up = await call('POST', `/stores/${handle}/media`, form(svg, 'icon.svg', 'image/svg+xml'))
+  assert.equal(up.status, 201, JSON.stringify(up.json))
+  assert.equal(up.json.sourceFormat, 'svg')
+  const stored = await anon('GET', up.json.url.replace('/api', ''))
+  const meta = await sharp(stored.bytes!).metadata()
+  assert.equal(meta.format, 'webp')
+  assert.ok(meta.width! >= 100, 'drawn large enough to stay sharp')
 })
 
 test('files over 10 MB are rejected', async () => {

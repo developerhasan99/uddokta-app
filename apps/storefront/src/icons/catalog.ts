@@ -683,3 +683,6 @@ export type IconCategory = keyof typeof iconCategories
 export const iconNames = Object.keys(iconCatalog) as IconName[]
 const names = new Set<string>(iconNames)
 export const isIconName = (value: unknown): value is IconName => typeof value === 'string' && names.has(value)
+// An icon field holds a library icon name or a seller's own image from the media gallery, written media:<id>.
+export const mediaIconId = (value: unknown): string | null => (typeof value === 'string' ? /^media:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(value)?.[1] ?? null : null)
+export const isIconValue = (value: unknown): value is string => isIconName(value) || mediaIconId(value) !== null

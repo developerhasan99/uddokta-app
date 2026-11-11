@@ -2,7 +2,7 @@
 // They hold no state and use no hooks, so both places draw exactly the same page.
 import type { CSSProperties, ReactNode } from 'react'
 import { IconBadge, MarketingIcon } from './icons/Icon.tsx'
-import { iconCatalog, isIconName } from './icons/catalog.ts'
+import { iconCatalog, isIconName, isIconValue } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
 
@@ -79,7 +79,7 @@ function Hero({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
           {str(s.settings.eyebrow) && <p className="sf-eyebrow">{str(s.settings.eyebrow)}</p>}
           {str(s.settings.heading) && <h1>{str(s.settings.heading)}</h1>}
           <Lines text={str(s.settings.text)} className="sf-lead" />
-          <SectionButton s={s} orderId={orderId} />
+          <SectionButton s={s} orderId={orderId} ctx={ctx} />
         </div>
         {image ? <Picture img={image} eager className="sf-hero__image" /> : <Hint ctx={ctx}>ছবি দিলে এখানে দেখাবে</Hint>}
       </div>
@@ -111,7 +111,7 @@ function ImageSection({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
-function Features({ s }: { s: Section }) {
+function Features({ s, ctx }: { s: Section; ctx?: Ctx }) {
   return (
     <section className="sf-section sf-section--tint">
       <div className="sf-wrap">
@@ -119,7 +119,7 @@ function Features({ s }: { s: Section }) {
         <ul className="sf-features">
           {items(s.settings.items).map((item, i) => (
             <li key={i}>
-              {item.icon === undefined ? <svg className="sf-legacy-check" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : <IconBadge name={item.icon ?? ''} surface={s.style?.iconSurface} />}
+              {item.icon === undefined ? <svg className="sf-legacy-check" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : <IconBadge name={item.icon ?? ''} surface={s.style?.iconSurface} image={ctx?.image} />}
               <div>
                 <h3>{item.title}</h3>
                 {item.text && <p>{item.text}</p>}
@@ -306,7 +306,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
           <p className="sf-note">অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
-          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
+          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
         </form>
       </div>
     </section>
@@ -368,16 +368,16 @@ function Contact({ s, ctx }: { s: Section; ctx: Ctx }) {
 }
 
 
-function SectionButton({ s, orderId }: { s: Section; orderId?: string }) {
+function SectionButton({ s, orderId, ctx }: { s: Section; orderId?: string; ctx?: Ctx }) {
   const href = str(s.settings.link) || (orderId ? `#${orderId}` : '')
-  return str(s.settings.button) && href ? <a className="sf-button" href={href}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} />{str(s.settings.button)}</a> : null
+  return str(s.settings.button) && href ? <a className="sf-button" href={href}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button)}</a> : null
 }
 
 function LandingHeader({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   return <section className="sf-section sf-custom-header"><div className="sf-wrap sf-header-row">
     <div className="sf-brand"><Picture img={ctx.image(s.settings.image as string | null)} /><strong>{str(s.settings.brand)}</strong></div>
     <nav className="sf-section-links" aria-label="পেজ নেভিগেশন">{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
-    <SectionButton s={s} orderId={orderId} />
+    <SectionButton s={s} orderId={orderId} ctx={ctx} />
   </div></section>
 }
 
@@ -390,7 +390,7 @@ function LandingFooter({ s }: { s: Section }) {
 
 function ImageText({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   return <section className="sf-section sf-story" data-layout={str(s.settings.layout)}><div className="sf-wrap sf-story__grid">
-    <div><Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} /></div>
+    <div><Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} ctx={ctx} /></div>
     {ctx.image(s.settings.image as string | null) ? <Picture img={ctx.image(s.settings.image as string | null)} className="sf-story__image" /> : <Hint ctx={ctx}>একটি ছবি বেছে নিন</Hint>}
   </div></section>
 }
@@ -400,7 +400,7 @@ function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
   return <section className={`sf-section sf-info sf-info--${s.type}`} data-layout={str(s.settings.layout)}><div className="sf-wrap">
     <Heading text={str(s.settings.heading)} />
     <ol className="sf-info-grid">{rows.map((item, i) => <li key={i}>
-      {item.icon && <IconBadge name={item.icon} surface={s.style?.iconSurface} />}
+      {item.icon && <IconBadge name={item.icon} surface={s.style?.iconSurface} image={ctx.image} />}
       {s.type === 'steps' && !item.icon && <span className="sf-step-number">{number.format(i + 1).padStart(2, '০')}</span>}
       {s.type === 'cards' && (ctx.image(item.image) ? <Picture img={ctx.image(item.image)} className="sf-card-image" /> : <Hint ctx={ctx}>কার্ডে ছবি দিন</Hint>)}
       <div className="sf-info-copy"><h3>{item.title}</h3>{item.text && <p>{item.text}</p>}</div>
@@ -412,7 +412,7 @@ function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
 // Values are schema-checked (numbers in range, colours as hex, selects from fixed lists) before they reach the style.
 function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
   const st = s.settings
-  const rows = items(st.items).filter((item) => str(item.text) || isIconName(str(item.icon)))
+  const rows = items(st.items).filter((item) => str(item.text) || isIconValue(str(item.icon)))
   if (!rows.length) return ctx.preview ? <Hint ctx={ctx}>তালিকায় আইটেম যোগ করুন</Hint> : null
   const vars = {
     '--il-gap': `${Number(st.itemGap ?? 12)}px`, '--il-icon-gap': `${Number(st.iconGap ?? 10)}px`, '--il-icon-size': `${Number(st.iconSize ?? 20)}px`,
@@ -421,7 +421,7 @@ function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
   } as CSSProperties
   return <ul className="sf-iconlist" data-direction={str(st.direction) || 'vertical'} data-align={str(st.align) || 'start'} data-divider={st.divider && st.divider !== 'none' ? '' : undefined} style={vars}>
     {rows.map((item, i) => {
-      const inner = <>{isIconName(str(item.icon)) && <MarketingIcon name={str(item.icon)} size={Number(st.iconSize ?? 20)} />}<span>{str(item.text)}</span></>
+      const inner = <>{isIconValue(str(item.icon)) && <MarketingIcon name={str(item.icon)} size={Number(st.iconSize ?? 20)} image={ctx.image} />}<span>{str(item.text)}</span></>
       return <li key={i}>{str(item.link) ? <a href={str(item.link)}>{inner}</a> : inner}</li>
     })}
   </ul>
@@ -429,11 +429,11 @@ function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
 
 function StandaloneIcon({ s, ctx }: { s: Section; ctx: Ctx }) {
   const name = str(s.settings.icon)
-  if (!isIconName(name)) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি আইকন বেছে নিন</Hint></div></section> : null
+  if (!isIconValue(name)) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি আইকন বেছে নিন</Hint></div></section> : null
   const label = str(s.settings.label)
   const href = str(s.settings.link)
   return <section className="sf-section sf-standalone-icon"><div className="sf-wrap">
-    {href ? <a className="sf-icon-link" href={href} aria-label={label || iconCatalog[name].label[0]}><IconBadge name={name} surface={s.style?.iconSurface} /></a> : <IconBadge name={name} surface={s.style?.iconSurface} label={label} />}
+    {href ? <a className="sf-icon-link" href={href} aria-label={label || (isIconName(name) ? iconCatalog[name].label[0] : 'আইকন')}><IconBadge name={name} surface={s.style?.iconSurface} image={ctx.image} /></a> : <IconBadge name={name} surface={s.style?.iconSurface} label={label} image={ctx.image} />}
   </div></section>
 }
 
@@ -451,9 +451,9 @@ function Comparison({ s }: { s: Section }) {
   </div></section>
 }
 
-function CallToAction({ s, orderId }: { s: Section; orderId?: string }) {
+function CallToAction({ s, orderId, ctx }: { s: Section; orderId?: string; ctx?: Ctx }) {
   return <section className={`sf-section sf-cta ${s.type === 'announcement' ? 'sf-announcement' : ''}`}><div className="sf-wrap">
-    <Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} />
+    <Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} ctx={ctx} />
   </div></section>
 }
 
@@ -553,7 +553,7 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
     case 'footer': return <LandingFooter s={s} />
     case 'announcement':
-    case 'cta': return <CallToAction s={s} orderId={orderId} />
+    case 'cta': return <CallToAction s={s} orderId={orderId} ctx={ctx} />
     case 'imageText': return <ImageText s={s} ctx={ctx} orderId={orderId} />
     case 'trust':
     case 'steps':
@@ -563,7 +563,7 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'hero': return <Hero s={s} ctx={ctx} orderId={orderId} />
     case 'text': return <TextSection s={s} />
     case 'image': return <ImageSection s={s} ctx={ctx} />
-    case 'features': return <Features s={s} />
+    case 'features': return <Features s={s} ctx={ctx} />
     case 'video': return <Video s={s} ctx={ctx} />
     case 'reviews': return <Reviews s={s} ctx={ctx} />
     case 'faq': return <Faq s={s} />
@@ -759,6 +759,7 @@ h1,h2,h3,p{margin:0}
 .sf-features .sf-icon-badge{align-self:flex-start;margin-top:2px}.sf-features .sf-legacy-check{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px);color:var(--section-icon-color,var(--sf-accent))}.sf-legacy-check path{stroke-width:var(--section-icon-stroke,2)}
 .sf-info-grid li>.sf-icon-badge{margin-bottom:18px}.sf-info--trust .sf-icon-badge{margin-bottom:10px}
 .sf-embed{display:block;width:100%;height:150px;border:0}
+.sf-marketing-icon--image{object-fit:contain}
 .sf-iconlist{display:flex;flex-direction:column;gap:var(--il-gap);margin:0;padding:0;list-style:none}
 .sf-iconlist[data-direction=horizontal]{flex-direction:row;flex-wrap:wrap;align-items:center}
 .sf-iconlist[data-align=center]{align-items:center;justify-content:center}.sf-iconlist[data-align=end]{align-items:flex-end;justify-content:flex-end}

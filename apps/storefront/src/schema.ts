@@ -1,4 +1,4 @@
-import { isIconName, type IconName } from './icons/catalog.ts'
+import { isIconName, isIconValue, mediaIconId, type IconName } from './icons/catalog.ts'
 import { cleanRichText } from './rich.ts'
 
 // Page content: versioned JSON, shared by the API (which validates it), the editor (which builds its forms from it)
@@ -321,7 +321,7 @@ export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'st
 export function readLeaf(field: Leaf, raw: unknown): string | number | null | undefined {
   switch (field.kind) {
     case 'icon':
-      return raw === '' || isIconName(raw) ? raw : undefined
+      return raw === '' || isIconValue(raw) ? raw : undefined
     case 'text':
     case 'textarea':
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
@@ -435,6 +435,7 @@ export function references(content: Content) {
     for (const node of walk(section.children ?? [])) {
       if (node.block) add(node.block.type, node.block.settings)
       if (typeof node.props.image === 'string') media.add(node.props.image)
+      if (mediaIconId(node.props.icon)) media.add(mediaIconId(node.props.icon)!)
       if (typeof node.style?.backgroundImage === 'string') media.add(node.style.backgroundImage)
       if (typeof node.mobile?.backgroundImage === 'string') media.add(node.mobile.backgroundImage)
     }
@@ -446,9 +447,13 @@ export function references(content: Content) {
     for (const field of defOf(type).fields) {
       const value = settings[field.key]
       if (field.kind === 'image' && typeof value === 'string') media.add(value)
+      if (field.kind === 'icon' && mediaIconId(value)) media.add(mediaIconId(value)!)
       if (field.kind === 'product' && typeof value === 'string') products.add(value)
       if (field.kind === 'list' && Array.isArray(value)) {
-        for (const sub of field.fields) if (sub.kind === 'image') for (const item of value) if (item[sub.key]) media.add(item[sub.key]!)
+        for (const sub of field.fields) {
+          if (sub.kind === 'image') for (const item of value) if (item[sub.key]) media.add(item[sub.key]!)
+          if (sub.kind === 'icon') for (const item of value) if (mediaIconId(item[sub.key])) media.add(mediaIconId(item[sub.key])!)
+        }
       }
     }
   }

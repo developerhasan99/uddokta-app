@@ -201,7 +201,7 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
   const label = field.label[lang === 'bn' ? 0 : 1]
   switch (field.kind) {
     case 'icon':
-      return <IconField label={label} value={typeof value === 'string' ? value : field.defaultIcon ?? ''} onChange={onChange} />
+      return <IconField label={label} value={typeof value === 'string' ? value : field.defaultIcon ?? ''} onChange={onChange} media={media} onPickImage={(apply) => onPick({ kind: 'image', apply })} />
     case 'select':
       return <div className="field"><label htmlFor={id}>{label}</label><select className="input" id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
         <option value="">{lang === 'bn' ? 'স্বাভাবিক / ডিফল্ট' : 'Inherit / default'}</option>
