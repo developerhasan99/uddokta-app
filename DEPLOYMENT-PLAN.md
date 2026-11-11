@@ -498,3 +498,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Element panel: device and Normal/Hover switches share one full-width row (device as icons on Style; full-width labelled on More).
 - Section background: type picker is one row (label + icon buttons with names on hover); gradients can be linear (with angle) or radial (from the centre).
 - Section background type: no None button; Classic (colour) is the default and an empty colour means no background. Gradient uses a small fading-square icon.
+- Colour fields: when an empty value means no colour at all (section and element backgrounds), the field shows no hint and the swatch shows a cross; fields that fall back to a theme colour keep the hint.

@@ -190,7 +190,7 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
       {segments('textAlign', L('অবস্থান', 'Alignment'), [{ value: 'left', label: L('বামে', 'Left'), icon: <AlignLeft size={16} aria-hidden="true" /> }, { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenter size={16} aria-hidden="true" /> }, { value: 'right', label: L('ডানে', 'Right'), icon: <AlignRight size={16} aria-hidden="true" /> }])}
       <div className="design-grid">{number('fontSize', L('মাপ', 'Size'))}{select('fontWeight')}</div>
       {color('color', '#1d1d1f')}
-      {color('background', node.kind === 'button' ? '#1f7a4d' : '#ffffff')}
+      {color('background', node.kind === 'button' ? '#1f7a4d' : '')}
       {isBox && <BackgroundImage value={value('backgroundImage')} media={media} label={L('পটভূমির ছবি', 'Background image')} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ backgroundImage: id ?? undefined }))} onRemove={() => onPatch({ backgroundImage: undefined })} />}
     </Group>}
     {!textual && (node.kind === 'icon' || node.kind === 'image') && <Group title={L('অবস্থান', 'Position')} icon={<AlignCenter size={15} />}>
@@ -198,7 +198,7 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
       {node.kind === 'icon' && color('color', '#1f7a4d')}
     </Group>}
     {!textual && <Group title={node.kind === 'button' ? L('বাটনের রং', 'Button colour') : L('পটভূমি', 'Background')} icon={<Palette size={15} />}>
-          {color('background', node.kind === 'button' ? '#1f7a4d' : '#ffffff')}
+          {color('background', node.kind === 'button' ? '#1f7a4d' : '')}
           {isBox && <BackgroundImage value={value('backgroundImage')} media={media} label={L('পটভূমির ছবি', 'Background image')} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ backgroundImage: id ?? undefined }))} onRemove={() => onPatch({ backgroundImage: undefined })} />}
         </Group>}
     <Group title={L('বর্ডার ও কোণা', 'Border & corners')} icon={<Square size={15} />} open={false}>

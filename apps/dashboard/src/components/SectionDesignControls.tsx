@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Paintbrush, Video, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
+import { Paintbrush, Video, X, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
 import { useLang } from '../i18n'
@@ -41,11 +41,12 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
   }
 
   const themeVars = presets[theme].vars
-  const inherited: Record<string, string> = { background: ['features', 'reviews', 'countdown', 'order'].includes(section.type) ? themeVars.tint : themeVars.paper, color: themeVars.ink, accent: themeVars.accent, buttonText: theme === 'night' ? '#141414' : '#ffffff', cardBackground: themeVars.paper, borderColor: themeVars.rule, iconColor: themeVars.accent, iconBackground: themeVars.tint }
+  // Layout sections have no background of their own, so an empty colour there shows as none (a cross), not a theme colour.
+  const inherited: Record<string, string> = { background: section.type === 'layout' ? '' : ['features', 'reviews', 'countdown', 'order'].includes(section.type) ? themeVars.tint : themeVars.paper, color: themeVars.ink, accent: themeVars.accent, buttonText: theme === 'night' ? '#141414' : '#ffffff', cardBackground: themeVars.paper, borderColor: themeVars.rule, iconColor: themeVars.accent, iconBackground: themeVars.tint }
   const colorControl = (key: string) => {
     const field = fieldOf(key)
     if (!field) return null
-    return <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(field)} value={String(values[key] ?? '')} inherited={inherited[key] ?? ({ gradientFrom: themeVars.accent, gradientTo: themeVars.ink, overlayColor: '#000000' } as Record<string, string>)[key] ?? '#ffffff'} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
+    return <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(field)} value={String(values[key] ?? '')} inherited={key in inherited ? inherited[key] : ({ gradientFrom: themeVars.accent, gradientTo: themeVars.ink, overlayColor: '#000000' } as Record<string, string>)[key] ?? '#ffffff'} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
   }
 
   // Classic (a colour) is the default; leaving its colour empty means no background.
@@ -128,7 +129,9 @@ export function NumericInput({ id, field, value, onChange, placeholder = '—' }
   }} />
 }
 
-// One line: label, then a swatch with the HEX code. The swatch opens the colour picker in a popover under it
+// One line: label, then a swatch with the HEX code. inherited is the colour used while the field is empty, shown as
+// the hint; pass '' when an empty field means no colour at all (the swatch then shows a cross).
+// The swatch opens the colour picker in a popover under it
 // (browser popover: closes on an outside click or Escape and is never clipped by the scrolling panel). A small
 // pointer on the popover points at the swatch; the colour joins Recent when the popover closes, if it changed.
 export function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
@@ -141,10 +144,10 @@ export function ColorControl({ id, label, value, inherited, onChange }: { id: st
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en
   const anchor = `--color-${id.replace(/[^a-z0-9-]/gi, '')}`
   return <div className="design-color" onKeyDown={(e) => { if (open && e.key === 'Escape') e.stopPropagation() }}>
-    <div className="design-color__head"><label htmlFor={id}>{label}</label><span>{value ? L('নিজস্ব', 'Custom') : L('থিম', 'Theme')}</span></div>
+    <div className="design-color__head"><label htmlFor={id}>{label}</label><span>{value ? L('নিজস্ব', 'Custom') : inherited ? L('থিম', 'Theme') : L('নেই', 'None')}</span></div>
     <div className="design-color__input" style={{ anchorName: anchor } as CSSProperties}>
-      <button type="button" ref={swatch} className="design-color__swatch color-chip" popoverTarget={`${id}-picker`} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`}><span style={{ backgroundColor: valid ? value : inherited }} /></button>
-      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited.slice(1).toUpperCase()} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} />
+      <button type="button" ref={swatch} className={valid || inherited ? 'design-color__swatch color-chip' : 'design-color__swatch color-chip color-chip--none'} popoverTarget={`${id}-picker`} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`}>{valid || inherited ? <span style={{ backgroundColor: valid ? value : inherited }} /> : <X size={12} aria-hidden="true" />}</button>
+      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited ? inherited.slice(1).toUpperCase() : ''} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} />
       <button type="button" className="design-reset" aria-label={`${L('ডিফল্ট করুন', 'Reset')} ${label}`} title={L('থিমের রং ব্যবহার করুন', 'Use theme color')} disabled={!value} onClick={() => onChange('')}><RotateCcw size={13} aria-hidden="true" /></button>
     </div>
     {value && !valid && <p className="form-error" id={`${id}-error`}>{L('৬ বা ৮ সংখ্যার HEX রং দিন।', 'Enter a six- or eight-digit HEX color.')}</p>}

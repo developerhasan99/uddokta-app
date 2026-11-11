@@ -1544,6 +1544,7 @@ a.order-item__name:hover { text-decoration: underline; }
 .gradient-mark { display: block; width: 14px; height: 14px; border: 1.5px solid currentColor; border-radius: 3px; background: linear-gradient(to right, currentColor, transparent); }
 .color-chip { position: relative; overflow: hidden; background: repeating-conic-gradient(#d4d4d4 0 25%, #ffffff 0 50%) 0 0 / 8px 8px; }
 .color-chip > span { position: absolute; inset: 0; }
+.color-chip--none { display: grid; place-items: center; background: transparent; color: var(--color-muted); }
 .color-popover { inset: auto; width: 248px; margin: 8px 0; padding: 0; overflow: visible; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); position-area: bottom span-left; position-try-fallbacks: flip-block; }
 .color-popover:not(:popover-open) { display: none; }
 /* The pointer: a small turned square on the edge facing the field, under the swatch (--caret-x, set on open). */
