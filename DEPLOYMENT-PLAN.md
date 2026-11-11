@@ -483,4 +483,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Paired number fields (`.design-grid`) sit side by side with labels above, so long labels are no longer cut off. Rows of more than four icon toggles (Justify content) put the label above.
 - Spacing is Top/Right over Bottom/Left with labels above and `px` inside each field (sections and elements); the link-all-sides button is a bordered icon at the end of the row.
 - Section content-width presets are one segmented toggle.
-- Settings rows: label 60%, number/select/colour field 40% (toggle rows and steppers keep a 38% label). Colour palettes span the full row; the colour reset shows only once a custom colour is set.
+- Settings rows: label and number/select/colour field 50/50 (toggle rows and steppers keep a 38% label). Colour palettes span the full row; the colour reset shows only once a custom colour is set.
