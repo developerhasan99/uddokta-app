@@ -150,9 +150,10 @@ const grows = new Set(['box', 'heading', 'text', 'image', 'video', 'divider'])
 function sizing(node: PageNode, width: number | undefined, direction: 'row' | 'column', gap: number): string[] {
   if (direction === 'row') {
     if (width !== undefined) return [`flex:0 1 calc(${width}% - ${(gap * (1 - width / 100)).toFixed(2)}px)`, 'width:auto']
-    return grows.has(node.kind) ? ['flex:1 1 0', 'width:auto'] : ['flex:none', 'width:auto']
+    return grows.has(node.kind) ? ['flex:1 1 0', 'width:auto'] : ['flex:none', 'width:fit-content']
   }
-  return width !== undefined ? ['flex:none', `width:${width}%`] : ['flex:none', 'width:auto']
+  // Buttons, icons and spacers keep their own width when none is set.
+  return width !== undefined ? ['flex:none', `width:${width}%`] : ['flex:none', grows.has(node.kind) ? 'width:auto' : 'width:fit-content']
 }
 
 // One stylesheet for every layout node on the page: desktop rules, then phone overrides under 720px.
@@ -202,15 +203,17 @@ export function layoutCss(content: Content, ctx: Ctx): string {
 
 export const hasLayout = (content: Content) => content.sections.some((s) => s.type === 'layout' && [...walk(s.children ?? [])].length > 0)
 
+// Base rules stay at one class of weight (tags go in :where) so the per-node rules from layoutCss, which come later
+// on the page, always override them.
 export const layoutBaseCss = `
 .sf-n-root{display:flex;flex-direction:column;gap:${rootGap}px}
 .sf-n-box{display:flex;flex-direction:column;gap:${boxGap}px;min-width:0;background-repeat:no-repeat}
 .sf-n{box-sizing:border-box;min-width:0}
 .sf-n-heading{margin:0;color:var(--sf-ink);font-weight:700;line-height:1.25;overflow-wrap:anywhere}
-h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(24px,3.6vw,34px)}h3.sf-n-heading{font-size:clamp(20px,2.6vw,24px)}h4.sf-n-heading{font-size:19px}h5.sf-n-heading{font-size:17px}h6.sf-n-heading{font-size:15px;letter-spacing:.02em}p.sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
+:where(h1).sf-n-heading{font-size:clamp(30px,5vw,48px)}:where(h2).sf-n-heading{font-size:clamp(24px,3.6vw,34px)}:where(h3).sf-n-heading{font-size:clamp(20px,2.6vw,24px)}:where(h4).sf-n-heading{font-size:19px}:where(h5).sf-n-heading{font-size:17px}:where(h6).sf-n-heading{font-size:15px;letter-spacing:.02em}:where(p).sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
 .sf-n-text{line-height:1.7;overflow-wrap:anywhere}.sf-n-text :is(p,ul,ol,h2,h3){margin:0 0 .8em}.sf-n-text>:last-child{margin-bottom:0}.sf-n-text :is(ul,ol){padding-inline-start:1.4em}.sf-n-text h2{font-size:1.4em;line-height:1.3}.sf-n-text h3{font-size:1.2em;line-height:1.35}.sf-n-text a{color:var(--sf-accent)}
 .sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-radius)}.sf-n-image img{display:block;width:100%;height:auto}
-.sf-n.sf-button{margin:0;width:fit-content;gap:8px}
+:where(.sf-n).sf-button{margin:0;width:fit-content;gap:8px}
 .sf-n-icon{display:inline-flex;width:fit-content;color:var(--sf-accent)}
 .sf-n-divider{width:100%;margin:0;border:0;border-top:1px solid var(--sf-rule)}
 .sf-n-spacer{height:32px}

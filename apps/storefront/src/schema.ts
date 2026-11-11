@@ -1,5 +1,5 @@
 import { isIconName, type IconName } from './icons/catalog.ts'
-import { cleanRichText } from './rich.ts'
+import { cleanHtml, cleanRichText } from './rich.ts'
 
 // Page content: versioned JSON, shared by the API (which validates it), the editor (which builds its forms from it)
 // and the storefront (which renders it). No JSX here, so the API can import it without a build step.
@@ -8,7 +8,7 @@ export type Label = readonly [bn: string, en: string]
 
 export type Leaf =
   | { key: string; kind: 'icon'; label: Label; defaultIcon?: IconName }
-  | { key: string; kind: 'text' | 'textarea' | 'richtext'; label: Label; max: number }
+  | { key: string; kind: 'text' | 'textarea' | 'richtext' | 'html'; label: Label; max: number }
   | { key: string; kind: 'image' | 'product' | 'url' | 'link' | 'color'; label: Label }
   | { key: string; kind: 'number'; label: Label; min: number; max: number }
   | { key: string; kind: 'select'; label: Label; options: readonly { value: string; label: Label }[] }
@@ -263,6 +263,8 @@ export const sectionDefs = {
     label: ['আইকন তালিকা', 'Icon list'], fields: [heading(), cards(['তালিকা', 'List items'], false, true)],
     defaults: { heading: 'এক নজরে সুবিধাগুলো', items: [{ icon: 'check', title: 'প্রথম সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }, { icon: 'check', title: 'দ্বিতীয় সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }] },
   },
+  // Seller-written HTML, kept safe by cleanHtml (no scripts, handlers, forms or frames). Only offered as a block.
+  html: { label: ['কাস্টম HTML', 'Custom HTML'], fields: [{ key: 'html', kind: 'html', label: ['HTML', 'HTML'], max: 20000 }], defaults: { html: '' } },
 } satisfies Record<string, SectionDef>
 
 export type SectionType = keyof typeof sectionDefs
@@ -304,6 +306,8 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
     case 'richtext':
       return typeof raw === 'string' && raw.length <= field.max ? cleanRichText(raw) : undefined
+    case 'html':
+      return typeof raw === 'string' && raw.length <= field.max ? cleanHtml(raw) : undefined
     case 'select':
       return typeof raw === 'string' && field.options.some((o) => o.value === raw) ? raw : undefined
     case 'number':

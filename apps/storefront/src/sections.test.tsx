@@ -124,7 +124,7 @@ test('section backgrounds: gradient, image with overlay, video, and a minimum he
     section('v', { bgType: 'video', bgVideo: 'https://cdn.test/loop.mp4', bgImage: photo }),
     section('bad', { bgType: 'video', bgVideo: 'https://youtube.com/watch?v=x' }),
   ] }} />)
-  assert.match(html, /background-image:linear-gradient\(90deg, #112233, #445566\)/)
+  assert.match(html, /background-image:linear-gradient\(90deg, #112233 0%, #445566 100%\)/)
   assert.match(html, /--section-min-height:600px/)
   assert.match(html, /background-image:url\(&quot;https:\/\/cdn\.test\/a\.webp&quot;\);background-size:cover;background-position:top/)
   assert.match(html, /class="sf-bg__overlay" style="background:#000000;opacity:0\.4"/)

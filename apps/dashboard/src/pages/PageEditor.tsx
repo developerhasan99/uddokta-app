@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
+  Code,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -39,7 +40,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
-const sectionIcons = { layout: RectangleHorizontal, hero: PanelTop, header: PanelTop, footer: PanelBottom, announcement: Megaphone, text: Type, image: Image, imageText: PanelLeft, video: Video, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, icon: Sparkles, cta: MousePointerClick, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const sectionIcons = { layout: RectangleHorizontal, hero: PanelTop, header: PanelTop, footer: PanelBottom, announcement: Megaphone, text: Type, image: Image, imageText: PanelLeft, video: Video, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, icon: Sparkles, cta: MousePointerClick, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 // The tree's icon for a section or node; the preview's corner tags use the same ones.
 const sectionIconOf = (s: Section) => {
@@ -214,6 +215,12 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       return <Field id={id} label={label} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
     case 'richtext':
       return <div className="field"><span className="field__label" id={`${id}-label`}>{label}</span><RichText labelledBy={`${id}-label`} value={toRich(String(value ?? ''))} onChange={(html) => onChange(html, true)} /></div>
+    case 'html':
+      return <div className="field">
+        <label htmlFor={id}>{label}</label>
+        <textarea id={id} className="input input--area input--code" rows={12} spellCheck={false} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
+        <p className="design-help">{lang === 'bn' ? 'লেখা, ছবি, লিংক, টেবিল ও স্টাইল চলবে। স্ক্রিপ্ট, ফর্ম আর iframe নিরাপত্তার জন্য সরিয়ে ফেলা হয়।' : 'Text, images, links, tables and styles work. Scripts, forms and iframes are removed for safety.'}</p>
+      </div>
     case 'textarea':
       return (
         <div className="field">
@@ -357,6 +364,9 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
   </dialog>
 }
 
+// Blocks offered as current in Add element; every other block type is listed under Obsolete until it is redone.
+const currentBlocks: SectionType[] = ['iconList', 'html']
+
 function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void; room: number }) {
   const { lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
@@ -381,8 +391,16 @@ function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (
         })}
       </ul>
       <p className="node-add__label">{L(['ব্লক', 'Blocks'])}</p>
+      <ul className="node-add__grid">
+        {currentBlocks.map((type) => {
+          const Icon = sectionIcons[type]
+          return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={20} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
+        })}
+      </ul>
+      {/* Older ready-made blocks, kept so they can still be added while each is redone and moved up to Blocks. */}
+      <p className="node-add__label">{L(['পুরোনো', 'Obsolete'])}</p>
       <ul className="node-add__grid node-add__grid--blocks">
-        {blockTypes.map((type) => {
+        {blockTypes.filter((type) => !currentBlocks.includes(type)).map((type) => {
           const Icon = sectionIcons[type]
           return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
         })}

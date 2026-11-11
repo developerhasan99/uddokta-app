@@ -5,6 +5,7 @@ import { IconBadge } from './icons/Icon.tsx'
 import { iconCatalog, isIconName } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
+import { cleanHtml } from './rich.ts'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -503,6 +504,7 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
   switch (s.type) {
     case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
     case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
+    case 'html': return str(s.settings.html) ? <div className="sf-html" dangerouslySetInnerHTML={{ __html: cleanHtml(str(s.settings.html)) }} /> : ctx.preview ? <div className="sf-n-placeholder">HTML লিখুন</div> : null
     case 'iconCards':
     case 'iconList': return <InfoItems s={s} ctx={ctx} />
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
@@ -648,7 +650,7 @@ h1,h2,h3,p{margin:0}
 .sf-section-frame[data-align]>.sf-section{text-align:var(--section-align)}
 .sf-section-frame[data-align] :is(.sf-heading,.sf-hero__text,.sf-body,.sf-info-grid li){text-align:var(--section-align)}
 .sf-section-frame[data-body-size] :is(p,blockquote,dd,td){font-size:var(--section-body)}
-.sf-styled .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
+:where(.sf-styled) .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
 .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){gap:var(--section-gap,12px)}
 .sf-styled :is(.sf-features li,.sf-reviews li,.sf-info-grid li,.sf-order){background:var(--section-card,var(--sf-paper))}
 .sf-section-frame :is(.sf-hero__image,.sf-story__image,.sf-card-image,.sf-figure img,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
@@ -713,6 +715,7 @@ h1,h2,h3,p{margin:0}
 .sf-icon-badge[data-icon-surface=solid]{background:var(--section-icon-background,var(--sf-accent));color:var(--section-icon-color,var(--sf-accent-ink))}
 .sf-features .sf-icon-badge{align-self:flex-start;margin-top:2px}.sf-features .sf-legacy-check{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px);color:var(--section-icon-color,var(--sf-accent))}.sf-legacy-check path{stroke-width:var(--section-icon-stroke,2)}
 .sf-info-grid li>.sf-icon-badge{margin-bottom:18px}.sf-info--trust .sf-icon-badge{margin-bottom:10px}
+.sf-html{overflow-wrap:anywhere}.sf-html img{max-width:100%;height:auto}.sf-html table{border-collapse:collapse;max-width:100%}
 .sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}
 .sf-info--iconList .sf-info-grid li{display:flex;gap:var(--section-gap,16px);align-items:flex-start;background:transparent;border:0;padding:16px 0;border-bottom:1px solid var(--sf-rule);border-radius:0}
 .sf-info--iconList .sf-info-grid li>.sf-icon-badge{margin:0}.sf-info-copy{min-width:0}
