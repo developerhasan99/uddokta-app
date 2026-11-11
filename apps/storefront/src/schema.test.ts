@@ -136,3 +136,9 @@ test('hover keeps only Style values', () => {
   const content: Content = { version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'b', kind: 'button', props: {}, hover: { background: '#123456', width: 50, transitionDuration: 100 } } as PageNode] }] }
   assert.deepEqual(readContent(content)?.sections[0].children?.[0].hover, { background: '#123456' })
 })
+
+test('section gradients are linear or radial', () => {
+  const page = (gradientType: string): Content => ({ version: 2, sections: [{ ...newSection('layout', 's1'), style: { bgType: 'gradient', gradientType, gradientFrom: '#ffffff', gradientTo: '#000000' } }] })
+  assert.equal(readContent(page('radial'))?.sections[0].style?.gradientType, 'radial')
+  assert.equal(readContent(page('conic')), null)
+})

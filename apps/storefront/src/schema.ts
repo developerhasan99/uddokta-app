@@ -57,6 +57,7 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'bgType', kind: 'select', label: ['পটভূমির ধরন', 'Background type'], group: 'style', options: [{ value: 'color', label: ['রং', 'Colour'] }, { value: 'gradient', label: ['গ্রেডিয়েন্ট', 'Gradient'] }, { value: 'image', label: ['ছবি', 'Image'] }, { value: 'video', label: ['ভিডিও', 'Video'] }] },
   { key: 'gradientFrom', kind: 'color', label: ['শুরুর রং', 'From'], group: 'style' },
   { key: 'gradientTo', kind: 'color', label: ['শেষের রং', 'To'], group: 'style' },
+  { key: 'gradientType', kind: 'select', label: ['গ্রেডিয়েন্টের ধরন', 'Gradient type'], group: 'style', options: [{ value: 'linear', label: ['সরলরেখায়', 'Linear'] }, { value: 'radial', label: ['মাঝ থেকে চারদিকে', 'Radial'] }] },
   { key: 'gradientAngle', kind: 'number', min: 0, max: 360, label: ['কোণ (°)', 'Angle (°)'], group: 'style' },
   { key: 'bgImage', kind: 'image', label: ['পটভূমির ছবি', 'Background image'], group: 'style' },
   { key: 'bgSize', kind: 'select', label: ['ছবি বসানো', 'Image fit'], group: 'style', options: [{ value: 'cover', label: ['পুরো জায়গা জুড়ে', 'Fill'] }, { value: 'contain', label: ['পুরো ছবি', 'Whole image'] }] },

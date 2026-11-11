@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
+import { Ban, Blend, Paintbrush, Video, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
 import { useLang } from '../i18n'
@@ -71,11 +71,24 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
       </Group>
     </> : <>
       <Group title={L('পটভূমি', 'Background')} icon={<Palette size={15} />}>
-        <div className="design-segments design-bg-types" role="group" aria-label={L('পটভূমির ধরন', 'Background type')}>
-          {([['none', L('নেই', 'None')], ['color', L('রং', 'Colour')], ['gradient', L('গ্রেডিয়েন্ট', 'Gradient')], ['image', L('ছবি', 'Image')], ['video', L('ভিডিও', 'Video')]] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={bgType === type} onClick={() => setType(type)}>{label}</button>)}
+        {/* One row: the label, then the types as icons (names on hover and for screen readers). */}
+        <div className="design-control">
+          <div className="design-control__label"><span>{L('পটভূমির ধরন', 'Background type')}</span></div>
+          <div className="design-segments design-bg-types" role="group" aria-label={L('পটভূমির ধরন', 'Background type')}>
+            {([['none', L('নেই', 'None'), Ban], ['color', L('রং', 'Colour'), Paintbrush], ['gradient', L('গ্রেডিয়েন্ট', 'Gradient'), Blend], ['image', L('ছবি', 'Image'), ImageIcon], ['video', L('ভিডিও', 'Video'), Video]] as const).map(([type, label, Icon]) => <button key={type} type="button" aria-pressed={bgType === type} aria-label={label} title={label} onClick={() => setType(type)}><Icon size={15} aria-hidden="true" /></button>)}
+          </div>
         </div>
         {bgType === 'color' && colorControl('background')}
-        {bgType === 'gradient' && <>{colorControl('gradientFrom')}{colorControl('gradientTo')}{control('gradientAngle', L('কোণ', 'Angle'))}</>}
+        {bgType === 'gradient' && <>
+          <div className="design-control">
+            <div className="design-control__label"><span>{L('গ্রেডিয়েন্টের ধরন', 'Gradient type')}</span></div>
+            <div className="design-segments" role="group" aria-label={L('গ্রেডিয়েন্টের ধরন', 'Gradient type')}>
+              {([['linear', L('সরল', 'Linear')], ['radial', L('গোল', 'Radial')]] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={(values.gradientType ?? 'linear') === type} onClick={() => onPatch({ gradientType: type === 'linear' ? undefined : type })}>{label}</button>)}
+            </div>
+          </div>
+          {colorControl('gradientFrom')}{colorControl('gradientTo')}
+          {values.gradientType !== 'radial' && control('gradientAngle', L('কোণ', 'Angle'))}
+        </>}
         {bgType === 'image' && <>{picker('bgImage', L('ছবি', 'Image'))}{control('bgSize')}{control('bgPosition')}</>}
         {bgType === 'video' && <>
           <div className="design-control">

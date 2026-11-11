@@ -468,7 +468,7 @@ function backgroundLayer(style: SectionStyle | undefined, ctx?: Ctx) {
   const type = style.bgType
   const image = typeof style.bgImage === 'string' ? ctx?.image(style.bgImage) : undefined
   const paint: CSSProperties = {}
-  if (type === 'gradient' && style.gradientFrom && style.gradientTo) paint.backgroundImage = `linear-gradient(${Number(style.gradientAngle ?? 180)}deg, ${style.gradientFrom}, ${style.gradientTo})`
+  if (type === 'gradient' && style.gradientFrom && style.gradientTo) paint.backgroundImage = style.gradientType === 'radial' ? `radial-gradient(circle at center, ${style.gradientFrom}, ${style.gradientTo})` : `linear-gradient(${Number(style.gradientAngle ?? 180)}deg, ${style.gradientFrom}, ${style.gradientTo})`
   if ((type === 'image' || type === 'video') && image) {
     paint.backgroundImage = `url(${JSON.stringify(image.url)})`
     paint.backgroundSize = style.bgSize === 'contain' ? 'contain' : 'cover'

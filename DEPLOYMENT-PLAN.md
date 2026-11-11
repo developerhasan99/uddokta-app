@@ -496,3 +496,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Corners: one size per corner (top-left, top-right, bottom-right, bottom-left) in the joined strip with a link button, placed after the border settings; each field is named by a small corner mark. Older single `radius` still renders and is split on first edit.
 - Hover state for elements and boxes: Normal/Hover switch on the Style tab; hover values override the normal look and fall back to it (like mobile → desktop). Rendered inside @media (hover:hover); the editor preview shows the hover look while it is edited. Layout tab renamed More, with Transition (duration, easing).
 - Element panel: device and Normal/Hover switches share one full-width row (device as icons on Style; full-width labelled on More).
+- Section background: type picker is one row (label + icon buttons with names on hover); gradients can be linear (with angle) or radial (from the centre).
