@@ -651,3 +651,31 @@ test('an order form placed inside a layout takes real orders; one in a hidden la
   assert.equal(res.status, 303)
   assert.equal((await order(s.handle, s.url, { section: 'hidden1', ...fields })).status, 404)
 })
+
+test('Custom HTML runs only in a sandboxed frame with its own origin, served with the seller’s code as written', async () => {
+  const { call, handle, page, url } = await publishedPage()
+  const code = '<style>.x{color:red}</style><div class="x">Hi</div><form action="https://example.com/subscribe"><input name="email"></form><script src="https://cdn.example.com/swiper.js"></script><script>window.ready=1</script>'
+  const current = (await call('GET', `/stores/${handle}/pages/${page.id}`)).json
+  const html = { ...newBlock('html', () => 'custom-html'), block: { type: 'html' as const, settings: { html: code } } }
+  const sections = current.draft.sections.map((s: any, i: number) => (i === 0 ? { ...s, children: [...(s.children ?? []), html] } : s))
+  const saved = await call('PUT', `/stores/${handle}/pages/${page.id}`, { title: current.title, handle: current.handle, draft: { version: 2, sections }, revision: current.revision })
+  assert.equal(saved.status, 200)
+  assert.equal((await call('POST', `/stores/${handle}/pages/${page.id}/publish`, { revision: saved.json.revision })).status, 200)
+
+  const live = await visit(handle, url)
+  const body = await live.text()
+  const frame = /<iframe class="sf-embed"[^>]*>/.exec(body)?.[0] ?? ''
+  assert.match(frame, /sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"/)
+  assert.doesNotMatch(frame, /allow-same-origin/, 'the code never shares the page’s origin')
+  assert.doesNotMatch(body, /window\.ready|swiper\.js/, 'the seller’s code is not in the page itself')
+  assert.match(live.headers.get('content-security-policy')!, /frame-src 'self'/)
+
+  const src = /src="([^"]+)"/.exec(frame)![1].replace(/&amp;/g, '&')
+  const embed = await visit(handle, src)
+  assert.equal(embed.status, 200, src)
+  assert.ok((await embed.text()).includes(code), 'served exactly as written')
+  assert.match(embed.headers.get('content-security-policy')!, /^sandbox allow-scripts[^;]*; frame-ancestors 'self'$/, 'sealed even when opened directly')
+  assert.doesNotMatch(embed.headers.get('content-security-policy')!, /allow-same-origin/)
+  assert.equal((await visit(handle, src.replace('custom-html', 'nope'))).status, 404)
+  assert.equal((await visit('someone-else', src)).status, 404, 'another store’s address serves nothing')
+})

@@ -7,10 +7,10 @@ import { tx, type Tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
-import { orderBlocks, readPhone, references, type Content } from './schema.ts'
+import { embedCode, orderBlocks, readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
 import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type MenuLink } from './catalog.tsx'
-import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
+import { css, embedBase, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -26,7 +26,7 @@ const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
 // Each response allows exactly its own inline scripts by hash: the page script, and the store's pixel loader if it has one.
 const cspFor = (pixel: string) => [
   "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
-  'font-src https://fonts.gstatic.com', 'frame-src https://www.youtube-nocookie.com https://www.facebook.com',
+  'font-src https://fonts.gstatic.com', "frame-src 'self' https://www.youtube-nocookie.com https://www.facebook.com",
   `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
 
@@ -200,6 +200,8 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     orderAction: pagePath(c),
     checkoutToken: order?.values.checkout || randomUUID(),
     order,
+    // The version changes with the code, so a cached frame never shows old code after publishing.
+    embedUrl: (id, code) => `/embed/${encodeURIComponent(c.req.param('handle')!)}/${id}?v=${createHash('sha256').update(code).digest('hex').slice(0, 12)}`,
   }
   return html(c, (
     <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} theme={page.theme} pixel={pixel}>
@@ -376,6 +378,22 @@ app.get('/products/:handle', async (c) => {
 })
 
 // Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.
+// A Custom HTML block's code, as the seller wrote it, for its frame on the live page. The CSP sandbox header gives it an
+// opaque origin even when the URL is opened directly, so its scripts can never act as the store's pages or reach
+// our API with anyone's session; framing is limited to the store's own pages. Everything inside is the seller's code.
+const embedCsp = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation; frame-ancestors 'self'"
+app.get('/embed/:handle/:node', async (c) => {
+  const store = storeHandle(c)
+  const node = c.req.param('node')
+  if (!store || !/^[a-z0-9-]{1,40}$/i.test(node)) return c.notFound()
+  const page = (await tx(null, (t) => t.execute<{ content: Content }>(sql`select content from storefront_page(${store}, ${c.req.param('handle')})`))).rows[0]
+  const code = page && embedCode(page.content, node)
+  if (code === undefined || code === null) return c.notFound()
+  const size = `<script>(function(){function s(){parent.postMessage({uddoktaEmbed:1,height:Math.ceil(document.body.getBoundingClientRect().height)},'*')}new ResizeObserver(s).observe(document.body);addEventListener('load',s);s()})()</script>`
+  return c.html(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${embedBase}</style></head><body>${code}${size}</body></html>`, 200,
+    { 'content-security-policy': embedCsp, 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache' })
+})
+
 app.get('/pages/:handle', async (c) => {
   const store = storeHandle(c)
   const handle = c.req.param('handle')

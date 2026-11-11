@@ -5,7 +5,6 @@ import { IconBadge } from './icons/Icon.tsx'
 import { iconCatalog, isIconName } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
-import { cleanHtml } from './rich.ts'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -40,6 +39,8 @@ export type Ctx = {
   checkoutToken?: string
   orderAction?: string
   order?: { sectionId: string; error: string; values: OrderValues }
+  // Live pages: where a Custom HTML block's frame loads its code from (/embed/…).
+  embedUrl?: (id: string, html: string) => string
 }
 
 const number = new Intl.NumberFormat('bn-BD')
@@ -500,11 +501,33 @@ export function SectionFrame({ s, children, ctx }: { s: Section; children: React
   </div>
 }
 
+// Custom HTML. The seller's code never runs in our pages: on the live page it loads from /embed into a sandboxed
+// frame without allow-same-origin, so its scripts get an opaque origin (no access to the page, its order form, cookies
+// or our API) and the page script sizes the frame from its messages. In the editor preview scripts are off entirely
+// (allow-same-origin only, so the preview can measure the height); the seller sees the markup and CSS.
+// The body is measured (a flow root, so its children's margins count): the frame's own height never limits it.
+export const embedBase = 'html,body{margin:0}body{display:flow-root}'
+const embedSandbox = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation'
+function EmbedFrame({ id, html, ctx }: { id: string; html: string; ctx: Ctx }) {
+  if (ctx.preview) {
+    const fit = (frame: HTMLIFrameElement) => {
+      const doc = frame.contentDocument
+      if (!doc) return
+      const size = () => { frame.style.height = `${Math.ceil(doc.body.getBoundingClientRect().height)}px` }
+      size()
+      new ResizeObserver(size).observe(doc.body)
+    }
+    return <iframe className="sf-embed" title="Custom HTML" sandbox="allow-same-origin" srcDoc={`<!doctype html><meta charset="utf-8"><style>${embedBase}</style>${html}`} onLoad={(e) => fit(e.currentTarget)} />
+  }
+  const src = ctx.embedUrl?.(id, html)
+  return src ? <iframe className="sf-embed" title="Custom HTML" sandbox={embedSandbox} src={src} loading="lazy" data-embed="" /> : null
+}
+
 export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   switch (s.type) {
     case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
     case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
-    case 'html': return str(s.settings.html) ? <div className="sf-html" dangerouslySetInnerHTML={{ __html: cleanHtml(str(s.settings.html)) }} /> : ctx.preview ? <div className="sf-n-placeholder">HTML লিখুন</div> : null
+    case 'html': return str(s.settings.html) ? <EmbedFrame id={s.id} html={str(s.settings.html)} ctx={ctx} /> : ctx.preview ? <div className="sf-n-placeholder">HTML লিখুন</div> : null
     case 'iconCards':
     case 'iconList': return <InfoItems s={s} ctx={ctx} />
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
@@ -552,7 +575,7 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
 
 // The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,
 // saves what the buyer typed so the store can call if they do not finish. Forms work without it.
-export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var sub=(v?Number(v.dataset.price):0)*q;var d=0;f.querySelectorAll('input[name=rate]').forEach(function(r){var o=r.dataset;var c=('freeProduct' in o)||(o.freeOver&&sub>=Number(o.freeOver))||(o.freeQty&&q>=Number(o.freeQty))?0:Number(o.price);r.closest('label').querySelector('[data-charge]').textContent=c?'৳'+n.format(c):'ফ্রি';if(r.checked)d=c});f.querySelector('[data-total]').textContent='৳'+n.format(sub+d)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
+export const pageScript = `addEventListener('message',function(e){var d=e.data;if(!d||d.uddoktaEmbed!==1)return;document.querySelectorAll('iframe[data-embed]').forEach(function(f){if(f.contentWindow===e.source)f.style.height=Math.min(Math.max(Number(d.height)||0,0),20000)+'px'})});`+`document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var sub=(v?Number(v.dataset.price):0)*q;var d=0;f.querySelectorAll('input[name=rate]').forEach(function(r){var o=r.dataset;var c=('freeProduct' in o)||(o.freeOver&&sub>=Number(o.freeOver))||(o.freeQty&&q>=Number(o.freeQty))?0:Number(o.price);r.closest('label').querySelector('[data-charge]').textContent=c?'৳'+n.format(c):'ফ্রি';if(r.checked)d=c});f.querySelector('[data-total]').textContent='৳'+n.format(sub+d)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
 
 
 export const css = `
@@ -715,7 +738,7 @@ h1,h2,h3,p{margin:0}
 .sf-icon-badge[data-icon-surface=solid]{background:var(--section-icon-background,var(--sf-accent));color:var(--section-icon-color,var(--sf-accent-ink))}
 .sf-features .sf-icon-badge{align-self:flex-start;margin-top:2px}.sf-features .sf-legacy-check{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px);color:var(--section-icon-color,var(--sf-accent))}.sf-legacy-check path{stroke-width:var(--section-icon-stroke,2)}
 .sf-info-grid li>.sf-icon-badge{margin-bottom:18px}.sf-info--trust .sf-icon-badge{margin-bottom:10px}
-.sf-html{overflow-wrap:anywhere}.sf-html img{max-width:100%;height:auto}.sf-html table{border-collapse:collapse;max-width:100%}
+.sf-embed{display:block;width:100%;height:150px;border:0}
 .sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}
 .sf-info--iconList .sf-info-grid li{display:flex;gap:var(--section-gap,16px);align-items:flex-start;background:transparent;border:0;padding:16px 0;border-bottom:1px solid var(--sf-rule);border-radius:0}
 .sf-info--iconList .sf-info-grid li>.sf-icon-badge{margin:0}.sf-info-copy{min-width:0}

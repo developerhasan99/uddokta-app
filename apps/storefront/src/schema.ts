@@ -1,5 +1,5 @@
 import { isIconName, type IconName } from './icons/catalog.ts'
-import { cleanHtml, cleanRichText } from './rich.ts'
+import { cleanRichText } from './rich.ts'
 
 // Page content: versioned JSON, shared by the API (which validates it), the editor (which builds its forms from it)
 // and the storefront (which renders it). No JSX here, so the API can import it without a build step.
@@ -263,8 +263,9 @@ export const sectionDefs = {
     label: ['আইকন তালিকা', 'Icon list'], fields: [heading(), cards(['তালিকা', 'List items'], false, true)],
     defaults: { heading: 'এক নজরে সুবিধাগুলো', items: [{ icon: 'check', title: 'প্রথম সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }, { icon: 'check', title: 'দ্বিতীয় সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }] },
   },
-  // Seller-written HTML, kept safe by cleanHtml (no scripts, handlers, forms or frames). Only offered as a block.
-  html: { label: ['কাস্টম HTML', 'Custom HTML'], fields: [{ key: 'html', kind: 'html', label: ['HTML', 'HTML'], max: 20000 }], defaults: { html: '' } },
+  // Seller-written HTML, CSS and scripts. The seller is responsible for it; we keep it away from everything else by only
+  // running it in a sandboxed frame with its own opaque origin (see EmbedFrame and /embed in server.tsx). Only offered as a block.
+  html: { label: ['কাস্টম HTML', 'Custom HTML'], fields: [{ key: 'html', kind: 'html', label: ['HTML', 'HTML'], max: 50000 }], defaults: { html: '' } },
 } satisfies Record<string, SectionDef>
 
 export type SectionType = keyof typeof sectionDefs
@@ -306,8 +307,9 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
     case 'richtext':
       return typeof raw === 'string' && raw.length <= field.max ? cleanRichText(raw) : undefined
+    // Kept exactly as the seller wrote it. It must only ever be drawn inside the sandboxed embed frame (EmbedFrame).
     case 'html':
-      return typeof raw === 'string' && raw.length <= field.max ? cleanHtml(raw) : undefined
+      return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
     case 'select':
       return typeof raw === 'string' && field.options.some((o) => o.value === raw) ? raw : undefined
     case 'number':
@@ -494,6 +496,15 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
 // Built-in sections that can sit inside a layout as a block (anything but a layout itself).
 export const blockTypes = sectionTypes.filter((type) => type !== 'layout')
 export const newBlock = (type: SectionType, id: () => string): PageNode => ({ id: id(), kind: 'block', props: {}, block: { type, settings: structuredClone(defOf(type).defaults) } })
+
+// A Custom HTML block's code on a visible part of the page, or null.
+export function embedCode(content: Content, nodeId: string): string | null {
+  for (const section of content.sections) {
+    if (section.hidden) continue
+    for (const node of walk(section.children ?? [])) if (node.id === nodeId && node.block?.type === 'html' && typeof node.block.settings.html === 'string') return node.block.settings.html
+  }
+  return null
+}
 
 // Every order form a buyer can submit: visible order sections and order blocks in visible layouts, in page order.
 export function orderBlocks(content: Content): { id: string; settings: Settings }[] {

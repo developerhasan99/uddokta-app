@@ -143,3 +143,11 @@ test('grid boxes: columns × rows, spans, and one column on phones', () => {
   assert.match(html, /\.n-wide\{grid-column:span 2;grid-row:span 2\}/, 'no flex sizing inside a grid')
   assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-g\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:none\}[^@]*\.n-wide\{grid-column:auto;grid-row:auto\}/)
 })
+
+test('in the editor preview Custom HTML is shown with scripts off', () => {
+  const content = { version: 2 as const, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'h1', kind: 'block' as const, props: {}, block: { type: 'html' as const, settings: { html: '<script>x()</script><p>Hi</p>' } } }] }] }
+  const out = renderToStaticMarkup(<PageView content={content} ctx={{ ...ctx, preview: true }} storeName="S" />)
+  const frame = /<iframe[^>]*>/.exec(out)?.[0] ?? ''
+  assert.match(frame, /sandbox="allow-same-origin"/)
+  assert.doesNotMatch(frame, /allow-scripts/)
+})
