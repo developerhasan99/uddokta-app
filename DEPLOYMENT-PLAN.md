@@ -497,3 +497,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Hover state for elements and boxes: Normal/Hover switch on the Style tab; hover values override the normal look and fall back to it (like mobile → desktop). Rendered inside @media (hover:hover); the editor preview shows the hover look while it is edited. Layout tab renamed More, with Transition (duration, easing).
 - Element panel: device and Normal/Hover switches share one full-width row (device as icons on Style; full-width labelled on More).
 - Section background: type picker is one row (label + icon buttons with names on hover); gradients can be linear (with angle) or radial (from the centre).
+- Section background type: no None button; Classic (colour) is the default and an empty colour means no background. Gradient uses a small fading-square icon.
