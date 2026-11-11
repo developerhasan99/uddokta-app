@@ -4,6 +4,7 @@ import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, StateSwitch, type Device, type State } from '../components/NodeDesignControls'
 import { boxDepth, boxesAbove, columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
+const HtmlEditor = lazy(() => import('../components/HtmlEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
@@ -217,9 +218,9 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       return <div className="field"><span className="field__label" id={`${id}-label`}>{label}</span><RichText labelledBy={`${id}-label`} value={toRich(String(value ?? ''))} onChange={(html) => onChange(html, true)} /></div>
     case 'html':
       return <div className="field">
-        <label htmlFor={id}>{label}</label>
-        <textarea id={id} className="input input--area input--code" rows={12} spellCheck={false} maxLength={field.max} value={String(value ?? '')} onChange={(e) => onChange(e.target.value, true)} />
-        <p className="design-help">{lang === 'bn' ? 'লেখা, ছবি, লিংক, টেবিল ও স্টাইল চলবে। স্ক্রিপ্ট, ফর্ম আর iframe নিরাপত্তার জন্য সরিয়ে ফেলা হয়।' : 'Text, images, links, tables and styles work. Scripts, forms and iframes are removed for safety.'}</p>
+        <span className="field__label" id={`${id}-label`}>{label}</span>
+        <Suspense fallback={<div className="css-editor css-editor--loading" />}><HtmlEditor value={String(value ?? '')} label={label} describedBy={`${id}-help`} maxLength={field.max} onChange={(v) => onChange(v, true)} /></Suspense>
+        <p className="design-help" id={`${id}-help`}>{lang === 'bn' ? 'লেখা, ছবি, লিংক, টেবিল ও স্টাইল চলবে। স্ক্রিপ্ট, ফর্ম আর iframe নিরাপত্তার জন্য সরিয়ে ফেলা হয়।' : 'Text, images, links, tables and styles work. Scripts, forms and iframes are removed for safety.'}</p>
       </div>
     case 'textarea':
       return (
