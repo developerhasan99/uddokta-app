@@ -124,3 +124,10 @@ test('boxes nest at most four deep', () => {
   assert.ok(readContent(nest(maxBoxDepth)), 'four boxes with an element inside is fine')
   assert.equal(readContent(nest(maxBoxDepth + 1)), null, 'a fifth box is refused')
 })
+
+test('colours are #RRGGBB or #RRGGBBAA (see-through), nothing else', () => {
+  const page = (color: string): Content => ({ version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'h', kind: 'heading', props: {}, style: { color } } as PageNode] }] })
+  assert.equal((readContent(page('#2121cc7d'))?.sections[0].children?.[0].style as Record<string, unknown>).color, '#2121cc7d')
+  assert.equal((readContent(page('#2121cc'))?.sections[0].children?.[0].style as Record<string, unknown>).color, '#2121cc')
+  for (const bad of ['#2121cc7', '#2121cc7d0', 'red', '#21c', 'rgba(0,0,0,.5)']) assert.equal(readContent(page(bad)), null, bad)
+})

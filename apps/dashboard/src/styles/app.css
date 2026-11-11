@@ -1019,10 +1019,9 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .editor-section-thumb iframe{border:0;position:absolute;inset:0;width:1000px;height:650px;transform:scale(.34);transform-origin:top left;pointer-events:none}
 .editor-section-label{display:flex;align-items:center;gap:8px;padding:13px;font-size:13px;min-height:48px}
 .editor-section-label>svg:last-child{margin-inline-start:auto;flex-shrink:0}
-.editor-color{width:32px;height:32px;border:0;padding:2px;background:transparent;cursor:pointer;flex-shrink:0}
 @media(max-width:520px){.editor-add__choices{gap:10px}.editor-section-thumb{height:110px}.editor-section-thumb iframe{transform:scale(.22)}.editor-section-label{padding:10px;font-size:11px;gap:5px}}
 
-.editor .field__control:has(.editor-color){display:flex;align-items:center;gap:8px}.editor .field__control:has(.editor-color)>.input{flex:1;min-width:0}
+
 
 /* Builder inspector: compact control groups, native color pickers and the box model. */
 @media(min-width:861px) { .editor__sidebar[data-editing=true] .editor__sections { flex: 0 1 27%; min-height: 150px; } }
@@ -1523,7 +1522,7 @@ a.order-item__name:hover { text-decoration: underline; }
 .design-segments button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .design-segments button:hover { color: var(--color-ink); }
 .design-segments button[aria-pressed="true"] { background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-weight: 500; }
-.design-segments button:focus-visible, .design-widths button:focus-visible, .design-palette button:focus-visible, .spacing-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.design-segments button:focus-visible, .design-widths button:focus-visible, .spacing-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .design-widths { display: flex; gap: var(--space-2xs); margin-top: calc(-1 * var(--space-2xs)); }
 .design-widths button { flex: 1; min-height: 28px; padding: 0 var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .design-widths button:hover { background: var(--color-paper-2); }
@@ -1538,16 +1537,32 @@ a.order-item__name:hover { text-decoration: underline; }
 .design-color__input:has([aria-invalid="true"]) { border-color: var(--color-error); }
 .design-color__swatch { position: relative; flex: none; width: 24px; height: 24px; overflow: hidden; border: var(--rule-hair) solid color-mix(in oklab, var(--color-ink) 12%, transparent); border-radius: calc(var(--radius-control) - 3px); }
 .design-color__swatch { padding: 0; cursor: pointer; }
+
+/* Colour picker (components/ColorPicker.tsx): saturation/brightness area, hue and opacity sliders, recent colours.
+   The hue, opacity and checkerboard fills show the colour itself, so they are the one place gradients are allowed. */
+.color-chip { position: relative; overflow: hidden; background: repeating-conic-gradient(#d4d4d4 0 25%, #ffffff 0 50%) 0 0 / 8px 8px; }
+.color-chip > span { position: absolute; inset: 0; }
+.color-picker { display: grid; gap: var(--space-xs); padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
+.color-picker__area { position: relative; height: 140px; border-radius: var(--radius-control); background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent); cursor: crosshair; touch-action: none; }
+.color-picker__area:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.color-picker__thumb { position: absolute; width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #0006; transform: translate(-50%, -50%); pointer-events: none; }
+.color-picker :is(.color-picker__hue, .color-picker__alpha) { width: 100%; height: 12px; margin: 0; border-radius: 999px; appearance: none; cursor: pointer; }
+.color-picker__hue { background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.color-picker__alpha { background: linear-gradient(to right, transparent, var(--picker-solid)), repeating-conic-gradient(#d4d4d4 0 25%, #ffffff 0 50%) 0 0 / 8px 8px; }
+.color-picker :is(.color-picker__hue, .color-picker__alpha)::-webkit-slider-thumb { width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; background: transparent; box-shadow: 0 0 0 1px #0006; appearance: none; }
+.color-picker :is(.color-picker__hue, .color-picker__alpha)::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: transparent; box-shadow: 0 0 0 1px #0006; }
+.color-picker :is(.color-picker__hue, .color-picker__alpha):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.color-picker__recent { display: grid; gap: var(--space-2xs); }
+.color-picker__recent > span { color: var(--color-muted); font-size: 11px; }
+.color-picker__recent > p { margin: 0; color: var(--color-muted); font-size: 12px; }
+.color-picker__swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.color-picker__swatches .color-chip { width: 18px; height: 18px; padding: 0; border: var(--rule-hair) solid color-mix(in oklab, var(--color-ink) 14%, transparent); border-radius: 50%; cursor: pointer; }
+.color-picker__swatches .color-chip[aria-pressed="true"] { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.color-picker__swatches .color-chip:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+@media (max-width: 860px) { .color-picker__swatches .color-chip { width: 24px; height: 24px; } .color-picker__area { height: 160px; } }
 .design-color__swatch:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-.design-palette__more { position: relative; display: grid; place-items: center; flex: none; width: 18px; height: 18px; border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: 50%; color: var(--color-muted); cursor: pointer; }
-.design-palette__more:hover { color: var(--color-ink); border-color: var(--color-ink-2); }
-.design-palette__more input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
-.design-palette__more:focus-within { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .design-color__hash { color: var(--color-muted); font: var(--text-sm) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .design-color__input > input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--color-ink); font: var(--text-sm) ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
-.design-palette { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: 2px; }
-.design-palette button { flex: none; width: 18px; height: 18px; padding: 0; border: var(--rule-hair) solid color-mix(in oklab, var(--color-ink) 14%, transparent); border-radius: 50%; cursor: pointer; }
-.design-palette button[aria-pressed="true"] { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
 .spacing-control { display: grid; gap: var(--space-sm); }
 .space-map { position: relative; min-width: 0; border-radius: var(--radius-control); }
@@ -1591,8 +1606,6 @@ a.order-item__name:hover { text-decoration: underline; }
   .editor .input-affix input, .design-color__input > input { font-size: 16px; }
   .design-color__input { min-height: 36px; }
   .design-color__swatch { width: 28px; height: 28px; }
-  .design-palette { gap: 10px; }
-  .design-palette button, .design-palette__more { width: 24px; height: 24px; }
   .space-value input { width: 48px; height: 32px; font-size: 16px; }
   .space-map--margin { height: 300px; }
   .space-map--padding { inset: 52px 56px; }
@@ -1777,9 +1790,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings :is(.design-segments, .segmented) { background: transparent; box-shadow: inset 0 0 0 1px var(--color-rule-strong); }
 .editor .editor__settings .design-segments button[aria-pressed="true"] { background: var(--color-paper-3); box-shadow: none; font-weight: 400; }
 .editor .editor__settings .design-color__head > span { font-size: 11px; }
-.editor .editor__settings .design-palette { gap: 6px; }
-.editor .editor__settings .design-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 1fr)); justify-items: center; gap: var(--space-xs) 0; padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
-.editor .editor__settings :is(.design-palette button, .design-palette__more) { width: 18px; height: 18px; }
 .editor .editor__settings .node-device { width: fit-content; justify-self: end; }
 .editor .editor__settings .node-device button { min-height: 24px; padding: 0 var(--space-xs); font-size: 12px; }
 .editor .editor-setting-tabs button { min-height: 36px; border-bottom-width: 2px; font-weight: 400; }
@@ -1811,7 +1821,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-color__head { grid-column: 1; grid-row: 1; }
 .editor .editor__settings .design-color__head > span { display: none; }
 .editor .editor__settings .design-color__input { grid-column: 2; grid-row: 1; }
-.editor .editor__settings :is(.design-palette, .design-color > .form-error) { grid-column: 1 / -1; }
+.editor .editor__settings :is(.color-picker, .design-color > .form-error) { grid-column: 1 / -1; }
 /* Label 60%, small value fields 40%. Toggle rows and steppers need the room, so they keep a narrow label. */
 .editor .editor__settings .design-control:not(.design-control--stacked):has(> .design-segments, > .node-stepper) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); }
 .editor .editor__settings .design-color__input { gap: var(--space-2xs); }

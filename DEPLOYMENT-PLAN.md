@@ -490,3 +490,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Preview outlines are drawn inside every element (never outside), only the innermost hovered element is outlined, and a box's handle shows only when the box itself (not a child) is hovered, so children never look larger than their box.
 - Add section offers only the empty section (`sectionPresets`); the other ready-made section presets were deleted.
 - Element and box borders: type (solid, dashed, dotted), a width per side in the joined four-field strip with a link button, and colour. Padding and margin strips got the same link button. Phone border rules add to desktop ones (`layout.test.ts`).
+- Colour picker (`components/ColorPicker.tsx`): saturation/brightness area, hue and opacity sliders, recently used colours (this browser). Replaces the fixed palette in every colour field, including section settings. Colours may be #RRGGBBAA.

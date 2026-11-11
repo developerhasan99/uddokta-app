@@ -1,16 +1,15 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Plus, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
 import { useLang } from '../i18n'
 import type { MediaItem } from '../api'
 import { BackgroundImage } from './NodeDesignControls'
+import { ColorPicker, isColor, rememberColor } from './ColorPicker'
 
 type Patch = Record<string, string | number | undefined>
 type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPatch: (patch: Patch, typingKey?: string) => void; media: Record<string, MediaItem>; onPickImage: (apply: (id: string | null) => void) => void }
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
-// Common picks: white, black, charcoal, then the colour wheel (red, orange, yellow, green, blue, purple, pink).
-const swatches = ['#ffffff', '#000000', '#374151', '#dc2626', '#f97316', '#facc15', '#16a34a', '#2563eb', '#7c3aed', '#db2777']
 
 // A titled, collapsible block of settings.
 export function Group({ title, icon, children, note, open = true }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
@@ -115,12 +114,12 @@ export function NumericInput({ id, field, value, onChange, placeholder = '—' }
   }} />
 }
 
-// One line: label, then a swatch with the HEX code. The swatch opens the palette and the system picker underneath.
+// One line: label, then a swatch with the HEX code. The swatch opens the colour picker (with recent colours) underneath.
 export function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
   const { lang } = useLang()
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
-  const valid = /^#[0-9a-f]{6}$/i.test(value)
+  const valid = isColor(value)
   const L = (bn: string, en: string) => lang === 'bn' ? bn : en
   useEffect(() => {
     if (!open) return
@@ -128,19 +127,15 @@ export function ColorControl({ id, label, value, inherited, onChange }: { id: st
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
   }, [open])
-  const pick = (color: string) => { onChange(color); setOpen(false) }
   return <div className="design-color" ref={box} onKeyDown={(e) => { if (open && e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }}>
     <div className="design-color__head"><label htmlFor={id}>{label}</label><span>{value ? L('নিজস্ব', 'Custom') : L('থিম', 'Theme')}</span></div>
     <div className="design-color__input">
-      <button type="button" className="design-color__swatch" style={{ backgroundColor: valid ? value : inherited }} aria-expanded={open} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`} onClick={() => setOpen((o) => !o)} />
-      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={7} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited.slice(1).toUpperCase()} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} />
+      <button type="button" className="design-color__swatch color-chip" aria-expanded={open} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`} onClick={() => setOpen((o) => !o)}><span style={{ backgroundColor: valid ? value : inherited }} /></button>
+      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited.slice(1).toUpperCase()} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} onBlur={() => rememberColor(value)} />
       <button type="button" className="design-reset" aria-label={`${L('ডিফল্ট করুন', 'Reset')} ${label}`} title={L('থিমের রং ব্যবহার করুন', 'Use theme color')} disabled={!value} onClick={() => onChange('')}><RotateCcw size={13} aria-hidden="true" /></button>
     </div>
-    {value && !valid && <p className="form-error" id={`${id}-error`}>{L('৬ সংখ্যার HEX রং দিন।', 'Enter a six-digit HEX color.')}</p>}
-    {open && <div className="design-palette" role="group" aria-label={`${label}: ${L('রং প্যালেট', 'Color palette')}`}>
-      {swatches.map((color) => <button key={color} type="button" aria-label={`${label} ${color}`} title={color} aria-pressed={value.toLowerCase() === color} style={{ backgroundColor: color }} onClick={() => pick(color)} />)}
-      <label className="design-palette__more" title={L('আরও রং', 'More colours')}><Plus size={12} aria-hidden="true" /><input type="color" aria-label={`${label}: ${L('আরও রং', 'More colours')}`} value={valid ? value : inherited} onChange={(e) => onChange(e.target.value)} /></label>
-    </div>}
+    {value && !valid && <p className="form-error" id={`${id}-error`}>{L('৬ বা ৮ সংখ্যার HEX রং দিন।', 'Enter a six- or eight-digit HEX color.')}</p>}
+    {open && <ColorPicker value={value} fallback={inherited} label={label} onChange={onChange} />}
   </div>
 }
 

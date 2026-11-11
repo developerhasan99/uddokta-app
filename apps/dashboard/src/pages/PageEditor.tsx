@@ -19,7 +19,7 @@ import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { IconField } from '../components/IconField'
-import { SectionDesignControls } from '../components/SectionDesignControls'
+import { ColorControl, SectionDesignControls } from '../components/SectionDesignControls'
 import { SectionThumbnail } from '../components/SectionThumbnail'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
@@ -206,10 +206,8 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       </select></div>
     case 'number':
       return <Field id={id} type="number" label={label} min={field.min} max={field.max} step={1} placeholder={lang === 'bn' ? 'ডিফল্ট' : 'Inherit'} value={value === null ? '' : String(value)} onChange={(e) => onChange(e.target.value === '' ? '' : Math.max(field.min, Math.min(field.max, Math.round(Number(e.target.value) || 0))), true)} />
-    case 'color': {
-      const color = String(value ?? '')
-      return <Field id={id} label={label} maxLength={7} placeholder={lang === 'bn' ? 'ডিফল্ট রং' : 'Inherit color'} value={color} error={color && !/^#[0-9a-f]{6}$/i.test(color) ? (lang === 'bn' ? '#RRGGBB ফরম্যাটে দিন' : 'Use #RRGGBB') : undefined} onChange={(e) => onChange(e.target.value, true)} trailing={<input type="color" className="editor-color" aria-label={`${label}: ${lang === 'bn' ? 'রং বাছাই' : 'Choose color'}`} value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff'} onChange={(e) => onChange(e.target.value)} />} />
-    }
+    case 'color':
+      return <ColorControl id={id} label={label} value={String(value ?? '')} inherited="#ffffff" onChange={onChange} />
     case 'link':
       return <Field id={id} label={label} placeholder="https://… / #section-id" maxLength={500} value={String(value ?? '')} error={!isSectionLink(value ?? '') ? (lang === 'bn' ? 'https://, #সেকশন, tel: বা mailto: লিংক দিন।' : 'Use https://, #section, tel: or mailto: links.') : undefined} onChange={(e) => onChange(e.target.value.trim(), true)} />
     case 'text':

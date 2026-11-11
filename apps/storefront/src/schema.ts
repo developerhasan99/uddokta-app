@@ -303,7 +303,7 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
     case 'number':
       return Number.isInteger(raw) && (raw as number) >= field.min && (raw as number) <= field.max ? raw as number : undefined
     case 'color':
-      return typeof raw === 'string' && /^#[0-9a-f]{6}$/i.test(raw) ? raw : undefined
+      return typeof raw === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(raw) ? raw : undefined
     case 'link':
       return isSectionLink(raw) ? raw : undefined
     case 'url':

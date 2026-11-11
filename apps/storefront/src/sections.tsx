@@ -443,7 +443,7 @@ export function sectionStyle(style?: SectionStyle): CSSProperties {
   const colors: Record<string, string[]> = { iconColor: ['--section-icon-color'], iconBackground: ['--section-icon-background'], background: ['--section-background'], color: ['--sf-ink', '--sf-muted'], accent: ['--sf-accent'], buttonText: ['--sf-accent-ink'], cardBackground: ['--section-card'], borderColor: ['--section-border'] }
   for (const [key, value] of Object.entries(style ?? {})) {
     if (lengths[key] && typeof value === 'number') out[`--section-${lengths[key]}`] = `${value}px`
-    if (colors[key] && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) for (const variable of colors[key]) out[variable] = value
+    if (colors[key] && typeof value === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) for (const variable of colors[key]) out[variable] = value
   }
   if (style?.iconStroke) out['--section-icon-stroke'] = style.iconStroke
   if (style?.align) out['--section-align'] = style.align
