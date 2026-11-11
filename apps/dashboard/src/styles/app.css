@@ -1537,7 +1537,12 @@ a.order-item__name:hover { text-decoration: underline; }
 .design-color__input:focus-within { outline: 2px solid var(--color-focus); outline-offset: -1px; }
 .design-color__input:has([aria-invalid="true"]) { border-color: var(--color-error); }
 .design-color__swatch { position: relative; flex: none; width: 24px; height: 24px; overflow: hidden; border: var(--rule-hair) solid color-mix(in oklab, var(--color-ink) 12%, transparent); border-radius: calc(var(--radius-control) - 3px); }
-.design-color__swatch input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; opacity: 0; cursor: pointer; }
+.design-color__swatch { padding: 0; cursor: pointer; }
+.design-color__swatch:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.design-palette__more { position: relative; display: grid; place-items: center; flex: none; width: 18px; height: 18px; border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: 50%; color: var(--color-muted); cursor: pointer; }
+.design-palette__more:hover { color: var(--color-ink); border-color: var(--color-ink-2); }
+.design-palette__more input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+.design-palette__more:focus-within { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .design-color__hash { color: var(--color-muted); font: var(--text-sm) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .design-color__input > input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--color-ink); font: var(--text-sm) ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
 .design-palette { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: 2px; }
@@ -1587,7 +1592,7 @@ a.order-item__name:hover { text-decoration: underline; }
   .design-color__input { min-height: 36px; }
   .design-color__swatch { width: 28px; height: 28px; }
   .design-palette { gap: 10px; }
-  .design-palette button { width: 24px; height: 24px; }
+  .design-palette button, .design-palette__more { width: 24px; height: 24px; }
   .space-value input { width: 48px; height: 32px; font-size: 16px; }
   .space-map--margin { height: 300px; }
   .space-map--padding { inset: 52px 56px; }
@@ -1773,7 +1778,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-segments button[aria-pressed="true"] { background: var(--color-paper-3); box-shadow: none; font-weight: 400; }
 .editor .editor__settings .design-color__head > span { font-size: 11px; }
 .editor .editor__settings .design-palette { gap: 6px; }
-.editor .editor__settings .design-palette button { width: 14px; height: 14px; }
+.editor .editor__settings .design-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 1fr)); justify-items: center; gap: var(--space-xs) 0; padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
+.editor .editor__settings :is(.design-palette button, .design-palette__more) { width: 18px; height: 18px; }
 .editor .editor__settings .node-device { width: fit-content; justify-self: end; }
 .editor .editor__settings .node-device button { min-height: 24px; padding: 0 var(--space-xs); font-size: 12px; }
 .editor .editor-setting-tabs button { min-height: 36px; border-bottom-width: 2px; font-weight: 400; }
