@@ -488,3 +488,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Colour fields are one line (label, swatch, HEX). The swatch opens the palette (10 common colours + a + for the system picker) underneath; picking or clicking outside closes it.
 - Preview corner tags use the tree's icons: section and box handles show their tree icon, and a selected element gets a tag with its icon above its top-left corner (CSS anchor positioning).
 - Preview outlines are drawn inside every element (never outside), only the innermost hovered element is outlined, and a box's handle shows only when the box itself (not a child) is hovered, so children never look larger than their box.
+- Add section offers only the empty section for now (`sectionPresets` filters the other presets out; they stay defined).

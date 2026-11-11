@@ -125,7 +125,7 @@ export function pathTo(sections: Section[], id: string): string[] {
 
 // What "Add section" offers: generic building pieces, not purpose-made sections. Specific things (order form,
 // reviews, FAQ, …) are blocks placed inside these from "Add element".
-export const sectionPresets: { key: string; label: Label; help: Label; build: (id: () => string) => PageNode[] }[] = [
+const allSectionPresets: { key: string; label: Label; help: Label; build: (id: () => string) => PageNode[] }[] = [
   { key: 'empty', label: ['খালি সেকশন', 'Empty section'], help: ['শূন্য থেকে নিজের মতো সাজান', 'Start from nothing and build your own'], build: () => [] },
   { key: 'headingText', label: ['শিরোনাম ও লেখা', 'Heading and text'], help: ['একটি শিরোনাম আর তার নিচে লেখা', 'A heading with text below it'], build: (id) => [el('heading', id), el('text', id)] },
   ...layoutPresets.filter((p) => p.key !== 'banner').map((p) => ({ ...p, build: (id: () => string) => [p.build(id)] })),
@@ -134,6 +134,8 @@ export const sectionPresets: { key: string; label: Label; help: Label; build: (i
   ...layoutPresets.filter((p) => p.key === 'banner').map((p) => ({ ...p, build: (id: () => string) => [p.build(id)] })),
   { key: 'cta', label: ['বাটনসহ আহ্বান', 'Call to action'], help: ['মাঝখানে শিরোনাম, লেখা আর বাটন', 'A centred heading, text and button'], build: (id) => [box(id, { align: 'center', textAlign: 'center', gap: 16 }, [el('heading', id, { text: 'আজই অর্ডার করুন' }), el('text', id, { text: 'আপনার অফার বা আহ্বান এখানে লিখুন।' }), el('button', id)])] },
 ]
+// For now Add section offers only the empty section; widen this filter to bring the others back.
+export const sectionPresets = allSectionPresets.filter((preset) => preset.key === 'empty')
 
 // "Structure" in Add element: one box, or a row of 2–4 equal column boxes (stacked on phones). More columns or
 // rows are just more boxes, added like anything else.
