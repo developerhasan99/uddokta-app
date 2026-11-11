@@ -356,7 +356,8 @@ function BlockStyleForm({ type, settings, theme, onChange }: { type: SectionType
   const value = (key: string) => settings[key] ?? def.defaults[key]
   const leaves = def.fields.filter((field): field is Leaf => field.kind !== 'list' && 'group' in field && field.group === 'layout')
     .filter((field) => !(field.key.startsWith('divider') && field.key !== 'divider' && (value('divider') ?? 'none') === 'none'))
-  return <div className="design-controls">{leaves.map((field) => {
+  // Rows go straight into the Group body, which spaces them like every other Style group.
+  return <>{leaves.map((field) => {
     const id = `${uid}-${field.key}`
     const label = L(field.label).replace(/ \((px|%)\)$/, '')
     if (field.kind === 'color') return <ColorControl key={field.key} id={id} label={label} value={String(value(field.key) ?? '')} inherited={blockColorHints[field.key] ? presetVars(theme)[blockColorHints[field.key]] : ''} onChange={(v, typing) => onChange(field.key, v, typing)} />
@@ -373,7 +374,7 @@ function BlockStyleForm({ type, settings, theme, onChange }: { type: SectionType
       <div className="input-affix design-number"><NumericInput id={id} field={field} value={value(field.key) as number | undefined} onChange={(v) => v !== undefined && onChange(field.key, v, true)} /><span aria-hidden="true">px</span></div>
     </div>
     return null
-  })}</div>
+  })}</>
 }
 
 function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: (typeof sectionPresets)[number]) => void }) {
