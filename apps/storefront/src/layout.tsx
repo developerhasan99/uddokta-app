@@ -77,7 +77,11 @@ const align: Record<string, string> = { stretch: 'stretch', start: 'flex-start',
 const shadows: Record<string, string> = { none: 'none', soft: '0 6px 24px #00000014', strong: '0 14px 40px #0000002e' }
 
 // The node's own look: everything except its width, which depends on the box it sits in.
-function declarations(node: PageNode, st: NodeStyle, ctx: Ctx): string[] {
+const borderSides = ['Top', 'Right', 'Bottom', 'Left'] as const
+const hasBorder = (st: NodeStyle) => typeof st.borderWidth === 'number' || borderSides.some((side) => typeof st[`border${side}Width`] === 'number')
+
+// base: the desktop style when st is the phone override, so phone rules only add to it.
+function declarations(node: PageNode, st: NodeStyle, ctx: Ctx, base: NodeStyle = {}): string[] {
   const out: string[] = []
   const n = (key: string) => (typeof st[key] === 'number' ? st[key] as number : undefined)
   if (node.kind === 'box' && st.display === 'grid') out.push('display:grid')
@@ -109,8 +113,17 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx): string[] {
     if (img) out.push(`background-image:url(${JSON.stringify(img.url.replace(/[<>]/g, encodeURIComponent))})`, 'background-size:cover', 'background-position:center')
   }
   if (n('radius') !== undefined) out.push(`border-radius:${n('radius')}px`)
-  if (n('borderWidth') !== undefined) out.push(`border:${n('borderWidth')}px solid ${st.borderColor ?? 'var(--sf-rule)'}`)
-  else if (st.borderColor) out.push(`border-color:${st.borderColor}`)
+  // Border: widths per side (or the older all-sides borderWidth). Where this rule is the first to give the node a
+  // border (desktop, or a phone border with none on desktop), unset sides start at 0 and style/colour get defaults;
+  // otherwise only what this rule sets is written, so phone overrides keep the desktop values.
+  const fresh = hasBorder(st) && !hasBorder(base)
+  if (fresh || n('borderWidth') !== undefined) out.push(`border-width:${n('borderWidth') ?? 0}px`)
+  for (const side of borderSides) if (n(`border${side}Width`) !== undefined) out.push(`border-${side.toLowerCase()}-width:${n(`border${side}Width`)}px`)
+  if (fresh) out.push(`border-style:${st.borderStyle ?? base.borderStyle ?? 'solid'}`, `border-color:${st.borderColor ?? base.borderColor ?? 'var(--sf-rule)'}`)
+  else {
+    if (st.borderStyle && (hasBorder(st) || hasBorder(base))) out.push(`border-style:${st.borderStyle}`)
+    if (st.borderColor) out.push(`border-color:${st.borderColor}`)
+  }
   if (st.shadow) out.push(`box-shadow:${shadows[st.shadow as string]}`)
   return out
 }
@@ -158,7 +171,7 @@ export function layoutCss(content: Content, ctx: Ctx): string {
       const widthM = (node.mobile?.width as number | undefined) ?? (dirM === dirD ? widthD : undefined)
       const own = [...declarations(node, node.style ?? {}, ctx), ...(!grid && (parent || widthD !== undefined) ? sizing(node, widthD, dirD, gapD) : []), ...itemRules(node.style)]
       if (own.length) desktop.push(`${sel}{${own.join(';')}}`)
-      const mobileOwn = node.mobile ? declarations(node, node.mobile, ctx) : []
+      const mobileOwn = node.mobile ? declarations(node, node.mobile, ctx, node.style ?? {}) : []
       if (node.kind === 'box' && node.style?.display !== 'grid' && String(node.style?.direction ?? '').startsWith('row') && !node.mobile?.direction) mobileOwn.push('flex-direction:column')
       if (node.kind === 'box' && node.style?.display === 'grid' && node.mobile?.gridColumns === undefined) mobileOwn.push('grid-template-columns:minmax(0,1fr)', 'grid-template-rows:none')
       if (grid) {

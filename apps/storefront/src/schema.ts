@@ -525,7 +525,10 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'background', kind: 'color', group: 'style', label: ['পটভূমি', 'Background'] },
   { key: 'backgroundImage', kind: 'image', group: 'style', label: ['পটভূমির ছবি', 'Background image'] },
   px('radius', ['কোণা (px)', 'Corners (px)'], 200, 0, 'style'),
+  // borderWidth is the older all-sides width; the editor now writes one width per side and clears it.
   px('borderWidth', ['বর্ডার (px)', 'Border (px)'], 12, 0, 'style'),
+  ...(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => px(`border${side}Width`, [`বর্ডার ${({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side]} (px)`, `Border ${side.toLowerCase()} (px)`], 40, 0, 'style')),
+  { key: 'borderStyle', kind: 'select', group: 'style', label: ['বর্ডারের ধরন', 'Border style'], options: opts(['solid', ['সলিড', 'Solid']], ['dashed', ['ড্যাশ', 'Dashed']], ['dotted', ['ডট', 'Dotted']]) },
   { key: 'borderColor', kind: 'color', group: 'style', label: ['বর্ডারের রং', 'Border color'] },
   { key: 'shadow', kind: 'select', group: 'style', label: ['ছায়া', 'Shadow'], options: opts(['none', ['নেই', 'None']], ['soft', ['হালকা', 'Soft']], ['strong', ['গাঢ়', 'Strong']]) },
 ]

@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Link2, Unlink2, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
@@ -24,6 +24,7 @@ const fieldOf = (key: string) => nodeStyleFields.find((f) => f.key === key)!
 // Layout and Style for one box or element. On "Mobile" the same controls write phone overrides, with the desktop value as the hint.
 export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage, grid, parentGrid }: Props) {
   const [blocked, setBlocked] = useState(false)
+  const [linked, setLinked] = useState({ padding: false, margin: false, border: true })
   const { lang } = useLang()
   const uid = useId()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
@@ -62,16 +63,30 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
     </div>
   }
   const color = (key: string, inherited: string) => <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(fieldOf(key))} value={String(value(key) ?? '')} inherited={String(device === 'mobile' ? desktop[key] ?? inherited : inherited)} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
-  const spacing = (kind: 'padding' | 'margin') => {
-    const sides = kind === 'padding' ? (['Top', 'Right', 'Bottom', 'Left'] as const) : (['Top', 'Bottom'] as const)
+  // Joined side fields with a link button at the end that edits every side together (padding, margin, border widths).
+  const sideNames = { Top: L('উপর', 'Top'), Right: L('ডান', 'Right'), Bottom: L('নিচ', 'Bottom'), Left: L('বাম', 'Left') }
+  const sideFields = (kind: 'padding' | 'margin' | 'border', label: string) => {
+    const sides = kind === 'margin' ? (['Top', 'Bottom'] as const) : (['Top', 'Right', 'Bottom', 'Left'] as const)
+    const keyOf = (side: string) => kind === 'border' ? `border${side}Width` : `${kind}${side}`
+    // Older pages keep one border width for all sides; it shows in every field and is split up on the first edit.
+    const legacy = kind === 'border' ? value('borderWidth') : undefined
+    const set = (side: string, v: number | undefined) => {
+      const patch: Patch = Object.fromEntries((linked[kind] ? sides : [side]).map((s) => [keyOf(s), v]))
+      if (legacy !== undefined) {
+        for (const s of sides) if (!(keyOf(s) in patch)) patch[keyOf(s)] = value(keyOf(s)) ?? legacy
+        patch.borderWidth = undefined
+      }
+      onPatch(patch, `${kind}:${linked[kind] ? 'all' : side}`)
+    }
     return <div className="node-spacing" key={kind}>
-      <div className="design-control__label"><span>{kind === 'padding' ? L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding') : L('বাইরের ফাঁকা (মার্জিন)', 'Margin')}</span>{reset(sides.map((s) => `${kind}${s}`))}<span className="spacing-row__unit" aria-hidden="true">px</span></div>
+      <div className="design-control__label"><span>{label}</span>{reset([...sides.map(keyOf), ...(kind === 'border' ? ['borderWidth'] : [])])}<span className="spacing-row__unit" aria-hidden="true">px</span></div>
       <div className="node-spacing__grid" data-count={sides.length}>
         {sides.map((side) => {
-          const key = `${kind}${side}`
-          const label = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)
-          return <label key={side} className="node-spacing__cell"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key)} onChange={(v) => onPatch({ [key]: v }, key)} /><span>{label}</span></label>
+          const key = keyOf(side)
+          const hint = device === 'mobile' ? desktop[key] ?? (kind === 'border' ? desktop.borderWidth : undefined) : undefined
+          return <label key={side} className="node-spacing__cell"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key) ?? legacy} placeholder={hint !== undefined ? String(hint) : undefined} onChange={(v) => set(side, v)} /><span>{sideNames[side]}</span></label>
         })}
+        <button className="spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${label}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((l) => ({ ...l, [kind]: !l[kind] }))}>{linked[kind] ? <Link2 size={14} aria-hidden="true" /> : <Unlink2 size={14} aria-hidden="true" />}</button>
       </div>
     </div>
   }
@@ -147,7 +162,7 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
       {number('minHeight', node.kind === 'spacer' ? L('উচ্চতা', 'Height') : undefined)}
       {node.kind !== 'spacer' && <p className="design-help">{L('পাশাপাশি থাকলে প্রস্থ হলো সারির ভাগ। ফাঁকা রাখলে সমান ভাগ হয়।', 'In a row, width is a share of the row. Leave it blank to share equally.')}</p>}
     </Group>
-    <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>{spacing('padding')}{spacing('margin')}</Group>
+    <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>{sideFields('padding', L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding'))}{sideFields('margin', L('বাইরের ফাঁকা (মার্জিন)', 'Margin'))}</Group>
     <Group title={L('ডিভাইসে দেখানো', 'Device visibility')} icon={<Monitor size={15} />}>
       <div className="design-segments" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
         {([[undefined, L('সব', 'All'), Layers], ['mobile', L('ডেস্কটপ', 'Desktop'), Monitor], ['desktop', L('মোবাইল', 'Mobile'), Smartphone]] as const).map(([hide, label, Icon]) => <button key={label} type="button" aria-pressed={node.hide === hide} onClick={() => onHide(hide)}><Icon size={14} aria-hidden="true" /><span>{label}</span></button>)}
@@ -173,7 +188,9 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
           {isBox && <BackgroundImage value={value('backgroundImage')} media={media} label={L('পটভূমির ছবি', 'Background image')} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ backgroundImage: id ?? undefined }))} onRemove={() => onPatch({ backgroundImage: undefined })} />}
         </Group>}
     <Group title={L('বর্ডার ও কোণা', 'Border & corners')} icon={<Square size={15} />} open={false}>
-      <div className="design-grid">{number('radius', L('কোণা', 'Corners'))}{number('borderWidth', L('বর্ডার', 'Border'))}</div>
+      {number('radius', L('কোণা', 'Corners'))}
+      {segments('borderStyle', L('বর্ডারের ধরন', 'Border type'), [{ value: 'solid', label: L('সলিড', 'Solid') }, { value: 'dashed', label: L('ড্যাশ', 'Dashed') }, { value: 'dotted', label: L('ডট', 'Dotted') }])}
+      {sideFields('border', L('বর্ডারের প্রস্থ', 'Border width'))}
       {color('borderColor', '#e3e5e1')}
       {select('shadow')}
     </Group>
