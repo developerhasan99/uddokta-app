@@ -24,11 +24,11 @@ export function IconPicker({ value, onClose, onSelect }: Props) {
     const item = iconCatalog[id]
     return (category === 'all' || item.category === category) && `${item.label.join(' ')} ${item.keywords} ${iconCategories[item.category].join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
   })
+  // No close() on cleanup: its close event reads as the user closing (StrictMode runs this cleanup right after
+  // mounting), and a removed dialog leaves the screen on its own.
   useEffect(() => {
-    const node = dialog.current
-    node?.showModal()
+    dialog.current?.showModal()
     search.current?.focus()
-    return () => { node?.close() }
   }, [])
   return <dialog {...dialogProps} className="modal icon-picker" aria-labelledby={titleId}>
     <DialogHead id={titleId} title={L('আইকন লাইব্রেরি', 'Icon library')} sub={L('আপনার পেজের জন্য বাছাই করা ৮০টি আইকন', '80 curated icons for your pages')} onClose={dismiss} />
