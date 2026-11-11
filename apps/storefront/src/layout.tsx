@@ -202,6 +202,6 @@ h1.sf-n-heading{font-size:clamp(30px,5vw,48px)}h2.sf-n-heading{font-size:clamp(2
 .sf-layout{position:relative}.sf-n-box{position:relative}
 .sf-n-handle{position:absolute;top:0;left:0;z-index:6;display:none;align-items:center;justify-content:center;width:22px;height:20px;padding:0;border:0;border-radius:0 0 6px 0;background:#1f7a4d;color:#fff;font-size:12px;line-height:1;cursor:pointer}
 .sf-n-handle--section{width:26px;height:22px;background:#163b2e}
-.sf-n-box:hover>.sf-n-handle,.sf-layout:hover>.sf-n-handle{display:flex}
+.sf-n-box:hover:not(:has(.sf-n:hover))>.sf-n-handle,.sf-layout:hover>.sf-n-handle{display:flex}
 .sf-n-block{width:100%}.sf-n-block>.sf-section{padding:0;background:transparent}.sf-n-block .sf-wrap{max-width:none;padding:0}
 `
