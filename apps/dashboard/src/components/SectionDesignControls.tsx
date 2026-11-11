@@ -9,7 +9,8 @@ import { BackgroundImage } from './NodeDesignControls'
 type Patch = Record<string, string | number | undefined>
 type Props = { section: Section; tab: 'layout' | 'style'; theme: PresetId; onPatch: (patch: Patch, typingKey?: string) => void; media: Record<string, MediaItem>; onPickImage: (apply: (id: string | null) => void) => void }
 const sides = ['Top', 'Right', 'Bottom', 'Left'] as const
-const swatches = ['#ffffff', '#f6f4ee', '#163b2e', '#285a3f', '#e2c86c', '#c34732', '#272b30', '#000000']
+// Common picks: white, black, charcoal, then the colour wheel (red, orange, yellow, green, blue, purple, pink).
+const swatches = ['#ffffff', '#000000', '#374151', '#dc2626', '#f97316', '#facc15', '#16a34a', '#2563eb', '#7c3aed', '#db2777']
 
 // A titled, collapsible block of settings.
 export function Group({ title, icon, children, note, open = true }: { title: string; icon: ReactNode; children: ReactNode; open?: boolean; note?: string }) {
