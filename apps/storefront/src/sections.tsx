@@ -517,7 +517,8 @@ function EmbedFrame({ id, html, ctx }: { id: string; html: string; ctx: Ctx }) {
       size()
       new ResizeObserver(size).observe(doc.body)
     }
-    return <iframe className="sf-embed" title="Custom HTML" sandbox="allow-same-origin" srcDoc={`<!doctype html><meta charset="utf-8"><style>${embedBase}</style>${html}`} onLoad={(e) => fit(e.currentTarget)} />
+    // pointer-events off: a click selects the block in the editor instead of vanishing into the frame.
+    return <iframe className="sf-embed" title="Custom HTML" sandbox="allow-same-origin" style={{ pointerEvents: 'none' }} srcDoc={`<!doctype html><meta charset="utf-8"><style>${embedBase}</style>${html}`} onLoad={(e) => fit(e.currentTarget)} />
   }
   const src = ctx.embedUrl?.(id, html)
   return src ? <iframe className="sf-embed" title="Custom HTML" sandbox={embedSandbox} src={src} loading="lazy" data-embed="" /> : null
