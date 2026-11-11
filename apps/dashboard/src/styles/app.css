@@ -1638,7 +1638,6 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .node-add__grid button { display: grid; justify-items: center; gap: var(--space-2xs); width: 100%; padding: var(--space-sm) var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: var(--color-ink-2); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .node-add__grid button:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .node-spacing { display: grid; gap: var(--space-xs); }
-.node-spacing__cell .input-affix { padding-inline: var(--space-xs); }
 .node-bg { display: flex; align-items: center; gap: var(--space-xs); }
 .node-bg img { width: 48px; height: 48px; object-fit: cover; border-radius: var(--radius-media); }
 @media (max-width: 860px) {
@@ -1828,16 +1827,30 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .spacing-control { display: grid; gap: var(--space-sm); }
 .spacing-devices { justify-self: end; width: fit-content; }
 .spacing-devices button { flex: none; min-height: 24px; padding: 0 var(--space-xs); font-size: 12px; }
-.spacing-row { display: grid; gap: var(--space-xs); }
-.spacing-row__head { display: flex; align-items: center; gap: var(--space-2xs); color: var(--color-muted); font-size: 12px; }
-.spacing-row__head > span { flex: 1; }
-.spacing-row__link { width: 28px; height: 28px; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
-.spacing-row__link[aria-pressed="true"] { border-color: var(--color-primary); color: var(--color-primary); opacity: 1 !important; }
-.spacing-row__sides, .node-spacing__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
-.spacing-side, .node-spacing__cell { display: grid; gap: var(--space-2xs); }
-.spacing-side input::-webkit-inner-spin-button { appearance: none; }
-.editor .editor__settings .spacing-row__link { opacity: 1; }
+.spacing-row { display: grid; gap: var(--space-2xs); }
+.spacing-row__head { display: flex; align-items: center; gap: var(--space-2xs); }
+.spacing-row__head > span:first-child { flex: 1; }
+.spacing-row__unit { color: var(--color-muted); font-size: 12px; }
+.spacing-row__sides, .node-spacing__grid { display: flex; }
+.spacing-side, .node-spacing__cell { display: grid; flex: 1; min-width: 0; gap: var(--space-2xs); justify-items: center; }
+.editor .editor__settings :is(.spacing-side, .node-spacing__cell) > span { color: var(--color-muted); font-size: 11px; }
+:is(.spacing-side, .node-spacing__cell) input { width: 100%; height: 30px; padding: 0 var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-left-width: 0; border-radius: 0; outline: 0; background: transparent; color: var(--color-ink); font: inherit; font-size: 12px; text-align: center; appearance: textfield; }
+:is(.spacing-side, .node-spacing__cell):first-child input { border-left-width: var(--rule-hair); border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.node-spacing__cell:last-child input { border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+:is(.spacing-side, .node-spacing__cell) input:focus { box-shadow: inset 0 0 0 1px var(--color-primary); }
+:is(.spacing-side, .node-spacing__cell) input::-webkit-inner-spin-button { appearance: none; }
+.spacing-row__link { display: grid; place-items: center; flex: none; width: 36px; height: 30px; padding: 0; border: var(--rule-hair) solid var(--color-rule-strong); border-left-width: 0; border-radius: 0 var(--radius-control) var(--radius-control) 0; background: var(--color-paper-3); color: var(--color-ink-2); cursor: pointer; }
+.spacing-row__link[aria-pressed="true"] { background: color-mix(in oklab, var(--color-primary) 25%, transparent); color: var(--color-primary); }
+.spacing-row__link:focus-visible { outline: 2px solid var(--color-focus); }
+@media (max-width: 860px) { :is(.spacing-side, .node-spacing__cell) input, .spacing-row__link { height: 36px; } :is(.spacing-side, .node-spacing__cell) input { font-size: 16px; } }
 .editor .editor__settings .spacing-row:is(:hover, :focus-within) .design-reset:not(:disabled) { opacity: 1; }
+
+/* Builder controls: squared corners and joined segment buttons, in our colours. Only inside the editor's settings panels. */
+.editor .editor__settings { --radius-control: 4px; }
+.editor .editor__settings .design-segments { gap: 0; padding: 0; overflow: hidden; border: var(--rule-hair) solid var(--color-rule-strong); box-shadow: none; }
+.editor .editor__settings .design-segments button { border-radius: 0; }
+.editor .editor__settings .design-segments button + button { border-left: var(--rule-hair) solid var(--color-rule-strong); }
+.editor .editor__settings .design-segments button[aria-pressed="true"] { background: color-mix(in oklab, var(--color-primary) 22%, transparent); color: var(--color-ink); }
 .editor__reset-all { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-xs); padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); font-size: 12px; color: var(--color-muted); }
 .editor__reset-all > span { flex: 1 1 100%; }
 .editor__reset-link { padding: 0; border: 0; background: none; color: var(--color-muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

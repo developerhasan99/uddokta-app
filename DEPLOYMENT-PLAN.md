@@ -484,3 +484,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Spacing is Top/Right over Bottom/Left with labels above and `px` inside each field (sections and elements); the link-all-sides button is a bordered icon at the end of the row.
 - Section content-width presets are one segmented toggle.
 - Settings rows: label and number/select/colour field 50/50 (toggle rows and steppers keep a 38% label). Colour palettes span the full row; the colour reset shows only once a custom colour is set.
+- Builder controls (settings panels only): 4px corners instead of pills, joined segment buttons with dividers and a green-tinted selection, spacing as four joined fields with side names underneath and the link button closing the strip (sections and elements).

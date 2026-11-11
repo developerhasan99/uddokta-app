@@ -65,12 +65,12 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
   const spacing = (kind: 'padding' | 'margin') => {
     const sides = kind === 'padding' ? (['Top', 'Right', 'Bottom', 'Left'] as const) : (['Top', 'Bottom'] as const)
     return <div className="node-spacing" key={kind}>
-      <div className="design-control__label"><span>{kind === 'padding' ? L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding') : L('বাইরের ফাঁকা (মার্জিন)', 'Margin')}</span>{reset(sides.map((s) => `${kind}${s}`))}</div>
+      <div className="design-control__label"><span>{kind === 'padding' ? L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding') : L('বাইরের ফাঁকা (মার্জিন)', 'Margin')}</span>{reset(sides.map((s) => `${kind}${s}`))}<span className="spacing-row__unit" aria-hidden="true">px</span></div>
       <div className="node-spacing__grid" data-count={sides.length}>
         {sides.map((side) => {
           const key = `${kind}${side}`
           const label = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)
-          return <label key={side} className="node-spacing__cell"><span>{label}</span><span className="input-affix design-number"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key)} onChange={(v) => onPatch({ [key]: v }, key)} /><span aria-hidden="true">px</span></span></label>
+          return <label key={side} className="node-spacing__cell"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key)} onChange={(v) => onPatch({ [key]: v }, key)} /><span>{label}</span></label>
         })}
       </div>
     </div>

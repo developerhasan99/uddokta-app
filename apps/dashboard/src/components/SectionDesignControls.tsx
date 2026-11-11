@@ -143,25 +143,27 @@ function SpacingBox({ values, onPatch }: { values: SectionStyle; onPatch: Props[
     const fallback = kind === 'padding' && (side === 'Left' || side === 'Right') ? (device === 'mobile' ? values[`padding${side}`] ?? values.paddingX : values.paddingX) : undefined
     const sideLabel = L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side.toLowerCase())
     const label = `${device === 'mobile' ? L('মোবাইল', 'Mobile') : L('ডেস্কটপ', 'Desktop')} ${kind === 'margin' ? L('মার্জিন', 'margin') : L('প্যাডিং', 'padding')} ${sideLabel}`
-    return <label key={side} className="spacing-side" htmlFor={`${uid}-${key}`}><span aria-hidden="true">{L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)}</span><span className="input-affix design-number"><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
+    return <label key={side} className="spacing-side" htmlFor={`${uid}-${key}`}><input id={`${uid}-${key}`} aria-label={label} title={label} type="number" min={0} max={side === 'Top' || side === 'Bottom' ? 300 : 160} step={1} placeholder={fallback !== undefined ? String(fallback) : '—'} value={values[key] ?? ''} onChange={(e) => {
       const value = e.target.value === '' ? undefined : Math.max(0, Math.min(side === 'Top' || side === 'Bottom' ? 300 : 160, Math.round(Number(e.target.value) || 0)))
       const patch = Object.fromEntries((linked[kind] ? sides : [side]).map((s) => [keyFor(kind, s), value]))
       onPatch(patch, `${device}:${kind}:${linked[kind] ? 'all' : side}`)
-    }} /><span aria-hidden="true">px</span></span></label>
+    }} /><span aria-hidden="true">{L(({ Top: 'উপর', Right: 'ডান', Bottom: 'নিচ', Left: 'বাম' })[side], side)}</span></label>
   }
   const resetBox = (kind: 'margin' | 'padding') => {
     const patch: Patch = Object.fromEntries(sides.map((side) => [keyFor(kind, side), undefined]))
     if (kind === 'padding' && device === 'desktop') patch.paddingX = undefined
     onPatch(patch)
   }
-  // Two compact rows (padding, then margin), four sides each. Link edits all four together.
+  // Padding, then margin: four joined fields with the side named under each, and a link button at the end that edits all four together.
   const row = (kind: 'padding' | 'margin') => <div className="spacing-row" key={kind}>
     <div className="spacing-row__head">
       <span>{kind === 'padding' ? L('ভেতরের ফাঁকা', 'Padding') : L('বাইরের ফাঁকা', 'Margin')}</span>
       <button type="button" className="design-reset" aria-label={`${kind}: ${L('রিসেট', 'Reset spacing')}`} title={L('রিসেট', 'Reset')} onClick={() => resetBox(kind)}><RotateCcw size={12} aria-hidden="true" /></button>
-      <button className="design-reset spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={14} aria-hidden="true" /> : <Unlink2 size={14} aria-hidden="true" />}</button>
+      <span className="spacing-row__unit" aria-hidden="true">px</span>
     </div>
-    <div className="spacing-row__sides">{sides.map((side) => sideInput(kind, side))}</div>
+    <div className="spacing-row__sides">{sides.map((side) => sideInput(kind, side))}
+      <button className="spacing-row__link" type="button" aria-pressed={linked[kind]} title={L('সব দিক একসাথে', 'Link all sides')} aria-label={`${kind}: ${L('সব দিক একসাথে বদলান', 'Link all sides')}`} onClick={() => setLinked((s) => ({ ...s, [kind]: !s[kind] }))}>{linked[kind] ? <Link2 size={14} aria-hidden="true" /> : <Unlink2 size={14} aria-hidden="true" />}</button>
+    </div>
   </div>
   return <div className="spacing-control">
     <div className="design-segments node-device spacing-devices" role="group" aria-label={L('স্পেসিং ডিভাইস', 'Spacing device')}>
