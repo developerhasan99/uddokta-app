@@ -193,7 +193,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Bangla is chosen and tested first; English fits around it.
 - Plain seller language. Every empty state says what to do next.
 - Status badges and Soon tags are small uppercase pills (Bangla keeps a readable size, it has no capitals).
-- Colours are picked with `components/ColorPicker.tsx` (area, hue, opacity, recently used colours kept per browser), used through `ColorControl`; use it for any new colour field. Colours are `#RRGGBB` or `#RRGGBBAA` when see-through, and the schema accepts only those.
+- Colours are picked with `components/ColorPicker.tsx` (area, hue, opacity, recently used colours kept per browser), used through `ColorControl`, which opens it in a browser popover anchored under the field; use it for any new colour field. Colours are `#RRGGBB` or `#RRGGBBAA` when see-through, and the schema accepts only those.
 - **Never:** gradients other than the filled-button sheen and the colour picker's own hue/opacity/area fills, emoji icons, stat cards beyond one row, decorative glass or glow effects, or anything that reads as generic AI output.
 
 ## Build order

@@ -1542,7 +1542,9 @@ a.order-item__name:hover { text-decoration: underline; }
    The hue, opacity and checkerboard fills show the colour itself, so they are the one place gradients are allowed. */
 .color-chip { position: relative; overflow: hidden; background: repeating-conic-gradient(#d4d4d4 0 25%, #ffffff 0 50%) 0 0 / 8px 8px; }
 .color-chip > span { position: absolute; inset: 0; }
-.color-picker { display: grid; gap: var(--space-xs); padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
+.color-popover { inset: auto; width: 248px; margin: 4px 0; padding: 0; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-menu); position-area: bottom span-left; position-try-fallbacks: flip-block; }
+.color-popover:not(:popover-open) { display: none; }
+.color-picker { display: grid; gap: var(--space-xs); padding: var(--space-sm); }
 .color-picker__area { position: relative; height: 140px; border-radius: var(--radius-control); background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent); cursor: crosshair; touch-action: none; }
 .color-picker__area:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .color-picker__thumb { position: absolute; width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #0006; transform: translate(-50%, -50%); pointer-events: none; }
@@ -1821,7 +1823,7 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-color__head { grid-column: 1; grid-row: 1; }
 .editor .editor__settings .design-color__head > span { display: none; }
 .editor .editor__settings .design-color__input { grid-column: 2; grid-row: 1; }
-.editor .editor__settings :is(.color-picker, .design-color > .form-error) { grid-column: 1 / -1; }
+.editor .editor__settings .design-color > .form-error { grid-column: 1 / -1; }
 /* Label 60%, small value fields 40%. Toggle rows and steppers need the room, so they keep a narrow label. */
 .editor .editor__settings .design-control:not(.design-control--stacked):has(> .design-segments, > .node-stepper) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); }
 .editor .editor__settings .design-color__input { gap: var(--space-2xs); }
