@@ -126,6 +126,8 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx, base: NodeStyle =
     if (st.borderColor) out.push(`border-color:${st.borderColor}`)
   }
   if (st.shadow) out.push(`box-shadow:${shadows[st.shadow as string]}`)
+  if (n('transitionDuration') !== undefined) out.push('transition-property:color,background-color,border-color,border-width,border-radius,box-shadow', `transition-duration:${n('transitionDuration')}ms`, `transition-timing-function:${st.transitionEasing ?? base.transitionEasing ?? 'ease'}`)
+  else if (st.transitionEasing) out.push(`transition-timing-function:${st.transitionEasing}`)
   return out
 }
 
@@ -158,6 +160,7 @@ export function layoutCss(content: Content, ctx: Ctx): string {
   const desktop: string[] = []
   const phone: string[] = []
   const hideDesktop: string[] = []
+  const hover: string[] = []
   const visit = (nodes: PageNode[], parent: PageNode | undefined) => {
     // In a grid, cells size the items; on phones a grid is one column unless a phone column count is set.
     const grid = parent?.kind === 'box' && parent.style?.display === 'grid'
@@ -186,12 +189,15 @@ export function layoutCss(content: Content, ctx: Ctx): string {
       if (node.hide === 'mobile') mobileOwn.push('display:none')
       if (mobileOwn.length) phone.push(`${sel}{${mobileOwn.join(';')}}`)
       if (node.hide === 'desktop') hideDesktop.push(`${sel}{display:none}`)
+      const hoverOwn = node.hover ? declarations(node, node.hover, ctx, node.style ?? {}) : []
+      if (hoverOwn.length) hover.push(`${sel}:hover{${hoverOwn.join(';')}}`)
       if (node.children) visit(node.children, node)
     }
   }
   for (const section of content.sections) if (section.type === 'layout' && !section.hidden) visit(section.children ?? [], undefined)
-  if (!desktop.length && !phone.length && !hideDesktop.length) return ''
-  return `${desktop.join('')}${hideDesktop.length ? `@media (min-width:720px){${hideDesktop.join('')}}` : ''}${phone.length ? `@media (max-width:719.98px){${phone.join('')}}` : ''}`
+  if (!desktop.length && !phone.length && !hideDesktop.length && !hover.length) return ''
+  // Hover rules come last and only for devices that can hover, so a tap on a phone never leaves an element stuck in its hover look.
+  return `${desktop.join('')}${hideDesktop.length ? `@media (min-width:720px){${hideDesktop.join('')}}` : ''}${phone.length ? `@media (max-width:719.98px){${phone.join('')}}` : ''}${hover.length ? `@media (hover:hover){${hover.join('')}}` : ''}`
 }
 
 export const hasLayout = (content: Content) => content.sections.some((s) => s.type === 'layout' && [...walk(s.children ?? [])].length > 0)

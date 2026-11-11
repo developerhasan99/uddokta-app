@@ -1,16 +1,19 @@
 import { useId, useState, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, Palette, RotateCcw, Link2, Unlink2, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, MousePointer2, Palette, RotateCcw, Link2, Unlink2, Timer, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
 import { ColorControl, Group, NumericInput } from './SectionDesignControls'
 
 export type Device = 'desktop' | 'mobile'
+export type State = 'normal' | 'hover'
 type Patch = Record<string, string | number | undefined>
 type Props = {
   node: PageNode
   tab: 'layout' | 'style'
   device: Device
+  // Style tab only: 'hover' edits the values used while a pointer is over the node.
+  state?: State
   media: Record<string, MediaItem>
   onPatch: (patch: Patch, typingKey?: string) => void
   onHide: (hide: PageNode['hide']) => void
@@ -22,22 +25,25 @@ type Props = {
 const fieldOf = (key: string) => nodeStyleFields.find((f) => f.key === key)!
 
 // Layout and Style for one box or element. On "Mobile" the same controls write phone overrides, with the desktop value as the hint.
-export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, onPickImage, grid, parentGrid }: Props) {
+export function NodeDesignControls({ node, tab, device, state = 'normal', media, onPatch, onHide, onPickImage, grid, parentGrid }: Props) {
   const [blocked, setBlocked] = useState(false)
   const [linked, setLinked] = useState({ padding: false, margin: false, border: true, radius: true })
   const { lang } = useLang()
   const uid = useId()
   const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
   const labelOf = (field: Leaf) => field.label[lang === 'bn' ? 0 : 1]
-  const own = (device === 'mobile' ? node.mobile : node.style) ?? {}
+  const hover = tab === 'style' && state === 'hover'
+  const own = (hover ? node.hover : device === 'mobile' ? node.mobile : node.style) ?? {}
   const desktop = node.style ?? {}
+  // Mobile and hover values fall back to the normal desktop ones, which show as hints.
+  const inheriting = hover || device === 'mobile'
   const value = (key: string) => own[key]
   const reset = (keys: string[]) => <button type="button" className="design-reset" disabled={keys.every((k) => own[k] === undefined)} onClick={() => onPatch(Object.fromEntries(keys.map((k) => [k, undefined])))} aria-label={L('ডিফল্ট করুন', 'Reset')} title={L('ডিফল্ট মান ব্যবহার করুন', 'Use the default')}><RotateCcw size={12} aria-hidden="true" /></button>
 
   const number = (key: string, label?: string, unit = 'px') => {
     const field = fieldOf(key) as Extract<Leaf, { kind: 'number' }>
     const id = `${uid}-${key}`
-    const hint = device === 'mobile' && desktop[key] !== undefined ? String(desktop[key]) : undefined
+    const hint = inheriting && desktop[key] !== undefined ? String(desktop[key]) : undefined
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field).replace(/ \((px|%)\)$/, '')}</label>{reset([key])}</div>
       <div className="input-affix design-number"><NumericInput id={id} field={field} value={value(key)} placeholder={hint} onChange={(v) => onPatch({ [key]: v }, key)} /><span aria-hidden="true">{unit}</span></div>
@@ -57,12 +63,12 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field)}</label>{reset([key])}</div>
       <select className="input" id={id} value={String(value(key) ?? '')} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}>
-        <option value="">{device === 'mobile' ? L('ডেস্কটপের মতো', 'Same as desktop') : L('ডিফল্ট', 'Default')}</option>
+        <option value="">{hover ? L('সাধারণের মতো', 'Same as normal') : device === 'mobile' ? L('ডেস্কটপের মতো', 'Same as desktop') : L('ডিফল্ট', 'Default')}</option>
         {field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}
       </select>
     </div>
   }
-  const color = (key: string, inherited: string) => <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(fieldOf(key))} value={String(value(key) ?? '')} inherited={String(device === 'mobile' ? desktop[key] ?? inherited : inherited)} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
+  const color = (key: string, inherited: string) => <ColorControl key={key} id={`${uid}-${key}`} label={labelOf(fieldOf(key))} value={String(value(key) ?? '')} inherited={String(inheriting ? desktop[key] ?? inherited : inherited)} onChange={(v, typing) => onPatch({ [key]: v || undefined }, typing ? key : undefined)} />
   // Joined side fields with a link button at the end that edits every side together (padding, margin, border widths).
   const sideNames: Record<string, string> = { Top: L('উপর', 'Top'), Right: L('ডান', 'Right'), Bottom: L('নিচ', 'Bottom'), Left: L('বাম', 'Left'), TopLeft: L('উপর-বাম', 'Top left'), TopRight: L('উপর-ডান', 'Top right'), BottomRight: L('নিচ-ডান', 'Bottom right'), BottomLeft: L('নিচ-বাম', 'Bottom left') }
   const sideFields = (kind: 'padding' | 'margin' | 'border' | 'radius', label: string) => {
@@ -84,7 +90,7 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
       <div className="node-spacing__grid" data-count={sides.length}>
         {sides.map((side) => {
           const key = keyOf(side)
-          const hint = device === 'mobile' ? desktop[key] ?? (legacyKey ? desktop[legacyKey] : undefined) : undefined
+          const hint = inheriting ? desktop[key] ?? (legacyKey ? desktop[legacyKey] : undefined) : undefined
           return <label key={side} className="node-spacing__cell"><NumericInput id={`${uid}-${key}`} field={fieldOf(key) as Extract<Leaf, { kind: 'number' }>} value={value(key) ?? legacy} placeholder={hint !== undefined ? String(hint) : undefined} onChange={(v) => set(side, v)} />{kind === 'radius'
             ? <span title={sideNames[side]}><i className={`corner-mark corner-mark--${side}`} aria-hidden="true" /><span className="visually-hidden">{sideNames[side]}</span></span>
             : <span>{sideNames[side]}</span>}</label>
@@ -166,6 +172,10 @@ export function NodeDesignControls({ node, tab, device, media, onPatch, onHide, 
       {node.kind !== 'spacer' && <p className="design-help">{L('পাশাপাশি থাকলে প্রস্থ হলো সারির ভাগ। ফাঁকা রাখলে সমান ভাগ হয়।', 'In a row, width is a share of the row. Leave it blank to share equally.')}</p>}
     </Group>
     <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>{sideFields('padding', L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding'))}{sideFields('margin', L('বাইরের ফাঁকা (মার্জিন)', 'Margin'))}</Group>
+    <Group title={L('ট্রানজিশন', 'Transition')} icon={<Timer size={15} />} open={false}>
+      <div className="design-grid">{number('transitionDuration', L('সময়', 'Duration'), 'ms')}{select('transitionEasing')}</div>
+      <p className="design-help">{L('রং, বর্ডার, কোণা ও ছায়া কত ধীরে বদলাবে, যেমন হোভারের চেহারায় যেতে আর ফিরতে।', 'How smoothly colours, border, corners and shadow change, such as into the hover look and back.')}</p>
+    </Group>
     <Group title={L('ডিভাইসে দেখানো', 'Device visibility')} icon={<Monitor size={15} />}>
       <div className="design-segments" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
         {([[undefined, L('সব', 'All'), Layers], ['mobile', L('ডেস্কটপ', 'Desktop'), Monitor], ['desktop', L('মোবাইল', 'Mobile'), Smartphone]] as const).map(([hide, label, Icon]) => <button key={label} type="button" aria-pressed={node.hide === hide} onClick={() => onHide(hide)}><Icon size={14} aria-hidden="true" /><span>{label}</span></button>)}
@@ -218,6 +228,19 @@ export function DeviceSwitch({ device, onChange }: { device: Device; onChange: (
     <button type="button" aria-pressed={device === 'desktop'} onClick={() => onChange('desktop')}><Monitor size={14} aria-hidden="true" /><span>{L('ডেস্কটপ', 'Desktop')}</span></button>
     <button type="button" aria-pressed={device === 'mobile'} onClick={() => onChange('mobile')}><Smartphone size={14} aria-hidden="true" /><span>{L('মোবাইল', 'Mobile')}</span></button>
   </div>
+}
+
+// Normal / Hover switch shown above the Style tab. Hover values fall back to the normal ones until set.
+export function StateSwitch({ state, onChange }: { state: State; onChange: (s: State) => void }) {
+  const { lang } = useLang()
+  const L = (bn: string, en: string) => (lang === 'bn' ? bn : en)
+  return <>
+    <div className="design-segments node-device" role="group" aria-label={L('অবস্থা', 'State')}>
+      <button type="button" aria-pressed={state === 'normal'} onClick={() => onChange('normal')}><Square size={14} aria-hidden="true" /><span>{L('সাধারণ', 'Normal')}</span></button>
+      <button type="button" aria-pressed={state === 'hover'} onClick={() => onChange('hover')}><MousePointer2 size={14} aria-hidden="true" /><span>{L('হোভার', 'Hover')}</span></button>
+    </div>
+    {state === 'hover' && <p className="design-help">{L('মাউস রাখলে যা বদলাবে। খালি ঘর সাধারণের মতো থাকে।', 'What changes under a mouse. Blank fields stay as normal.')}</p>}
+  </>
 }
 
 export type { NodeStyle }

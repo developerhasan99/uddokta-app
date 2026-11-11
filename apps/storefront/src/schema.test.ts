@@ -131,3 +131,8 @@ test('colours are #RRGGBB or #RRGGBBAA (see-through), nothing else', () => {
   assert.equal((readContent(page('#2121cc'))?.sections[0].children?.[0].style as Record<string, unknown>).color, '#2121cc')
   for (const bad of ['#2121cc7', '#2121cc7d0', 'red', '#21c', 'rgba(0,0,0,.5)']) assert.equal(readContent(page(bad)), null, bad)
 })
+
+test('hover keeps only Style values', () => {
+  const content: Content = { version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'b', kind: 'button', props: {}, hover: { background: '#123456', width: 50, transitionDuration: 100 } } as PageNode] }] }
+  assert.deepEqual(readContent(content)?.sections[0].children?.[0].hover, { background: '#123456' })
+})

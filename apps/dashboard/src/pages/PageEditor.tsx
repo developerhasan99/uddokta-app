@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
 import { RichText } from '../components/RichText'
-import { DeviceSwitch, NodeDesignControls, type Device } from '../components/NodeDesignControls'
+import { DeviceSwitch, NodeDesignControls, StateSwitch, type Device, type State } from '../components/NodeDesignControls'
 import { boxDepth, boxesAbove, columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
 const CssEditor = lazy(() => import('../components/CssEditor'))
 import { createPortal } from 'react-dom'
@@ -464,6 +464,7 @@ export function PageEditor() {
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | null>(null)
   const [device, setDevice] = useState<Device>('desktop')
+  const [styleState, setStyleState] = useState<State>('normal')
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const toggle = (id: string) => setOpen((o) => { const next = new Set(o); if (next.has(id)) next.delete(id); else next.add(id); return next })
   const [addingNode, setAddingNode] = useState<{ sectionId: string; parentId: string | null; index: number } | null>(null)
@@ -754,9 +755,12 @@ export function PageEditor() {
   }
 
   const found = findNode(sections, selected)
+  // While its hover look is being edited, the selected element is drawn in that look (hover beats phone values, as on the live page).
+  const showHover = settingsTab === 'style' && styleState === 'hover' && found?.node.hover
+  const previewContent = showHover ? { ...doc.content, sections: doc.content.sections.map((s) => s.id === found.section.id ? { ...s, children: updateNode(s.children ?? [], found.node.id, (n) => ({ ...n, style: { ...n.style, ...n.hover }, ...(n.mobile ? { mobile: { ...n.mobile, ...n.hover } } : {}) })) } : s) } : doc.content
   const tabLabel = (tab: 'content' | 'layout' | 'style') => {
     const Icon = tab === 'content' ? PenLine : tab === 'layout' ? SlidersHorizontal : Palette
-    return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['বিন্যাস', 'Layout'] : ['স্টাইল', 'Style'])}</span></>
+    return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['অ্যাডভান্সড', 'Advanced'] : ['স্টাইল', 'Style'])}</span></>
   }
   const sTab = section0(selected)?.type === 'layout' && settingsTab === 'content' ? 'layout' : settingsTab
   // A layout section is listed by what it shows: its block, or its first heading or text.
@@ -916,7 +920,7 @@ export function PageEditor() {
     const tab = !hasContent && settingsTab === 'content' ? 'layout' : settingsTab
     const at = (fn: (n: PageNode) => PageNode, key?: string) => editTree(f.section.id, (nodes) => updateNode(nodes, f.node.id, fn), key)
     const patch = (values: Record<string, string | number | undefined>, typingKey?: string) => at((n) => {
-      const slot = device === 'mobile' ? 'mobile' : 'style'
+      const slot = tab === 'style' && styleState === 'hover' ? 'hover' : device === 'mobile' ? 'mobile' : 'style'
       const style = { ...(n[slot] ?? {}) }
       for (const [k, v] of Object.entries(values)) {
         if (v === undefined || v === '') delete style[k]
@@ -926,7 +930,7 @@ export function PageEditor() {
       if (Object.keys(style).length) next[slot] = style
       else delete next[slot]
       return next
-    }, typingKey ? `${f.node.id}:${device}:${typingKey}` : undefined)
+    }, typingKey ? `${f.node.id}:${device}:${styleState}:${typingKey}` : undefined)
     const remove = () => {
       editTree(f.section.id, (nodes) => removeNode(nodes, f.node.id))
       setSelected(f.parent?.id ?? f.section.id)
@@ -944,12 +948,13 @@ export function PageEditor() {
       </div>
       <div className="editor__form">
         {tab !== 'content' && <DeviceSwitch device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />}
+        {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
         {tab === 'content'
           ? f.node.block ? <div className="editor__fields">{(['content', 'layout'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
               onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />)}</div>
           : <div className="editor__fields">{['heading', 'text', 'button'].includes(f.node.kind) && <p className="design-help">{L(['টিপ: প্রিভিউতে লেখার উপর আবার ক্লিক করে সরাসরি লিখুন।', 'Tip: click the text in the preview again to type straight on the page.'])}</p>}{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
               onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
-          : <NodeDesignControls key={`${f.node.id}:${tab}:${device}`} node={f.node} tab={tab} device={device} media={media} onPatch={patch}
+          : <NodeDesignControls key={`${f.node.id}:${tab}:${device}:${styleState}`} node={f.node} tab={tab} device={device} state={styleState} media={media} onPatch={patch}
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
               onPickImage={(apply) => setPicking({ kind: 'image', apply })}
               grid={f.node.kind === 'box' && f.node.style?.display === 'grid' || f.node.kind === 'box' && (f.node.children ?? []).every((c) => c.kind === 'box') ? { columns: Number(f.node.style?.gridColumns ?? Math.max(1, f.node.children?.length ?? 1)), rows: Number(f.node.style?.gridRows ?? 1), set: (c, r) => {
@@ -1247,7 +1252,7 @@ export function PageEditor() {
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
-        <Preview content={doc.content} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onMenu={openMenu} onAddInto={(cid) => {
+        <Preview content={previewContent} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onMenu={openMenu} onAddInto={(cid) => {
           const sec = sections.find((x) => x.id === cid)
           if (sec) { setAddingNode({ sectionId: sec.id, parentId: null, index: sec.children?.length ?? 0 }); return }
           const hit = findNode(sections, cid)

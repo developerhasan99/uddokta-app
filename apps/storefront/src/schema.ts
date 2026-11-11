@@ -450,7 +450,8 @@ export type NodeKind = typeof nodeKinds[number]
 export type NodeStyle = Record<string, string | number>
 // block: a built-in section (order form, FAQ, reviews, …) placed inside a layout, with that section's own settings.
 // hide: 'all' takes it off the page (like a hidden section); 'desktop' / 'mobile' hide it on one kind of screen.
-export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hide?: 'all' | 'desktop' | 'mobile'; children?: PageNode[]; block?: { type: SectionType; settings: Settings } }
+// hover: Style-tab values used while a pointer is over the node; anything not set falls back to the normal look.
+export type PageNode = { id: string; kind: NodeKind; props: Settings; style?: NodeStyle; mobile?: NodeStyle; hover?: NodeStyle; hide?: 'all' | 'desktop' | 'mobile'; children?: PageNode[]; block?: { type: SectionType; settings: Settings } }
 export type NodeDef = { label: Label; fields: Leaf[]; defaults: Settings }
 
 export const maxNodes = 400
@@ -533,6 +534,9 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'borderStyle', kind: 'select', group: 'style', label: ['বর্ডারের ধরন', 'Border style'], options: opts(['solid', ['সলিড', 'Solid']], ['dashed', ['ড্যাশ', 'Dashed']], ['dotted', ['ডট', 'Dotted']]) },
   { key: 'borderColor', kind: 'color', group: 'style', label: ['বর্ডারের রং', 'Border color'] },
   { key: 'shadow', kind: 'select', group: 'style', label: ['ছায়া', 'Shadow'], options: opts(['none', ['নেই', 'None']], ['soft', ['হালকা', 'Soft']], ['strong', ['গাঢ়', 'Strong']]) },
+  // How smoothly colours, border, corners and shadow change (into the hover look and back). Advanced tab.
+  px('transitionDuration', ['সময় (ms)', 'Duration (ms)'], 2000),
+  { key: 'transitionEasing', kind: 'select', group: 'layout', label: ['গতির ধরন', 'Easing'], options: opts(['ease', ['স্বাভাবিক', 'Ease']], ['linear', ['সমান', 'Linear']], ['ease-in', ['ধীরে শুরু', 'Ease in']], ['ease-out', ['ধীরে শেষ', 'Ease out']], ['ease-in-out', ['ধীরে শুরু ও শেষ', 'Ease in and out']]) },
 ]
 
 export function* walk(nodes: PageNode[]): Generator<PageNode> {
@@ -544,11 +548,12 @@ export function* walk(nodes: PageNode[]): Generator<PageNode> {
 
 export const newNode = (kind: NodeKind, id: () => string): PageNode => ({ id: id(), kind, props: structuredClone(nodeDefs[kind].defaults), ...(kind === 'box' ? { children: [] } : {}) })
 
-function readNodeStyle(raw: unknown): NodeStyle | null {
+function readNodeStyle(raw: unknown, group?: 'style'): NodeStyle | null {
   if (raw === undefined) return {}
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const out: NodeStyle = {}
   for (const field of nodeStyleFields) {
+    if (group && field.group !== group) continue
     const value = (raw as Record<string, unknown>)[field.key]
     if (value === undefined || value === '' || value === null) continue
     const read = readLeaf(field, value)
@@ -577,7 +582,8 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
     }
     const style = readNodeStyle(item.style)
     const mobile = readNodeStyle(item.mobile)
-    if (!style || !mobile) return null
+    const hover = readNodeStyle(item.hover, 'style')
+    if (!style || !mobile || !hover) return null
     if (item.hide !== undefined && item.hide !== 'all' && item.hide !== 'desktop' && item.hide !== 'mobile') return null
     let block: PageNode['block']
     if (kind === 'block') {
@@ -593,7 +599,7 @@ function readNodes(raw: unknown, depth: number, ids: Set<string>, budget: { node
       children = readNodes(item.children ?? [], depth + 1, ids, budget, boxes + 1) ?? undefined
       if (!children) return null
     } else if (item.children !== undefined) return null
-    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(item.hide ? { hide: item.hide as 'all' | 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })
+    out.push({ id: item.id, kind, props, ...(Object.keys(style).length ? { style } : {}), ...(Object.keys(mobile).length ? { mobile } : {}), ...(Object.keys(hover).length ? { hover } : {}), ...(item.hide ? { hide: item.hide as 'all' | 'desktop' | 'mobile' } : {}), ...(children ? { children } : {}), ...(block ? { block } : {}) })
   }
   return out
 }
