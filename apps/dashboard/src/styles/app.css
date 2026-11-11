@@ -1798,15 +1798,20 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-grid > .design-control > .design-control__label, .editor .editor__settings .design-control--stacked > .design-control__label { min-height: 20px; }
 .editor .editor__settings .design-control.design-control--stacked { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-2xs); }
 .editor .editor__settings .design-control.design-control--stacked > :not(.design-control__label) { grid-column: 1; }
-.editor .editor__settings .design-control { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
+.editor .editor__settings .design-control { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: center; column-gap: var(--space-xs); }
 .editor .editor__settings .design-control__label { min-height: 30px; }
 .editor .editor__settings .design-control > :not(.design-control__label) { grid-column: 2; }
 .editor .editor__settings .design-control > .media__empty, .editor .editor__settings .design-control > .node-bg { grid-column: 1 / -1; }
-.editor .editor__settings .design-color { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); row-gap: 6px; }
+.editor .editor__settings .design-color { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: center; column-gap: var(--space-xs); row-gap: 6px; }
 .editor .editor__settings .design-color__head { grid-column: 1; grid-row: 1; }
 .editor .editor__settings .design-color__head > span { display: none; }
 .editor .editor__settings .design-color__input { grid-column: 2; grid-row: 1; }
-.editor .editor__settings :is(.design-palette, .design-color > .form-error) { grid-column: 2; }
+.editor .editor__settings :is(.design-palette, .design-color > .form-error) { grid-column: 1 / -1; }
+/* Label 60%, small value fields 40%. Toggle rows and steppers need the room, so they keep a narrow label. */
+.editor .editor__settings .design-control:not(.design-control--stacked):has(> .design-segments, > .node-stepper) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); }
+.editor .editor__settings .design-color__input { gap: var(--space-2xs); }
+.editor .editor__settings .design-color__input > input { letter-spacing: 0; }
+.editor .editor__settings .design-color__input > .design-reset:disabled { display: none; }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) > :not(label) { grid-column: 2; }
 
