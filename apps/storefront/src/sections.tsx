@@ -1,7 +1,7 @@
 // The section components, rendered to HTML by the storefront and live inside the editor's preview frame.
 // They hold no state and use no hooks, so both places draw exactly the same page.
 import type { CSSProperties, ReactNode } from 'react'
-import { IconBadge } from './icons/Icon.tsx'
+import { IconBadge, MarketingIcon } from './icons/Icon.tsx'
 import { iconCatalog, isIconName } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
@@ -408,6 +408,25 @@ function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
   </div></section>
 }
 
+// Icon list: icon + one line of text (a link when given) per item, down or across, with optional dividers.
+// Values are schema-checked (numbers in range, colours as hex, selects from fixed lists) before they reach the style.
+function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const st = s.settings
+  const rows = items(st.items).filter((item) => str(item.text) || isIconName(str(item.icon)))
+  if (!rows.length) return ctx.preview ? <Hint ctx={ctx}>তালিকায় আইটেম যোগ করুন</Hint> : null
+  const vars = {
+    '--il-gap': `${Number(st.itemGap ?? 12)}px`, '--il-icon-gap': `${Number(st.iconGap ?? 10)}px`, '--il-icon-size': `${Number(st.iconSize ?? 20)}px`,
+    ...(str(st.iconColor) ? { '--il-icon': str(st.iconColor) } : {}),
+    ...(st.divider && st.divider !== 'none' ? { '--il-divider': `${Number(st.dividerWidth ?? 1)}px ${str(st.divider)} ${str(st.dividerColor) || 'var(--sf-rule)'}` } : {}),
+  } as CSSProperties
+  return <ul className="sf-iconlist" data-direction={str(st.direction) || 'vertical'} data-align={str(st.align) || 'start'} data-divider={st.divider && st.divider !== 'none' ? '' : undefined} style={vars}>
+    {rows.map((item, i) => {
+      const inner = <>{isIconName(str(item.icon)) && <MarketingIcon name={str(item.icon)} size={Number(st.iconSize ?? 20)} />}<span>{str(item.text)}</span></>
+      return <li key={i}>{str(item.link) ? <a href={str(item.link)}>{inner}</a> : inner}</li>
+    })}
+  </ul>
+}
+
 function StandaloneIcon({ s, ctx }: { s: Section; ctx: Ctx }) {
   const name = str(s.settings.icon)
   if (!isIconName(name)) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি আইকন বেছে নিন</Hint></div></section> : null
@@ -529,8 +548,8 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
     case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
     case 'html': return str(s.settings.html) ? <EmbedFrame id={s.id} html={str(s.settings.html)} ctx={ctx} /> : ctx.preview ? <div className="sf-n-placeholder">HTML লিখুন</div> : null
-    case 'iconCards':
-    case 'iconList': return <InfoItems s={s} ctx={ctx} />
+    case 'iconCards': return <InfoItems s={s} ctx={ctx} />
+    case 'iconList': return <IconList s={s} ctx={ctx} />
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
     case 'footer': return <LandingFooter s={s} />
     case 'announcement':
@@ -740,6 +759,15 @@ h1,h2,h3,p{margin:0}
 .sf-features .sf-icon-badge{align-self:flex-start;margin-top:2px}.sf-features .sf-legacy-check{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px);color:var(--section-icon-color,var(--sf-accent))}.sf-legacy-check path{stroke-width:var(--section-icon-stroke,2)}
 .sf-info-grid li>.sf-icon-badge{margin-bottom:18px}.sf-info--trust .sf-icon-badge{margin-bottom:10px}
 .sf-embed{display:block;width:100%;height:150px;border:0}
+.sf-iconlist{display:flex;flex-direction:column;gap:var(--il-gap);margin:0;padding:0;list-style:none}
+.sf-iconlist[data-direction=horizontal]{flex-direction:row;flex-wrap:wrap;align-items:center}
+.sf-iconlist[data-align=center]{align-items:center;justify-content:center}.sf-iconlist[data-align=end]{align-items:flex-end;justify-content:flex-end}
+.sf-iconlist[data-direction=horizontal][data-align=start]{justify-content:flex-start}
+.sf-iconlist li,.sf-iconlist a{display:flex;align-items:center;gap:var(--il-icon-gap);color:inherit;text-decoration:none}
+.sf-iconlist a:hover span{text-decoration:underline}
+.sf-iconlist .sf-marketing-icon{flex:none;width:var(--il-icon-size);height:var(--il-icon-size);color:var(--il-icon,var(--sf-accent))}
+.sf-iconlist[data-divider][data-direction=vertical] li+li{padding-top:var(--il-gap);border-top:var(--il-divider)}
+.sf-iconlist[data-divider][data-direction=horizontal] li+li{padding-left:var(--il-gap);border-left:var(--il-divider)}
 .sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}
 .sf-info--iconList .sf-info-grid li{display:flex;gap:var(--section-gap,16px);align-items:flex-start;background:transparent;border:0;padding:16px 0;border-bottom:1px solid var(--sf-rule);border-radius:0}
 .sf-info--iconList .sf-info-grid li>.sf-icon-badge{margin:0}.sf-info-copy{min-width:0}

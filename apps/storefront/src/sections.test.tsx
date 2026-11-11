@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { blankContent, newSection, sectionTypes, type Content } from './schema.ts'
+import { blankContent, newSection, readContent, sectionTypes, type Content } from './schema.ts'
 import { PageView, type Ctx } from './sections.tsx'
 
 const ctx: Ctx = { preview: true, shipping: [{ id: '00000000-0000-4000-8000-000000000003', name: 'ঢাকার ভেতরে', note: '', price: 60, freeOver: null, freeMinQty: null, freeProducts: [] }, { id: '00000000-0000-4000-8000-000000000004', name: 'ঢাকার বাইরে', note: '', price: 120, freeOver: null, freeMinQty: null, freeProducts: [] }], image: () => undefined, product: () => undefined }
@@ -150,4 +150,17 @@ test('in the editor preview Custom HTML is shown with scripts off', () => {
   const frame = /<iframe[^>]*>/.exec(out)?.[0] ?? ''
   assert.match(frame, /sandbox="allow-same-origin"/)
   assert.doesNotMatch(frame, /allow-scripts/)
+})
+
+test('icon list: icon and one line per item, links when given, layout and dividers from checked settings', () => {
+  const settings = { items: [{ icon: 'check', text: 'ফ্রি ডেলিভারি', link: '' }, { icon: 'phone', text: 'কল করুন', link: 'tel:01700000000' }], direction: 'horizontal', align: 'center', itemGap: 16, iconGap: 8, iconSize: 24, iconColor: '#ff0000', divider: 'dashed', dividerWidth: 2, dividerColor: '' }
+  const content = { version: 2 as const, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'il', kind: 'block' as const, props: {}, block: { type: 'iconList' as const, settings } }] }] }
+  assert.deepEqual(readContent(content), content, 'the settings pass the schema as they are')
+  const out = renderToStaticMarkup(<PageView content={content} ctx={{ ...ctx, preview: false }} storeName="S" />)
+  assert.match(out, /<ul class="sf-iconlist" data-direction="horizontal" data-align="center" data-divider=""/)
+  assert.match(out, /--il-divider:2px dashed var\(--sf-rule\)/)
+  assert.match(out, /--il-icon:#ff0000/)
+  assert.match(out, /<li><svg[^>]*>.*?<\/svg><span>ফ্রি ডেলিভারি<\/span><\/li>/)
+  assert.match(out, /<li><a href="tel:01700000000"><svg/)
+  assert.equal(readContent({ ...content, sections: [{ ...content.sections[0], children: [{ ...content.sections[0].children[0], block: { type: 'iconList', settings: { ...settings, divider: 'wavy' } } }] }] }), null)
 })

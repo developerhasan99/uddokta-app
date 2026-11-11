@@ -54,7 +54,6 @@ function children(section: Section, id: Id): PageNode[] {
     case 'cta': return [box(id, { align: 'center', textAlign: 'center', gap: 16 }, [heading(id, str(s.heading)), ...(str(s.text) ? [text(id, str(s.text))] : []), ...(str(s.button) ? [button(id, s)] : [])])]
     case 'announcement': return [box(id, { direction: 'row', justify: 'center', align: 'center', gap: 16, wrap: 'wrap' }, [text(id, str(s.text)), ...(str(s.button) ? [button(id, s)] : [])])]
     case 'features': return cards(s, id, false, 'check')
-    case 'iconList':
     case 'steps': return cards(s, id, false)
     case 'iconCards':
     case 'trust':

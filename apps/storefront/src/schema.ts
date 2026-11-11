@@ -259,9 +259,29 @@ export const sectionDefs = {
     label: ['আইকন কার্ড', 'Icon cards'], fields: [heading(), cards(['কার্ড', 'Cards'], false, true)],
     defaults: { heading: 'কেন আমাদের বেছে নেবেন', items: [{ icon: 'truck', title: 'ডেলিভারি', text: 'আপনার ডেলিভারির তথ্য লিখুন।' }, { icon: 'shield-check', title: 'যত্ন ও আস্থা', text: 'পণ্যের সঠিক তথ্য দিন।' }, { icon: 'headphones', title: 'গ্রাহক সহায়তা', text: 'যোগাযোগের তথ্য দিন।' }] },
   },
+  // A simple list: per item an icon, one line of text and an optional link. Look and spacing are block settings (Style tab).
   iconList: {
-    label: ['আইকন তালিকা', 'Icon list'], fields: [heading(), cards(['তালিকা', 'List items'], false, true)],
-    defaults: { heading: 'এক নজরে সুবিধাগুলো', items: [{ icon: 'check', title: 'প্রথম সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }, { icon: 'check', title: 'দ্বিতীয় সুবিধা', text: 'এই সুবিধার বিস্তারিত লিখুন।' }] },
+    label: ['আইকন তালিকা', 'Icon list'],
+    fields: [
+      { key: 'items', kind: 'list', label: ['তালিকা', 'List items'], item: ['আইটেম', 'Item'], max: 30, fields: [
+        icon('check'),
+        { key: 'text', kind: 'text', label: ['লেখা', 'Text'], max: 200 },
+        { key: 'link', kind: 'link', label: ['লিংক (ইচ্ছা হলে)', 'Link (optional)'] },
+      ] },
+      { key: 'direction', kind: 'select', group: 'layout', label: ['সাজানো', 'Layout'], options: [{ value: 'vertical', label: ['উপর থেকে নিচে', 'Vertical'] }, { value: 'horizontal', label: ['পাশাপাশি', 'Horizontal'] }] },
+      { key: 'align', kind: 'select', group: 'layout', label: ['অবস্থান', 'Alignment'], options: [{ value: 'start', label: ['শুরুতে', 'Start'] }, { value: 'center', label: ['মাঝে', 'Centre'] }, { value: 'end', label: ['শেষে', 'End'] }] },
+      { key: 'itemGap', kind: 'number', group: 'layout', min: 0, max: 80, label: ['আইটেমের ফাঁক (px)', 'Item spacing (px)'] },
+      { key: 'iconGap', kind: 'number', group: 'layout', min: 0, max: 40, label: ['আইকনের ফাঁক (px)', 'Icon spacing (px)'] },
+      { key: 'iconSize', kind: 'number', group: 'layout', min: 10, max: 64, label: ['আইকনের মাপ (px)', 'Icon size (px)'] },
+      { key: 'iconColor', kind: 'color', group: 'layout', label: ['আইকনের রং', 'Icon colour'] },
+      { key: 'divider', kind: 'select', group: 'layout', label: ['বিভাজক', 'Divider'], options: [{ value: 'none', label: ['নেই', 'None'] }, { value: 'solid', label: ['সলিড', 'Solid'] }, { value: 'dashed', label: ['ড্যাশ', 'Dashed'] }, { value: 'dotted', label: ['ডট', 'Dotted'] }] },
+      { key: 'dividerWidth', kind: 'number', group: 'layout', min: 1, max: 8, label: ['বিভাজকের প্রস্থ (px)', 'Divider width (px)'] },
+      { key: 'dividerColor', kind: 'color', group: 'layout', label: ['বিভাজকের রং', 'Divider colour'] },
+    ],
+    defaults: {
+      items: [{ icon: 'check', text: 'প্রথম সুবিধা', link: '' }, { icon: 'check', text: 'দ্বিতীয় সুবিধা', link: '' }, { icon: 'check', text: 'তৃতীয় সুবিধা', link: '' }],
+      direction: 'vertical', align: 'start', itemGap: 12, iconGap: 10, iconSize: 20, iconColor: '', divider: 'none', dividerWidth: 1, dividerColor: '',
+    },
   },
   // Seller-written HTML, CSS and scripts. The seller is responsible for it; we keep it away from everything else by only
   // running it in a sandboxed frame with its own opaque origin (see EmbedFrame and /embed in server.tsx). Only offered as a block.
@@ -315,7 +335,8 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
     case 'number':
       return Number.isInteger(raw) && (raw as number) >= field.min && (raw as number) <= field.max ? raw as number : undefined
     case 'color':
-      return typeof raw === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(raw) ? raw : undefined
+      // Empty means the theme's colour.
+      return typeof raw === 'string' && (raw === '' || /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(raw)) ? raw : undefined
     case 'link':
       return isSectionLink(raw) ? raw : undefined
     case 'url':

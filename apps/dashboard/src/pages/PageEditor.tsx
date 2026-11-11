@@ -17,11 +17,12 @@ import { toRich } from 'storefront/rich'
 import { blockTypes, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
-import { isPreset, presetCss, presetFontsHref, type PresetId } from 'storefront/themes'
+import { isPreset, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
+const presetVars = (theme: PresetId) => presets[theme].vars
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { IconField } from '../components/IconField'
-import { ColorControl, SectionDesignControls } from '../components/SectionDesignControls'
+import { ColorControl, Group, NumericInput, SectionDesignControls } from '../components/SectionDesignControls'
 import { SectionThumbnail } from '../components/SectionThumbnail'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
@@ -314,13 +315,17 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
               const name = `${L(field.item)} ${num(i + 1)}`
               return (
                 <details key={i} className="editor-list__item" open={expanded[field.key] === i}>
-                  <summary onClick={(e) => { e.preventDefault(); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? null : i })) }}><ChevronDown size={14} aria-hidden="true" /><span>{short(item.title || item.question || item.name) || name}</span></summary>
+                  <summary onClick={(e) => { e.preventDefault(); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? null : i })) }}><ChevronDown size={14} aria-hidden="true" /><span>{short(item.title || item.question || item.name || item.text) || name}</span>
+                    {/* Reorder without opening the item. */}
+                    <span className="editor-list__moves" onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
+                      <IconButton label={`${t('pageMoveUp')}: ${name}`} title={t('pageMoveUp')} disabled={i === 0} onClick={() => { const next = [...list]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setList(next); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? i - 1 : v[field.key] === i - 1 ? i : v[field.key] })) }}><ArrowUp size={14} aria-hidden="true" /></IconButton>
+                      <IconButton label={`${t('pageMoveDown')}: ${name}`} title={t('pageMoveDown')} disabled={i === list.length - 1} onClick={() => { const next = [...list]; [next[i], next[i + 1]] = [next[i + 1], next[i]]; setList(next); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? i + 1 : v[field.key] === i + 1 ? i : v[field.key] })) }}><ArrowDown size={14} aria-hidden="true" /></IconButton>
+                    </span>
+                  </summary>
                   <div className="editor-list__fields">
                     <div className="editor-list__item-head">
                       <strong>{name}</strong>
                       <div className="row">
-                      <IconButton label={`${t('pageMoveUp')}: ${name}`} disabled={i === 0} onClick={() => { const next = [...list]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setList(next) }}><ArrowUp size={16} aria-hidden="true" /></IconButton>
-                      <IconButton label={`${t('pageMoveDown')}: ${name}`} disabled={i === list.length - 1} onClick={() => { const next = [...list]; [next[i], next[i + 1]] = [next[i + 1], next[i]]; setList(next) }}><ArrowDown size={16} aria-hidden="true" /></IconButton>
                       <IconButton label={t('pageRemoveItem', { value: name })} onClick={() => setList(list.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /></IconButton>
                     </div>
                   </div>
@@ -338,6 +343,37 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
       })}
     </>
   )
+}
+
+// A block's look settings (its schema's layout fields), drawn with the Style tab's controls: joined buttons for short
+// choices, px fields, colour pickers hinting the theme colour. Divider width and colour show only once a divider is on.
+const blockColorHints: Record<string, 'accent' | 'rule'> = { iconColor: 'accent', dividerColor: 'rule' }
+function BlockStyleForm({ type, settings, theme, onChange }: { type: SectionType; settings: Record<string, unknown>; theme: PresetId; onChange: (key: string, v: Value, typing?: boolean) => void }) {
+  const { lang } = useLang()
+  const uid = useId()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
+  const def = defOf(type)
+  const value = (key: string) => settings[key] ?? def.defaults[key]
+  const leaves = def.fields.filter((field): field is Leaf => field.kind !== 'list' && 'group' in field && field.group === 'layout')
+    .filter((field) => !(field.key.startsWith('divider') && field.key !== 'divider' && (value('divider') ?? 'none') === 'none'))
+  return <div className="design-controls">{leaves.map((field) => {
+    const id = `${uid}-${field.key}`
+    const label = L(field.label).replace(/ \((px|%)\)$/, '')
+    if (field.kind === 'color') return <ColorControl key={field.key} id={id} label={label} value={String(value(field.key) ?? '')} inherited={blockColorHints[field.key] ? presetVars(theme)[blockColorHints[field.key]] : ''} onChange={(v, typing) => onChange(field.key, v, typing)} />
+    if (field.kind === 'select' && field.options.length <= 3) return <div key={field.key} className="design-control">
+      <div className="design-control__label"><span>{label}</span></div>
+      <div className="design-segments" role="group" aria-label={label}>{field.options.map((o) => <button key={o.value} type="button" aria-pressed={value(field.key) === o.value} onClick={() => onChange(field.key, o.value)}>{L(o.label)}</button>)}</div>
+    </div>
+    if (field.kind === 'select') return <div key={field.key} className="design-control">
+      <div className="design-control__label"><label htmlFor={id}>{label}</label></div>
+      <select className="input" id={id} value={String(value(field.key) ?? '')} onChange={(e) => onChange(field.key, e.target.value)}>{field.options.map((o) => <option key={o.value} value={o.value}>{L(o.label)}</option>)}</select>
+    </div>
+    if (field.kind === 'number') return <div key={field.key} className="design-control">
+      <div className="design-control__label"><label htmlFor={id}>{label}</label></div>
+      <div className="input-affix design-number"><NumericInput id={id} field={field} value={value(field.key) as number | undefined} onChange={(v) => v !== undefined && onChange(field.key, v, true)} /><span aria-hidden="true">px</span></div>
+    </div>
+    return null
+  })}</div>
 }
 
 function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: (typeof sectionPresets)[number]) => void }) {
@@ -971,11 +1007,17 @@ export function PageEditor() {
           {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
         </div>}
         {tab === 'content'
-          ? f.node.block ? <div className="editor__fields">{(['content', 'layout'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
+          ? f.node.block ? <div className="editor__fields">{(['content'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
               onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />)}</div>
           : <div className="editor__fields">{['heading', 'text', 'button'].includes(f.node.kind) && <p className="design-help">{L(['টিপ: প্রিভিউতে লেখার উপর আবার ক্লিক করে সরাসরি লিখুন।', 'Tip: click the text in the preview again to type straight on the page.'])}</p>}{def.fields.map((field) => <LeafEditor key={`${f.node.id}:${field.key}`} id={`node-${f.node.id}-${field.key}`} field={field} value={f.node.props[field.key] ?? null} media={media} products={products} onPick={setPicking}
               onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
-          : <NodeDesignControls key={`${f.node.id}:${tab}:${device}:${styleState}`} node={f.node} tab={tab} device={device} state={styleState} media={media} onPatch={patch}
+          : <>
+            {/* A block's own look settings (its schema's layout fields) lead the Style tab; they are the same on every screen and state. */}
+            {tab === 'style' && f.node.block && styleState === 'normal' && defOf(f.node.block.type).fields.some((field) => 'group' in field && field.group === 'layout') && <Group title={L(defOf(f.node.block.type).label)} icon={<SlidersHorizontal size={15} />}>
+              <BlockStyleForm type={f.node.block.type} settings={f.node.block.settings} theme={theme}
+                onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />
+            </Group>}
+            <NodeDesignControls key={`${f.node.id}:${tab}:${device}:${styleState}`} node={f.node} tab={tab} device={device} state={styleState} media={media} onPatch={patch}
               onHide={(hide) => at((n) => { const next = { ...n }; if (hide) next.hide = hide; else delete next.hide; return next })}
               onPickImage={(apply) => setPicking({ kind: 'image', apply })}
               grid={f.node.kind === 'box' && f.node.style?.display === 'grid' || f.node.kind === 'box' && (f.node.children ?? []).every((c) => c.kind === 'box') ? { columns: Number(f.node.style?.gridColumns ?? Math.max(1, f.node.children?.length ?? 1)), rows: Number(f.node.style?.gridRows ?? 1), set: (c, r) => {
@@ -984,7 +1026,8 @@ export function PageEditor() {
                 at(() => result.node)
                 return !result.blocked
               } } : undefined}
-              parentGrid={f.parent?.style?.display === 'grid' ? { columns: Number(f.parent.style.gridColumns ?? 1), rows: Number(f.parent.style.gridRows ?? 1) } : undefined} />}
+              parentGrid={f.parent?.style?.display === 'grid' ? { columns: Number(f.parent.style.gridColumns ?? 1), rows: Number(f.parent.style.gridRows ?? 1) } : undefined} />
+          </>}
         <Button onClick={() => addAfter(f)}><Plus size={16} aria-hidden="true" />{f.node.kind === 'box' ? L(['এই বক্সের ভেতরে যোগ করুন', 'Add inside this box']) : L(['এর নিচে যোগ করুন', 'Add below this'])}</Button>
       </div>
       <div className="editor__section-actions" role="group" aria-label={t('pageEditTab')}>

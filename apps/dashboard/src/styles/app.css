@@ -872,6 +872,10 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .editor-list__item summary { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-xs); cursor: pointer; list-style: none; font-weight: 500; }
 .editor-list__item summary::-webkit-details-marker { display: none; }
 .editor-list__item summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-list__item summary > span:not(.editor-list__moves) { flex: 1; }
+.editor-list__moves { display: flex; flex: none; gap: var(--space-3xs); }
+.editor-list__moves .btn--icon { width: 26px; height: 26px; min-height: 26px; box-shadow: none; background: transparent; }
+.editor-list__item:not([open]) summary .editor-list__moves svg { transform: none; }
 .editor-list__item:not([open]) summary svg { transform: rotate(-90deg); }
 .editor-list__fields { display: grid; gap: var(--space-sm); padding: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
 .editor-list__item-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
