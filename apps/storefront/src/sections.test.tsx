@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { blankContent, newSection, readContent, sectionTypes, type Content } from './schema.ts'
-import { PageView, type Ctx } from './sections.tsx'
+import { css, PageView, type Ctx } from './sections.tsx'
 
 const ctx: Ctx = { preview: true, shipping: [{ id: '00000000-0000-4000-8000-000000000003', name: 'ঢাকার ভেতরে', note: '', price: 60, freeOver: null, freeMinQty: null, freeProducts: [] }, { id: '00000000-0000-4000-8000-000000000004', name: 'ঢাকার বাইরে', note: '', price: 120, freeOver: null, freeMinQty: null, freeProducts: [] }], image: () => undefined, product: () => undefined }
 const render = (content: Content) => renderToStaticMarkup(<PageView content={content} ctx={ctx} storeName="Legacy store" />)
@@ -171,4 +171,12 @@ test('a button draws its icon before or after its text', () => {
   const page = (iconPosition: string) => renderToStaticMarkup(<PageView content={{ version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'b', kind: 'button', props: { text: 'Buy', link: 'https://x.com', icon: 'check', iconPosition, variant: 'solid' } }] }] }} ctx={{ ...ctx, preview: false }} storeName="S" />)
   assert.match(page('before'), /<span class="sf-icon-badge"[^]*?<\/span><span data-edit="text">Buy<\/span>/)
   assert.match(page('after'), /<span data-edit="text">Buy<\/span><span class="sf-icon-badge"/)
+})
+
+test('button animations come from a fixed list, render as data attributes, and stop for reduced motion', () => {
+  const content = (animation: string) => ({ version: 2 as const, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'b', kind: 'button' as const, props: { text: 'Buy', link: 'https://x.com', icon: '', iconPosition: 'before', variant: 'solid' }, style: { animation, animationSpeed: 'fast' } }] }] })
+  const out = renderToStaticMarkup(<PageView content={readContent(content('shimmer'))!} ctx={{ ...ctx, preview: false }} storeName="S" />)
+  assert.match(out, /<a class="[^"]*sf-button[^"]*"[^>]*data-anim="shimmer" data-anim-speed="fast"/)
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{\[data-anim\]\{animation:none\}/, 'the page stylesheet stops them for reduced motion')
+  assert.equal(readContent(content('spin-forever')), null)
 })

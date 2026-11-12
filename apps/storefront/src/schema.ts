@@ -593,6 +593,9 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'borderStyle', kind: 'select', group: 'style', label: ['বর্ডারের ধরন', 'Border style'], options: opts(['solid', ['সলিড', 'Solid']], ['dashed', ['ড্যাশ', 'Dashed']], ['dotted', ['ডট', 'Dotted']]) },
   { key: 'borderColor', kind: 'color', group: 'style', label: ['বর্ডারের রং', 'Border color'] },
   { key: 'shadow', kind: 'select', group: 'style', label: ['ছায়া', 'Shadow'], options: opts(['none', ['নেই', 'None']], ['soft', ['হালকা', 'Soft']], ['strong', ['গাঢ়', 'Strong']]) },
+  // Attention animation for buttons (More tab). The same on every screen; switched off for visitors who ask for less motion.
+  { key: 'animation', kind: 'select', group: 'layout', label: ['অ্যানিমেশন', 'Animation'], options: opts(['pulse', ['পালস', 'Pulse']], ['shake', ['ঝাঁকুনি', 'Shake']], ['bounce', ['লাফানো', 'Bounce']], ['shimmer', ['ঝিলিক', 'Shimmer']], ['glow', ['আলোর বলয়', 'Glow']]) },
+  { key: 'animationSpeed', kind: 'select', group: 'layout', label: ['গতি', 'Speed'], options: opts(['slow', ['ধীর', 'Slow']], ['fast', ['দ্রুত', 'Fast']]) },
   // How smoothly colours, border, corners and shadow change (into the hover look and back). More tab.
   px('transitionDuration', ['সময় (ms)', 'Duration (ms)'], 2000),
   { key: 'transitionEasing', kind: 'select', group: 'layout', label: ['গতির ধরন', 'Easing'], options: opts(['ease', ['স্বাভাবিক', 'Ease']], ['linear', ['সমান', 'Linear']], ['ease-in', ['ধীরে শুরু', 'Ease in']], ['ease-out', ['ধীরে শেষ', 'Ease out']], ['ease-in-out', ['ধীরে শুরু ও শেষ', 'Ease in and out']]) },

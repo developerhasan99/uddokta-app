@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, MousePointer2, Palette, RotateCcw, Link2, Unlink2, Timer, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, MousePointer2, Palette, Sparkles, RotateCcw, Link2, Unlink2, Timer, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
@@ -57,13 +57,13 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
       </div>
     </div>
   )
-  const select = (key: string, label?: string) => {
+  const select = (key: string, label?: string, empty?: string) => {
     const field = fieldOf(key) as Extract<Leaf, { kind: 'select' }>
     const id = `${uid}-${key}`
     return <div className="design-control" key={key}>
       <div className="design-control__label"><label htmlFor={id}>{label ?? labelOf(field)}</label>{reset([key])}</div>
       <select className="input" id={id} value={String(value(key) ?? '')} onChange={(e) => onPatch({ [key]: e.target.value || undefined })}>
-        <option value="">{hover ? L('সাধারণের মতো', 'Same as normal') : device === 'mobile' ? L('ডেস্কটপের মতো', 'Same as desktop') : L('ডিফল্ট', 'Default')}</option>
+        <option value="">{empty ?? (hover ? L('সাধারণের মতো', 'Same as normal') : device === 'mobile' ? L('ডেস্কটপের মতো', 'Same as desktop') : L('ডিফল্ট', 'Default'))}</option>
         {field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}
       </select>
     </div>
@@ -172,6 +172,13 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
       {node.kind !== 'spacer' && <p className="design-help">{L('পাশাপাশি থাকলে প্রস্থ হলো সারির ভাগ। ফাঁকা রাখলে সমান ভাগ হয়।', 'In a row, width is a share of the row. Leave it blank to share equally.')}</p>}
     </Group>
     <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>{sideFields('padding', L('ভেতরের ফাঁকা (প্যাডিং)', 'Padding'))}{sideFields('margin', L('বাইরের ফাঁকা (মার্জিন)', 'Margin'))}</Group>
+    {node.kind === 'button' && <Group title={L('অ্যানিমেশন', 'Animation')} icon={<Sparkles size={15} />}>
+      {device === 'desktop' ? <>
+        {select('animation', L('অ্যানিমেশন', 'Animation'), L('নেই', 'None'))}
+        {value('animation') !== undefined && select('animationSpeed', L('গতি', 'Speed'), L('স্বাভাবিক', 'Normal'))}
+        <p className="design-help">{L('বাটনকে আলাদা করে চোখে পড়াতে। সব স্ক্রিনে একই থাকে; যারা কম নড়াচড়া চান তাদের কাছে বন্ধ থাকে।', 'Makes the button stand out. The same on every screen, and off for visitors who ask for less motion.')}</p>
+      </> : <p className="design-help">{L('অ্যানিমেশন সব স্ক্রিনে একই। ডেস্কটপে বদলান।', 'Animation is the same on every screen. Change it on Desktop.')}</p>}
+    </Group>}
     <Group title={L('ট্রানজিশন', 'Transition')} icon={<Timer size={15} />} open={false}>
       <div className="design-grid">{number('transitionDuration', L('সময়', 'Duration'), 'ms')}{select('transitionEasing')}</div>
       <p className="design-help">{L('রং, বর্ডার, কোণা ও ছায়া কত ধীরে বদলাবে, যেমন হোভারের চেহারায় যেতে আর ফিরতে।', 'How smoothly colours, border, corners and shadow change, such as into the hover look and back.')}</p>

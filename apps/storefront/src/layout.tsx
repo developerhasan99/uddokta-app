@@ -55,7 +55,9 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
       const icon = <IconBadge name={str(p.icon)} image={ctx.image} />
       const inner = p.iconPosition === 'after' ? <><span data-edit="text">{str(p.text)}</span>{icon}</> : <>{icon}<span data-edit="text">{str(p.text)}</span></>
       const cls = `${className} sf-button${p.variant === 'outline' ? ' sf-button--outline' : ''}`
-      return href && !ctx.preview ? <a className={cls} data-node={node.id} href={href}>{inner}</a> : <span className={cls} data-node={node.id}>{inner}</span>
+      // Animation values come from a fixed list (schema), so they go straight into data attributes for layoutBaseCss.
+      const anim = { 'data-anim': str(node.style?.animation) || undefined, 'data-anim-speed': node.style?.animation ? str(node.style?.animationSpeed) || undefined : undefined }
+      return href && !ctx.preview ? <a className={cls} data-node={node.id} href={href} {...anim}>{inner}</a> : <span className={cls} data-node={node.id} {...anim}>{inner}</span>
     }
     case 'icon':
       return <span className={className} data-node={node.id}><IconBadge name={str(p.icon) || 'check'} image={ctx.image} /></span>
@@ -223,6 +225,19 @@ export const layoutBaseCss = `
 .sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-radius)}.sf-n-image img{display:block;width:100%;height:auto}
 :where(.sf-n).sf-button{margin:0;width:fit-content;gap:8px}
 .sf-n-icon{display:inline-flex;width:fit-content;color:var(--sf-accent)}
+[data-anim]{--sf-anim:1;animation-iteration-count:infinite}[data-anim-speed=slow]{--sf-anim:1.6}[data-anim-speed=fast]{--sf-anim:.6}
+[data-anim=pulse]{animation-name:sf-pulse;animation-duration:calc(var(--sf-anim)*1.6s);animation-timing-function:ease-in-out}
+[data-anim=shake]{animation-name:sf-shake;animation-duration:calc(var(--sf-anim)*3s)}
+[data-anim=bounce]{animation-name:sf-bounce;animation-duration:calc(var(--sf-anim)*2s)}
+[data-anim=glow]{animation-name:sf-glow;animation-duration:calc(var(--sf-anim)*2s)}
+[data-anim=shimmer]{position:relative;overflow:hidden}
+[data-anim=shimmer]::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);transform:translateX(-100%);animation:sf-shimmer calc(var(--sf-anim)*2.4s) ease-in-out infinite;pointer-events:none}
+@keyframes sf-pulse{50%{transform:scale(1.06)}}
+@keyframes sf-shake{0%,24%,100%{transform:translateX(0)}4%,12%,20%{transform:translateX(-4px) rotate(-1deg)}8%,16%{transform:translateX(4px) rotate(1deg)}}
+@keyframes sf-bounce{0%,40%,100%{transform:translateY(0)}20%{transform:translateY(-8px)}30%{transform:translateY(-3px)}}
+@keyframes sf-glow{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--sf-accent) 60%,transparent)}70%,100%{box-shadow:0 0 0 14px transparent}}
+@keyframes sf-shimmer{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){[data-anim]{animation:none}[data-anim]::after{display:none}}
 .sf-n-divider{width:100%;margin:0;border:0;border-top:1px solid var(--sf-rule)}
 .sf-n-spacer{height:32px}
 .sf-n-video{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:var(--sf-radius);background:#000}.sf-n-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
