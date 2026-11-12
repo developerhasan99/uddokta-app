@@ -205,6 +205,10 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
     case 'icon':
       return <IconField label={label} value={typeof value === 'string' ? value : field.defaultIcon ?? ''} onChange={onChange} media={media} onPickImage={(apply) => onPick({ kind: 'image', apply })} />
     case 'select':
+      // Two choices read as a switch (joined buttons), like the Style tab's.
+      if (field.options.length === 2) return <div className="field field--switch"><span className="field__label">{label}</span>
+        <div className="design-segments" role="group" aria-label={label}>{field.options.map((o) => <button key={o.value} type="button" aria-pressed={(value || field.options[0].value) === o.value} onClick={() => onChange(o.value)}>{o.label[lang === 'bn' ? 0 : 1]}</button>)}</div>
+      </div>
       return <div className="field"><label htmlFor={id}>{label}</label><select className="input" id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
         <option value="">{lang === 'bn' ? 'স্বাভাবিক / ডিফল্ট' : 'Inherit / default'}</option>
         {field.options.map((o) => <option key={o.value} value={o.value}>{o.label[lang === 'bn' ? 0 : 1]}</option>)}

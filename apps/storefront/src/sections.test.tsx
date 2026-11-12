@@ -166,3 +166,9 @@ test('icon list: icon and one line per item, links when given, layout and divide
   assert.match(out, /<li><a href="tel:01700000000"><svg/)
   assert.equal(readContent({ ...content, sections: [{ ...content.sections[0], children: [{ ...content.sections[0].children[0], block: { type: 'iconList', settings: { ...settings, divider: 'wavy' } } }] }] }), null)
 })
+
+test('a button draws its icon before or after its text', () => {
+  const page = (iconPosition: string) => renderToStaticMarkup(<PageView content={{ version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'b', kind: 'button', props: { text: 'Buy', link: 'https://x.com', icon: 'check', iconPosition, variant: 'solid' } }] }] }} ctx={{ ...ctx, preview: false }} storeName="S" />)
+  assert.match(page('before'), /<span class="sf-icon-badge"[^]*?<\/span><span data-edit="text">Buy<\/span>/)
+  assert.match(page('after'), /<span data-edit="text">Buy<\/span><span class="sf-icon-badge"/)
+})

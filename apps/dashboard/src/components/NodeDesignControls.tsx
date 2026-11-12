@@ -3,7 +3,7 @@ import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, A
 import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
-import { ColorControl, Group, NumericInput } from './SectionDesignControls'
+import { BackgroundTypeRow, ColorControl, GradientControls, Group, NumericInput } from './SectionDesignControls'
 
 export type Device = 'desktop' | 'mobile'
 export type State = 'normal' | 'hover'
@@ -189,9 +189,23 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
       {segments('textAlign', L('অবস্থান', 'Alignment'), [{ value: 'left', label: L('বামে', 'Left'), icon: <AlignLeft size={16} aria-hidden="true" /> }, { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenter size={16} aria-hidden="true" /> }, { value: 'right', label: L('ডানে', 'Right'), icon: <AlignRight size={16} aria-hidden="true" /> }])}
       <div className="design-grid">{number('fontSize', L('মাপ', 'Size'))}{select('fontWeight')}</div>
       {color('color', '#1d1d1f')}
-      {color('background', node.kind === 'button' ? '#1f7a4d' : '')}
+      {node.kind !== 'button' && color('background', '')}
       {isBox && <BackgroundImage value={value('backgroundImage')} media={media} label={L('পটভূমির ছবি', 'Background image')} change={L('বদলান', 'Change')} remove={L('সরান', 'Remove')} choose={L('ছবি বেছে নিন', 'Choose image')} onPick={() => onPickImage((id) => onPatch({ backgroundImage: id ?? undefined }))} onRemove={() => onPatch({ backgroundImage: undefined })} />}
     </Group>}
+    {node.kind === 'button' && (() => {
+      // Classic (a colour) or a gradient; phone and hover values fall back to the normal desktop ones.
+      const merged = inheriting ? { ...desktop, ...own } : own
+      const type = String(merged.bgType ?? 'color')
+      const setType = (t: string) => onPatch({
+        bgType: t === 'gradient' ? t : inheriting && desktop.bgType === 'gradient' ? 'color' : undefined,
+        ...(t === 'gradient' && !(merged.gradientFrom && merged.gradientTo) ? { gradientFrom: String(merged.gradientFrom ?? merged.background ?? '#1f7a4d'), gradientTo: String(merged.gradientTo ?? '#1d1d1f') } : {}),
+      })
+      return <Group title={L('পটভূমি', 'Background')} icon={<Palette size={15} />}>
+        <BackgroundTypeRow value={type} types={['color', 'gradient']} onChange={setType} />
+        {type === 'color' && color('background', '#1f7a4d')}
+        {type === 'gradient' && <GradientControls values={merged} onPatch={onPatch} color={(key) => color(key, key === 'gradientFrom' ? '#1f7a4d' : '#1d1d1f')} number={(key, label) => number(key, label, key === 'gradientAngle' ? '°' : '%')} position={(label) => select('gradientPosition', label)} />}
+      </Group>
+    })()}
     {!textual && (node.kind === 'icon' || node.kind === 'image') && <Group title={L('অবস্থান', 'Position')} icon={<AlignCenter size={15} />}>
       {segments('textAlign', L('অবস্থান', 'Alignment'), [{ value: 'left', label: L('বামে', 'Left'), icon: <AlignLeft size={16} aria-hidden="true" /> }, { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenter size={16} aria-hidden="true" /> }, { value: 'right', label: L('ডানে', 'Right'), icon: <AlignRight size={16} aria-hidden="true" /> }])}
       {node.kind === 'icon' && color('color', '#1f7a4d')}

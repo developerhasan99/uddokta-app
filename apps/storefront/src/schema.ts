@@ -45,6 +45,19 @@ const cards = (label: Label, withImage = false, withIcon = false): Field => ({ k
 ] })
 
 // Optional overrides inherit the store theme when absent. A blank control removes its override.
+// Gradient settings, shared by section backgrounds and elements (buttons): colours with positions, linear with an
+// angle or radial with a shape and starting point. gradientCss in sections.tsx builds the CSS from them.
+const gradientLeaves: (Leaf & { group: 'style' })[] = [
+  { key: 'gradientFrom', kind: 'color', label: ['শুরুর রং', 'From'], group: 'style' as const },
+  { key: 'gradientTo', kind: 'color', label: ['শেষের রং', 'To'], group: 'style' as const },
+  { key: 'gradientType', kind: 'select', label: ['গ্রেডিয়েন্টের ধরন', 'Gradient type'], group: 'style', options: [{ value: 'linear', label: ['সরলরেখায়', 'Linear'] }, { value: 'radial', label: ['মাঝ থেকে চারদিকে', 'Radial'] }] },
+  { key: 'gradientAngle', kind: 'number', min: 0, max: 360, label: ['কোণ (°)', 'Angle (°)'], group: 'style' as const },
+  { key: 'gradientFromStop', kind: 'number', min: 0, max: 100, label: ['শুরুর রঙের জায়গা (%)', 'From at (%)'], group: 'style' as const },
+  { key: 'gradientToStop', kind: 'number', min: 0, max: 100, label: ['শেষের রঙের জায়গা (%)', 'To at (%)'], group: 'style' as const },
+  { key: 'gradientShape', kind: 'select', label: ['আকার', 'Shape'], group: 'style', options: [{ value: 'circle', label: ['বৃত্ত', 'Circle'] }, { value: 'ellipse', label: ['উপবৃত্ত', 'Ellipse'] }] },
+  { key: 'gradientPosition', kind: 'select', label: ['কোথা থেকে', 'Starts from'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Centre'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'top right', label: ['উপরে ডানে', 'Top right'] }, { value: 'right', label: ['ডানে', 'Right'] }, { value: 'bottom right', label: ['নিচে ডানে', 'Bottom right'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }, { value: 'bottom left', label: ['নিচে বামে', 'Bottom left'] }, { value: 'left', label: ['বামে', 'Left'] }, { value: 'top left', label: ['উপরে বামে', 'Top left'] }] },
+]
+
 export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'align', kind: 'select', label: ['লেখার অবস্থান', 'Text alignment'], group: 'layout', options: [{ value: 'left', label: ['বামে', 'Left'] }, { value: 'center', label: ['মাঝখানে', 'Center'] }, { value: 'right', label: ['ডানে', 'Right'] }] },
   { key: 'maxWidth', kind: 'number', min: 320, max: 1600, label: ['কন্টেন্টের সর্বোচ্চ প্রস্থ (px)', 'Content max width (px)'], group: 'layout' },
@@ -55,15 +68,7 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'minHeight', kind: 'number', min: 0, max: 1200, label: ['সর্বনিম্ন উচ্চতা (px)', 'Min height (px)'], group: 'layout' },
   // Section background: a colour (background), a gradient, an image or a looping muted video, with an optional overlay.
   { key: 'bgType', kind: 'select', label: ['পটভূমির ধরন', 'Background type'], group: 'style', options: [{ value: 'color', label: ['রং', 'Colour'] }, { value: 'gradient', label: ['গ্রেডিয়েন্ট', 'Gradient'] }, { value: 'image', label: ['ছবি', 'Image'] }, { value: 'video', label: ['ভিডিও', 'Video'] }] },
-  { key: 'gradientFrom', kind: 'color', label: ['শুরুর রং', 'From'], group: 'style' },
-  { key: 'gradientTo', kind: 'color', label: ['শেষের রং', 'To'], group: 'style' },
-  { key: 'gradientType', kind: 'select', label: ['গ্রেডিয়েন্টের ধরন', 'Gradient type'], group: 'style', options: [{ value: 'linear', label: ['সরলরেখায়', 'Linear'] }, { value: 'radial', label: ['মাঝ থেকে চারদিকে', 'Radial'] }] },
-  { key: 'gradientAngle', kind: 'number', min: 0, max: 360, label: ['কোণ (°)', 'Angle (°)'], group: 'style' },
-  // Where each colour sits along the gradient (0–100%), and for radial gradients the shape and where it starts.
-  { key: 'gradientFromStop', kind: 'number', min: 0, max: 100, label: ['শুরুর রঙের জায়গা (%)', 'From at (%)'], group: 'style' },
-  { key: 'gradientToStop', kind: 'number', min: 0, max: 100, label: ['শেষের রঙের জায়গা (%)', 'To at (%)'], group: 'style' },
-  { key: 'gradientShape', kind: 'select', label: ['আকার', 'Shape'], group: 'style', options: [{ value: 'circle', label: ['বৃত্ত', 'Circle'] }, { value: 'ellipse', label: ['উপবৃত্ত', 'Ellipse'] }] },
-  { key: 'gradientPosition', kind: 'select', label: ['কোথা থেকে', 'Starts from'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Centre'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'top right', label: ['উপরে ডানে', 'Top right'] }, { value: 'right', label: ['ডানে', 'Right'] }, { value: 'bottom right', label: ['নিচে ডানে', 'Bottom right'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }, { value: 'bottom left', label: ['নিচে বামে', 'Bottom left'] }, { value: 'left', label: ['বামে', 'Left'] }, { value: 'top left', label: ['উপরে বামে', 'Top left'] }] },
+  ...gradientLeaves,
   { key: 'bgImage', kind: 'image', label: ['পটভূমির ছবি', 'Background image'], group: 'style' },
   { key: 'bgSize', kind: 'select', label: ['ছবি বসানো', 'Image fit'], group: 'style', options: [{ value: 'cover', label: ['পুরো জায়গা জুড়ে', 'Fill'] }, { value: 'contain', label: ['পুরো ছবি', 'Whole image'] }] },
   { key: 'bgPosition', kind: 'select', label: ['ছবির অবস্থান', 'Image position'], group: 'style', options: [{ value: 'center', label: ['মাঝে', 'Center'] }, { value: 'top', label: ['উপরে', 'Top'] }, { value: 'bottom', label: ['নিচে', 'Bottom'] }] },
@@ -514,8 +519,9 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
     { key: 'text', kind: 'text', label: ['বাটনের লেখা', 'Button text'], max: 80 },
     { key: 'link', kind: 'link', label: ['লিংক (ফাঁকা রাখলে অর্ডার ফর্ম)', 'Link (blank uses order form)'] },
     { key: 'icon', kind: 'icon', label: ['আইকন', 'Icon'] },
+    { key: 'iconPosition', kind: 'select', label: ['আইকনের জায়গা', 'Icon position'], options: opts(['before', ['লেখার আগে', 'Before text']], ['after', ['লেখার পরে', 'After text']]) },
     { key: 'variant', kind: 'select', label: ['ধরন', 'Look'], options: opts(['solid', ['ভরাট', 'Solid']], ['outline', ['বর্ডার', 'Outline']]) },
-  ], defaults: { text: 'এখনই অর্ডার করুন', link: '', icon: '', variant: 'solid' } },
+  ], defaults: { text: 'এখনই অর্ডার করুন', link: '', icon: '', iconPosition: 'before', variant: 'solid' } },
   icon: { label: ['আইকন', 'Icon'], fields: [{ key: 'icon', kind: 'icon', label: ['আইকন', 'Icon'], defaultIcon: 'check' }], defaults: { icon: 'check' } },
   divider: { label: ['ভাগ রেখা', 'Divider'], fields: [], defaults: {} },
   spacer: { label: ['ফাঁকা জায়গা', 'Spacer'], fields: [], defaults: {} },
@@ -576,6 +582,8 @@ export const nodeStyleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'color', kind: 'color', group: 'style', label: ['লেখার রং', 'Text color'] },
   { key: 'background', kind: 'color', group: 'style', label: ['পটভূমি', 'Background'] },
   { key: 'backgroundImage', kind: 'image', group: 'style', label: ['পটভূমির ছবি', 'Background image'] },
+  { key: 'bgType', kind: 'select', group: 'style', label: ['পটভূমির ধরন', 'Background type'], options: opts(['color', ['রং', 'Classic']], ['gradient', ['গ্রেডিয়েন্ট', 'Gradient']]) },
+  ...gradientLeaves,
   // radius is the older all-corners size; the editor now writes one size per corner and clears it.
   px('radius', ['কোণা (px)', 'Corners (px)'], 200, 0, 'style'),
   ...(['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'] as const).map((corner) => px(`radius${corner}`, [`কোণা ${({ TopLeft: 'উপর-বাম', TopRight: 'উপর-ডান', BottomRight: 'নিচ-ডান', BottomLeft: 'নিচ-বাম' })[corner]} (px)`, `Corner ${corner.replace(/([a-z])([A-Z])/, '$1 $2').toLowerCase()} (px)`], 200, 0, 'style')),

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { IconBadge } from './icons/Icon.tsx'
 import { cleanRichText, isRich } from './rich.ts'
 import { videoEmbed, walk, type Content, type NodeStyle, type PageNode, type Section } from './schema.ts'
-import { SectionView, type Ctx } from './sections.tsx'
+import { gradientCss, SectionView, type Ctx } from './sections.tsx'
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 export const rootGap = 24
@@ -52,7 +52,8 @@ function NodeView({ node, ctx, orderId }: { node: PageNode; ctx: Ctx; orderId?: 
     }
     case 'button': {
       const href = str(p.link) || (orderId ? `#${orderId}` : '')
-      const inner = <><IconBadge name={str(p.icon)} image={ctx.image} /><span data-edit="text">{str(p.text)}</span></>
+      const icon = <IconBadge name={str(p.icon)} image={ctx.image} />
+      const inner = p.iconPosition === 'after' ? <><span data-edit="text">{str(p.text)}</span>{icon}</> : <>{icon}<span data-edit="text">{str(p.text)}</span></>
       const cls = `${className} sf-button${p.variant === 'outline' ? ' sf-button--outline' : ''}`
       return href && !ctx.preview ? <a className={cls} data-node={node.id} href={href}>{inner}</a> : <span className={cls} data-node={node.id}>{inner}</span>
     }
@@ -77,6 +78,7 @@ const align: Record<string, string> = { stretch: 'stretch', start: 'flex-start',
 const shadows: Record<string, string> = { none: 'none', soft: '0 6px 24px #00000014', strong: '0 14px 40px #0000002e' }
 
 // The node's own look: everything except its width, which depends on the box it sits in.
+const gradientKeys = ['gradientType', 'gradientFrom', 'gradientTo', 'gradientAngle', 'gradientFromStop', 'gradientToStop', 'gradientShape', 'gradientPosition']
 const borderSides = ['Top', 'Right', 'Bottom', 'Left'] as const
 const hasBorder = (st: NodeStyle) => typeof st.borderWidth === 'number' || borderSides.some((side) => typeof st[`border${side}Width`] === 'number')
 
@@ -126,6 +128,12 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx, base: NodeStyle =
     if (st.borderColor) out.push(`border-color:${st.borderColor}`)
   }
   if (st.shadow) out.push(`box-shadow:${shadows[st.shadow as string]}`)
+  // Gradient background: drawn from the merged values, so a phone or hover rule that changes one setting keeps the rest.
+  if (['bgType', ...gradientKeys].some((key) => st[key] !== undefined)) {
+    const g = { ...base, ...st }
+    if (g.bgType === 'gradient' && g.gradientFrom && g.gradientTo) out.push(`background-image:${gradientCss(g)}`)
+    else if (base.bgType === 'gradient') out.push('background-image:none')
+  }
   if (n('transitionDuration') !== undefined) out.push('transition-property:color,background-color,border-color,border-width,border-radius,box-shadow', `transition-duration:${n('transitionDuration')}ms`, `transition-timing-function:${st.transitionEasing ?? base.transitionEasing ?? 'ease'}`)
   else if (st.transitionEasing) out.push(`transition-timing-function:${st.transitionEasing}`)
   return out

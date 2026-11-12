@@ -46,3 +46,10 @@ test('base element rules weigh one class, so every per-node rule (written later)
   const button = css({ id: 'x', kind: 'box', props: {}, children: [{ id: 'b', kind: 'button', props: {}, style: { marginTop: 24 } }] })
   assert.match(button, /\.n-b\{margin-top:24px[^}]*width:fit-content/, 'a button keeps its own width and takes the seller margin')
 })
+
+test('element gradients: drawn from checked settings, phone and hover rules change only what they set', () => {
+  const out = css({ id: 'g', kind: 'button', props: {}, style: { bgType: 'gradient', gradientFrom: '#111111', gradientTo: '#222222', gradientAngle: 90 }, hover: { gradientTo: '#333333' }, mobile: { bgType: 'color' } })
+  assert.match(out, /\.n-g\{[^}]*background-image:linear-gradient\(90deg, #111111 0%, #222222 100%\)/)
+  assert.match(out, /:hover\{background-image:linear-gradient\(90deg, #111111 0%, #333333 100%\)\}/, 'hover keeps the normal angle and From colour')
+  assert.match(out, /@media \(max-width:719\.98px\)\{\.n-g\{background-image:none\}/, 'Classic on phones turns the gradient off')
+})

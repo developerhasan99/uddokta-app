@@ -53,7 +53,7 @@ test('layout sections hold a validated tree of boxes and elements', () => {
     { id: 'pic', kind: 'image', props: { image, link: '' }, style: { width: 40, radius: 16 } },
     { id: 'copy', kind: 'box', props: {}, style: { width: 60 }, children: [
       { id: 'title', kind: 'heading', props: { text: 'শিরোনাম', level: 'h1' }, style: { fontSize: 48 }, mobile: { fontSize: 28 } },
-      { id: 'cta', kind: 'button', props: { text: 'অর্ডার', link: '', icon: '', variant: 'solid' }, hide: 'desktop' },
+      { id: 'cta', kind: 'button', props: { text: 'অর্ডার', link: '', icon: '', iconPosition: 'before', variant: 'solid' }, hide: 'desktop' },
     ] },
   ] }]
   const content: Content = { version: 2, sections: [{ ...newSection('layout', 'custom'), children: tree }] }

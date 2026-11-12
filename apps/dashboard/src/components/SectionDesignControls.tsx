@@ -75,34 +75,9 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
       </Group>
     </> : <>
       <Group title={L('পটভূমি', 'Background')} icon={<Palette size={15} />}>
-        {/* One row: the label, then the types as icons (names on hover and for screen readers). */}
-        <div className="design-control design-control--half">
-          <div className="design-control__label"><span>{L('পটভূমির ধরন', 'Background type')}</span></div>
-          <div className="design-segments design-bg-types" role="group" aria-label={L('পটভূমির ধরন', 'Background type')}>
-            {([['color', L('রং', 'Classic'), Paintbrush], ['gradient', L('গ্রেডিয়েন্ট', 'Gradient'), null], ['image', L('ছবি', 'Image'), ImageIcon], ['video', L('ভিডিও', 'Video'), Video]] as const).map(([type, label, Icon]) => <button key={type} type="button" aria-pressed={bgType === type} aria-label={label} title={label} onClick={() => setType(type)}>{Icon ? <Icon size={15} aria-hidden="true" /> : <span className="gradient-mark" aria-hidden="true" />}</button>)}
-          </div>
-        </div>
+        <BackgroundTypeRow value={bgType} types={['color', 'gradient', 'image', 'video']} onChange={setType} />
         {bgType === 'color' && colorControl('background')}
-        {bgType === 'gradient' && <>
-          <div className="design-control design-control--half">
-            <div className="design-control__label"><span>{L('গ্রেডিয়েন্টের ধরন', 'Gradient type')}</span></div>
-            <div className="design-segments" role="group" aria-label={L('গ্রেডিয়েন্টের ধরন', 'Gradient type')}>
-              {([['linear', L('সরল', 'Linear')], ['radial', L('গোল', 'Radial')]] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={(values.gradientType ?? 'linear') === type} onClick={() => onPatch({ gradientType: type === 'linear' ? undefined : type })}>{label}</button>)}
-            </div>
-          </div>
-          {colorControl('gradientFrom')}{colorControl('gradientTo')}
-          <div className="design-grid">{control('gradientFromStop', L('শুরুর রং কোথায়', 'From at'))}{control('gradientToStop', L('শেষের রং কোথায়', 'To at'))}</div>
-          {values.gradientType === 'radial' ? <>
-            <div className="design-control design-control--half">
-              <div className="design-control__label"><span>{L('আকার', 'Shape')}</span></div>
-              <div className="design-segments" role="group" aria-label={L('আকার', 'Shape')}>
-                {([['circle', L('বৃত্ত', 'Circle')], ['ellipse', L('উপবৃত্ত', 'Ellipse')]] as const).map(([shape, label]) => <button key={shape} type="button" aria-pressed={(values.gradientShape ?? 'circle') === shape} onClick={() => onPatch({ gradientShape: shape === 'circle' ? undefined : shape })}>{label}</button>)}
-              </div>
-            </div>
-            {control('gradientPosition', L('কোথা থেকে', 'Starts from'), 'center')}
-          </> : control('gradientAngle', L('কোণ', 'Angle'))}
-          <p className="design-help">{L('রং কোথায় বসবে তা কাছাকাছি দিলে রেখা ধারালো হয়, দূরে দিলে নরম। স্বচ্ছ রং দিয়ে ছবির উপর হালকা আভা দেওয়া যায়।', 'Positions close together give a sharp edge, far apart a soft fade. A see-through colour fades to clear.')}</p>
-        </>}
+        {bgType === 'gradient' && <GradientControls values={values} onPatch={onPatch} color={colorControl} number={(key, label) => control(key, label)} position={(label) => control('gradientPosition', label, 'center')} />}
         {bgType === 'image' && <>{picker('bgImage', L('ছবি', 'Image'))}{control('bgSize')}{control('bgPosition')}</>}
         {bgType === 'video' && <>
           <div className="design-control">
@@ -122,6 +97,46 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
       </Group>
     </>}
   </div>
+}
+
+// Background type as icon buttons on one row (names on hover and for screen readers). Shared by sections and buttons.
+const bgTypes = { color: [['রং', 'Classic'], Paintbrush], gradient: [['গ্রেডিয়েন্ট', 'Gradient'], null], image: [['ছবি', 'Image'], ImageIcon], video: [['ভিডিও', 'Video'], Video] } as const
+export function BackgroundTypeRow({ value, types, onChange }: { value: string; types: (keyof typeof bgTypes)[]; onChange: (type: string) => void }) {
+  const { lang } = useLang()
+  const L = (bn: string, en: string) => lang === 'bn' ? bn : en
+  return <div className="design-control design-control--half">
+    <div className="design-control__label"><span>{L('পটভূমির ধরন', 'Background type')}</span></div>
+    <div className="design-segments design-bg-types" role="group" aria-label={L('পটভূমির ধরন', 'Background type')}>
+      {types.map((type) => {
+        const [names, Icon] = bgTypes[type]
+        const label = names[lang === 'bn' ? 0 : 1]
+        return <button key={type} type="button" aria-pressed={value === type} aria-label={label} title={label} onClick={() => onChange(type)}>{Icon ? <Icon size={15} aria-hidden="true" /> : <span className="gradient-mark" aria-hidden="true" />}</button>
+      })}
+    </div>
+  </div>
+}
+
+// Gradient settings (type, colours and positions, angle or shape and starting point). The caller supplies its own
+// colour, number and position controls, so each panel keeps its hints and fallbacks.
+export function GradientControls({ values, onPatch, color, number, position }: { values: Record<string, unknown>; onPatch: (patch: Patch) => void; color: (key: string) => ReactNode; number: (key: string, label: string) => ReactNode; position: (label: string) => ReactNode }) {
+  const { lang } = useLang()
+  const L = (bn: string, en: string) => lang === 'bn' ? bn : en
+  const pick = (key: string, label: string, items: [string, string][], first: string) => <div className="design-control design-control--half">
+    <div className="design-control__label"><span>{label}</span></div>
+    <div className="design-segments" role="group" aria-label={label}>
+      {items.map(([v, name]) => <button key={v} type="button" aria-pressed={(values[key] ?? first) === v} onClick={() => onPatch({ [key]: v === first ? undefined : v })}>{name}</button>)}
+    </div>
+  </div>
+  return <>
+    {pick('gradientType', L('গ্রেডিয়েন্টের ধরন', 'Gradient type'), [['linear', L('সরল', 'Linear')], ['radial', L('গোল', 'Radial')]], 'linear')}
+    {color('gradientFrom')}{color('gradientTo')}
+    <div className="design-grid">{number('gradientFromStop', L('শুরুর রং কোথায়', 'From at'))}{number('gradientToStop', L('শেষের রং কোথায়', 'To at'))}</div>
+    {values.gradientType === 'radial' ? <>
+      {pick('gradientShape', L('আকার', 'Shape'), [['circle', L('বৃত্ত', 'Circle')], ['ellipse', L('উপবৃত্ত', 'Ellipse')]], 'circle')}
+      {position(L('কোথা থেকে', 'Starts from'))}
+    </> : number('gradientAngle', L('কোণ', 'Angle'))}
+    <p className="design-help">{L('রং কোথায় বসবে তা কাছাকাছি দিলে রেখা ধারালো হয়, দূরে দিলে নরম। স্বচ্ছ রং দিয়ে হালকা আভা দেওয়া যায়।', 'Positions close together give a sharp edge, far apart a soft fade. A see-through colour fades to clear.')}</p>
+  </>
 }
 
 // Keep incomplete typing local so min=320 does not turn the first "6" of "680" into 320.
