@@ -91,7 +91,7 @@ test('a stale save is refused instead of overwriting someone else’s', async ()
 test('content that does not match the section schema is refused', async () => {
   const owner = await storeOwner()
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const hero = newSection('hero', 'hero')
+  const hero = newSection('imageText', 'hero')
   const bad = [
     { version: 1, sections: [] },
     { version: 2, sections: [{ ...hero, type: 'script' }] },
@@ -112,7 +112,7 @@ test('an image used by a page cannot be deleted, and shows where it is used', as
   const owner = await storeOwner()
   const image = await upload(owner)
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const [hero, rest] = [newSection('hero', 'hero'), page.draft.sections]
+  const [hero, rest] = [newSection('imageText', 'hero'), page.draft.sections]
   const saved = await save(owner, page, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: image.id } }, ...rest] } })
   assert.equal(saved.json.media[image.id].id, image.id)
   const usage = await owner.call('GET', `/stores/${owner.handle}/media/${image.id}/usage`)
@@ -151,7 +151,7 @@ test('one store cannot reach another store’s pages, images or products', async
   assert.equal((await a.call('DELETE', `${a.base}/${theirs.id}`)).status, 403)
 
   const mine = (await a.call('POST', a.base, { title: 'A' })).json
-  const hero = newSection('hero', 'hero')
+  const hero = newSection('imageText', 'hero')
   assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: theirImage.id } }] } })).status, 400)
   const order = newSection('order', 'buy')
   assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...order, settings: { ...order.settings, product: theirProduct.id } }] } })).status, 400)
@@ -289,7 +289,7 @@ test('duplicating a published page copies its saved draft into an independent pr
   const image = await upload(owner)
   const made = (await owner.call('POST', owner.base, { title: 'Original' })).json
   const live = (await owner.call('POST', `${owner.base}/${made.id}/publish`, { revision: made.revision })).json
-  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [{ ...newSection('hero', 'hero'), settings: { ...newSection('hero', 'hero').settings, heading: 'Saved draft heading', image: image.id } }] } })).json
+  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [{ ...newSection('imageText', 'hero'), settings: { ...newSection('imageText', 'hero').settings, heading: 'Saved draft heading', image: image.id } }] } })).json
   const copied = await owner.call('POST', `${owner.base}/${made.id}/duplicate`, { title: 'Independent copy' })
   assert.equal(copied.status, 201)
   assert.notEqual(copied.json.id, made.id)

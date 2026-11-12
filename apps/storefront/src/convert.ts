@@ -17,7 +17,7 @@ const text = (id: Id, value: string, style?: NodeStyle) => node('text', id, { te
 const button = (id: Id, s: Settings, textKey = 'button') => node('button', id, { text: str(s[textKey]), link: str(s.link), icon: str(s.buttonIcon) })
 const image = (id: Id, value: unknown, style?: NodeStyle) => node('image', id, { image: typeof value === 'string' ? value : null }, style)
 
-// Text, optional button and an image, side by side (or centred), as the hero and image-with-text sections were.
+// Text, optional button and an image, side by side (or centred), as the image-with-text section was.
 function split(s: Settings, id: Id, level: 'h1' | 'h2'): PageNode[] {
   const copy = [
     ...(str(s.eyebrow) ? [text(id, str(s.eyebrow), { fontSize: 14, fontWeight: '600' })] : []),
@@ -46,7 +46,6 @@ function children(section: Section, id: Id): PageNode[] {
   const s = section.settings
   switch (section.type) {
     case 'layout': return section.children ?? []
-    case 'hero': return split(s, id, 'h1')
     case 'imageText': return split(s, id, 'h2')
     case 'text': return [heading(id, str(s.heading)), text(id, str(s.body))]
     case 'image': return [image(id, s.image), ...(str(s.caption) ? [text(id, str(s.caption), { textAlign: 'center', fontSize: 14 })] : [])]

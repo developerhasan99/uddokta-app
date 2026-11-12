@@ -100,18 +100,6 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
 
 export const sectionDefs = {
   layout: { label: ['নিজের লেআউট', 'Custom layout'], fields: [{ key: 'name', kind: 'text', label: ['সেকশনের নাম', 'Section name'], max: 60 }], defaults: { name: '' } },
-  hero: {
-    label: ['শুরুর ব্যানার', 'Hero banner'],
-    fields: [
-      heading(), splitLayout,
-      { key: 'eyebrow', kind: 'text', label: ['ছোট উপশিরোনাম', 'Eyebrow'], max: 100 },
-      link(),
-      { key: 'text', kind: 'textarea', label: ['ছোট বর্ণনা', 'Short description'], max: 500 },
-      { key: 'image', kind: 'image', label: ['ছবি', 'Image'] },
-      { key: 'button', kind: 'text', label: ['বাটনের লেখা', 'Button text'], max: 40 }, buttonIcon(),
-    ],
-    defaults: { layout: 'split', eyebrow: '', link: '', heading: 'আপনার পণ্যের নাম এখানে লিখুন', text: 'পণ্যটি কেন কিনবেন, এক-দুই লাইনে বলুন।', image: null, button: 'এখনই অর্ডার করুন' },
-  },
   text: {
     label: ['লেখা', 'Text'],
     fields: [heading(), { key: 'body', kind: 'textarea', label: ['লেখা', 'Text'], max: 5000 }],
@@ -305,7 +293,7 @@ export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)
-  const media = (['hero', 'image', 'imageText', 'gallery', 'cards'] as SectionType[]).includes(type)
+  const media = (['image', 'imageText', 'gallery', 'cards'] as SectionType[]).includes(type)
   const icons = defOf(type).fields.some((field) => field.kind === 'icon' || (field.kind === 'list' && field.fields.some((sub) => sub.kind === 'icon')))
   return styleFields.filter((field) => {
     if (field.key.startsWith('icon')) return icons
@@ -324,7 +312,7 @@ export const newSection = (type: SectionType, id: string): Section => ({ id, typ
 // What a new landing page starts with: the shape most single-product pages follow.
 export const starterContent = (id: (n: number) => string): Content => ({
   version: 2,
-  sections: (['hero', 'features', 'video', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
+  sections: (['imageText', 'features', 'video', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
 })
 
 export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^(?:#[a-z0-9-]+|https:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d -]+)$/i.test(raw))

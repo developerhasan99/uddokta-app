@@ -13,10 +13,11 @@ test('every built-in section converts into a valid layout section that keeps its
     assert.equal(section.id, `s-${type}`, 'the section keeps its id, so links to it still work')
     assert.deepEqual(readContent(content), content, type)
   }
-  const hero = newSection('hero', 'h')
-  hero.settings.heading = 'Big sale'
-  const tree = [...walk(toLayout(hero, id).children!)]
-  assert.ok(tree.some((x) => x.kind === 'heading' && x.props.text === 'Big sale' && x.props.level === 'h1'))
+  const story = newSection('imageText', 'h')
+  story.settings.heading = 'Big sale'
+  story.settings.button = 'Buy'
+  const tree = [...walk(toLayout(story, id).children!)]
+  assert.ok(tree.some((x) => x.kind === 'heading' && x.props.text === 'Big sale'))
   assert.ok(tree.some((x) => x.kind === 'button'))
   const order = newSection('order', 'buy')
   order.settings.product = '00000000-0000-4000-8000-000000000001'
