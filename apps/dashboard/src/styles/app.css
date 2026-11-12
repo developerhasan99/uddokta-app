@@ -1149,13 +1149,6 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 
 /* Campaign creation: fixed actions with a scrollable body on phones. */
 .campaign-dialog { width: min(36rem, calc(100% - 2 * var(--space-md))); }
-.campaign-layouts { display: grid; gap: var(--space-xs); min-width: 0; border: 0; padding: 0; }
-.campaign-layouts legend { margin-bottom: var(--space-xs); font-weight: 500; }
-.campaign-layout { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); cursor: pointer; }
-.campaign-layout[data-selected=true] { border-color: var(--color-primary); background: var(--color-paper-2); }
-.campaign-layout:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.campaign-layout input { flex: none; accent-color: var(--color-primary); }
-.campaign-layout__copy { display: grid; flex: 1; gap: var(--space-2xs); min-width: 0; }
 /* Discounts: the list tabs are buttons. */
 .discount-products { display: grid; gap: var(--space-xs); }
 .discount-row__sub { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
@@ -1175,21 +1168,6 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .field-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-xs); }
 .field-action > .btn { margin-top: calc(var(--text-md) * 1.55 + var(--space-2xs)); }
 .check-line { display: inline-flex; align-items: center; gap: var(--space-xs); width: fit-content; font-weight: 500; cursor: pointer; }
-.campaign-layout__copy strong { font-weight: 500; }
-.campaign-layout__copy .muted { font-size: var(--text-sm); }
-.campaign-layout__diagram { display: grid; gap: var(--space-3xs); flex: none; width: 3rem; padding: var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper); }
-.campaign-layout__diagram span { height: var(--space-xs); background: var(--color-paper-3); }
-.campaign-layout__diagram [data-section=hero] { height: var(--space-md); }
-.campaign-layout__diagram [data-section=order] { background: var(--color-primary); }
-.campaign-product, .campaign-summary { display: grid; gap: var(--space-xs); }
-.campaign-product h3, .campaign-summary h3 { font-size: var(--text-md); font-weight: 500; }
-.campaign-product > .btn { justify-self: start; }
-.campaign-product__chosen { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); }
-.campaign-product__chosen strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
-.campaign-product__chosen > svg { flex: none; color: var(--color-primary); }
-.campaign-summary { padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper-2); }
-.campaign-summary ol { display: grid; gap: var(--space-2xs); padding-inline-start: var(--space-md); color: var(--color-muted); font-size: var(--text-sm); }
-.campaign-summary .table__sub { grid-column: auto; overflow-wrap: anywhere; }
 
 /* Planned features stay discoverable without looking ready to use. */
 .nav-soon { flex: none; margin-inline-start: auto; padding-inline: var(--space-2xs); border: var(--rule-hair) solid currentColor; border-radius: var(--radius-control); color: var(--color-frame-muted); font-size: var(--text-sm); font-weight: 400; line-height: 1.4; white-space: nowrap; }
@@ -1654,7 +1632,6 @@ a.order-item__name:hover { text-decoration: underline; }
    Anything that holds several lines, a list or a picture keeps soft corners instead. */
 .input.input--area, textarea.input, .rich-text, .chips, .css-editor, .option-box, .readout, .notice-line, .form-error, .success-note, .invite-link,
 .skeleton, .chart__tip, .crop-shapes, .collection-products, .picker__tile, .editor-add__choices button, .domain-item__confirm, .work-queue__link,
-.campaign-layout, .campaign-layout__diagram, .campaign-product__chosen, .campaign-summary, .new-order__add, .order-lines, .order-sum,
 .customer-known, .customer-search__list, .customer-picked, .order-items-list, .order-empty, .order-record > div, .activity__comment,
 .space-map, .space-map__content, .editor-icon-control, .editor-list__item { border-radius: var(--radius-box); }
 .data-table__thumb, .variant-table__image, .product-images__item, .product-images__add, .collection-image img, .editor-image img,

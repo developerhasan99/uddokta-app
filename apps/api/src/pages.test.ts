@@ -277,70 +277,11 @@ test('layout sections save as a tree and refuse images from another store, in el
   assert.equal((await save(owner, saved.json, { draft: layout(mine.id, theirs.id) })).status, 400)
 })
 
-test('guided campaign creation connects a sellable product and real media in an unpublished draft', async () => {
+test('pages start blank or from the starter layout; templates and products are no longer taken at creation', async () => {
   const owner = await storeOwner()
-  const image = await upload(owner)
-  const product = (await owner.call('POST', `/stores/${owner.handle}/products`, { name: 'Real product', mediaIds: [image.id], variants: [{ options: [], price: 450, stock: 5 }] })).json
-  const made = await owner.call('POST', owner.base, { title: 'New campaign', template: 'story', productId: product.id, lang: 'en' })
-  assert.equal(made.status, 201)
-  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'layout', 'layout'])
-  assert.deepEqual(made.json.draft.canvas, { header: false, footer: false })
-  const tree = JSON.stringify(made.json.draft)
-  assert.match(tree, /"kind":"heading","props":\{"text":"Real product","level":"h1"\}/, 'the product name is the main heading')
-  assert.ok(tree.includes(`"image":"${image.id}"`), 'its photo is placed')
-  assert.doesNotMatch(tree, /"kind":"text","props":\{"text":"[^"]+"/, 'seller supplies their own details: no sample copy')
-  const [form] = orderBlocks(made.json.draft)
-  assert.equal(form.settings.product, product.id)
-  assert.equal(form.settings.button, 'Confirm order')
-  assert.equal(made.json.media[image.id].id, image.id)
-  assert.equal(made.json.isPublished, false)
-  assert.equal(await storefrontPage(owner.handle, made.json.handle), undefined)
-  const usage = await owner.call('GET', `/stores/${owner.handle}/media/${image.id}/usage`)
-  assert.ok(usage.json.pages.some((page: any) => page.id === made.json.id))
-  const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })
-  assert.equal(published.status, 200)
-  assert.equal(orderBlocks((await storefrontPage(owner.handle, made.json.handle)).content)[0].settings.product, product.id)
-})
-
-test('layout templates build editable trees from the real product and publish cleanly', async () => {
-  const owner = await storeOwner()
-  const image = await upload(owner)
-  const product = (await owner.call('POST', `/stores/${owner.handle}/products`, { name: 'Layout product', mediaIds: [image.id], variants: [{ options: [], price: 300, stock: 5 }] })).json
-  for (const template of ['modern', 'banner']) {
-    const made = await owner.call('POST', owner.base, { title: template, template, productId: product.id })
-    assert.equal(made.status, 201, template)
-    assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), ['layout', 'layout', 'layout'])
-    const nodes = JSON.stringify(made.json.draft.sections[0].children)
-    assert.match(nodes, /"text":"Layout product"/, 'the product name is the heading')
-    assert.ok(JSON.stringify(made.json.draft).includes(image.id), 'the product image is placed')
-    assert.equal(orderBlocks(made.json.draft)[0].settings.product, product.id)
-    assert.ok(made.json.media[image.id], 'layout images are tracked as page media')
-    assert.equal((await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })).status, 200)
-  }
-})
-
-test('guided creation and its product picker reject draft or sold-out products and isolate stores', async () => {
-  const owner = await storeOwner()
-  const other = await storeOwner()
-  const make = async (status: string, stock: number | null) => (await owner.call('POST', `/stores/${owner.handle}/products`, { name: `${status}-${stock}`, status, variants: [{ options: [], price: 100, stock }] })).json
-  const draft = await make('draft', 5)
-  const soldOut = await make('active', 0)
-  const unlisted = await make('unlisted', null)
-  const create = (productId: string, extra = {}) => owner.call('POST', owner.base, { title: 'Campaign', template: 'quick', productId, ...extra })
-  assert.equal((await create(draft.id)).json.error, 'notOnSale')
-  assert.equal((await create(soldOut.id)).json.error, 'soldOut')
-  const accepted = await create(unlisted.id)
-  assert.equal(accepted.status, 201)
-  assert.deepEqual(accepted.json.draft.sections.map((s: any) => s.type), ['layout', 'layout'])
-  assert.ok(JSON.stringify(accepted.json.draft).includes('"image":null'), 'no photo yet, so the image waits for one')
-  assert.equal(orderBlocks(accepted.json.draft)[0].settings.button, 'অর্ডার নিশ্চিত করুন')
-  const picker = await owner.call('GET', `/stores/${owner.handle}/products?sellable=1`)
-  assert.deepEqual(picker.json.items.map((p: any) => p.id), [unlisted.id])
-  assert.equal((await other.call('POST', other.base, { title: 'Theirs', template: 'quick', productId: unlisted.id })).status, 404)
-  for (const extra of [{ template: 'unknown' }, { template: null }, { lang: 'bad' }, { blank: true }, { productId: 'invalid' }]) {
-    assert.equal((await create(unlisted.id, extra)).status, 400)
-  }
-  assert.equal((await owner.call('POST', owner.base, { title: 'Ambiguous', productId: unlisted.id })).status, 400)
+  for (const extra of [{ template: 'quick' }, { productId: '00000000-0000-4000-8000-000000000001' }]) assert.equal((await owner.call('POST', owner.base, { title: 'X', ...extra })).status, 400, JSON.stringify(extra))
+  const blank = (await owner.call('POST', owner.base, { title: 'Blank', blank: true })).json
+  assert.deepEqual(blank.draft.sections, [])
 })
 
 test('duplicating a published page copies its saved draft into an independent private page with media protection', async () => {
@@ -375,15 +316,14 @@ test('duplicating a published page copies its saved draft into an independent pr
   assert.equal((await owner.call('POST', `${owner.base}/${second.id}/duplicate`, { title: '' })).status, 400)
 })
 
-test('guided creation and duplication share the page limit when competing for the final slot', async () => {
+test('creation and duplication share the page limit when competing for the final slot', async () => {
   const owner = await storeOwner()
   const source = (await owner.call('POST', owner.base, { title: 'Source', blank: true })).json
-  const product = (await owner.call('POST', `/stores/${owner.handle}/products`, { name: 'P', variants: [{ options: [], price: 100 }] })).json
   const userId = (await owner.call('GET', '/me')).json.user.id
   await tx(userId, (t) => t.insert(pages).values(Array.from({ length: 48 }, (_, i) => ({ storeId: owner.storeId, title: `Page ${i}`, handle: `page-${i}`, draft: { version: 2, sections: [] } }))))
   const results = await Promise.all([
     owner.call('POST', `${owner.base}/${source.id}/duplicate`),
-    owner.call('POST', owner.base, { title: 'Last slot', template: 'quick', productId: product.id }),
+    owner.call('POST', owner.base, { title: 'Last slot', blank: true }),
   ])
   assert.deepEqual(results.map((r) => r.status).sort(), [201, 409])
   assert.equal(results.find((r) => r.status === 409)?.json.error, 'pageLimit')

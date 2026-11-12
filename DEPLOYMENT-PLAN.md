@@ -519,3 +519,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Page settings › Fonts: Bangla font and English font per page from a fixed Google Fonts list (validated in readContent; loaded on the page and in the preview).
 - Landing page export/import: signed .uddokta-page.json files; import creates a new unpublished page, keeps this store's images, copies other platform images in, blanks missing images and unknown products; tampered or foreign files are refused (importInvalid).
 - Landing pages list: row checkboxes and select-all with bulk Delete (owners and admins), using the shared Selection component.
+- Create landing page: blank canvas only (name, then the editor). Ready-made templates, campaigns.ts, their API path, strings and styles removed.

@@ -2,13 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { isReservedPageHandle } from 'storefront/paths'
-import { campaignContent, isCampaignTemplate } from 'storefront/campaigns'
 import { toLayout } from 'storefront/convert'
 import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia, saveImage } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
-import { media, pageMedia, pages, productMedia, products, productVariants } from './schema.ts'
+import { media, pageMedia, pages, products } from './schema.ts'
 import { getFile } from './storage.ts'
 import { signExport, verifyExport } from './secrets.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
@@ -127,9 +126,8 @@ export function registerPages(app: Hono<Env>) {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
     if (body.blank !== undefined && typeof body.blank !== 'boolean') throw fail(400, 'invalidRequest')
-    const guided = body.template !== undefined
-    if (guided && (!isCampaignTemplate(body.template) || !isId(body.productId) || body.blank === true || !['bn', 'en'].includes(body.lang ?? 'bn'))) throw fail(400, 'invalidRequest')
-    if (!guided && body.productId !== undefined) throw fail(400, 'invalidRequest')
+    // Pages start blank (the dashboard) or from the starter layout; ready-made templates were retired.
+    if (body.template !== undefined || body.productId !== undefined) throw fail(400, 'invalidRequest')
     const settings = readSettings(body)
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
@@ -137,17 +135,7 @@ export function registerPages(app: Hono<Env>) {
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${store.id}`}))`)
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
       if (count >= maxPages) throw fail(409, 'pageLimit')
-      let draft = body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId))
-      if (guided) {
-        const [product] = await t.select({ id: products.id, name: products.name, status: products.status }).from(products).where(and(eq(products.storeId, store.id), eq(products.id, body.productId)))
-        if (!product) throw fail(404, 'notFound')
-        if (product.status === 'draft') throw fail(400, 'notOnSale')
-        const [available] = await t.select({ id: productVariants.id }).from(productVariants).where(and(eq(productVariants.productId, product.id), sql`(${productVariants.stock} is null or ${productVariants.stock} > 0)`)).limit(1)
-        if (!available) throw fail(409, 'soldOut')
-        const images = await t.select({ id: productMedia.mediaId }).from(productMedia).where(eq(productMedia.productId, product.id)).orderBy(productMedia.position)
-        draft = campaignContent(body.template, { ...product, images: images.map((image) => image.id) }, body.lang ?? 'bn', sectionId)
-        await checkReferences(t, store.id, draft)
-      }
+      const draft = body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId))
       const [row] = await t.insert(pages).values({
         storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft,
       }).returning({ id: pages.id })
