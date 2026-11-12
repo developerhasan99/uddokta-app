@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { blankContent, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
+import { blankContent, customHtmlCss, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
 
 test('legacy content preserves implicit chrome, and blank content persists explicit empty canvas', () => {
   const legacy = { version: 2, sections: [newSection('text', 'old-section')] }
@@ -163,4 +163,10 @@ test('an icon can be a library icon or the seller’s own image, which counts as
   assert.ok(own)
   assert.deepEqual(references(own!).media, [id], 'tracked like other images, so it cannot be deleted while in use')
   for (const bad of ['media:nope', `media:${id}x`, 'javascript:alert(1)', 'not-an-icon']) assert.equal(readContent(page(bad)), null, bad)
+})
+
+test('the editor preview takes only CSS from Custom HTML: style text and https stylesheet links', () => {
+  const html = '<link rel="stylesheet" href="https://cdn.example.com/animate.css"><link rel="stylesheet" href="http://insecure.example/x.css"><link rel="icon" href="https://x/y.png"><style>.a{color:red}</style><script>alert(1)</script>'
+  const content: Content = { version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'h', kind: 'block', props: {}, block: { type: 'html', settings: { html } } } as PageNode] }] }
+  assert.deepEqual(customHtmlCss(content), { styles: ['.a{color:red}'], links: ['https://cdn.example.com/animate.css'] })
 })

@@ -533,6 +533,28 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
 export const blockTypes = sectionTypes.filter((type) => type !== 'layout')
 export const newBlock = (type: SectionType, id: () => string): PageNode => ({ id: id(), kind: 'block', props: {}, block: { type, settings: structuredClone(defOf(type).defaults) } })
 
+// The CSS inside the page's Custom HTML blocks (<style> text and https stylesheet links), for the editor preview: there
+// the blocks' markup sits in scripts-off frames, so their page-wide styles are added to the preview document itself.
+// CSS cannot run code; it only restyles the preview and may load https files.
+export function customHtmlCss(content: Content): { styles: string[]; links: string[] } {
+  const styles: string[] = []
+  const links: string[] = []
+  for (const section of content.sections) {
+    if (section.hidden) continue
+    for (const node of walk(section.children ?? [])) {
+      if (node.block?.type !== 'html' || typeof node.block.settings.html !== 'string') continue
+      const code = node.block.settings.html
+      for (const m of code.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) styles.push(m[1])
+      for (const m of code.matchAll(/<link\b[^>]*>/gi)) {
+        if (!/\brel\s*=\s*["']?stylesheet/i.test(m[0])) continue
+        const href = /\bhref\s*=\s*["']?(https:\/\/[^"'\s>]+)/i.exec(m[0])?.[1]
+        if (href) links.push(href)
+      }
+    }
+  }
+  return { styles, links }
+}
+
 // Whether a visible part of the page has a Custom HTML block (the page then gets the open security policy).
 export function hasCustomHtml(content: Content): boolean {
   return content.sections.some((section) => !section.hidden && [...walk(section.children ?? [])].some((node) => node.block?.type === 'html' && node.hide !== 'all'))

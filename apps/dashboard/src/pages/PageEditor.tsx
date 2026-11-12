@@ -14,7 +14,7 @@ import {
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
 import { toRich } from 'storefront/rich'
-import { blockTypes, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { blockTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
@@ -60,6 +60,7 @@ const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
 function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
+  const customCss = useMemo(() => customHtmlCss(content), [content])
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
   const iconFor = (id: string) => {
@@ -183,6 +184,9 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
+          {/* Custom HTML's own CSS, so its page-wide styles show here as on the live page. Text and https links only; its scripts never run in the editor. */}
+          {customCss.links.map((href) => <link key={href} rel="stylesheet" href={href} />)}
+          {customCss.styles.length > 0 && <style>{customCss.styles.join('\n')}</style>}
           <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-tag{position:absolute;position-anchor:--sf-picked;bottom:anchor(top);left:anchor(left);z-index:7;display:flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:6px 6px 0 0;background:#1f7a4d;color:#fff;pointer-events:none}.sf-n-handle svg{display:block}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-2px}[data-node]:hover:not(:has([data-node]:hover)){outline:1px dashed #1f7a4d;outline-offset:-1px}.sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}[data-node="${selected}"]{anchor-name:--sf-picked}.sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={{ ...ctx, handleIcon: iconFor }} storeName={storeName} />}
           {tagged && tagged.kind !== 'box' && <span className="sf-n-tag" aria-hidden="true">{iconFor(tagged.id)}</span>}

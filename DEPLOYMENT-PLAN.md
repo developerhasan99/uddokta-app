@@ -514,3 +514,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Button animation (More tab): pulse, shake, bounce, shimmer, glow, with speed; off for reduced-motion visitors.
 - Code editors (Custom HTML, page Custom CSS): Format code button (js-beautify, loaded on first use; HTML also tidies inner <style>/<script>).
 - Custom HTML now renders inline on the live page (like Elementor): scripts and CSS act on the page; pages with Custom HTML get an open CSP, others keep the strict one. /embed frame route removed. Editor preview still draws it in a scripts-off frame (it shares the dashboard origin).
+- Editor preview applies Custom HTML's CSS (style text and https stylesheet links) to the whole preview; scripts still never run there.
