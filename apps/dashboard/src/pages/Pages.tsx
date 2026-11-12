@@ -182,7 +182,7 @@ export function Pages() {
               {visible.map((row) => (
                 <tr key={row.id} className="data-table__row" data-selected={selection.has(row.id) || undefined} onClick={() => navigate(path(`/landing-pages/${row.id}`))}>
                   {canDelete && <SelectCell selection={selection} id={row.id} name={row.title} />}
-                  <td>
+                  <td className="pages-table__title">
                     <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                       <span className="data-table__text">
                         <span className="data-table__name" title={row.title}>{row.title}</span>
