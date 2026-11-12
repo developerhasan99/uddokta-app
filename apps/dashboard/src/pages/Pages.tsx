@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Copy, CopyPlus, ExternalLink, LayoutTemplate, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
+import { Copy, CopyPlus, Download, ExternalLink, LayoutTemplate, MoreHorizontal, Plus, Trash2, Upload } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { pageHref } from 'storefront/paths'
 import { api, errorCode, storefrontUrl } from '../api'
@@ -68,7 +68,33 @@ export function Pages() {
     return () => { latest.current += 1 }
   }, [load])
 
-  const addButton = <Button variant="primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" />{t('pageAdd')}</Button>
+  // Export downloads a signed file; Import takes only such files and opens the new (unpublished) page.
+  const exportPage = async (row: PageRow) => {
+    try {
+      const file = await api(`${base}/${row.id}/export`)
+      const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }))
+      const link = Object.assign(document.createElement('a'), { href: url, download: `${row.handle || 'page'}.uddokta-page.json` })
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) { setDuplicateError(errorCode(err)) }
+  }
+  const importFile = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const importPage = async (file: File) => {
+    setImporting(true)
+    setDuplicateError(null)
+    try {
+      const body = JSON.parse(await file.text())
+      const page = await api<{ id: string }>(`${base}/import`, { method: 'POST', body })
+      navigate(path(`/landing-pages/${page.id}`))
+    } catch (err) { setDuplicateError(err instanceof SyntaxError ? 'importInvalid' : errorCode(err)) }
+    finally { setImporting(false); if (importFile.current) importFile.current.value = '' }
+  }
+  const addButton = <div className="row">
+    <input ref={importFile} type="file" accept=".json,application/json" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; if (f) void importPage(f) }} />
+    <Button disabled={importing} onClick={() => importFile.current?.click()}><Upload size={16} aria-hidden="true" />{importing ? t('pageImporting') : t('pageImport')}</Button>
+    <Button variant="primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" />{t('pageAdd')}</Button>
+  </div>
   const none = rows !== null && rows.length === 0
   const matchesStatus = (row: PageRow, value: string) => value === 'live' ? row.isPublished : value === 'draft' ? !row.isPublished : value === 'changes' ? row.hasChanges : true
   const visible = (rows ?? []).filter((row) => matchesStatus(row, status) && `${row.title} ${row.handle} ${row.publishedHandle ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
@@ -165,6 +191,7 @@ export function Pages() {
                             <Dropdown.Item className="menu__item menu__action" onSelect={() => void copyLink(row)}><Copy size={16} aria-hidden="true" />{t('mediaCopyLink')}</Dropdown.Item>
                           </>}
                           <Dropdown.Item className="menu__item menu__action" disabled={duplicating !== null} onSelect={() => void duplicate(row)}><CopyPlus size={16} aria-hidden="true" />{t('campaignDuplicate')}</Dropdown.Item>
+                          <Dropdown.Item className="menu__item menu__action" onSelect={() => void exportPage(row)}><Download size={16} aria-hidden="true" />{t('pageExport')}</Dropdown.Item>
                           {current.role !== 'staff' && <Dropdown.Item className="menu__item menu__action menu__item--danger" onSelect={() => setDeleting(row)}><Trash2 size={16} aria-hidden="true" />{t('pageDelete')}</Dropdown.Item>}
                         </div>
                       </Dropdown.Content></Dropdown.Portal>

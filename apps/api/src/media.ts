@@ -50,7 +50,7 @@ async function processImage(input: Buffer) {
 }
 
 // Stores the files, then the row; if the row is refused, the files are removed again.
-async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }) {
+export async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }) {
   const sizeBytes = image.full.length + image.thumb.length
   const id = randomUUID()
   const key = `${storeId}/${id}.webp`

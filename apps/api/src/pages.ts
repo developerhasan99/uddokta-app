@@ -6,9 +6,11 @@ import { campaignContent, isCampaignTemplate } from 'storefront/campaigns'
 import { toLayout } from 'storefront/convert'
 import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
-import { present as presentMedia } from './media.ts'
+import { present as presentMedia, saveImage } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
 import { media, pageMedia, pages, productMedia, products, productVariants } from './schema.ts'
+import { getFile } from './storage.ts'
+import { signExport, verifyExport } from './secrets.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // ponytail: one cap for every store; read it from the store's plan once plans exist (Starter allows 3).
@@ -16,6 +18,24 @@ export const maxPages = 50
 const maxContentBytes = 200_000
 
 const sectionId = () => randomUUID().slice(0, 8)
+const exportFormat = 'uddokta-page'
+const maxImportBytes = 400_000
+
+// Swaps image and product ids (also inside media:<id> icon values) for the importing store's; null blanks them.
+function remap(content: Content, swap: Map<string, string | null>): unknown {
+  const walk = (v: unknown): unknown => {
+    if (typeof v === 'string') {
+      if (swap.has(v)) return swap.get(v)
+      const icon = /^media:(.+)$/.exec(v)
+      if (icon && swap.has(icon[1])) return swap.get(icon[1]) ? `media:${swap.get(icon[1])}` : ''
+      return v
+    }
+    if (Array.isArray(v)) return v.map(walk)
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]))
+    return v
+  }
+  return walk(content)
+}
 
 function readSettings(body: any) {
   const { handle = '', seoTitle = '', seoDescription = '' } = body
@@ -194,6 +214,64 @@ export function registerPages(app: Hono<Env>) {
     await syncMedia(t, storeId, row.id, source.draft as Content, null)
     return c.json(await loadPage(t, storeId, row.id), 201)
   }))
+
+  // Export: the page's draft and settings, plus where its images live, signed so only our files can come back in.
+  app.get('/stores/:handle/pages/:id/export', pageRoute(async (c, t, storeId, id) => {
+    const [row] = await t.select().from(pages).where(and(eq(pages.storeId, storeId), eq(pages.id, id)))
+    if (!row) throw fail(404, 'notFound')
+    const draft = row.draft as Content
+    const ids = references(draft).media
+    const files = ids.length ? await t.select().from(media).where(and(eq(media.storeId, storeId), inArray(media.id, ids))) : []
+    const payload = JSON.stringify({
+      exportedAt: new Date().toISOString(), title: row.title, seoTitle: row.seoTitle, seoDescription: row.seoDescription, content: draft,
+      media: files.map((m) => ({ id: m.id, key: m.key, thumbKey: m.thumbKey, name: m.name, alt: m.alt, width: m.width, height: m.height, sourceFormat: m.sourceFormat })),
+    })
+    return c.json({ format: exportFormat, version: 1, payload, signature: signExport(payload) })
+  }))
+
+  // Import: a new unpublished page from a signed export. Images already in this store are kept; images from elsewhere on
+  // the platform are copied in (so they keep working whatever happens to the original); missing ones become blank, as do
+  // products this store does not have. The page is then checked like any saved page.
+  app.post('/stores/:handle/pages/import', async (c) => {
+    const body = await c.req.json().catch(() => null)
+    if (!body || body.format !== exportFormat || body.version !== 1 || typeof body.payload !== 'string' || body.payload.length > maxImportBytes || !verifyExport(body.payload, body.signature)) throw fail(400, 'importInvalid')
+    const data = JSON.parse(body.payload)
+    const userId = c.get('userId')
+    const storeId = await tx(userId, async (t) => (await storeByHandle(t, c.req.param('handle')!)).id)
+    const source = readContent(data.content)
+    if (!source || !isName(data.title, 200)) throw fail(400, 'importInvalid')
+
+    const swap = new Map<string, string | null>()
+    const ids = references(source)
+    const own = new Set(await tx(userId, async (t) => [
+      ...(ids.media.length ? (await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, storeId), inArray(media.id, ids.media)))).map((r) => r.id) : []),
+      ...(ids.products.length ? (await t.select({ id: products.id }).from(products).where(and(eq(products.storeId, storeId), inArray(products.id, ids.products)))).map((r) => r.id) : []),
+    ]))
+    const files = new Map<string, any>((Array.isArray(data.media) ? data.media : []).map((m: any) => [m.id, m]))
+    for (const id of ids.media) {
+      if (own.has(id)) continue
+      const file = files.get(id)
+      const [full, thumb] = file ? await Promise.all([getFile(file.key), getFile(file.thumbKey)]).catch(() => [null, null]) : [null, null]
+      if (!full || !thumb) { swap.set(id, null); continue }
+      const copy = await saveImage(userId, storeId, String(file.name ?? 'image'), { full, thumb, width: file.width, height: file.height, sourceFormat: String(file.sourceFormat ?? 'webp') })
+      if (file.alt) await tx(userId, (t) => t.update(media).set({ alt: String(file.alt).slice(0, 500) }).where(and(eq(media.storeId, storeId), eq(media.id, copy.id))))
+      swap.set(id, copy.id)
+    }
+    for (const id of ids.products) if (!own.has(id)) swap.set(id, null)
+    const content = readContent(remap(source, swap))
+    if (!content || JSON.stringify(content).length > maxContentBytes) throw fail(400, 'importInvalid')
+
+    return tx(userId, async (t) => {
+      await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
+      const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, storeId))
+      if (count >= maxPages) throw fail(409, 'pageLimit')
+      await checkReferences(t, storeId, content)
+      const title = (data.title as string).trim()
+      const [row] = await t.insert(pages).values({ storeId, title, handle: await chooseHandle(t, storeId, title, ''), seoTitle: String(data.seoTitle ?? '').slice(0, 300), seoDescription: String(data.seoDescription ?? '').slice(0, 1000), draft: content }).returning({ id: pages.id })
+      await syncMedia(t, storeId, row.id, content, null)
+      return c.json(await loadPage(t, storeId, row.id), 201)
+    }).catch(refuseTakenHandle)
+  })
 
   app.delete('/stores/:handle/pages/:id', pageRoute(async (c, t, storeId, id) => {
     const removed = await t.delete(pages).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ id: pages.id })

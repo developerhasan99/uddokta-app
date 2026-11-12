@@ -389,3 +389,51 @@ test('guided creation and duplication share the page limit when competing for th
   assert.equal(results.find((r) => r.status === 409)?.json.error, 'pageLimit')
   assert.equal((await owner.call('GET', owner.base)).json.length, 50)
 })
+
+test('a page exports to a signed file; importing keeps this store’s images, copies other stores’, and blanks what is gone', async () => {
+  const a = await storeOwner()
+  const kept = await upload(a)
+  const gone = await upload(a)
+  const product = (await a.call('POST', `/stores/${a.handle}/products`, { name: 'Attar', status: 'active', variants: [{ options: [], price: 500, stock: null }] })).json
+  const made = (await a.call('POST', a.base, { title: 'আতর অফার' })).json
+  const children = [
+    { id: 'img1', kind: 'image', props: { image: kept.id, alt: '', link: '' } },
+    { id: 'ic1', kind: 'icon', props: { icon: `media:${gone.id}` } },
+    { id: 'ord', kind: 'block', props: {}, block: { type: 'order', settings: { ...newSection('order', 'x').settings, product: product.id } } },
+  ]
+  const draft = { version: 2, sections: [{ ...newSection('layout', 's1'), settings: { name: '' }, children }] }
+  const saved = await save(a, made, { draft })
+  assert.equal(saved.status, 200, JSON.stringify(saved.json))
+
+  const file = (await a.call('GET', `${a.base}/${made.id}/export`)).json
+  assert.equal(file.format, 'uddokta-page')
+  assert.ok(file.signature)
+
+  // Same store: everything is still there and is used as is.
+  const again = await a.call('POST', `${a.base}/import`, file)
+  assert.equal(again.status, 201, JSON.stringify(again.json))
+  const same = again.json.draft.sections[0].children
+  assert.equal(same[0].props.image, kept.id)
+  assert.equal(same[2].block.settings.product, product.id)
+
+  // Another store: images are copied in; a product it does not have is blanked; an image deleted since the export blanks.
+  await a.call('DELETE', `${a.base}/${again.json.id}`)
+  const current = (await a.call('GET', `${a.base}/${made.id}`)).json
+  assert.equal((await save(a, current, { draft: { ...draft, sections: [{ ...draft.sections[0], children: [children[0], children[2]] }] } })).status, 200)
+  assert.equal((await a.call('DELETE', `/stores/${a.handle}/media/${gone.id}`)).status, 200)
+  const b = await storeOwner()
+  const other = await b.call('POST', `${b.base}/import`, file)
+  assert.equal(other.status, 201, JSON.stringify(other.json))
+  const copied = other.json.draft.sections[0].children
+  assert.ok(copied[0].props.image && copied[0].props.image !== kept.id, 'a copy owned by the new store')
+  assert.ok(other.json.media[copied[0].props.image], 'and it is that store’s image')
+  assert.equal(copied[1].props.icon, '', 'the deleted image comes back blank')
+  assert.equal(copied[2].block.settings.product, null)
+  assert.equal(other.json.isPublished, false)
+
+  // Only our own, unchanged files are accepted.
+  const tampered = { ...file, payload: file.payload.replace('আতর অফার', 'অন্য') }
+  assert.equal((await b.call('POST', `${b.base}/import`, tampered)).json.error, 'importInvalid')
+  assert.equal((await b.call('POST', `${b.base}/import`, { ...file, signature: 'x' })).json.error, 'importInvalid')
+  assert.equal((await b.call('POST', `${b.base}/import`, { format: 'uddokta-page', version: 1, payload: '{}' })).json.error, 'importInvalid')
+})

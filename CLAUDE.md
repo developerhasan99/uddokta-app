@@ -135,6 +135,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 - The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
 
 - New landing pages can use a blank canvas or the guided `quick`/`story` starting layouts in `apps/storefront/src/campaigns.ts`. Guided creation requires a store-owned active/unlisted product with an available variant. Prefill only real product names and images and connect the order section; never insert sample claims, reviews or policies. All created/duplicated pages start unpublished.
+- Export/import: the page list exports a page's draft and settings with its images' storage details as a file signed with a key derived from `COURIER_KEY` (`signExport`/`verifyExport` in `secrets.ts`); only unchanged signed files import. Import always creates a new unpublished page (page-limit lock, `readContent` and `checkReferences` as usual): images already in the store are kept, other platform images are copied in through `saveImage` (counting against storage), missing images and products the store lacks are blanked (`remap` in `pages.ts`).
 - The page-list Duplicate action copies the saved draft into a separate page, including media references and SEO fields. Creation and duplication share the store page-limit lock. A copy must never change the source page or its published content.
 
 ## Orders
