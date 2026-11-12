@@ -23,6 +23,8 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { IconField } from '../components/IconField'
 import { ColorControl, Group, NumericInput, SectionDesignControls } from '../components/SectionDesignControls'
+import { MarketingIcon } from 'storefront/icon'
+import { mediaIconId } from 'storefront/icons'
 import { SectionThumbnail } from '../components/SectionThumbnail'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
@@ -295,6 +297,9 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
   const { t, lang, num } = useLang()
   const uid = useId()
   const [expanded, setExpanded] = useState<Record<string, number | null>>({})
+  // Dragging a list item: armed by pressing its handle, so text and fields inside stay selectable.
+  const [armed, setArmed] = useState<string | null>(null)
+  const [drag, setDrag] = useState<{ key: string; from: number; over: number } | null>(null)
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   return (
     <>
@@ -313,22 +318,40 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
             </div>
             {list.map((item, i) => {
               const name = `${L(field.item)} ${num(i + 1)}`
+              const title = short(item.title || item.question || item.name || item.text) || name
+              // Moves keep the open item open, wherever it lands.
+              const move = (from: number, to: number) => {
+                if (to < 0 || to >= list.length || from === to) return
+                const next = [...list]
+                const [moved] = next.splice(from, 1)
+                next.splice(to, 0, moved)
+                const open = expanded[field.key]
+                setExpanded((v) => ({ ...v, [field.key]: open === null || open === undefined ? null : next.indexOf(list[open]) }))
+                setList(next)
+              }
+              const own = mediaIconId(item.icon)
+              const drop = drag?.key === field.key
               return (
-                <details key={i} className="editor-list__item" open={expanded[field.key] === i}>
-                  <summary onClick={(e) => { e.preventDefault(); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? null : i })) }}><ChevronDown size={14} aria-hidden="true" /><span>{short(item.title || item.question || item.name || item.text) || name}</span>
-                    {/* Reorder without opening the item. */}
-                    <span className="editor-list__moves" onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
-                      <IconButton label={`${t('pageMoveUp')}: ${name}`} title={t('pageMoveUp')} disabled={i === 0} onClick={() => { const next = [...list]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setList(next); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? i - 1 : v[field.key] === i - 1 ? i : v[field.key] })) }}><ArrowUp size={14} aria-hidden="true" /></IconButton>
-                      <IconButton label={`${t('pageMoveDown')}: ${name}`} title={t('pageMoveDown')} disabled={i === list.length - 1} onClick={() => { const next = [...list]; [next[i], next[i + 1]] = [next[i + 1], next[i]]; setList(next); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? i + 1 : v[field.key] === i + 1 ? i : v[field.key] })) }}><ArrowDown size={14} aria-hidden="true" /></IconButton>
+                <details key={i} className={`editor-list__item${drop && drag.over === i && drag.from !== i ? ' editor-list__item--over' : ''}`} open={expanded[field.key] === i}
+                  draggable={armed === `${field.key}:${i}`}
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDrag({ key: field.key, from: i, over: i }) }}
+                  onDragOver={(e) => { if (!drop) return; e.preventDefault(); if (drag.over !== i) setDrag({ ...drag, over: i }) }}
+                  onDrop={(e) => { if (!drop) return; e.preventDefault(); move(drag.from, i) }}
+                  onDragEnd={() => { setDrag(null); setArmed(null) }}>
+                  {/* Row: drag handle (arrow keys move too), the item's icon, its title (opens it), then duplicate and delete. */}
+                  <summary onClick={(e) => { e.preventDefault(); setExpanded((v) => ({ ...v, [field.key]: v[field.key] === i ? null : i })) }}>
+                    <button type="button" className="editor-list__handle" aria-label={`${L(['টেনে বা তীর চিহ্ন দিয়ে সরান', 'Drag or use arrow keys to move'])}: ${title}`} title={L(['টেনে সরান', 'Drag to move'])}
+                      onPointerDown={() => setArmed(`${field.key}:${i}`)} onPointerUp={() => setArmed(null)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+                      onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); move(i, i + (e.key === 'ArrowUp' ? -1 : 1)) } }}><GripVertical size={14} aria-hidden="true" /></button>
+                    {'icon' in item && <span className="editor-list__icon" aria-hidden="true">{own ? (media[own] ? <img src={media[own].thumbUrl} alt="" /> : null) : item.icon ? <MarketingIcon name={item.icon} size={16} /> : null}</span>}
+                    <span className="editor-list__title">{title}</span>
+                    <span className="editor-list__actions" onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
+                      <IconButton label={`${L(['ডুপ্লিকেট', 'Duplicate'])}: ${title}`} title={L(['ডুপ্লিকেট', 'Duplicate'])} disabled={list.length >= field.max} onClick={() => { const next = [...list]; next.splice(i + 1, 0, { ...item }); setList(next) }}><Copy size={14} aria-hidden="true" /></IconButton>
+                      <IconButton label={t('pageRemoveItem', { value: title })} title={L(['মুছুন', 'Delete'])} onClick={() => { setExpanded((v) => ({ ...v, [field.key]: null })); setList(list.filter((_, j) => j !== i)) }}><Trash2 size={14} aria-hidden="true" /></IconButton>
                     </span>
                   </summary>
                   <div className="editor-list__fields">
-                    <div className="editor-list__item-head">
-                      <strong>{name}</strong>
-                      <div className="row">
-                      <IconButton label={t('pageRemoveItem', { value: name })} onClick={() => setList(list.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /></IconButton>
-                    </div>
-                  </div>
                   {field.fields.map((sub) => (
                     <LeafEditor key={sub.key} id={`${id}-${i}-${sub.key}`} field={sub} value={item[sub.key] ?? null} media={media} products={products} onPick={onPick}
                       onChange={(v, typing) => setList(list.map((x, j) => (j === i ? { ...x, [sub.key]: v as string | null } : x)), typing)} />

@@ -872,11 +872,19 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .editor-list__item summary { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-xs); cursor: pointer; list-style: none; font-weight: 500; }
 .editor-list__item summary::-webkit-details-marker { display: none; }
 .editor-list__item summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.editor-list__item summary > span:not(.editor-list__moves) { flex: 1; }
-.editor-list__moves { display: flex; flex: none; gap: var(--space-3xs); }
-.editor-list__moves .btn--icon { width: 26px; height: 26px; min-height: 26px; box-shadow: none; background: transparent; }
-.editor-list__item:not([open]) summary .editor-list__moves svg { transform: none; }
-.editor-list__item:not([open]) summary svg { transform: rotate(-90deg); }
+.editor-list__item summary { gap: var(--space-2xs); padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) 0; }
+.editor-list__title { flex: 1; min-width: 0; }
+.editor-list__handle { display: grid; place-items: center; flex: none; width: 24px; height: 28px; padding: 0; border: 0; background: none; color: var(--color-muted); cursor: grab; }
+.editor-list__handle:active { cursor: grabbing; }
+.editor-list__handle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: 4px; }
+.editor-list__icon { display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--color-primary); }
+.editor-list__icon img { width: 20px; height: 20px; object-fit: contain; }
+.editor-list__actions { display: flex; flex: none; gap: var(--space-3xs); }
+.editor-list__actions .btn--icon { width: 26px; height: 26px; min-width: 26px; min-height: 26px; padding: 0; box-shadow: none; background: transparent; color: var(--color-muted); }
+.editor-list__actions .btn--icon:hover:not(:disabled) { background: var(--color-paper-3); color: var(--color-ink); }
+.editor-list__item[open] { overflow: hidden; }
+.editor-list__item[open] > summary { background: var(--color-paper-3); }
+.editor-list__item--over { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
 .editor-list__fields { display: grid; gap: var(--space-sm); padding: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
 .editor-list__item-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
 .editor-list__item-head .row { gap: var(--space-3xs); }
