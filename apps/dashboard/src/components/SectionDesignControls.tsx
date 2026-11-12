@@ -145,7 +145,8 @@ export function NumericInput({ id, field, value, onChange, placeholder = '—' }
 // the hint; pass '' when an empty field means no colour at all (the swatch then shows a cross).
 // The swatch opens the colour picker in a popover under it
 // (browser popover: closes on an outside click or Escape and is never clipped by the scrolling panel). A small
-// pointer on the popover points at the swatch; the colour joins Recent when the popover closes, if it changed.
+// pointer on the popover points at the swatch; the colour joins Recent when the popover closes, if it changed, or
+// as soon as one is pasted into the HEX field.
 export function ColorControl({ id, label, value, inherited, onChange }: { id: string; label: string; value: string; inherited: string; onChange: (value: string, typing?: boolean) => void }) {
   const { lang } = useLang()
   const [open, setOpen] = useState(false)
@@ -159,7 +160,15 @@ export function ColorControl({ id, label, value, inherited, onChange }: { id: st
     <div className="design-color__head"><label htmlFor={id}>{label}</label><span>{value ? L('নিজস্ব', 'Custom') : inherited ? L('থিম', 'Theme') : L('নেই', 'None')}</span></div>
     <div className="design-color__input" style={{ anchorName: anchor } as CSSProperties}>
       <button type="button" ref={swatch} className={valid || inherited ? 'design-color__swatch color-chip' : 'design-color__swatch color-chip color-chip--none'} popoverTarget={`${id}-picker`} aria-label={`${label}: ${L('রং বাছাই', 'Choose color')}`}>{valid || inherited ? <span style={{ backgroundColor: valid ? value : inherited }} /> : <X size={12} aria-hidden="true" />}</button>
-      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited ? inherited.slice(1).toUpperCase() : ''} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }} />
+      <span className="design-color__hash" aria-hidden="true">#</span><input id={id} type="text" inputMode="text" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={!!value && !valid} aria-describedby={value && !valid ? `${id}-error` : undefined} placeholder={inherited ? inherited.slice(1).toUpperCase() : ''} value={value.replace(/^#/, '').toUpperCase()} onChange={(e) => { const hex = e.target.value.replace(/^#/, ''); onChange(hex ? `#${hex}` : '', true) }}
+        onPaste={(e) => {
+          // A pasted colour (with or without #, any case, around spaces) is applied whole and joins Recent straight away.
+          const pasted = `#${e.clipboardData.getData('text').trim().replace(/^#/, '')}`.toLowerCase()
+          if (!isColor(pasted)) return
+          e.preventDefault()
+          onChange(pasted)
+          rememberColor(pasted)
+        }} />
       <button type="button" className="design-reset" aria-label={`${L('ডিফল্ট করুন', 'Reset')} ${label}`} title={L('থিমের রং ব্যবহার করুন', 'Use theme color')} disabled={!value} onClick={() => onChange('')}><RotateCcw size={13} aria-hidden="true" /></button>
     </div>
     {value && !valid && <p className="form-error" id={`${id}-error`}>{L('৬ বা ৮ সংখ্যার HEX রং দিন।', 'Enter a six- or eight-digit HEX color.')}</p>}

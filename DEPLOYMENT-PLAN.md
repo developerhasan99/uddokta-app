@@ -507,3 +507,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Icons: the icon picker's hover/selected states use theme tokens (readable in the dark editor). Icon fields can use the seller's own image (PNG/JPG/SVG via the media picker, stored media:<id>, tracked as a page image). The media gallery accepts SVG, rasterised to WebP.
 - List items in the editor: row with drag handle (drag or arrow keys), icon preview, title that opens the item, duplicate and delete.
 - Right-click menu: Paste style (copied item's style, phone and hover overrides, and block look settings) onto an item of the same kind; content stays.
+- Colour fields: pasting a colour into the HEX box applies it whole (# optional, 8-digit kept) and saves it to Recent at once.
