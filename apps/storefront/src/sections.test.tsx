@@ -153,7 +153,7 @@ test('in the editor preview Custom HTML is shown with scripts off', () => {
 })
 
 test('icon list: icon and one line per item, links when given, layout and dividers from checked settings', () => {
-  const settings = { items: [{ icon: 'check', text: 'ফ্রি ডেলিভারি', link: '' }, { icon: 'phone', text: 'কল করুন', link: 'tel:01700000000' }], direction: 'horizontal', align: 'center', itemGap: 16, iconGap: 8, iconSize: 24, iconColor: '#ff0000', divider: 'dashed', dividerWidth: 2, dividerColor: '' }
+  const settings = { items: [{ icon: 'check', text: 'ফ্রি ডেলিভারি', link: '' }, { icon: 'phone', text: 'কল করুন', link: 'tel:01700000000' }], direction: 'horizontal', align: 'center', itemGap: 16, iconGap: 8, iconSize: 24, iconColor: '#ff0000', textColor: '', iconHoverColor: '', textHoverColor: '', divider: 'dashed', dividerWidth: 2, dividerColor: '' }
   const content = { version: 2 as const, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'il', kind: 'block' as const, props: {}, block: { type: 'iconList' as const, settings } }] }] }
   assert.deepEqual(readContent(content), content, 'the settings pass the schema as they are')
   const out = renderToStaticMarkup(<PageView content={content} ctx={{ ...ctx, preview: false }} storeName="S" />)
