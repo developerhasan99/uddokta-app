@@ -509,3 +509,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Right-click menu: Paste style (copied item's style, phone and hover overrides, and block look settings) onto an item of the same kind; content stays.
 - Colour fields: pasting a colour into the HEX box applies it whole (# optional, 8-digit kept) and saves it to Recent at once.
 - Icon list: text colour; hover icon and text colour per item (Style tab Hover state). Block hover settings use <name>Hover<rest> keys and preview while edited.
+- Editor preview: hovered/selected box outline and handle at the box's real edge at every depth (dashed guides keep their nesting inset), so content no longer looks outside its box.
