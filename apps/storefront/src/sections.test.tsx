@@ -160,6 +160,8 @@ test('icon list: icon and one line per item, links when given, layout and divide
   assert.match(out, /<ul class="sf-iconlist" data-direction="horizontal" data-align="center" data-divider=""/)
   assert.match(out, /--il-divider:2px dashed var\(--sf-rule\)/)
   assert.match(out, /--il-icon:#ff0000/)
+  const hovered = renderToStaticMarkup(<PageView content={{ ...content, sections: [{ ...content.sections[0], children: [{ ...content.sections[0].children[0], block: { type: 'iconList' as const, settings: { ...settings, textColor: '#111111', textHoverColor: '#222222', iconHoverColor: '#333333' } } }] }] }} ctx={{ ...ctx, preview: false }} storeName="S" />)
+  assert.match(hovered, /--il-text:#111111;--il-icon-hover:#333333;--il-text-hover:#222222/, 'text colour and the hover colours reach the list')
   assert.match(out, /<li><svg[^>]*>.*?<\/svg><span>ফ্রি ডেলিভারি<\/span><\/li>/)
   assert.match(out, /<li><a href="tel:01700000000"><svg/)
   assert.equal(readContent({ ...content, sections: [{ ...content.sections[0], children: [{ ...content.sections[0].children[0], block: { type: 'iconList', settings: { ...settings, divider: 'wavy' } } }] }] }), null)

@@ -417,6 +417,9 @@ function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
   const vars = {
     '--il-gap': `${Number(st.itemGap ?? 12)}px`, '--il-icon-gap': `${Number(st.iconGap ?? 10)}px`, '--il-icon-size': `${Number(st.iconSize ?? 20)}px`,
     ...(str(st.iconColor) ? { '--il-icon': str(st.iconColor) } : {}),
+    ...(str(st.textColor) ? { '--il-text': str(st.textColor) } : {}),
+    ...(str(st.iconHoverColor) ? { '--il-icon-hover': str(st.iconHoverColor) } : {}),
+    ...(str(st.textHoverColor) ? { '--il-text-hover': str(st.textHoverColor) } : {}),
     ...(st.divider && st.divider !== 'none' ? { '--il-divider': `${Number(st.dividerWidth ?? 1)}px ${str(st.divider)} ${str(st.dividerColor) || 'var(--sf-rule)'}` } : {}),
   } as CSSProperties
   return <ul className="sf-iconlist" data-direction={str(st.direction) || 'vertical'} data-align={str(st.align) || 'start'} data-divider={st.divider && st.divider !== 'none' ? '' : undefined} style={vars}>
@@ -766,7 +769,10 @@ h1,h2,h3,p{margin:0}
 .sf-iconlist[data-direction=horizontal][data-align=start]{justify-content:flex-start}
 .sf-iconlist li,.sf-iconlist a{display:flex;align-items:center;gap:var(--il-icon-gap);color:inherit;text-decoration:none}
 .sf-iconlist a:hover span{text-decoration:underline}
-.sf-iconlist .sf-marketing-icon{flex:none;width:var(--il-icon-size);height:var(--il-icon-size);color:var(--il-icon,var(--sf-accent))}
+.sf-iconlist .sf-marketing-icon{flex:none;width:var(--il-icon-size);height:var(--il-icon-size);color:var(--il-icon,var(--sf-accent));transition:color .15s}
+.sf-iconlist li>span,.sf-iconlist a>span{color:var(--il-text,inherit);transition:color .15s}
+.sf-iconlist li:hover>span,.sf-iconlist li:hover a>span{color:var(--il-text-hover,var(--il-text,inherit))}
+.sf-iconlist li:hover .sf-marketing-icon{color:var(--il-icon-hover,var(--il-icon,var(--sf-accent)))}
 .sf-iconlist[data-divider][data-direction=vertical] li+li{padding-top:var(--il-gap);border-top:var(--il-divider)}
 .sf-iconlist[data-divider][data-direction=horizontal] li+li{padding-left:var(--il-gap);border-left:var(--il-divider)}
 .sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}

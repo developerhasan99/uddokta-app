@@ -274,13 +274,17 @@ export const sectionDefs = {
       { key: 'iconGap', kind: 'number', group: 'layout', min: 0, max: 40, label: ['আইকনের ফাঁক (px)', 'Icon spacing (px)'] },
       { key: 'iconSize', kind: 'number', group: 'layout', min: 10, max: 64, label: ['আইকনের মাপ (px)', 'Icon size (px)'] },
       { key: 'iconColor', kind: 'color', group: 'layout', label: ['আইকনের রং', 'Icon colour'] },
+      { key: 'textColor', kind: 'color', group: 'layout', label: ['লেখার রং', 'Text colour'] },
+      // Hover look (keys named <name>Hover<rest>; the editor shows them under its Hover state).
+      { key: 'iconHoverColor', kind: 'color', group: 'layout', label: ['আইকনের রং', 'Icon colour'] },
+      { key: 'textHoverColor', kind: 'color', group: 'layout', label: ['লেখার রং', 'Text colour'] },
       { key: 'divider', kind: 'select', group: 'layout', label: ['বিভাজক', 'Divider'], options: [{ value: 'none', label: ['নেই', 'None'] }, { value: 'solid', label: ['সলিড', 'Solid'] }, { value: 'dashed', label: ['ড্যাশ', 'Dashed'] }, { value: 'dotted', label: ['ডট', 'Dotted'] }] },
       { key: 'dividerWidth', kind: 'number', group: 'layout', min: 1, max: 8, label: ['বিভাজকের প্রস্থ (px)', 'Divider width (px)'] },
       { key: 'dividerColor', kind: 'color', group: 'layout', label: ['বিভাজকের রং', 'Divider colour'] },
     ],
     defaults: {
       items: [{ icon: 'check', text: 'প্রথম সুবিধা', link: '' }, { icon: 'check', text: 'দ্বিতীয় সুবিধা', link: '' }, { icon: 'check', text: 'তৃতীয় সুবিধা', link: '' }],
-      direction: 'vertical', align: 'start', itemGap: 12, iconGap: 10, iconSize: 20, iconColor: '', divider: 'none', dividerWidth: 1, dividerColor: '',
+      direction: 'vertical', align: 'start', itemGap: 12, iconGap: 10, iconSize: 20, iconColor: '', textColor: '', iconHoverColor: '', textHoverColor: '', divider: 'none', dividerWidth: 1, dividerColor: '',
     },
   },
   // Seller-written HTML, CSS and scripts. The seller is responsible for it; we keep it away from everything else by only

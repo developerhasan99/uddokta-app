@@ -370,20 +370,23 @@ function SectionForm({ section, onChange, onPick, media, products, group = 'cont
 
 // A block's look settings (its schema's layout fields), drawn with the Style tab's controls: joined buttons for short
 // choices, px fields, colour pickers hinting the theme colour. Divider width and colour show only once a divider is on.
-const blockColorHints: Record<string, 'accent' | 'rule'> = { iconColor: 'accent', dividerColor: 'rule' }
-function BlockStyleForm({ type, settings, theme, onChange }: { type: SectionType; settings: Record<string, unknown>; theme: PresetId; onChange: (key: string, v: Value, typing?: boolean) => void }) {
+const blockColorHints: Record<string, 'accent' | 'rule' | 'ink'> = { iconColor: 'accent', dividerColor: 'rule', textColor: 'ink' }
+// Hover settings are named <name>Hover<rest> (iconHoverColor); they fall back to the normal setting (iconColor).
+const normalKey = (key: string) => key.replace('Hover', '')
+function BlockStyleForm({ type, settings, theme, state, onChange }: { type: SectionType; settings: Record<string, unknown>; theme: PresetId; state: State; onChange: (key: string, v: Value, typing?: boolean) => void }) {
   const { lang } = useLang()
   const uid = useId()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const def = defOf(type)
   const value = (key: string) => settings[key] ?? def.defaults[key]
   const leaves = def.fields.filter((field): field is Leaf => field.kind !== 'list' && 'group' in field && field.group === 'layout')
+    .filter((field) => field.key.includes('Hover') === (state === 'hover'))
     .filter((field) => !(field.key.startsWith('divider') && field.key !== 'divider' && (value('divider') ?? 'none') === 'none'))
   // Rows go straight into the Group body, which spaces them like every other Style group.
   return <>{leaves.map((field) => {
     const id = `${uid}-${field.key}`
     const label = L(field.label).replace(/ \((px|%)\)$/, '')
-    if (field.kind === 'color') return <ColorControl key={field.key} id={id} label={label} value={String(value(field.key) ?? '')} inherited={blockColorHints[field.key] ? presetVars(theme)[blockColorHints[field.key]] : ''} onChange={(v, typing) => onChange(field.key, v, typing)} />
+    if (field.kind === 'color') return <ColorControl key={field.key} id={id} label={label} value={String(value(field.key) ?? '')} inherited={(field.key.includes('Hover') && String(value(normalKey(field.key)) ?? '')) || (blockColorHints[normalKey(field.key)] ? presetVars(theme)[blockColorHints[normalKey(field.key)]] : '')} onChange={(v, typing) => onChange(field.key, v, typing)} />
     if (field.kind === 'select' && field.options.length <= 3) return <div key={field.key} className="design-control">
       <div className="design-control__label"><span>{label}</span></div>
       <div className="design-segments" role="group" aria-label={label}>{field.options.map((o) => <button key={o.value} type="button" aria-pressed={value(field.key) === o.value} onClick={() => onChange(field.key, o.value)}>{L(o.label)}</button>)}</div>
@@ -835,8 +838,9 @@ export function PageEditor() {
 
   const found = findNode(sections, selected)
   // While its hover look is being edited, the selected element is drawn in that look (hover beats phone values, as on the live page).
-  const showHover = settingsTab === 'style' && styleState === 'hover' && found?.node.hover
-  const previewContent = showHover ? { ...doc.content, sections: doc.content.sections.map((s) => s.id === found.section.id ? { ...s, children: updateNode(s.children ?? [], found.node.id, (n) => ({ ...n, style: { ...n.style, ...n.hover }, ...(n.mobile ? { mobile: { ...n.mobile, ...n.hover } } : {}) })) } : s) } : doc.content
+  const blockHover = found?.node.block ? Object.entries(found.node.block.settings).filter(([k, v]) => k.includes('Hover') && v !== '' && v !== null) : []
+  const showHover = settingsTab === 'style' && styleState === 'hover' && (found?.node.hover || blockHover.length)
+  const previewContent = showHover && found ? { ...doc.content, sections: doc.content.sections.map((s) => s.id === found.section.id ? { ...s, children: updateNode(s.children ?? [], found.node.id, (n) => ({ ...n, style: { ...n.style, ...n.hover }, ...(n.mobile ? { mobile: { ...n.mobile, ...n.hover } } : {}), ...(n.block ? { block: { ...n.block, settings: { ...n.block.settings, ...Object.fromEntries(blockHover.map(([k, v]) => [normalKey(k), v])) } } } : {}) })) } : s) } : doc.content
   const tabLabel = (tab: 'content' | 'layout' | 'style') => {
     const Icon = tab === 'content' ? PenLine : tab === 'layout' ? SlidersHorizontal : Palette
     return <><Icon size={15} aria-hidden="true" /><span>{L(tab === 'content' ? ['কন্টেন্ট', 'Content'] : tab === 'layout' ? ['আরও', 'More'] : ['স্টাইল', 'Style'])}</span></>
@@ -1069,8 +1073,8 @@ export function PageEditor() {
               onChange={(v, typing) => at((n) => ({ ...n, props: { ...n.props, [field.key]: v } }), typing ? `${f.node.id}:${field.key}` : undefined)} />)}</div>
           : <>
             {/* A block's own look settings (its schema's layout fields) lead the Style tab; they are the same on every screen and state. */}
-            {tab === 'style' && f.node.block && styleState === 'normal' && defOf(f.node.block.type).fields.some((field) => 'group' in field && field.group === 'layout') && <Group title={L(defOf(f.node.block.type).label)} icon={<SlidersHorizontal size={15} />}>
-              <BlockStyleForm type={f.node.block.type} settings={f.node.block.settings} theme={theme}
+            {tab === 'style' && f.node.block && defOf(f.node.block.type).fields.some((field) => 'group' in field && field.group === 'layout' && field.key.includes('Hover') === (styleState === 'hover')) && <Group title={L(defOf(f.node.block.type).label)} icon={<SlidersHorizontal size={15} />}>
+              <BlockStyleForm type={f.node.block.type} settings={f.node.block.settings} theme={theme} state={styleState}
                 onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />
             </Group>}
             <NodeDesignControls key={`${f.node.id}:${tab}:${device}:${styleState}`} node={f.node} tab={tab} device={device} state={styleState} media={media} onPatch={patch}
