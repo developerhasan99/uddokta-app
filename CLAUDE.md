@@ -62,7 +62,8 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 
 1. Style presets: one click sets colours, fonts and corners.
 2. Section editor: add, drag and configure sections with a live preview.
-3. Custom CSS per landing page (`content.css`, in the editor's Page settings). `readContent` refuses `<` and more than 20,000 characters so it can never leave its `<style>` tag. Plan limits come with billing. No Liquid-style theme language.
+3. Page fonts (`content.fonts`: a Bangla and an English font from the fixed Google Fonts list `pageFonts` in `themes.ts`; blank keeps the theme's; applied to `.sf-page` by `pageFontCss`). Per-element fonts may come later.
+4. Custom CSS per landing page (`content.css`, in the editor's Page settings). `readContent` refuses `<` and more than 20,000 characters so it can never leave its `<style>` tag. Plan limits come with billing. No Liquid-style theme language.
 
 The page editor's top bar has back, then icon toggles for the sidebar (Sections: list plus the selected section's settings; Page settings: full height, including Custom CSS in a lazy-loaded CodeMirror editor, `components/CssEditor.tsx`; Custom HTML blocks use `HtmlEditor.tsx`, both built on `CodeEditor.tsx`, with a Format code button that lazy-loads js-beautify), with the title and status centred. On phones the top bar is one line (back, title, status, view live, Save, Publish) and a bottom dock of equal tabs holds Page settings, Undo, Redo, Sections and Preview; tapping a section opens its settings and closing them returns to the list.
 

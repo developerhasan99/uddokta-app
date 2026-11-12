@@ -170,3 +170,10 @@ test('the editor preview takes only CSS from Custom HTML: style text and https s
   const content: Content = { version: 2, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'h', kind: 'block', props: {}, block: { type: 'html', settings: { html } } } as PageNode] }] }
   assert.deepEqual(customHtmlCss(content), { styles: ['.a{color:red}'], links: ['https://cdn.example.com/animate.css'] })
 })
+
+test('page fonts come from the fixed list, per kind', () => {
+  const page = (fonts: unknown) => readContent({ version: 2, sections: [], fonts } as unknown as Content)
+  assert.deepEqual(page({ bangla: 'Galada', latin: 'Poppins' })?.fonts, { bangla: 'Galada', latin: 'Poppins' })
+  assert.equal(page({ bangla: '', latin: '' })?.fonts, undefined, 'blank keeps the theme font')
+  for (const bad of [{ bangla: 'Poppins' }, { latin: 'Comic Sans' }, { latin: 'Inter";}body{display:none' }, { serif: 'Inter' }, 'Inter']) assert.equal(page(bad), null, JSON.stringify(bad))
+})

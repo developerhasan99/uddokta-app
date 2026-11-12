@@ -516,3 +516,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Custom HTML now renders inline on the live page (like Elementor): scripts and CSS act on the page; pages with Custom HTML get an open CSP, others keep the strict one. /embed frame route removed. Editor preview still draws it in a scripts-off frame (it shares the dashboard origin).
 - Editor preview applies Custom HTML's CSS (style text and https stylesheet links) to the whole preview; scripts still never run there.
 - Editor preview draws Custom HTML in place (DOMPurify-cleaned: no scripts/handlers/script URLs/frames; style kept; forms blocked), so it inherits page fonts and colours like the live page.
+- Page settings › Fonts: Bangla font and English font per page from a fixed Google Fonts list (validated in readContent; loaded on the page and in the preview).

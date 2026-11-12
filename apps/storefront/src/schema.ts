@@ -1,4 +1,5 @@
 import { isIconName, isIconValue, mediaIconId, type IconName } from './icons/catalog.ts'
+import { isPageFont, type PageFonts } from './themes.ts'
 import { cleanRichText } from './rich.ts'
 
 // Page content: versioned JSON, shared by the API (which validates it), the editor (which builds its forms from it)
@@ -24,7 +25,8 @@ export type SectionStyle = Record<string, string | number>
 export type Section = { id: string; type: SectionType; hidden: boolean; settings: Settings; style?: SectionStyle; children?: PageNode[] }
 // Version 2: typed sections plus layout sections. Older versions are refused (migration 0076 moved existing pages).
 // css: the seller's own styles for this page only. No '<', so it can never close the <style> tag it is written into.
-export type Content = { version: 2; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string }
+// fonts: the page's own Bangla and English fonts, from the list in themes.ts (blank keeps the theme's).
+export type Content = { version: 2; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string; fonts?: PageFonts }
 export const maxCss = 20000
 
 const heading = (max = 120): Leaf => ({ key: 'heading', kind: 'text', label: ['শিরোনাম', 'Heading'], max })
@@ -418,7 +420,16 @@ export function readContent(raw: unknown): Content | null {
   }
   if (doc.canvas !== undefined && (!doc.canvas || typeof doc.canvas !== 'object' || typeof doc.canvas.header !== 'boolean' || typeof doc.canvas.footer !== 'boolean')) return null
   if (doc.css !== undefined && (typeof doc.css !== 'string' || doc.css.length > maxCss || doc.css.includes('<'))) return null
-  return { version: 2, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}) }
+  let fonts: PageFonts | undefined
+  if (doc.fonts !== undefined) {
+    if (!doc.fonts || typeof doc.fonts !== 'object' || Array.isArray(doc.fonts)) return null
+    for (const [kind, name] of Object.entries(doc.fonts)) {
+      if (name === undefined || name === '') continue
+      if ((kind !== 'bangla' && kind !== 'latin') || !isPageFont(kind, name)) return null
+      fonts = { ...fonts, [kind]: name }
+    }
+  }
+  return { version: 2, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}), ...(fonts ? { fonts } : {}) }
 }
 
 export function readSectionStyle(raw: unknown): SectionStyle | null {

@@ -5,6 +5,7 @@ import { IconBadge, MarketingIcon } from './icons/Icon.tsx'
 import { iconCatalog, isIconName, isIconValue } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
+import { pageFontCss } from './themes.ts'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -583,8 +584,11 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
   const orderId = firstOrderId(content)
   const fonts = new Set(content.sections.filter((s) => !s.hidden).map((s) => s.style?.font).filter(Boolean))
   const nodes = layoutCss(content, ctx)
+  const pageFont = pageFontCss(content.fonts)
   return (
     <div className="sf-page">
+      {pageFont && <link rel="stylesheet" href={pageFont.href} />}
+      {pageFont && <style dangerouslySetInnerHTML={{ __html: pageFont.css }} />}
       {fonts.has('serif') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap" />}
       {fonts.has('sans') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" />}
       {nodes && <style dangerouslySetInnerHTML={{ __html: nodes }} />}

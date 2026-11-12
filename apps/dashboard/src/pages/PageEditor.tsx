@@ -18,7 +18,7 @@ import { toRich } from 'storefront/rich'
 import { blockTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
-import { isPreset, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
+import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
 const presetVars = (theme: PresetId) => presets[theme].vars
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
@@ -1351,6 +1351,20 @@ export function PageEditor() {
               <fieldset className="editor-canvas"><legend>{L(['পেজ ক্যানভাস', 'Page canvas'])}</legend>
                 <p className="muted">{L(['নিজের হেডার ও ফুটার যোগ করতে দোকানের বার বন্ধ রাখুন।', 'Turn off store bars to add your own header and footer sections.'])}</p>
                 {(['header', 'footer'] as const).map((key) => <label key={key}><input type="checkbox" checked={doc.content.canvas?.[key] !== false} onChange={(e) => edit({ ...doc, content: { ...doc.content, canvas: { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, [key]: e.target.checked } } })} />{L(key === 'header' ? ['দোকানের হেডার দেখান', 'Show store header'] : ['দোকানের ফুটার দেখান', 'Show store footer'])}</label>)}
+              </fieldset>
+              {/* Page fonts: blank keeps the theme's. English text uses the English font; Bangla falls through to the Bangla one. */}
+              <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
+                <p className="muted">{L(['পুরো পেজের ফন্ট। ফাঁকা রাখলে থিমের ফন্ট থাকে।', 'Fonts for this whole page. Leave blank to keep the theme’s.'])}</p>
+                {(['bangla', 'latin'] as const).map((kind) => <div key={kind} className="field">
+                  <label htmlFor={`page-font-${kind}`}>{kind === 'bangla' ? L(['বাংলা ফন্ট', 'Bangla font']) : L(['ইংরেজি ফন্ট', 'English font'])}</label>
+                  <select className="input" id={`page-font-${kind}`} value={doc.content.fonts?.[kind] ?? ''} onChange={(e) => {
+                    const fonts = { ...doc.content.fonts, [kind]: e.target.value || undefined }
+                    edit({ ...doc, content: { ...doc.content, fonts: fonts.bangla || fonts.latin ? fonts : undefined } })
+                  }}>
+                    <option value="">{L(['থিমের ফন্ট', 'Theme font'])}</option>
+                    {Object.keys(pageFonts[kind]).map((name) => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                </div>)}
               </fieldset>
               <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
               <Field id="page-handle" label={t('pageAddress')} unit="/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />

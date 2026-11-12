@@ -185,3 +185,9 @@ test('button animations come from a fixed list, render as data attributes, and s
   assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{\[data-anim\]\{animation:none\}/, 'the page stylesheet stops them for reduced motion')
   assert.equal(readContent(content('spin-forever')), null)
 })
+
+test('page fonts load from Google Fonts and apply to the whole page', () => {
+  const out = renderToStaticMarkup(<PageView content={{ version: 2, sections: [], fonts: { bangla: 'Noto Serif Bengali', latin: 'Playfair Display' } }} ctx={ctx} storeName="S" />)
+  assert.match(out, /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Playfair\+Display:wght@400;600;700&amp;family=Noto\+Serif\+Bengali:wght@400;600;700&amp;display=swap"\/>/)
+  assert.match(out, /\.sf-page\{font-family:"Playfair Display","Noto Serif Bengali","Hind Siliguri"/)
+})

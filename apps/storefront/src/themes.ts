@@ -23,6 +23,31 @@ const fontParam: Record<string, string> = {
   'Baloo Da 2': 'Baloo+Da+2:wght@400;600;700',
 }
 
+// Page fonts (Page settings): a short list of popular Google Fonts, each with the weights the pages use. A page picks a
+// Bangla font and/or an English font; English text uses the English font and Bangla falls through to the Bangla one.
+export const pageFonts = {
+  bangla: {
+    'Hind Siliguri': 'Hind+Siliguri:wght@400;600;700', 'Noto Sans Bengali': 'Noto+Sans+Bengali:wght@400;600;700', 'Noto Serif Bengali': 'Noto+Serif+Bengali:wght@400;600;700',
+    'Anek Bangla': 'Anek+Bangla:wght@400;600;700', 'Baloo Da 2': 'Baloo+Da+2:wght@400;600;700', 'Tiro Bangla': 'Tiro+Bangla', 'Atma': 'Atma:wght@400;600;700', 'Galada': 'Galada',
+  },
+  latin: {
+    'Inter': 'Inter:wght@400;600;700', 'Poppins': 'Poppins:wght@400;600;700', 'Roboto': 'Roboto:wght@400;500;700', 'Montserrat': 'Montserrat:wght@400;600;700',
+    'Open Sans': 'Open+Sans:wght@400;600;700', 'Lato': 'Lato:wght@400;700', 'DM Sans': 'DM+Sans:wght@400;600;700', 'Playfair Display': 'Playfair+Display:wght@400;600;700',
+  },
+} as const
+export type PageFonts = { bangla?: string; latin?: string }
+export const isPageFont = (kind: keyof typeof pageFonts, name: unknown): name is string => typeof name === 'string' && Object.hasOwn(pageFonts[kind], name)
+// The page's font link and rule; names come only from the list above, so they are safe in CSS and URLs.
+export function pageFontCss(fonts: PageFonts | undefined) {
+  const chosen = [isPageFont('latin', fonts?.latin) ? fonts!.latin : null, isPageFont('bangla', fonts?.bangla) ? fonts!.bangla : null].filter((f): f is string => Boolean(f))
+  if (!chosen.length) return null
+  const params = chosen.map((f) => (pageFonts.latin as Record<string, string>)[f] ?? (pageFonts.bangla as Record<string, string>)[f])
+  return {
+    href: `https://fonts.googleapis.com/css2?${params.map((p) => `family=${p}`).join('&')}&display=swap`,
+    css: `.sf-page{font-family:${chosen.map((f) => `"${f}"`).join(',')},"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`,
+  }
+}
+
 export const presetFontsHref = (id: PresetId) => `https://fonts.googleapis.com/css2?family=${fontParam[presets[id].font]}&display=swap`
 
 // Overrides the storefront's defaults; on a dark preset the accent's text turns dark so buttons stay readable.
