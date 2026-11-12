@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
-  Code,
+  Code, Paintbrush,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -914,6 +914,37 @@ export function PageEditor() {
     if (hit) duplicateNode(hit.section.id, hit.node.id)
     else if (sec && sections.length < maxSections) duplicate(sec)
   }
+  // Paste style: the copied item's look onto one of the same kind (heading on heading, the same block type, section on
+  // section). Desktop, phone and hover styles, plus a block's own look settings; the target keeps its content.
+  const styleSource = (id: string) => {
+    const clip = readClip()
+    const hit = findNode(sections, id)
+    const sec = sections.find((x) => x.id === id)
+    if (clip?.kind === 'node' && hit && clip.node.kind === hit.node.kind && clip.node.block?.type === hit.node.block?.type && clip.node.id !== hit.node.id) return clip
+    if (clip?.kind === 'section' && sec?.type === 'layout' && clip.section.id !== sec.id) return clip
+    return null
+  }
+  const pasteStyle = (id: string) => {
+    const clip = styleSource(id)
+    if (!clip) return
+    const looks = <T extends { style?: unknown; mobile?: unknown; hover?: unknown }>(target: T, from: Partial<T>) => {
+      const next = { ...target }
+      for (const key of ['style', 'mobile', 'hover'] as const) { if (from[key]) next[key] = structuredClone(from[key]) as T[typeof key]; else delete next[key] }
+      return next
+    }
+    if (clip.kind === 'node') {
+      const hit = findNode(sections, id)!
+      editTree(hit.section.id, (nodes) => updateNode(nodes, id, (n) => {
+        const next = looks(n, clip.node)
+        if (n.block && clip.node.block) {
+          const lookKeys = defOf(n.block.type).fields.filter((f) => 'group' in f && f.group === 'layout').map((f) => f.key)
+          next.block = { ...n.block, settings: { ...n.block.settings, ...Object.fromEntries(lookKeys.filter((k) => k in clip.node.block!.settings).map((k) => [k, structuredClone(clip.node.block!.settings[k])])) } }
+        }
+        return next
+      }))
+    } else setSections(sections.map((x) => (x.id === id ? looks(x, clip.section) : x)))
+    setToast(L(['স্টাইল পেস্ট হয়েছে', 'Style pasted']))
+  }
   const openMenu = (id: string, x: number, y: number) => { choose(id); setMenuAt({ id, x, y }) }
   const menuItems = (id: string) => {
     const hit = findNode(sections, id)
@@ -923,6 +954,7 @@ export function PageEditor() {
     return [
       { label: L(['কপি', 'Copy']), hint: '⌘C', Icon: ClipboardCopy, run: copySelected },
       { label: L(['পেস্ট', 'Paste']), hint: '⌘V', Icon: ClipboardPaste, run: paste },
+      ...(styleSource(id) ? [{ label: L(['স্টাইল পেস্ট করুন', 'Paste style']), Icon: Paintbrush, run: () => pasteStyle(id) }] : []),
       { label: t('pageDuplicateSection'), hint: '⌘D', Icon: Copy, run: () => (hit ? duplicateNode(hit.section.id, hit.node.id) : sec && duplicate(sec)) },
       'rule' as const,
       { label: t('pageMoveUp'), Icon: ArrowUp, disabled: hit ? hit.index === 0 : index <= 0, run: () => (hit ? editTree(hit.section.id, (n) => moveNode(n, hit, -1)) : move(index, index - 1)) },

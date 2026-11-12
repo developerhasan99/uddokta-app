@@ -506,3 +506,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Icon list block redone: icon + one-line text + optional link per item, no heading; Style tab settings for layout (vertical/horizontal), alignment, spacing, icon size/colour and dividers. Block look settings now live on the Style tab (BlockStyleForm). List items reorder from their row. Empty colour in block settings = theme colour.
 - Icons: the icon picker's hover/selected states use theme tokens (readable in the dark editor). Icon fields can use the seller's own image (PNG/JPG/SVG via the media picker, stored media:<id>, tracked as a page image). The media gallery accepts SVG, rasterised to WebP.
 - List items in the editor: row with drag handle (drag or arrow keys), icon preview, title that opens the item, duplicate and delete.
+- Right-click menu: Paste style (copied item's style, phone and hover overrides, and block look settings) onto an item of the same kind; content stays.
