@@ -521,3 +521,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Landing pages list: row checkboxes and select-all with bulk Delete (owners and admins), using the shared Selection component.
 - Create landing page: blank canvas only (name, then the editor). Ready-made templates, campaigns.ts, their API path, strings and styles removed.
 - Pages list: the live-with-unpublished-edits badge reads Changed (hover note explains).
+- Later (agreed, not built): page version history. page_versions table (store_id + RLS + isolation test), snapshot on Save (coalesced) and Publish, keep last 20 saves + published versions 30 days, pg-boss pruning; editor History panel with Restore into the draft (missing images blank, as import does). ~10 MB per store worst case. No Discard changes button (duplicate covers it).
