@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { blankContent, customHtmlCss, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
 
 test('legacy content preserves implicit chrome, and blank content persists explicit empty canvas', () => {
-  const legacy = { version: 2, sections: [newSection('text', 'old-section')] }
+  const legacy = { version: 2, sections: [newSection('video', 'old-section')] }
   assert.deepEqual(readContent(legacy), legacy)
   assert.equal(readContent({ ...legacy, version: 1 }), null, 'only version 2 is accepted')
   assert.deepEqual(readContent(blankContent()), blankContent())
@@ -71,7 +71,7 @@ test('layout sections hold a validated tree of boxes and elements', () => {
   for (let i = 0; i < maxDepth; i++) deep = { id: `d${i}`, kind: 'box', props: {}, children: [deep] }
   assert.equal(readContent(layout([deep])), null, 'too deep')
   assert.equal(readContent(layout(Array.from({ length: maxNodes + 1 }, (_, i) => ({ id: `n${i}`, kind: 'spacer', props: {} })))), null, 'too many nodes')
-  assert.equal(readContent({ version: 2, sections: [{ ...newSection('text', 't'), children: [] }] }), null, 'only layout sections have children')
+  assert.equal(readContent({ version: 2, sections: [{ ...newSection('video', 't'), children: [] }] }), null, 'only layout sections have children')
   assert.equal(readContent(layout([{ id: 'h', kind: 'heading', props: { text: 'x'.repeat(301) } }])), null)
 })
 

@@ -75,30 +75,6 @@ function Lines({ text, className }: { text: string; className?: string }) {
 
 const firstOrderId = (content: Content) => orderBlocks(content)[0]?.id
 
-function TextSection({ s }: { s: Section }) {
-  return (
-    <section className="sf-section">
-      <div className="sf-wrap sf-narrow">
-        <Heading text={str(s.settings.heading)} />
-        <Lines text={str(s.settings.body)} className="sf-body" />
-      </div>
-    </section>
-  )
-}
-
-function ImageSection({ s, ctx }: { s: Section; ctx: Ctx }) {
-  const image = ctx.image(s.settings.image as string | null)
-  if (!image) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি ছবি বেছে নিন</Hint></div></section> : null
-  return (
-    <section className="sf-section">
-      <figure className="sf-wrap sf-narrow sf-figure">
-        <Picture img={image} />
-        {str(s.settings.caption) && <figcaption>{str(s.settings.caption)}</figcaption>}
-      </figure>
-    </section>
-  )
-}
-
 function Features({ s, ctx }: { s: Section; ctx?: Ctx }) {
   return (
     <section className="sf-section sf-section--tint">
@@ -549,8 +525,6 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'cards': return <InfoItems s={s} ctx={ctx} />
     case 'specifications': return <Specifications s={s} />
     case 'comparison': return <Comparison s={s} />
-    case 'text': return <TextSection s={s} />
-    case 'image': return <ImageSection s={s} ctx={ctx} />
     case 'features': return <Features s={s} ctx={ctx} />
     case 'video': return <Video s={s} ctx={ctx} />
     case 'reviews': return <Reviews s={s} ctx={ctx} />
@@ -608,9 +582,6 @@ h1,h2,h3,p{margin:0}
 .sf-button:disabled{opacity:.5;cursor:not-allowed}
 .sf-button--block{width:100%}
 .sf-button--outline{background:transparent;color:var(--sf-accent);box-shadow:inset 0 0 0 2px var(--sf-accent)}
-.sf-figure img{border-radius:var(--sf-radius);margin:0 auto}
-.sf-figure figcaption{color:var(--sf-muted);text-align:center;margin-top:8px;font-size:14px}
-.sf-figure{margin:0 auto}
 .sf-features{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .sf-features li{display:flex;gap:12px;background:var(--sf-paper);border:1px solid var(--sf-rule);border-radius:var(--sf-radius);padding:16px}
 .sf-features svg{flex:none;color:var(--sf-accent);margin-top:4px}
@@ -680,8 +651,8 @@ h1,h2,h3,p{margin:0}
 :where(.sf-styled) .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
 .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){gap:var(--section-gap,12px)}
 .sf-styled :is(.sf-features li,.sf-reviews li,.sf-info-grid li,.sf-order){background:var(--section-card,var(--sf-paper))}
-.sf-section-frame :is(.sf-story__image,.sf-card-image,.sf-figure img,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
-.sf-section-frame[data-image-ratio] :is(.sf-story__image,.sf-card-image,.sf-figure img,.sf-gallery img){aspect-ratio:var(--section-image-ratio);width:100%;height:auto}
+.sf-section-frame :is(.sf-story__image,.sf-card-image,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
+.sf-section-frame[data-image-ratio] :is(.sf-story__image,.sf-card-image,.sf-gallery img){aspect-ratio:var(--section-image-ratio);width:100%;height:auto}
 .sf-story[data-layout=center] .sf-story__grid{grid-template-columns:1fr;text-align:center;max-width:var(--section-width,800px)}
 .sf-story__grid{display:grid;gap:var(--section-gap,32px);align-items:center}.sf-story__image{width:100%;border-radius:var(--sf-radius)}
 .sf-story .sf-heading{text-align:inherit}.sf-story .sf-body{line-height:1.8}

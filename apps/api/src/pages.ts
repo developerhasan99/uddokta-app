@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { isReservedPageHandle } from 'storefront/paths'
-import { toLayout } from 'storefront/convert'
+import { retireOldBlocks, toLayout } from 'storefront/convert'
 import { blankContent, readContent, references, starterContent, type Content } from 'storefront/schema'
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia, saveImage } from './media.ts'
@@ -226,7 +226,8 @@ export function registerPages(app: Hono<Env>) {
     const data = JSON.parse(body.payload)
     const userId = c.get('userId')
     const storeId = await tx(userId, async (t) => (await storeByHandle(t, c.req.param('handle')!)).id)
-    const source = readContent(data.content)
+    // Older files may hold retired blocks; they come in as elements, as saved pages were migrated.
+    const source = readContent(retireOldBlocks(data.content, sectionId))
     if (!source || !isName(data.title, 200)) throw fail(400, 'importInvalid')
 
     const swap = new Map<string, string | null>()

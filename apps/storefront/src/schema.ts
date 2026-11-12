@@ -100,16 +100,6 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
 
 export const sectionDefs = {
   layout: { label: ['নিজের লেআউট', 'Custom layout'], fields: [{ key: 'name', kind: 'text', label: ['সেকশনের নাম', 'Section name'], max: 60 }], defaults: { name: '' } },
-  text: {
-    label: ['লেখা', 'Text'],
-    fields: [heading(), { key: 'body', kind: 'textarea', label: ['লেখা', 'Text'], max: 5000 }],
-    defaults: { heading: 'পণ্যের বিস্তারিত', body: 'এখানে পণ্যের মাপ, উপাদান আর ব্যবহারের নিয়ম লিখুন।' },
-  },
-  image: {
-    label: ['ছবি', 'Image'],
-    fields: [{ key: 'image', kind: 'image', label: ['ছবি', 'Image'] }, { key: 'caption', kind: 'text', label: ['ছবির নিচের লেখা', 'Caption'], max: 200 }],
-    defaults: { image: null, caption: '' },
-  },
   features: {
     label: ['সুবিধাগুলো', 'Benefits'],
     fields: [
@@ -293,7 +283,7 @@ export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)
-  const media = (['image', 'imageText', 'gallery', 'cards'] as SectionType[]).includes(type)
+  const media = (['imageText', 'gallery', 'cards'] as SectionType[]).includes(type)
   const icons = defOf(type).fields.some((field) => field.kind === 'icon' || (field.kind === 'list' && field.fields.some((sub) => sub.kind === 'icon')))
   return styleFields.filter((field) => {
     if (field.key.startsWith('icon')) return icons
