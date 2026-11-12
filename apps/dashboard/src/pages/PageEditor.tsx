@@ -545,7 +545,6 @@ export function PageEditor() {
   const [theme, setTheme] = useState<PresetId>('fresh')
   const [settingsTab, setSettingsTab] = useState<'content' | 'layout' | 'style'>('content')
   const [selected, setSelected] = useState<string | null>(null)
-  const [device, setDevice] = useState<Device>('desktop')
   const [styleState, setStyleState] = useState<State>('normal')
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const toggle = (id: string) => setOpen((o) => { const next = new Set(o); if (next.has(id)) next.delete(id); else next.add(id); return next })
@@ -555,6 +554,8 @@ export function PageEditor() {
   useEffect(() => { settingsPanel.current?.scrollTo({ top: 0 }) }, [selected, settingsTab])
   const [pane, setPane] = useState<'sections' | 'preview' | 'edit'>('sections')
   const [mobile, setMobile] = useState(false)
+  // One switch state: the top bar's phone preview and the panel's Desktop/Mobile are the same thing.
+  const device: Device = mobile ? 'mobile' : 'desktop'
   const [adding, setAdding] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const working = useRef(false)
@@ -1063,7 +1064,7 @@ export function PageEditor() {
       </div>
       <div className="editor__form">
         {tab !== 'content' && <div className="editing-for">
-          <DeviceSwitch compact={tab === 'style'} device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />
+          <DeviceSwitch compact={tab === 'style'} device={device} onChange={(d) => setMobile(d === 'mobile')} />
           {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
         </div>}
         {/* Under the switch, so it reads as covering everything below (block settings and element style alike). */}
