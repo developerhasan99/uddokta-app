@@ -512,3 +512,4 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Editor preview: hovered/selected box outline and handle at the box's real edge at every depth (dashed guides keep their nesting inset), so content no longer looks outside its box.
 - Button element: icon before/after text (switch); Style › Background with Classic or Gradient (linear/radial, colours, positions, angle, shape, start), shared with the section background controls; works on phone and hover too. Two-choice content selects are switches.
 - Button animation (More tab): pulse, shake, bounce, shimmer, glow, with speed; off for reduced-motion visitors.
+- Code editors (Custom HTML, page Custom CSS): Format code button (js-beautify, loaded on first use; HTML also tidies inner <style>/<script>).
