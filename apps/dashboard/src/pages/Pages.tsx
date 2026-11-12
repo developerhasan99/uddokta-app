@@ -10,6 +10,7 @@ import { errorLabel, useLang } from '../i18n'
 import { DialogHead } from '../components/DialogHead'
 import { useDialog } from '../components/dialog'
 import { NewCampaignDialog } from './NewCampaignDialog'
+import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 
 export type PageRow = { id: string; title: string; handle: string; publishedHandle: string | null; isPublished: boolean; hasChanges: boolean; updatedAt: string }
 
@@ -99,6 +100,13 @@ export function Pages() {
   const matchesStatus = (row: PageRow, value: string) => value === 'live' ? row.isPublished : value === 'draft' ? !row.isPublished : value === 'changes' ? row.hasChanges : true
   const visible = (rows ?? []).filter((row) => matchesStatus(row, status) && `${row.title} ${row.handle} ${row.publishedHandle ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, lang) : b.updatedAt.localeCompare(a.updatedAt))
+  // Bulk selection follows the current tab and search; only owners and admins delete pages, as with the single delete.
+  const canDelete = current.role !== 'staff'
+  const selection = useSelection(visible.map((row) => row.id))
+  const removeSelected = async () => {
+    await selection.run((id) => api(`${base}/${id}`, { method: 'DELETE' }))
+    void load()
+  }
   const liveUrl = (row: PageRow) => `${storefrontUrl(handle)}${pageHref(row.publishedHandle ?? row.handle)}`
   const copyLink = async (row: PageRow) => {
     setCopied(null)
@@ -156,11 +164,13 @@ export function Pages() {
             <label className="pages-sort"><span className="visually-hidden">{t('pagesSort')}</span><select className="input" value={sort} onChange={(e) => setFilter('sort', e.target.value)}><option value="updated">{t('pagesSortUpdated')}</option><option value="title">{t('pagesSortTitle')}</option></select></label>
             </div>
           </div>
+          {canDelete && <BulkBar selection={selection}><BulkDelete selection={selection} onDelete={() => void removeSelected()} /></BulkBar>}
           {copyFailed && <p className="form-error pages-feedback" role="alert">{t('pagesCopyFailed')}</p>}
           <p className="muted pages-feedback" role="status" hidden={!copied}>{copied ? t('pagesCopied') : ''}</p>
           {visible.length === 0 ? <Notice title={t('pagesNoMatch')} body={t('pagesNoMatchHelp')} action={<Button onClick={() => setParams({}, { replace: true })}>{t('pagesClearFilters')}</Button>} /> : <table className="data-table pages-table">
             <thead>
               <tr>
+                {canDelete && <SelectAllCell selection={selection} />}
                 <th scope="col">{t('pageTitle')}</th>
                 <th scope="col" className="pages-table__link">{t('colLink')}</th>
                 <th scope="col" className="pages-table__status">{t('pageStatus')}</th>
@@ -170,7 +180,8 @@ export function Pages() {
             </thead>
             <tbody>
               {visible.map((row) => (
-                <tr key={row.id} className="data-table__row" onClick={() => navigate(path(`/landing-pages/${row.id}`))}>
+                <tr key={row.id} className="data-table__row" data-selected={selection.has(row.id) || undefined} onClick={() => navigate(path(`/landing-pages/${row.id}`))}>
+                  {canDelete && <SelectCell selection={selection} id={row.id} name={row.title} />}
                   <td>
                     <Link className="data-table__file" to={path(`/landing-pages/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                       <span className="data-table__text">
