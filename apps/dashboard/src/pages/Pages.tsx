@@ -17,7 +17,8 @@ export type PageRow = { id: string; title: string; handle: string; publishedHand
 export function PageStatus({ page }: { page: Pick<PageRow, 'isPublished' | 'hasChanges'> }) {
   const { t } = useLang()
   if (!page.isPublished) return <Badge>{t('pageDraft')}</Badge>
-  return page.hasChanges ? <Badge tone="warning">{t('pageHasChanges')}</Badge> : <Badge tone="success">{t('pageLive')}</Badge>
+  // Changed: live, with saved edits buyers do not see yet (the hover note says so).
+  return page.hasChanges ? <span title={t('pageHasChangesHelp')}><Badge tone="warning">{t('pageHasChanges')}</Badge></span> : <Badge tone="success">{t('pageLive')}</Badge>
 }
 
 export function Pages() {
