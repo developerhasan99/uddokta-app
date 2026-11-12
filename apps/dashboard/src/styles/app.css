@@ -1800,6 +1800,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-controls { gap: 0; }
 .editor .editor__settings .design-group { border: 0; border-top: var(--rule-hair) solid var(--color-rule); border-radius: 0; background: transparent; overflow: visible; }
 .editor .editor__settings .design-controls > .design-group:first-child { border-top: 0; }
+/* A block's own group comes just before the element controls: keep the line between them. */
+.editor .editor__settings .design-group + .design-controls > .design-group:first-child { border-top: var(--rule-hair) solid var(--color-rule); }
 .editor .editor__settings .design-group > summary { min-height: 44px; padding: 0; border: 0; color: var(--color-ink); font-size: var(--text-sm); }
 .editor .editor__settings .design-group[open] > summary { border-bottom: 0; }
 .editor .editor__settings .design-group > summary strong { font-weight: 600; }

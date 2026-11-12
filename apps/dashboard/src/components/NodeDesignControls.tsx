@@ -185,7 +185,6 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
   </div>
 
   return <div className="design-controls">
-    {hover && <p className="design-help">{L('মাউস রাখলে যা বদলাবে। খালি ঘর সাধারণের মতো থাকে।', 'What changes under a mouse. Blank fields stay as normal.')}</p>}
     {textual && <Group title={L('লেখা', 'Text')} icon={<Type size={15} />}>
       {segments('textAlign', L('অবস্থান', 'Alignment'), [{ value: 'left', label: L('বামে', 'Left'), icon: <AlignLeft size={16} aria-hidden="true" /> }, { value: 'center', label: L('মাঝে', 'Center'), icon: <AlignCenter size={16} aria-hidden="true" /> }, { value: 'right', label: L('ডানে', 'Right'), icon: <AlignRight size={16} aria-hidden="true" /> }])}
       <div className="design-grid">{number('fontSize', L('মাপ', 'Size'))}{select('fontWeight')}</div>

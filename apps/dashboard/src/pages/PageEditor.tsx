@@ -1066,6 +1066,8 @@ export function PageEditor() {
           <DeviceSwitch compact={tab === 'style'} device={device} onChange={(d) => { setDevice(d); setMobile(d === 'mobile') }} />
           {tab === 'style' && <StateSwitch state={styleState} onChange={setStyleState} />}
         </div>}
+        {/* Under the switch, so it reads as covering everything below (block settings and element style alike). */}
+        {tab === 'style' && styleState === 'hover' && <p className="design-help">{L(['মাউস রাখলে যা বদলাবে। খালি ঘর সাধারণের মতো থাকে।', 'What changes under a mouse. Blank fields stay as normal.'])}</p>}
         {tab === 'content'
           ? f.node.block ? <div className="editor__fields">{(['content'] as const).map((group) => <SectionForm key={`${f.node.id}:${group}`} group={group} section={{ id: f.node.id, type: f.node.block!.type, hidden: false, settings: f.node.block!.settings }} media={media} products={products} onPick={setPicking}
               onChange={(key, v, typing) => at((n) => ({ ...n, block: { type: n.block!.type, settings: { ...n.block!.settings, [key]: v } } }), typing ? `${f.node.id}:${key}` : undefined)} />)}</div>
