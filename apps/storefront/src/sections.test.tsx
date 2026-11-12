@@ -144,12 +144,17 @@ test('grid boxes: columns × rows, spans, and one column on phones', () => {
   assert.match(html, /@media \(max-width:719\.98px\)\{[^@]*\.n-g\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:none\}[^@]*\.n-wide\{grid-column:auto;grid-row:auto\}/)
 })
 
-test('in the editor preview Custom HTML is shown with scripts off', () => {
+test('Custom HTML runs only on a live page; every other render shows it in a scripts-off frame', () => {
   const content = { version: 2 as const, sections: [{ ...newSection('layout', 's1'), children: [{ id: 'h1', kind: 'block' as const, props: {}, block: { type: 'html' as const, settings: { html: '<script>x()</script><p>Hi</p>' } } }] }] }
-  const out = renderToStaticMarkup(<PageView content={content} ctx={{ ...ctx, preview: true }} storeName="S" />)
-  const frame = /<iframe[^>]*>/.exec(out)?.[0] ?? ''
-  assert.match(frame, /sandbox="allow-same-origin"/)
-  assert.doesNotMatch(frame, /allow-scripts/)
+  for (const other of [{ ...ctx, preview: true }, { ...ctx, preview: false }]) {
+    const out = renderToStaticMarkup(<PageView content={content} ctx={other} storeName="S" />)
+    const frame = /<iframe[^>]*>/.exec(out)?.[0] ?? ''
+    assert.match(frame, /sandbox="allow-same-origin"/)
+    assert.doesNotMatch(frame, /allow-scripts/)
+    assert.doesNotMatch(out.replace(/srcDoc="[^"]*"/i, ''), /<script>x\(\)/, 'never in the document itself')
+  }
+  const live = renderToStaticMarkup(<PageView content={content} ctx={{ ...ctx, preview: false, live: true }} storeName="S" />)
+  assert.ok(live.includes('<div class="sf-html"><script>x()</script><p>Hi</p></div>'))
 })
 
 test('icon list: icon and one line per item, links when given, layout and dividers from checked settings', () => {

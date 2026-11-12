@@ -201,6 +201,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   const pixel = pixelScript(await trackingFor(page.store_id))
   const ctx: Ctx = {
     preview: false,
+    live: true,
     shipping: page.shipping,
     image: (id) => (id ? page.images.get(id) : undefined),
     product: (id) => (id ? page.products.get(id) : undefined),
@@ -223,6 +224,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   const pixel = pixelScript(await trackingFor(store.id))
   const ctx: Ctx = {
     preview: false,
+    live: true,
     shipping: store.shipping,
     image: () => undefined,
     product: (id) => (id === item.id ? item.product : undefined),

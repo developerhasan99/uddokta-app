@@ -32,6 +32,9 @@ export type Ctx = {
   product: (id: string | null) => Product | undefined
   // The editor's preview: forms never submit and empty sections show a hint for the seller.
   preview: boolean
+  // Set only by the storefront server for a buyer-facing page. Custom HTML runs only when this is true, so no other
+  // render (the dashboard, thumbnails, tests, anything added later) can ever run a seller's code.
+  live?: boolean
   // Editor only: the icon drawn in a section's or box's corner handle (the same one as in the editor's tree).
   handleIcon?: (id: string) => ReactNode
   // The store's active delivery options, in the seller's order.
@@ -527,7 +530,7 @@ export function SectionFrame({ s, children, ctx }: { s: Section; children: React
 // measure the height), showing the markup and CSS.
 const embedBase = 'html,body{margin:0}body{display:flow-root}'
 function EmbedFrame({ html, ctx }: { html: string; ctx: Ctx }) {
-  if (ctx.preview) {
+  if (!ctx.live) {
     const fit = (frame: HTMLIFrameElement) => {
       const doc = frame.contentDocument
       if (!doc) return
