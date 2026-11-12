@@ -35,6 +35,9 @@ export type Ctx = {
   // Set only by the storefront server for a buyer-facing page. Custom HTML runs only when this is true, so no other
   // render (the dashboard, thumbnails, tests, anything added later) can ever run a seller's code.
   live?: boolean
+  // Editor only: cleans a Custom HTML block (scripts, event handlers and script URLs removed) so the preview can draw it
+  // in place, matching the live page. Without it the block is drawn in a scripts-off frame.
+  previewHtml?: (html: string) => string
   // Editor only: the icon drawn in a section's or box's corner handle (the same one as in the editor's tree).
   handleIcon?: (id: string) => ReactNode
   // The store's active delivery options, in the seller's order.
@@ -530,6 +533,7 @@ export function SectionFrame({ s, children, ctx }: { s: Section; children: React
 // measure the height), showing the markup and CSS.
 const embedBase = 'html,body{margin:0}body{display:flow-root}'
 function EmbedFrame({ html, ctx }: { html: string; ctx: Ctx }) {
+  if (!ctx.live && ctx.previewHtml) return <div className="sf-html" dangerouslySetInnerHTML={{ __html: ctx.previewHtml(html) }} />
   if (!ctx.live) {
     const fit = (frame: HTMLIFrameElement) => {
       const doc = frame.contentDocument

@@ -7,6 +7,7 @@ const CssEditor = lazy(() => import('../components/CssEditor'))
 const HtmlEditor = lazy(() => import('../components/HtmlEditor'))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
+import DOMPurify from 'dompurify'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
   Code, Paintbrush,
@@ -59,6 +60,11 @@ const newId = () => crypto.randomUUID().slice(0, 8)
 const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
+// Custom HTML in the editor preview: DOMPurify removes scripts, event handlers, script URLs, frames and the like, so
+// the block can be drawn in place (the preview shares the dashboard's origin, so nothing of the seller's may run here).
+// <style> is kept (CSS cannot run code). Forms are blocked from submitting by the preview itself.
+const previewHtml = (html: string) => DOMPurify.sanitize(html, { FORCE_BODY: true, FORBID_TAGS: ['iframe', 'frame', 'object', 'embed', 'base', 'meta'] })
+
 function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
   const customCss = useMemo(() => customHtmlCss(content), [content])
   const { t } = useLang()
@@ -138,6 +144,8 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       const node = field?.closest('[data-node]')
       return field && node ? { field, id: node.getAttribute('data-node')! } : null
     }
+    // Nothing in the preview leaves the editor: forms (Custom HTML ones included) never submit.
+    doc.addEventListener('submit', (e) => e.preventDefault(), true)
     doc.addEventListener('dblclick', (e) => {
       const hit = editable(e.target as Element)
       if (hit) { select.current(hit.id); startEdit(hit.field, hit.id) }
@@ -184,9 +192,8 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
         <>
           <link rel="stylesheet" href={presetFontsHref(theme)} />
           <style>{presetCss(theme)}</style>
-          {/* Custom HTML's own CSS, so its page-wide styles show here as on the live page. Text and https links only; its scripts never run in the editor. */}
+          {/* Custom HTML's stylesheet links (its <style> is drawn in place with the block); its scripts never run in the editor. */}
           {customCss.links.map((href) => <link key={href} rel="stylesheet" href={href} />)}
-          {customCss.styles.length > 0 && <style>{customCss.styles.join('\n')}</style>}
           <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-tag{position:absolute;position-anchor:--sf-picked;bottom:anchor(top);left:anchor(left);z-index:7;display:flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:6px 6px 0 0;background:#1f7a4d;color:#fff;pointer-events:none}.sf-n-handle svg{display:block}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-2px}[data-node]:hover:not(:has([data-node]:hover)){outline:1px dashed #1f7a4d;outline-offset:-1px}.sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}[data-node="${selected}"]{anchor-name:--sf-picked}.sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}` : ''}`}</style>
           {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={{ ...ctx, handleIcon: iconFor }} storeName={storeName} />}
           {tagged && tagged.kind !== 'box' && <span className="sf-n-tag" aria-hidden="true">{iconFor(tagged.id)}</span>}
@@ -767,6 +774,7 @@ export function PageEditor() {
 
   const ctx: Ctx = useMemo(() => ({
     preview: true,
+    previewHtml,
     shipping,
     image: (mid) => {
       const item = mid ? media[mid] : undefined

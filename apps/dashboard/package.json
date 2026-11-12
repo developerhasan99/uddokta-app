@@ -18,6 +18,7 @@
     "@fontsource-variable/noto-sans-bengali": "5.3.0",
     "@radix-ui/react-dropdown-menu": "2.2.1",
     "codemirror": "^6.0.2",
+    "dompurify": "^3.4.17",
     "js-beautify": "^1.15.4",
     "lucide-react": "1.66.0",
     "react": "19.3.1",
