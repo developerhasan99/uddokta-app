@@ -51,6 +51,11 @@ async function upload(owner: Owner) {
 const save = (owner: Owner, page: any, changes: any = {}) =>
   owner.call('PUT', `${owner.base}/${page.id}`, { title: page.title, handle: page.handle, seoTitle: '', seoDescription: '', draft: page.draft, revision: page.revision, ...changes })
 
+// A layout section with a heading and an image element, the usual shape of a saved page.
+const story = (image: string | null = null, heading = 'Story') => ({ id: 'hero', type: 'layout', hidden: false, settings: { name: '' }, children: [
+  { id: 'hh', kind: 'heading', props: { text: heading, level: 'h2' } }, { id: 'hi', kind: 'image', props: { image, link: '' } },
+] })
+
 const storefrontPage = async (storeHandle: string, pageHandle: string) =>
   (await tx(null, (t) => t.execute(sql`select * from storefront_page(${storeHandle}, ${pageHandle})`))).rows[0] as any
 
@@ -59,20 +64,20 @@ test('a new page starts with a landing page layout, and only publishing puts it 
   const made = await owner.call('POST', owner.base, { title: 'ঈদ অফার' })
   assert.equal(made.status, 201)
   assert.equal(made.json.handle, 'ঈদ-অফার')
-  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), Array(7).fill('layout'), 'new pages are built from layouts')
+  assert.deepEqual(made.json.draft.sections.map((s: any) => s.type), Array(5).fill('layout'), 'new pages are built from layouts')
   assert.equal(orderBlocks(made.json.draft).length, 1, 'with an order form block')
   assert.equal(made.json.isPublished, false)
   assert.equal(await storefrontPage(owner.handle, 'ঈদ-অফার'), undefined, 'a draft is never public')
 
   const published = await owner.call('POST', `${owner.base}/${made.json.id}/publish`, { revision: made.json.revision })
   assert.equal(published.json.isPublished, true)
-  assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 7)
+  assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 5)
 
   const draft = { version: 2, sections: [made.json.draft.sections[0]] }
   const saved = await save(owner, published.json, { draft })
   assert.equal(saved.status, 200)
   assert.equal(saved.json.hasChanges, true)
-  assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 7, 'the storefront keeps the published version until the next publish')
+  assert.equal((await storefrontPage(owner.handle, 'ঈদ-অফার')).content.sections.length, 5, 'the storefront keeps the published version until the next publish')
 
   await owner.call('POST', `${owner.base}/${made.json.id}/unpublish`)
   assert.equal(await storefrontPage(owner.handle, 'ঈদ-অফার'), undefined)
@@ -91,15 +96,15 @@ test('a stale save is refused instead of overwriting someone else’s', async ()
 test('content that does not match the section schema is refused', async () => {
   const owner = await storeOwner()
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const hero = newSection('imageText', 'hero')
+  const hero = story()
   const bad = [
     { version: 1, sections: [] },
     { version: 2, sections: [{ ...hero, type: 'script' }] },
     { version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: {}, children: [{ id: 'x', kind: 'heading', props: {}, style: { color: 'red' } }] }] },
     { version: 2, sections: [hero, hero] },
-    { version: 2, sections: [{ ...hero, settings: { ...hero.settings, heading: 'x'.repeat(500) } }] },
-    { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: 'not-an-id' } }] },
-    { version: 2, sections: [{ id: 'v', type: 'video', hidden: false, settings: { heading: '', url: 'javascript:alert(1)' } }] },
+    { version: 2, sections: [story(null, 'x'.repeat(500))] },
+    { version: 2, sections: [story('not-an-id')] },
+    { version: 2, sections: [{ id: 'v', type: 'layout', hidden: false, settings: { name: '' }, children: [{ id: 'vv', kind: 'video', props: { url: 'javascript:alert(1)' } }] }] },
     { version: 2, sections: [{ id: 'o', type: 'order', hidden: false, settings: { product: 'x' } }] },
   ]
   for (const draft of bad) assert.equal((await save(owner, page, { draft })).status, 400, JSON.stringify(draft).slice(0, 80))
@@ -112,8 +117,7 @@ test('an image used by a page cannot be deleted, and shows where it is used', as
   const owner = await storeOwner()
   const image = await upload(owner)
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json
-  const [hero, rest] = [newSection('imageText', 'hero'), page.draft.sections]
-  const saved = await save(owner, page, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: image.id } }, ...rest] } })
+  const saved = await save(owner, page, { draft: { version: 2, sections: [story(image.id), ...page.draft.sections] } })
   assert.equal(saved.json.media[image.id].id, image.id)
   const usage = await owner.call('GET', `/stores/${owner.handle}/media/${image.id}/usage`)
   assert.deepEqual(usage.json.pages, [{ id: page.id, name: 'P' }])
@@ -121,7 +125,7 @@ test('an image used by a page cannot be deleted, and shows where it is used', as
   assert.equal(refused.status, 409)
   assert.equal(refused.json.error, 'mediaInUse')
 
-  await save(owner, saved.json, { draft: { version: 2, sections: rest } })
+  await save(owner, saved.json, { draft: { version: 2, sections: page.draft.sections } })
   assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${image.id}`)).status, 200, 'free again once the page stops using it')
 })
 
@@ -151,8 +155,7 @@ test('one store cannot reach another store’s pages, images or products', async
   assert.equal((await a.call('DELETE', `${a.base}/${theirs.id}`)).status, 403)
 
   const mine = (await a.call('POST', a.base, { title: 'A' })).json
-  const hero = newSection('imageText', 'hero')
-  assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...hero, settings: { ...hero.settings, image: theirImage.id } }] } })).status, 400)
+  assert.equal((await save(a, mine, { draft: { version: 2, sections: [story(theirImage.id)] } })).status, 400)
   const order = newSection('order', 'buy')
   assert.equal((await save(a, mine, { draft: { version: 2, sections: [{ ...order, settings: { ...order.settings, product: theirProduct.id } }] } })).status, 400)
 
@@ -234,7 +237,7 @@ test('blank canvas, new section styles and links survive save/reload and stay pr
   const made = await owner.call('POST', owner.base, { title: 'Canvas', blank: true })
   assert.equal(made.status, 201)
   assert.deepEqual(made.json.draft, { version: 2, sections: [], canvas: { header: false, footer: false } })
-  const draft = { ...made.json.draft, sections: [{ id: 'story', type: 'imageText', hidden: false, settings: { heading: 'Our story', text: 'Origin', image: null, layout: 'reverse', button: 'Details', link: '#details' }, style: { background: '#123456', paddingTop: 0, paddingLeft: 16, paddingRight: 24, mobilePaddingLeft: 8, marginRight: 12, headingSize: 48, mobileHeadingSize: 28, borderWidth: 2, radius: 16 } }] }
+  const draft = { ...made.json.draft, sections: [{ id: 'story', type: 'faq', hidden: false, settings: newSection('faq', 'story').settings, style: { background: '#123456', paddingTop: 0, paddingLeft: 16, paddingRight: 24, mobilePaddingLeft: 8, marginRight: 12, headingSize: 48, mobileHeadingSize: 28, borderWidth: 2, radius: 16 } }] }
   const saved = await save(owner, made.json, { draft })
   assert.equal(saved.status, 200)
   assert.deepEqual(saved.json.draft, draft)
@@ -289,7 +292,7 @@ test('duplicating a published page copies its saved draft into an independent pr
   const image = await upload(owner)
   const made = (await owner.call('POST', owner.base, { title: 'Original' })).json
   const live = (await owner.call('POST', `${owner.base}/${made.id}/publish`, { revision: made.revision })).json
-  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [{ ...newSection('imageText', 'hero'), settings: { ...newSection('imageText', 'hero').settings, heading: 'Saved draft heading', image: image.id } }] } })).json
+  const changed = (await save(owner, live, { seoTitle: 'Saved search title', draft: { version: 2, sections: [story(image.id, 'Saved draft heading')] } })).json
   const copied = await owner.call('POST', `${owner.base}/${made.id}/duplicate`, { title: 'Independent copy' })
   assert.equal(copied.status, 201)
   assert.notEqual(copied.json.id, made.id)

@@ -96,21 +96,6 @@ function Features({ s, ctx }: { s: Section; ctx?: Ctx }) {
   )
 }
 
-function Video({ s, ctx }: { s: Section; ctx: Ctx }) {
-  const src = videoEmbed(str(s.settings.url))
-  if (!src) return ctx.preview ? <section className="sf-section"><div className="sf-wrap sf-narrow"><Heading text={str(s.settings.heading)} /><div className="sf-video sf-video-placeholder"><span aria-hidden="true">▶</span><p>ইউটিউব বা ফেসবুক ভিডিওর লিংক দিন</p></div></div></section> : null
-  return (
-    <section className="sf-section">
-      <div className="sf-wrap sf-narrow">
-        <Heading text={str(s.settings.heading)} />
-        <div className="sf-video">
-          <iframe src={src} title={str(s.settings.heading) || 'ভিডিও'} loading="lazy" allow="encrypted-media; picture-in-picture" allowFullScreen />
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function Reviews({ s, ctx }: { s: Section; ctx: Ctx }) {
   return (
     <section className="sf-section sf-section--tint">
@@ -352,13 +337,6 @@ function LandingFooter({ s }: { s: Section }) {
   </div></section>
 }
 
-function ImageText({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
-  return <section className="sf-section sf-story" data-layout={str(s.settings.layout)}><div className="sf-wrap sf-story__grid">
-    <div><Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" /><SectionButton s={s} orderId={orderId} ctx={ctx} /></div>
-    {ctx.image(s.settings.image as string | null) ? <Picture img={ctx.image(s.settings.image as string | null)} className="sf-story__image" /> : <Hint ctx={ctx}>একটি ছবি বেছে নিন</Hint>}
-  </div></section>
-}
-
 function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
   const rows = items(s.settings.items)
   return <section className={`sf-section sf-info sf-info--${s.type}`} data-layout={str(s.settings.layout)}><div className="sf-wrap">
@@ -392,16 +370,6 @@ function IconList({ s, ctx }: { s: Section; ctx: Ctx }) {
       return <li key={i}>{str(item.link) ? <a href={str(item.link)}>{inner}</a> : inner}</li>
     })}
   </ul>
-}
-
-function StandaloneIcon({ s, ctx }: { s: Section; ctx: Ctx }) {
-  const name = str(s.settings.icon)
-  if (!isIconValue(name)) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>একটি আইকন বেছে নিন</Hint></div></section> : null
-  const label = str(s.settings.label)
-  const href = str(s.settings.link)
-  return <section className="sf-section sf-standalone-icon"><div className="sf-wrap">
-    {href ? <a className="sf-icon-link" href={href} aria-label={label || (isIconName(name) ? iconCatalog[name].label[0] : 'আইকন')}><IconBadge name={name} surface={s.style?.iconSurface} image={ctx.image} /></a> : <IconBadge name={name} surface={s.style?.iconSurface} label={label} image={ctx.image} />}
-  </div></section>
 }
 
 function Specifications({ s }: { s: Section }) {
@@ -511,22 +479,18 @@ function EmbedFrame({ html, ctx }: { html: string; ctx: Ctx }) {
 export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   switch (s.type) {
     case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
-    case 'icon': return <StandaloneIcon s={s} ctx={ctx} />
     case 'html': return str(s.settings.html) ? <EmbedFrame html={str(s.settings.html)} ctx={ctx} /> : ctx.preview ? <div className="sf-n-placeholder">HTML লিখুন</div> : null
     case 'iconCards': return <InfoItems s={s} ctx={ctx} />
     case 'iconList': return <IconList s={s} ctx={ctx} />
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
     case 'footer': return <LandingFooter s={s} />
-    case 'announcement':
-    case 'cta': return <CallToAction s={s} orderId={orderId} ctx={ctx} />
-    case 'imageText': return <ImageText s={s} ctx={ctx} orderId={orderId} />
+    case 'announcement': return <CallToAction s={s} orderId={orderId} ctx={ctx} />
     case 'trust':
     case 'steps':
     case 'cards': return <InfoItems s={s} ctx={ctx} />
     case 'specifications': return <Specifications s={s} />
     case 'comparison': return <Comparison s={s} />
     case 'features': return <Features s={s} ctx={ctx} />
-    case 'video': return <Video s={s} ctx={ctx} />
     case 'reviews': return <Reviews s={s} ctx={ctx} />
     case 'faq': return <Faq s={s} />
     case 'order': return <OrderForm s={s} ctx={ctx} />
@@ -637,7 +601,7 @@ h1,h2,h3,p{margin:0}
   .sf-gallery{grid-template-columns:repeat(3,1fr);gap:12px}
 }
 .sf-video-placeholder{display:grid;place-content:center;text-align:center;gap:12px;color:white}.sf-video-placeholder span{font-size:40px}.sf-video-placeholder p{font-size:15px}
-.sf-section-frame :is(h1,h2,h3,p,blockquote){overflow-wrap:anywhere}.sf-story__grid>*{min-width:0}
+.sf-section-frame :is(h1,h2,h3,p,blockquote){overflow-wrap:anywhere}
 /* New section families and optional per-section overrides. Legacy pages retain their defaults. */
 .sf-section-frame{min-width:0;margin-top:var(--section-mt,0);margin-bottom:var(--section-mb,0);margin-left:var(--section-ml,0);margin-right:var(--section-mr,0);color:var(--sf-ink);font-family:var(--section-font,inherit)}
 .sf-styled>.sf-section{padding:var(--section-pt,40px) 0 var(--section-pb,40px);border:var(--section-border-width,0px) var(--section-border-style,solid) var(--section-border,var(--sf-rule));border-radius:var(--section-section-radius,0);box-shadow:var(--section-shadow,none)}
@@ -651,11 +615,8 @@ h1,h2,h3,p{margin:0}
 :where(.sf-styled) .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
 .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){gap:var(--section-gap,12px)}
 .sf-styled :is(.sf-features li,.sf-reviews li,.sf-info-grid li,.sf-order){background:var(--section-card,var(--sf-paper))}
-.sf-section-frame :is(.sf-story__image,.sf-card-image,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
-.sf-section-frame[data-image-ratio] :is(.sf-story__image,.sf-card-image,.sf-gallery img){aspect-ratio:var(--section-image-ratio);width:100%;height:auto}
-.sf-story[data-layout=center] .sf-story__grid{grid-template-columns:1fr;text-align:center;max-width:var(--section-width,800px)}
-.sf-story__grid{display:grid;gap:var(--section-gap,32px);align-items:center}.sf-story__image{width:100%;border-radius:var(--sf-radius)}
-.sf-story .sf-heading{text-align:inherit}.sf-story .sf-body{line-height:1.8}
+.sf-section-frame :is(.sf-card-image,.sf-gallery img){object-fit:var(--section-image-fit,cover)}
+.sf-section-frame[data-image-ratio] :is(.sf-card-image,.sf-gallery img){aspect-ratio:var(--section-image-ratio);width:100%;height:auto}
 .sf-header-row{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}.sf-brand{display:flex;align-items:center;gap:12px;font-size:22px}.sf-brand img{width:auto;max-width:160px;height:44px;object-fit:contain}
 .sf-section-links{display:flex;flex-wrap:wrap;gap:20px;align-items:center}.sf-section-links a{color:inherit;text-underline-offset:4px}.sf-custom-header .sf-button{margin:0}.sf-custom-header{padding:20px 0}.sf-custom-footer{text-align:center}.sf-custom-footer .sf-section-links{justify-content:center;margin-top:24px}
 .sf-info-grid{display:grid;grid-template-columns:1fr;list-style:none;padding:0;margin:0;gap:var(--section-gap,20px)}
@@ -670,7 +631,6 @@ h1,h2,h3,p{margin:0}
 .sf-button:focus-visible,.sf-section-links a:focus-visible,.sf-faq summary:focus-visible,.sf-table-scroll:focus-visible{outline:3px solid var(--sf-accent);outline-offset:4px}
 @media(min-width:720px){
  .sf-info-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
- .sf-story__grid{grid-template-columns:1fr 1fr}.sf-story[data-layout=reverse] .sf-story__grid>div:first-child{order:2}
  .sf-styled>.sf-section{padding-top:var(--section-pt,56px);padding-bottom:var(--section-pb,56px)}
  .sf-styled .sf-heading{font-size:var(--section-heading,28px)}
  .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){grid-template-columns:repeat(var(--section-columns,3),minmax(0,1fr))}
@@ -726,7 +686,6 @@ h1,h2,h3,p{margin:0}
 .sf-info--iconList .sf-info-grid{grid-template-columns:1fr;max-width:var(--section-width,800px);margin-inline:auto}
 .sf-info--iconList .sf-info-grid li{display:flex;gap:var(--section-gap,16px);align-items:flex-start;background:transparent;border:0;padding:16px 0;border-bottom:1px solid var(--sf-rule);border-radius:0}
 .sf-info--iconList .sf-info-grid li>.sf-icon-badge{margin:0}.sf-info-copy{min-width:0}
-.sf-standalone-icon{text-align:center}.sf-icon-link{display:inline-flex;color:inherit}.sf-icon-link:focus-visible{outline:2px solid var(--sf-accent);outline-offset:6px}
 .sf-button{gap:10px}.sf-button>.sf-icon-badge>.sf-marketing-icon{width:var(--section-icon-size,20px);height:var(--section-icon-size,20px)}.sf-button>.sf-icon-badge[data-icon-surface=plain]{color:var(--section-icon-color,inherit)}
 
 ${layoutBaseCss}

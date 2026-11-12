@@ -39,10 +39,11 @@ test('the bounded catalog has safe, renderable SVG primitives and bilingual meta
 test('icon IDs and presentation round-trip through JSON; arbitrary SVG and unknown IDs are refused', () => {
   const cards = newSection('iconCards', 'cards')
   cards.style = { iconSize: 40, iconColor: '#123456', iconBackground: '#ffffff', iconRadius: 24, iconStroke: '1.5', iconSurface: 'soft' }
-  const button = newSection('cta', 'action')
+  const button = newSection('announcement', 'action')
+  button.settings.button = 'Shop'
   button.settings.buttonIcon = 'shopping-bag'
   button.settings.link = '#cards'
-  const sections = [cards, newSection('iconList', 'list'), newSection('icon', 'symbol'), button]
+  const sections = [cards, newSection('iconList', 'list'), button]
   const content = { ...blankContent(), sections }
   assert.deepEqual(readContent(JSON.parse(JSON.stringify(content))), content)
   for (const bad of ['made-up', '<svg/>', 'data:image/svg+xml,x', 'https://example.com/icon.svg', '__proto__']) {
@@ -71,10 +72,5 @@ test('legacy content stays identical, icons can be removed, and linked icons hav
   assert.doesNotMatch(render([legacy]), /<svg/)
   rows[0].icon = 'leaf'
   assert.match(render([legacy]), /data-icon="leaf"/)
-  const symbol = newSection('icon', 'contact')
-  symbol.settings = { icon: 'phone', label: 'Call our team', link: 'tel:+8801700000000' }
-  const html = render([symbol])
-  assert.match(html, /href="tel:\+8801700000000" aria-label="Call our team"/)
-  assert.equal((html.match(/data-icon=/g) ?? []).length, 1)
-  assert.doesNotMatch(html, /<script|iconNodes|shopping-bag|<link/)
+  assert.doesNotMatch(render([legacy]), /<script|iconNodes|<link/)
 })

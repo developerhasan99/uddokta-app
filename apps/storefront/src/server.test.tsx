@@ -64,9 +64,9 @@ test('saved icon IDs publish as inline SVG on the public page without an icon fo
   const current = (await s.call('GET', base)).json
   const cards = newSection('iconCards', 'icon-cards')
   cards.style = { iconSize: 36, iconStroke: '1.5', iconSurface: 'soft', iconColor: '#285a3f' }
-  const symbol = newSection('icon', 'phone')
-  symbol.settings = { icon: 'phone', label: 'Call our team', link: 'tel:+8801700000000' }
-  const cta = newSection('cta', 'buy')
+  const symbol = { id: 'phone', type: 'layout' as const, hidden: false, settings: { name: '' }, children: [{ id: 'phone-icon', kind: 'icon' as const, props: { icon: 'phone' } }] }
+  const cta = newSection('announcement', 'buy')
+  cta.settings.button = 'Buy'
   cta.settings.buttonIcon = 'shopping-bag'
   cta.settings.link = '#icon-cards'
   const draft = { ...blankContent(), sections: [cards, newSection('iconList', 'icon-list'), symbol, cta] }
@@ -83,11 +83,10 @@ test('saved icon IDs publish as inline SVG on the public page without an icon fo
   assert.match(html, /<svg[^>]*data-icon="truck"[^>]*><path/)
   assert.match(html, /--section-icon-size:36px/)
   assert.match(html, /data-icon-surface="soft"/)
-  assert.match(html, /href="tel:\+8801700000000" aria-label="Call our team"/)
   assert.doesNotMatch(html, /iconNodes|iconCatalog|lucide-react|fontawesome|font-awesome|data-icon="rocket"|<use\b/)
   assert.doesNotMatch(html.match(/<script>([\s\S]*?)<\/script>/)![1], /data-icon|lucide|iconNodes/)
   const invalid = structuredClone(draft)
-  invalid.sections[2].settings.icon = '<svg onload=alert(1)>'
+  ;(invalid.sections[2] as any).children[0].props.icon = '<svg onload=alert(1)>'
   assert.equal((await s.call('PUT', base, { title: saved.json.title, handle: saved.json.handle, revision: saved.json.revision, draft: invalid })).status, 400)
 })
 

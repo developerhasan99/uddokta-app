@@ -19,10 +19,11 @@ test('legacy pages retain store chrome; blank pages omit it and accept custom he
 })
 
 test('section order, hiding, escaped text, mobile styling and custom call-to-action links render together', () => {
-  const story = newSection('imageText', 'story')
+  const story = newSection('faq', 'story')
   story.settings.heading = '<script>alert(1)</script>'
   story.style = { background: '#112233', mobileHeadingSize: 28, paddingTop: 0, paddingLeft: 16, mobilePaddingLeft: 8, marginRight: 12, mobileMarginRight: 4, radius: 0, visibility: 'mobile' }
-  const cta = newSection('cta', 'action')
+  const cta = newSection('announcement', 'action')
+  cta.settings.button = 'Read'
   cta.settings.link = '#story'
   const hidden = { ...newSection('trust', 'hidden'), hidden: true }
   const html = render({ ...blankContent(), sections: [story, hidden, cta] })

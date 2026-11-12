@@ -46,9 +46,6 @@ function children(section: Section, id: Id): PageNode[] {
   const s = section.settings
   switch (section.type) {
     case 'layout': return section.children ?? []
-    case 'imageText': return split(s, id, 'h2')
-    case 'video': return [...(str(s.heading) ? [heading(id, str(s.heading), 'h2', { textAlign: 'center' })] : []), node('video', id, { url: str(s.url) })]
-    case 'cta': return [box(id, { align: 'center', textAlign: 'center', gap: 16 }, [heading(id, str(s.heading)), ...(str(s.text) ? [text(id, str(s.text))] : []), ...(str(s.button) ? [button(id, s)] : [])])]
     case 'announcement': return [box(id, { direction: 'row', justify: 'center', align: 'center', gap: 16, wrap: 'wrap' }, [text(id, str(s.text)), ...(str(s.button) ? [button(id, s)] : [])])]
     case 'features': return cards(s, id, false, 'check')
     case 'steps': return cards(s, id, false)
@@ -69,8 +66,15 @@ export const toLayout = (section: Section, id: Id): Section =>
 const retired: Record<string, (s: Settings, id: Id) => PageNode[]> = {
   text: (s, id) => [...(str(s.heading) ? [heading(id, str(s.heading))] : []), ...(str(s.body) ? [text(id, str(s.body))] : [])],
   image: (s, id) => [image(id, s.image), ...(str(s.caption) ? [text(id, str(s.caption), { textAlign: 'center', fontSize: 14 })] : [])],
+  imageText: (s, id) => split(s, id, 'h2'),
+  // Without a link the old block showed nothing on the live page, heading included, so only the (empty) video comes over.
+  video: (s, id) => [...(str(s.heading) && str(s.url) ? [heading(id, str(s.heading), 'h2', { textAlign: 'center' })] : []), node('video', id, { url: str(s.url) })],
+  cta: (s, id) => [box(id, { align: 'center', textAlign: 'center', gap: 16 }, [heading(id, str(s.heading)), ...(str(s.text) ? [text(id, str(s.text))] : []), ...(str(s.button) ? [button(id, s)] : [])])],
+  // The icon element has no link, so a standalone icon's link (rarely set) is not carried over.
+  icon: (s, id) => [node('icon', id, { icon: str(s.icon) || 'heart' }, { textAlign: 'center' })],
 }
-export const hasRetiredBlocks = (raw: unknown) => JSON.stringify(raw ?? null).match(/"type":"(text|image)"/) !== null
+export const retiredTypes = Object.keys(retired)
+export const hasRetiredBlocks = (raw: unknown) => new RegExp(`"type":"(${retiredTypes.join('|')})"`).test(JSON.stringify(raw ?? null))
 export function retireOldBlocks(raw: unknown, id: Id): unknown {
   const doc = raw as { sections?: unknown }
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.sections)) return raw

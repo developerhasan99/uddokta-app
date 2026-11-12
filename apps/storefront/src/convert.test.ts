@@ -13,11 +13,9 @@ test('every built-in section converts into a valid layout section that keeps its
     assert.equal(section.id, `s-${type}`, 'the section keeps its id, so links to it still work')
     assert.deepEqual(readContent(content), content, type)
   }
-  const story = newSection('imageText', 'h')
-  story.settings.heading = 'Big sale'
-  story.settings.button = 'Buy'
-  const tree = [...walk(toLayout(story, id).children!)]
-  assert.ok(tree.some((x) => x.kind === 'heading' && x.props.text === 'Big sale'))
+  const retiredStory = readContent(retireOldBlocks({ version: 2, sections: [{ id: 'h', type: 'imageText', hidden: false, settings: { heading: 'Big sale', button: 'Buy', layout: 'split' } }] }, id))!
+  const tree = [...walk(retiredStory.sections[0].children!)]
+  assert.ok(tree.some((x) => x.kind === 'heading' && x.props.text === 'Big sale'), 'a retired Image with text keeps its heading')
   assert.ok(tree.some((x) => x.kind === 'button'))
   const order = newSection('order', 'buy')
   order.settings.product = '00000000-0000-4000-8000-000000000001'
@@ -50,4 +48,23 @@ test('retired Text and Image blocks and sections become elements that pass the s
   assert.deepEqual(tb.children!.map((c) => c.kind), ['text'])
   assert.deepEqual(bx.children![0].children!.map((c) => [c.kind, c.props.text ?? null]), [['image', null], ['text', 'Fresh']])
   assert.equal(faq.block?.type, 'faq', 'other blocks stay as they are')
+})
+
+test('retired Video, Call to action and Standalone icon blocks become their elements', () => {
+  let n = 0
+  const id = () => `v${n++}`
+  const block = (bid: string, type: string, settings: object) => ({ id: bid, kind: 'block', props: {}, block: { type, settings } })
+  const out = readContent(retireOldBlocks({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: { name: '' }, children: [
+    block('vid', 'video', { heading: 'Watch', url: 'https://www.youtube.com/watch?v=abcdefghijk' }),
+    block('act', 'cta', { heading: 'Order today', text: 'Fresh stock', button: 'Order', link: '#buy' }),
+    block('sym', 'icon', { icon: 'phone', label: '', link: '' }),
+  ] }] }, id))!
+  const kinds = [...walk(out.sections[0].children!)].map((x) => x.kind)
+  assert.deepEqual(kinds.filter((k) => k !== 'box'), ['heading', 'video', 'heading', 'text', 'button', 'icon'])
+  assert.ok(!hasRetiredBlocks(out))
+})
+
+test('a retired Video block with no link stays invisible on the live page, as it was', () => {
+  const out = readContent(retireOldBlocks({ version: 2, sections: [{ id: 'l', type: 'layout', hidden: false, settings: { name: '' }, children: [{ id: 'v', kind: 'block', props: {}, block: { type: 'video', settings: { heading: 'Watch', url: '' } } }] }] }, () => 'x1'))!
+  assert.deepEqual([...walk(out.sections[0].children!)].map((x) => x.kind), ['box', 'video'], 'no heading without a video')
 })

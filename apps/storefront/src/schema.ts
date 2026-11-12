@@ -33,7 +33,6 @@ const heading = (max = 120): Leaf => ({ key: 'heading', kind: 'text', label: ['�
 
 
 const select = (key: string, label: Label, options: readonly (readonly [string, Label])[]): Leaf & { group: 'layout' } => ({ key, kind: 'select', label, group: 'layout', options: options.map(([value, label]) => ({ value, label })) })
-const splitLayout = select('layout', ['বিন্যাস', 'Layout'], [['split', ['লেখা বামে, ছবি ডানে', 'Text left, media right']], ['reverse', ['ছবি বামে, লেখা ডানে', 'Media left, text right']], ['center', ['মাঝখানে', 'Centered']]])
 const button = (): Leaf => ({ key: 'button', kind: 'text', label: ['বাটনের লেখা', 'Button text'], max: 60 })
 const link = (key = 'link', label: Label = ['লিংক (ফাঁকা রাখলে অর্ডার ফর্ম)', 'Link (blank uses order form)']): Leaf => ({ key, kind: 'link', label })
 const icon = (defaultIcon?: IconName): Leaf => ({ key: 'icon', kind: 'icon', label: ['আইকন', 'Icon'], ...(defaultIcon ? { defaultIcon } : {}) })
@@ -117,11 +116,6 @@ export const sectionDefs = {
         { title: 'সহজ রিটার্ন', text: 'সমস্যা থাকলে ডেলিভারির সময়ই ফেরত দিন।' },
       ],
     },
-  },
-  video: {
-    label: ['ভিডিও', 'Video'],
-    fields: [heading(), { key: 'url', kind: 'url', label: ['ইউটিউব বা ফেসবুক ভিডিওর লিংক', 'YouTube or Facebook video link'] }],
-    defaults: { heading: 'ভিডিওতে দেখুন', url: '' },
   },
   reviews: {
     label: ['কাস্টমারের মতামত', 'Customer reviews'],
@@ -207,11 +201,6 @@ export const sectionDefs = {
     fields: [heading(), description(), { key: 'items', kind: 'list', label: ['লিংক', 'Links'], item: ['লিংক', 'Link'], max: 8, fields: [{ key: 'title', kind: 'text', label: ['লেখা', 'Label'], max: 50 }, link('link', ['লিংক', 'Link'])] }],
     defaults: { heading: 'আপনার ব্র্যান্ড', text: 'যোগাযোগ ও দোকানের তথ্য এখানে লিখুন।', items: [] },
   },
-  imageText: {
-    label: ['ছবি ও গল্প', 'Image with text'],
-    fields: [heading(), description(), { key: 'image', kind: 'image', label: ['ছবি', 'Image'] }, splitLayout, button(), buttonIcon(), link()],
-    defaults: { heading: 'পণ্যের পেছনের গল্প', text: 'পণ্যের উৎস, উপাদান ও তৈরির গল্প বলুন।', image: null, layout: 'reverse', button: '', link: '' },
-  },
   trust: {
     label: ['আস্থার বার', 'Trust strip'], fields: [cards(['তথ্য', 'Highlights'], false, true)],
     defaults: { items: [{ title: 'ক্যাশ অন ডেলিভারি', text: 'হাতে পেয়ে পেমেন্ট করুন' }, { title: 'ডেলিভারি তথ্য', text: 'আপনার ডেলিভারির নীতি লিখুন' }, { title: 'সহায়তা', text: 'দোকানের সাথে যোগাযোগ করুন' }] },
@@ -231,14 +220,6 @@ export const sectionDefs = {
   cards: {
     label: ['ছবিসহ কার্ড / কম্বো', 'Image cards / bundle contents'], fields: [heading(), cards(['কার্ড', 'Cards'], true, true)],
     defaults: { heading: 'যা যা থাকছে', items: [{ title: 'প্রথম আইটেম', text: 'উপাদান, পরিমাণ বা বৈশিষ্ট্য লিখুন।', image: null }, { title: 'দ্বিতীয় আইটেম', text: 'এই আইটেমের তথ্য লিখুন।', image: null }] },
-  },
-  cta: {
-    label: ['কল টু অ্যাকশন', 'Call to action'], fields: [heading(), description(), button(), buttonIcon(), link()],
-    defaults: { heading: 'আপনার পছন্দের পণ্যটি বেছে নিন', text: 'অর্ডারের আগে সব তথ্য দেখে নিন।', button: 'অর্ডার করুন', link: '' },
-  },
-  icon: {
-    label: ['আলাদা আইকন', 'Standalone icon'], fields: [icon(), { key: 'label', kind: 'text', label: ['অ্যাক্সেসিবল নাম', 'Accessible label'], max: 120 }, link('link', ['লিংক (ঐচ্ছিক)', 'Link (optional)'])],
-    defaults: { icon: 'heart', label: '', link: '' },
   },
   iconCards: {
     label: ['আইকন কার্ড', 'Icon cards'], fields: [heading(), cards(['কার্ড', 'Cards'], false, true)],
@@ -283,7 +264,7 @@ export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)
-  const media = (['imageText', 'gallery', 'cards'] as SectionType[]).includes(type)
+  const media = (['gallery', 'cards'] as SectionType[]).includes(type)
   const icons = defOf(type).fields.some((field) => field.kind === 'icon' || (field.kind === 'list' && field.fields.some((sub) => sub.kind === 'icon')))
   return styleFields.filter((field) => {
     if (field.key.startsWith('icon')) return icons
@@ -302,7 +283,7 @@ export const newSection = (type: SectionType, id: string): Section => ({ id, typ
 // What a new landing page starts with: the shape most single-product pages follow.
 export const starterContent = (id: (n: number) => string): Content => ({
   version: 2,
-  sections: (['imageText', 'features', 'video', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
+  sections: (['features', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
 })
 
 export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^(?:#[a-z0-9-]+|https:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d -]+)$/i.test(raw))

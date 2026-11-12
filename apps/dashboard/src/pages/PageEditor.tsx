@@ -45,7 +45,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
-const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, imageText: PanelLeft, video: Video, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, icon: Sparkles, cta: MousePointerClick, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 // The tree's icon for a section or node; the preview's corner tags use the same ones.
 const sectionIconOf = (s: Section) => {
