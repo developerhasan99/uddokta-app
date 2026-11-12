@@ -1861,6 +1861,9 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .editor .editor__settings .design-color__input > .design-reset:disabled { display: none; }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) { grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: center; column-gap: var(--space-xs); }
 .editor .editor__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) > :not(label) { grid-column: 2; }
+/* Inside a list item the fields stack: label above, input across the item's full width. */
+.editor .editor__fields .editor-list__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-2xs); }
+.editor .editor__fields .editor-list__fields .field:has(> .field__control > input:not([type="checkbox"]), > select) > :not(label) { grid-column: 1; }
 
 /* Planted panels: the sections tree and the settings sit flush in the sidebar, split by one line. Shorter panel header. */
 @media (min-width: 861px) {
