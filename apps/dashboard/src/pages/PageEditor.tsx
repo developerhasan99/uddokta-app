@@ -225,7 +225,6 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
       return <div className="field"><span className="field__label" id={`${id}-label`}>{label}</span><RichText labelledBy={`${id}-label`} value={toRich(String(value ?? ''))} onChange={(html) => onChange(html, true)} /></div>
     case 'html':
       return <div className="field">
-        <span className="field__label" id={`${id}-label`}>{label}</span>
         <Suspense fallback={<div className="css-editor css-editor--loading" />}><HtmlEditor value={String(value ?? '')} label={label} describedBy={`${id}-help`} maxLength={field.max} onChange={(v) => onChange(v, true)} /></Suspense>
         <p className="design-help" id={`${id}-help`}>{lang === 'bn' ? 'HTML, CSS, স্ক্রিপ্ট, লাইব্রেরি ও ফর্ম সবই চলবে, তবে শুধু লাইভ পেজে, পেজ থেকে আলাদা একটি বন্ধ ফ্রেমের ভেতরে। এখানে প্রিভিউতে স্ক্রিপ্ট চলে না। এই কোডের দায়িত্ব আপনার।' : 'HTML, CSS, scripts, libraries and forms all work, but only on the live page, inside a sealed frame kept apart from the rest of the page. Scripts do not run in this preview. You are responsible for this code.'}</p>
       </div>
@@ -1352,7 +1351,6 @@ export function PageEditor() {
                 <textarea id="page-seo-description" className="input input--area" rows={3} maxLength={1000} value={doc.seoDescription} onChange={(e) => edit({ ...doc, seoDescription: e.target.value }, 'seoDescription')} />
               </div>
               <div className="field">
-                <label>{L(['কাস্টম CSS', 'Custom CSS'])}</label>
                 <Suspense fallback={<div className="css-editor css-editor--loading" />}>
                   <CssEditor value={doc.content.css ?? ''} label={L(['কাস্টম CSS', 'Custom CSS'])} describedBy="page-css-help" maxLength={maxCss} onChange={(css) => edit({ ...doc, content: { ...doc.content, css } }, 'css')} />
                 </Suspense>

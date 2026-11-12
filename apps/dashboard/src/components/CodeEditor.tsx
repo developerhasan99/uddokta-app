@@ -60,10 +60,12 @@ export function CodeEditor({ language, format, value, onChange, label, described
   }
 
   return <div className="code-editor">
-    {format && <div className="code-editor__bar">
-      <button type="button" className="code-editor__format" onClick={tidy} title={L('কোড সুন্দর করে সাজান', 'Tidy indentation and line breaks')}><WandSparkles size={13} aria-hidden="true" />{L('কোড সাজান', 'Format code')}</button>
-      {note && <span className="code-editor__note" role="status">{note}</span>}
-    </div>}
+    {/* The field's label and the Format button share one row. */}
+    <div className="code-editor__bar">
+      <span className="field__label">{label}</span>
+      {format && <button type="button" className="code-editor__format" onClick={tidy} title={L('কোড সুন্দর করে সাজান', 'Tidy indentation and line breaks')}><WandSparkles size={13} aria-hidden="true" />{L('কোড সাজান', 'Format code')}</button>}
+    </div>
+    {note && <span className="code-editor__note" role="status">{note}</span>}
     <div ref={host} className="css-editor" />
   </div>
 }
