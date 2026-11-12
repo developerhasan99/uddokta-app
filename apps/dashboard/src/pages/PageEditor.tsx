@@ -226,7 +226,7 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
     case 'html':
       return <div className="field">
         <Suspense fallback={<div className="css-editor css-editor--loading" />}><HtmlEditor value={String(value ?? '')} label={label} describedBy={`${id}-help`} maxLength={field.max} onChange={(v) => onChange(v, true)} /></Suspense>
-        <p className="design-help" id={`${id}-help`}>{lang === 'bn' ? 'HTML, CSS, স্ক্রিপ্ট, লাইব্রেরি ও ফর্ম সবই চলবে, তবে শুধু লাইভ পেজে, পেজ থেকে আলাদা একটি বন্ধ ফ্রেমের ভেতরে। এখানে প্রিভিউতে স্ক্রিপ্ট চলে না। এই কোডের দায়িত্ব আপনার।' : 'HTML, CSS, scripts, libraries and forms all work, but only on the live page, inside a sealed frame kept apart from the rest of the page. Scripts do not run in this preview. You are responsible for this code.'}</p>
+        <p className="design-help" id={`${id}-help`}>{lang === 'bn' ? 'HTML, CSS, স্ক্রিপ্ট, লাইব্রেরি ও ফর্ম সবই লাইভ পেজের অংশ হিসেবে চলে, আর আপনার CSS পুরো পেজে কাজ করে। এখানে প্রিভিউতে স্ক্রিপ্ট চলে না। এই কোডের দায়িত্ব আপনার।' : 'HTML, CSS, scripts, libraries and forms run as part of the live page, and your CSS applies to the whole page. Scripts do not run in this preview. You are responsible for this code.'}</p>
       </div>
     case 'textarea':
       return (

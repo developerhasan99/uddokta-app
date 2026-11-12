@@ -652,8 +652,12 @@ test('an order form placed inside a layout takes real orders; one in a hidden la
   assert.equal((await order(s.handle, s.url, { section: 'hidden1', ...fields })).status, 404)
 })
 
-test('Custom HTML runs only in a sandboxed frame with its own origin, served with the seller’s code as written', async () => {
+test('Custom HTML is part of the live page as written, and only that page gets the open security policy', async () => {
   const { call, handle, page, url } = await publishedPage()
+  const strict = (await visit(handle, url)).headers.get('content-security-policy')!
+  assert.match(strict, /script-src 'sha256-/, 'a page without Custom HTML allows only its own scripts')
+  assert.doesNotMatch(strict, /unsafe-inline' 'unsafe-eval|script-src[^;]*https:/)
+
   const code = '<style>.x{color:red}</style><div class="x">Hi</div><form action="https://example.com/subscribe"><input name="email"></form><script src="https://cdn.example.com/swiper.js"></script><script>window.ready=1</script>'
   const current = (await call('GET', `/stores/${handle}/pages/${page.id}`)).json
   const html = { ...newBlock('html', () => 'custom-html'), block: { type: 'html' as const, settings: { html: code } } }
@@ -664,18 +668,11 @@ test('Custom HTML runs only in a sandboxed frame with its own origin, served wit
 
   const live = await visit(handle, url)
   const body = await live.text()
-  const frame = /<iframe class="sf-embed"[^>]*>/.exec(body)?.[0] ?? ''
-  assert.match(frame, /sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"/)
-  assert.doesNotMatch(frame, /allow-same-origin/, 'the code never shares the page’s origin')
-  assert.doesNotMatch(body, /window\.ready|swiper\.js/, 'the seller’s code is not in the page itself')
-  assert.match(live.headers.get('content-security-policy')!, /frame-src 'self'/)
-
-  const src = /src="([^"]+)"/.exec(frame)![1].replace(/&amp;/g, '&')
-  const embed = await visit(handle, src)
-  assert.equal(embed.status, 200, src)
-  assert.ok((await embed.text()).includes(code), 'served exactly as written')
-  assert.match(embed.headers.get('content-security-policy')!, /^sandbox allow-scripts[^;]*; frame-ancestors 'self'$/, 'sealed even when opened directly')
-  assert.doesNotMatch(embed.headers.get('content-security-policy')!, /allow-same-origin/)
-  assert.equal((await visit(handle, src.replace('custom-html', 'nope'))).status, 404)
-  assert.equal((await visit('someone-else', src)).status, 404, 'another store’s address serves nothing')
+  assert.ok(body.includes(`<div class="sf-html">${code}</div>`), 'the seller’s code is in the page exactly as written')
+  assert.doesNotMatch(body, /<iframe class="sf-embed"/)
+  const open = live.headers.get('content-security-policy')!
+  assert.match(open, /script-src 'self' 'unsafe-inline' 'unsafe-eval' https:/)
+  assert.match(open, /form-action 'self' https:/)
+  assert.match(open, /frame-ancestors 'none'/, 'still never framed by other sites')
+  assert.equal((await visit(handle, '/embed/x/custom-html')).status, 404, 'the old frame address is gone')
 })

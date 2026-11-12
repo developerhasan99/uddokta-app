@@ -292,8 +292,8 @@ export const sectionDefs = {
       direction: 'vertical', align: 'start', itemGap: 12, iconGap: 10, iconSize: 20, iconColor: '', textColor: '', iconHoverColor: '', textHoverColor: '', divider: 'none', dividerWidth: 1, dividerColor: '',
     },
   },
-  // Seller-written HTML, CSS and scripts. The seller is responsible for it; we keep it away from everything else by only
-  // running it in a sandboxed frame with its own opaque origin (see EmbedFrame and /embed in server.tsx). Only offered as a block.
+  // Seller-written HTML, CSS and scripts, part of the live page (the seller is responsible for it; see openCsp in
+  // server.tsx). Never run in the dashboard: the editor preview draws it in a scripts-off frame. Only offered as a block.
   html: { label: ['কাস্টম HTML', 'Custom HTML'], fields: [{ key: 'html', kind: 'html', label: ['HTML', 'HTML'], max: 50000 }], defaults: { html: '' } },
 } satisfies Record<string, SectionDef>
 
@@ -336,7 +336,7 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
     case 'richtext':
       return typeof raw === 'string' && raw.length <= field.max ? cleanRichText(raw) : undefined
-    // Kept exactly as the seller wrote it. It must only ever be drawn inside the sandboxed embed frame (EmbedFrame).
+    // Kept exactly as the seller wrote it. Drawn as is on live pages only; never run in the dashboard (EmbedFrame).
     case 'html':
       return typeof raw === 'string' && raw.length <= field.max ? raw : undefined
     case 'select':
@@ -533,13 +533,9 @@ export const nodeDefs: Record<NodeKind, NodeDef> = {
 export const blockTypes = sectionTypes.filter((type) => type !== 'layout')
 export const newBlock = (type: SectionType, id: () => string): PageNode => ({ id: id(), kind: 'block', props: {}, block: { type, settings: structuredClone(defOf(type).defaults) } })
 
-// A Custom HTML block's code on a visible part of the page, or null.
-export function embedCode(content: Content, nodeId: string): string | null {
-  for (const section of content.sections) {
-    if (section.hidden) continue
-    for (const node of walk(section.children ?? [])) if (node.id === nodeId && node.block?.type === 'html' && typeof node.block.settings.html === 'string') return node.block.settings.html
-  }
-  return null
+// Whether a visible part of the page has a Custom HTML block (the page then gets the open security policy).
+export function hasCustomHtml(content: Content): boolean {
+  return content.sections.some((section) => !section.hidden && [...walk(section.children ?? [])].some((node) => node.block?.type === 'html' && node.hide !== 'all'))
 }
 
 // Every order form a buyer can submit: visible order sections and order blocks in visible layouts, in page order.
