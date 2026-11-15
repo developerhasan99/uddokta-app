@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { CircleCheck, Download, ExternalLink, Palette, Plus, Upload } from 'lucide-react'
+import * as Dropdown from '@radix-ui/react-dropdown-menu'
+import { ChevronDown, CircleCheck, Copy, Download, Ellipsis, ExternalLink, Palette, Pencil, Plus, Radio, Trash2, Upload } from 'lucide-react'
 import type { ThemeSettings } from 'storefront/theme'
 import { presetIds, presets, type PresetId } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -9,6 +10,7 @@ import { DialogHead } from '../components/DialogHead'
 import { useDialog } from '../components/dialog'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
+import { usePreviewData } from './PageEditor'
 
 type Theme = { id: string; name: string; isLive: boolean; isPublished: boolean; hasChanges: boolean; updatedAt: string; settings: ThemeSettings }
 type Asking = { kind: 'add' } | { kind: 'rename' | 'live' | 'delete'; theme: Theme }
@@ -79,28 +81,65 @@ export function Themes() {
   const duplicate = (theme: Theme) => act(() => api(base, { method: 'POST', body: { name: t('themeCopyName', { value: theme.name }).slice(0, 60), from: theme.id } }))
   const customize = (theme: Theme) => navigate(path(`/online-store/themes/${theme.id}/editor`))
 
+  // The store's own logo, main menu and first products, for the theme pictures.
+  const preview = usePreviewData(handle)
+  const sample: Sample | null = preview && {
+    logo: preview.store.logo?.url ?? null,
+    menu: (preview.menus['main-menu'] ?? []).map((m) => m.title),
+    products: preview.cards.slice(0, 3).map((x) => ({ name: x.name, price: x.price, image: x.image?.url ?? null })),
+  }
   const live = themes?.find((x) => x.isLive)
   const library = themes?.filter((x) => !x.isLive) ?? []
 
+  // One main action (Customize) and the rest in a menu, so each theme reads as one calm row.
   const actions = (theme: Theme) => canEdit && (
     <div className="theme-row__actions">
       <Button variant={theme.isLive ? 'primary' : 'default'} onClick={() => customize(theme)}><Palette size={16} aria-hidden="true" />{t('themeCustomize')}</Button>
-      {!theme.isLive && <Button disabled={busy || !theme.isPublished} title={theme.isPublished ? undefined : t('themeNotPublishedHelp')} onClick={() => setAsking({ kind: 'live', theme })}>{t('themeMakeLive')}</Button>}
-      <Button disabled={busy} onClick={() => void duplicate(theme)}>{t('themeDuplicate')}</Button>
-      <Button disabled={busy} onClick={() => setAsking({ kind: 'rename', theme })}>{t('themeRename')}</Button>
-      <Button disabled={busy} onClick={() => void download(theme)}><Download size={16} aria-hidden="true" />{t('themeDownload')}</Button>
-      {!theme.isLive && <Button variant="danger" disabled={busy} onClick={() => setAsking({ kind: 'delete', theme })}>{t('themeDelete')}</Button>}
+      <Dropdown.Root>
+        <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" aria-label={t('themeMore', { value: theme.name })} title={t('themeMore', { value: theme.name })} disabled={busy}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
+        <Dropdown.Portal>
+          <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
+            <Dropdown.Group className="menu__section">
+              {!theme.isLive && <Dropdown.Item className="menu__item menu__action" disabled={!theme.isPublished} onSelect={() => setAsking({ kind: 'live', theme })}><Radio size={16} aria-hidden="true" /><span className="menu__text"><span>{t('themeMakeLive')}</span>{!theme.isPublished && <span className="menu__sub">{t('themeNotPublishedHelp')}</span>}</span></Dropdown.Item>}
+              <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(theme)}><Copy size={16} aria-hidden="true" />{t('themeDuplicate')}</Dropdown.Item>
+              <Dropdown.Item className="menu__item menu__action" onSelect={() => setAsking({ kind: 'rename', theme })}><Pencil size={16} aria-hidden="true" />{t('themeRename')}</Dropdown.Item>
+              <Dropdown.Item className="menu__item menu__action" onSelect={() => void download(theme)}><Download size={16} aria-hidden="true" />{t('themeDownload')}</Dropdown.Item>
+            </Dropdown.Group>
+            {!theme.isLive && <Dropdown.Group className="menu__section menu__section--ruled">
+              <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setAsking({ kind: 'delete', theme })}><Trash2 size={16} aria-hidden="true" />{t('themeDelete')}</Dropdown.Item>
+            </Dropdown.Group>}
+          </Dropdown.Content>
+        </Dropdown.Portal>
+      </Dropdown.Root>
     </div>
   )
-  const badges = (theme: Theme) => <>
+  const meta = (theme: Theme) => <p className="theme-meta">
     {theme.isLive && <Badge tone="success">{t('themesCurrent')}</Badge>}
     {!theme.isPublished && <Badge>{t('themeNotPublished')}</Badge>}
     {theme.hasChanges && <Badge tone="info">{t('themeChanges')}</Badge>}
-  </>
+    <span className="muted">{t('themeUpdated', { value: ago(theme.updatedAt) })}</span>
+  </p>
+  const addMenu = canEdit && (
+    <Dropdown.Root>
+      <Dropdown.Trigger asChild><Button variant="primary" disabled={busy}><Plus size={16} aria-hidden="true" />{t('themeAdd')}<ChevronDown size={14} aria-hidden="true" /></Button></Dropdown.Trigger>
+      <Dropdown.Portal>
+        <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
+          <Dropdown.Group className="menu__section">
+            <Dropdown.Item className="menu__item menu__action" onSelect={() => setAsking({ kind: 'add' })}><Palette size={16} aria-hidden="true" />{t('themeAddStarter')}</Dropdown.Item>
+            <Dropdown.Item className="menu__item menu__action" onSelect={() => uploadFile.current?.click()}><Upload size={16} aria-hidden="true" />{t('themeUpload')}</Dropdown.Item>
+          </Dropdown.Group>
+        </Dropdown.Content>
+      </Dropdown.Portal>
+    </Dropdown.Root>
+  )
 
   return (
     <div className="page page--narrow">
-      <PageHeader title={t('themes')} description={t('themesHelp')} action={<a className="btn" href={storefrontUrl(handle)} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>} />
+      <input ref={uploadFile} type="file" accept=".json,application/json" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
+      <PageHeader title={t('themes')} description={t('themesHelp')} action={<div className="row">
+        <a className="btn" href={storefrontUrl(handle)} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
+        {addMenu}
+      </div>} />
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
       {!canEdit && <p className="muted">{t('themesManagersOnlyEdit')}</p>}
       {failed && <section className="card card--flush"><Notice role="alert" title={t('errGeneric')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section>}
@@ -108,12 +147,11 @@ export function Themes() {
 
       {live && (
         <section className="card theme-live">
-          <ThemeSwatch settings={live.settings} storeName={current.store.name} large />
+          <ThemeSwatch settings={live.settings} storeName={current.store.name} sample={sample} large />
           <div className="theme-live__body">
             <p className="muted">{t('themeLiveTitle')}</p>
             <h2>{live.name}</h2>
-            <div className="row">{badges(live)}</div>
-            <p className="muted">{t('themeUpdated', { value: ago(live.updatedAt) })}</p>
+            {meta(live)}
             {actions(live)}
           </div>
         </section>
@@ -121,16 +159,9 @@ export function Themes() {
 
       {themes && (
         <section className="card">
-          <div className="card__head">
-            <div>
-              <h2>{t('themeLibrary')}</h2>
-              <p className="muted">{t('themeLibraryHelp')}</p>
-            </div>
-            {canEdit && <div className="row">
-              <input ref={uploadFile} type="file" accept=".json,application/json" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
-              <Button disabled={busy} onClick={() => uploadFile.current?.click()}><Upload size={16} aria-hidden="true" />{t('themeUpload')}</Button>
-              <Button onClick={() => setAsking({ kind: 'add' })}><Plus size={16} aria-hidden="true" />{t('themeAdd')}</Button>
-            </div>}
+          <div className="theme-library__head">
+            <h2>{t('themeLibrary')}</h2>
+            <p className="muted">{t('themeLibraryHelp')}</p>
           </div>
           {library.length === 0
             ? <p className="muted">{t('themeLibraryEmpty')}</p>
@@ -138,12 +169,12 @@ export function Themes() {
               <ul className="theme-rows">
                 {library.map((theme) => (
                   <li key={theme.id} className="theme-row">
-                    <ThemeSwatch settings={theme.settings} storeName={current.store.name} />
+                    <ThemeSwatch settings={theme.settings} storeName={current.store.name} sample={sample} />
                     <div className="theme-row__body">
                       <strong>{theme.name}</strong>
-                      <div className="row">{badges(theme)}<span className="muted">{t('themeUpdated', { value: ago(theme.updatedAt) })}</span></div>
-                      {actions(theme)}
+                      {meta(theme)}
                     </div>
+                    {actions(theme)}
                   </li>
                 ))}
               </ul>
@@ -179,14 +210,31 @@ export function Themes() {
   )
 }
 
-// A small drawing of the theme in its own colours (the store's colours, not the dashboard's).
-function ThemeSwatch({ settings, storeName, large }: { settings: ThemeSettings; storeName: string; large?: boolean }) {
+// A small picture of the theme's home page: the store's logo or name, its main menu and first products, drawn in the
+// theme's own colours, fonts and corners (the store's look, not the dashboard's).
+type Sample = { logo: string | null; menu: string[]; products: { name: string; price: number; image: string | null }[] }
+function ThemeSwatch({ settings, storeName, sample, large }: { settings: ThemeSettings; storeName: string; sample: Sample | null; large?: boolean }) {
+  const { money } = useLang()
   const c = settings.colors
+  const radius = Math.min(settings.radius, large ? 12 : 8)
+  const font = `${settings.latin ? `"${settings.latin}", ` : ''}"${settings.bangla || 'Hind Siliguri'}", sans-serif`
+  const products = sample?.products.length ? sample.products : [null, null, null]
   return (
-    <div className={large ? 'theme-swatch theme-swatch--large' : 'theme-swatch'} aria-hidden="true" style={{ background: c.paper, color: c.ink, borderColor: c.rule, fontFamily: `"${settings.bangla || 'Hind Siliguri'}", sans-serif` }}>
-      <span className="theme-swatch__bar" style={{ borderColor: c.rule }}>{storeName}</span>
-      <span className="theme-swatch__cards">{[0, 1, 2].map((i) => <span key={i} style={{ background: c.tint, borderRadius: settings.radius }} />)}</span>
-      <span className="theme-swatch__button" style={{ background: c.accent, borderRadius: settings.radius }} />
+    <div className={large ? 'theme-swatch theme-swatch--large' : 'theme-swatch'} aria-hidden="true" style={{ background: c.paper, color: c.ink, borderColor: c.rule, fontFamily: font }}>
+      <span className="theme-swatch__bar" style={{ borderColor: c.rule }}>
+        {sample?.logo ? <img src={sample.logo} alt="" /> : <strong>{storeName}</strong>}
+        {large && <span className="theme-swatch__menu">{sample?.menu.slice(0, 3).map((m) => <span key={m} style={{ color: c.ink }}>{m}</span>)}</span>}
+      </span>
+      <span className="theme-swatch__cards">
+        {products.slice(0, 3).map((p, i) => (
+          <span key={i} className="theme-swatch__card">
+            <span className="theme-swatch__image" style={{ background: c.tint, borderRadius: radius }}>{p?.image && <img src={p.image} alt="" />}</span>
+            {p && <span className="theme-swatch__name">{p.name}</span>}
+            {p && <span className="theme-swatch__price" style={{ color: c.accent }}>{money(p.price)}</span>}
+          </span>
+        ))}
+      </span>
+      <span className="theme-swatch__button" style={{ background: c.accent, color: settings.colors.paper, borderRadius: radius }}>{large ? 'এখনই অর্ডার করুন' : ''}</span>
     </div>
   )
 }
