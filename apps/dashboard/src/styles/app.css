@@ -687,7 +687,8 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 @media (max-width: 60rem) {
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .shell__sidebar { display: none; }
-  .mobilebar { display: flex; align-items: center; gap: var(--space-2xs); padding-inline: var(--space-2xs); }
+  .mobilebar { display: flex; align-items: center; gap: var(--space-2xs); padding: var(--space-xs) var(--space-2xs); }
+  .mobilebar .brand img { width: var(--control); height: var(--control); }
   .home-grid { grid-template-columns: minmax(0, 1fr); }
   .onboarding { grid-template-columns: minmax(0, 1fr); }
   .shell__main { margin: 0 var(--frame-gap) var(--frame-gap); }
