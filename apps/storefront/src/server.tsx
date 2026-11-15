@@ -494,6 +494,7 @@ app.get('/password', async (c) => {
   return locked(c, store) ? passwordPage(c, store) : c.redirect('/', 302)
 })
 
+// ponytail: no attempt limit; each try costs one password hash. Add a per-store limit (or the CDN's) if stores see guessing.
 app.post('/password', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
@@ -533,7 +534,9 @@ function saveCart(c: Context, items: [string, number][]) {
 // Cart forms are posted from the store's own pages; a post from another site never changes the cart.
 const fromThisSite = (c: Context) => {
   const origin = c.req.header('origin')
-  return !origin || origin === 'null' || new URL(origin).host === new URL(c.req.url).host || new URL(origin).host === (c.req.header('x-forwarded-host') ?? c.req.header('host'))
+  if (!origin || origin === 'null') return true
+  const host = URL.canParse(origin) ? new URL(origin).host : null
+  return host !== null && (host === new URL(c.req.url).host || host === (c.req.header('x-forwarded-host') ?? c.req.header('host')))
 }
 
 async function cartLines(storeId: string, items: [string, number][]): Promise<CartLine[]> {
