@@ -83,7 +83,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Online store:** Themes, Pages, Menus, Preferences
 - **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
-The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
+Landing-page COD selling and the online store (themes, pages, menus, preferences, cart and search; see `ONLINE-STORE-PLAN.md`) are both built and share one page builder. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
 ## Media gallery
 
