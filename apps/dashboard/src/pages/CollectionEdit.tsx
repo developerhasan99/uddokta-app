@@ -7,17 +7,18 @@ import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
 import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
+import { TemplateCard } from '../components/TemplateCard'
 import { Badge, Button, Field, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import { statusInfo, storeAddress } from '../product-form'
 
-type Form = { name: string; description: string; handle: string; seoTitle: string; seoDescription: string; media: MediaItem | null; products: ProductRow[] }
+type Form = { name: string; description: string; handle: string; seoTitle: string; seoDescription: string; template: string; media: MediaItem | null; products: ProductRow[] }
 type Saved = Form & { id: string }
 
 const maxProducts = 1000
 const maxDescription = 50_000
-const blank = (): Form => ({ name: '', description: '', handle: '', seoTitle: '', seoDescription: '', media: null, products: [] })
-const toForm = ({ id: _id, ...form }: Saved): Form => form
+const blank = (): Form => ({ name: '', description: '', handle: '', seoTitle: '', seoDescription: '', template: '', media: null, products: [] })
+const toForm = ({ id: _id, ...form }: Saved): Form => ({ ...form, template: form.template ?? '' })
 
 export function CollectionEdit() {
   const { t, num, money } = useLang()
@@ -261,6 +262,7 @@ export function CollectionEdit() {
               )}
           </section>
 
+          <TemplateCard kind="collection" value={form.template} onChange={(template) => change({ template })} />
           {id && current.role !== 'staff' && (
             confirming
               ? (

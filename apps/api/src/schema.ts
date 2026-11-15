@@ -131,6 +131,8 @@ export const products = pgTable('products', {
   handle: text('handle').notNull(),
   seoTitle: text('seo_title').notNull().default(''),
   seoDescription: text('seo_description').notNull().default(''),
+  // An alternate product template of the live theme ("gift" uses product.gift); blank uses the default.
+  template: text('template').notNull().default(''),
   createdAt: createdAt(),
 }, (t) => [
   index('products_store_created').on(t.storeId, t.createdAt),
@@ -196,6 +198,7 @@ export const collections = pgTable('collections', {
   handle: text('handle').notNull(),
   seoTitle: text('seo_title').notNull().default(''),
   seoDescription: text('seo_description').notNull().default(''),
+  template: text('template').notNull().default(''),
   mediaId: uuid('media_id'),
   createdAt: createdAt(),
 }, (t) => [

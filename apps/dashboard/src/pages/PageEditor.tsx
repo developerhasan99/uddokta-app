@@ -17,10 +17,15 @@ import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
 import { toRich } from 'storefront/rich'
 import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
-import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
+import { css as storefrontCss, PageView, type CollectionCard, type Ctx, type Product, type ProductPage, type ShippingOption, type StoreInfo, type StorePageView } from 'storefront/sections'
+import { catalogCss, type Card } from 'storefront/catalog'
+import type { ResolvedItem } from 'storefront/menus'
+import { themeCss, themeFontsHref, type ThemeSettings } from 'storefront/theme'
 import { loadRates } from '../shipping'
 import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
 const presetVars = (theme: PresetId) => presets[theme].vars
+// Until the store's theme has loaded, the preview uses the default style.
+const fallbackLook: Look = { css: presetCss('fresh'), fontsHref: presetFontsHref('fresh') }
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { IconField } from '../components/IconField'
@@ -31,7 +36,7 @@ import { SectionThumbnail } from '../components/SectionThumbnail'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker } from '../components/ProductPicker'
 import { Button, Field, IconButton, Notice, PageTitle, SearchInput, Skeleton } from '../components/ui'
-import { errorLabel, useLang } from '../i18n'
+import { errorLabel, useLang, type Key } from '../i18n'
 import type { ProductStatus } from '../product-form'
 import type { StoreSettingsData } from './StoreSettings'
 import { PageStatus } from './Pages'
@@ -41,7 +46,38 @@ type Saved = {
   id: string; title: string; handle: string; seoTitle: string; seoDescription: string; draft: Content; revision: number
   publishedHandle: string | null; isPublished: boolean; hasChanges: boolean; media: Record<string, MediaItem>
 }
-type Doc = { title: string; handle: string; seoTitle: string; seoDescription: string; content: Content }
+// What the editor edits. A host (landing page or theme) loads and saves it; extra holds the host's own data (a theme's
+// other templates and settings) so it shares undo, redo and the unsaved-changes check.
+export type Doc = { title: string; handle: string; seoTitle: string; seoDescription: string; content: Content; extra?: unknown }
+export type BuilderState = { revision: number; isPublished: boolean; hasChanges: boolean; liveUrl: string | null }
+export type BuilderLoad = { doc: Doc; state: BuilderState; media?: Record<string, MediaItem> }
+export type Look = { css: string; fontsHref: string | null }
+export type SettingsProps = {
+  doc: Doc; edit: (next: Doc, key?: string) => void; error: string | null; busy: boolean; state: BuilderState
+  run: (work: () => Promise<void>) => Promise<void>; setError: (code: string | null) => void; setToast: (text: string | null) => void; setState: (state: BuilderState) => void
+  onPickImage: (apply: (id: string | null) => void) => void; media: Record<string, MediaItem>
+}
+// Where the editor's document lives and what is special about it. The editor itself knows only sections and nodes.
+export type BuilderHost = {
+  key: string
+  back: { to: string; label: Key }
+  title: (doc: Doc) => string
+  load: () => Promise<BuilderLoad>
+  save: (doc: Doc, state: BuilderState) => Promise<BuilderLoad>
+  publish: (state: BuilderState) => Promise<BuilderLoad>
+  // The document as saved, for the unsaved-changes check (defaults to the whole doc).
+  serialize?: (doc: Doc) => string
+  // An error code to show instead of saving (for example a missing name).
+  check?: (doc: Doc) => string | null
+  settingsLabel: string
+  settings: (props: SettingsProps) => ReactNode
+  top?: (props: { doc: Doc; edit: (next: Doc, key?: string) => void; busy: boolean }) => ReactNode
+  preview: (doc: Doc) => { ctx?: Partial<Ctx>; look?: Look; frame?: { header: Section[]; footer: Section[] }; themeCss?: string; storeName?: string }
+  // Store blocks (header, product details, …) are offered only when editing a theme.
+  storeBlocks?: boolean
+  // A label for sections that belong to a group shown on every page (a theme's header and footer).
+  group?: (doc: Doc, sectionId: string) => string | null
+}
 type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
@@ -58,7 +94,7 @@ const historyLimit = 100
 // Every section is edited as a layout; older built-in sections are turned into one when the page opens.
 const toDoc = (p: Saved): Doc => ({ title: p.title, handle: p.handle, seoTitle: p.seoTitle, seoDescription: p.seoDescription, content: { ...p.draft, sections: p.draft.sections.map((s) => (s.type === 'layout' ? s : { ...toLayout(s, newId), settings: { name: defOf(s.type).label[document.documentElement.lang === 'en' ? 1 : 0] } })) } })
 const newId = () => crypto.randomUUID().slice(0, 8)
-const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}</style></head><body></body></html>`
+const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${storefrontCss}${catalogCss}</style></head><body></body></html>`
 
 // The real section components, drawn inside an iframe so the storefront's styles and breakpoints apply exactly as they will live.
 // Custom HTML in the editor preview: DOMPurify removes scripts, event handlers, script URLs, frames and the like, so
@@ -66,7 +102,7 @@ const frameShell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><
 // <style> is kept (CSS cannot run code). Forms are blocked from submitting by the preview itself.
 const previewHtml = (html: string) => DOMPurify.sanitize(html, { FORCE_BODY: true, FORBID_TAGS: ['iframe', 'frame', 'object', 'embed', 'base', 'meta'] })
 
-function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; theme: PresetId; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
+function Preview({ content, ctx, storeName, look, frame, themeCss, mobile, selected, onSelect, onText, onAddInto, onMenu }: { content: Content; ctx: Ctx; storeName: string; look: Look; frame?: { header: Section[]; footer: Section[] }; themeCss?: string; mobile: boolean; selected: string | null; onSelect: (id: string) => void; onText: (id: string, text: string) => void; onAddInto: (id: string) => void; onMenu: (id: string, x: number, y: number) => void }) {
   const customCss = useMemo(() => customHtmlCss(content), [content])
   const { t } = useLang()
   const [body, setBody] = useState<HTMLElement | null>(null)
@@ -191,12 +227,12 @@ function Preview({ content, ctx, storeName, theme, mobile, selected, onSelect, o
       <iframe title={t('pagePreview')} srcDoc={frameShell} onLoad={(e) => attach(e.currentTarget)} />
       {body && createPortal(
         <>
-          <link rel="stylesheet" href={presetFontsHref(theme)} />
-          <style>{presetCss(theme)}</style>
+          {look.fontsHref && <link rel="stylesheet" href={look.fontsHref} />}
+          <style>{look.css}</style>
           {/* Custom HTML's stylesheet links (its <style> is drawn in place with the block); its scripts never run in the editor. */}
           {customCss.links.map((href) => <link key={href} rel="stylesheet" href={href} />)}
           <style>{`.sf-n-box{outline:1px dashed #1f7a4d33;outline-offset:-1px}.sf-n-box .sf-n-box{outline-offset:-4px}.sf-n-box .sf-n-box .sf-n-box{outline-offset:-7px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box{outline-offset:-10px}.sf-n-tag{position:absolute;position-anchor:--sf-picked;bottom:anchor(top);left:anchor(left);z-index:7;display:flex;align-items:center;justify-content:center;width:22px;height:20px;border-radius:6px 6px 0 0;background:#1f7a4d;color:#fff;pointer-events:none}.sf-n-handle svg{display:block}[data-section],[data-node]{cursor:pointer}[data-section]:hover{outline:1px dashed #1f7a4d;outline-offset:-2px}[data-node]:hover:not(:has([data-node]:hover)){outline:1px dashed #1f7a4d;outline-offset:-1px}.sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:hover:not(:has([data-node]:hover)){outline-offset:-2px}${selected ? `[data-section="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]{outline:2px solid #1f7a4d!important;outline-offset:-2px}[data-node="${selected}"]>.sf-n-handle,[data-section="${selected}"] .sf-layout>.sf-n-handle{display:flex}[data-node="${selected}"]{anchor-name:--sf-picked}.sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}.sf-n-box .sf-n-box .sf-n-box .sf-n-box:is(:hover,[data-node="${selected}"]){outline-offset:-2px}` : ''}`}</style>
-          {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={{ ...ctx, handleIcon: iconFor }} storeName={storeName} />}
+          {content.sections.every((s) => s.hidden) ? <p className="sf-hint" style={{ margin: 24 }}>{t('pageNoSections')}</p> : <PageView content={content} ctx={{ ...ctx, handleIcon: iconFor }} storeName={storeName} frame={frame} themeCss={themeCss} />}
           {tagged && tagged.kind !== 'box' && <span className="sf-n-tag" aria-hidden="true">{iconFor(tagged.id)}</span>}
         </>,
         body,
@@ -302,7 +338,35 @@ function LeafEditor({ field, value, id, onChange, onPick, media, products }: {
         </div>
       )
     }
+    case 'menu':
+    case 'collection':
+      return <ChoiceField id={id} label={label} kind={field.kind} value={typeof value === 'string' ? value : ''} onChange={(v) => onChange(field.kind === 'collection' ? v || null : v)} />
   }
+}
+
+// A store menu (by handle) or collection (by id), chosen from the store's own. Lists are fetched once per editor visit.
+const choiceCache = new Map<string, Promise<{ value: string; label: string }[]>>()
+function ChoiceField({ id, label, kind, value, onChange }: { id: string; label: string; kind: 'menu' | 'collection'; value: string; onChange: (value: string) => void }) {
+  const { lang } = useLang()
+  const handle = useCurrentStore()!.store.handle
+  const [options, setOptions] = useState<{ value: string; label: string }[] | null>(null)
+  useEffect(() => {
+    const key = `${handle}:${kind}`
+    if (!choiceCache.has(key)) {
+      choiceCache.set(key, kind === 'menu'
+        ? api<{ handle: string; title: string }[]>(`/stores/${handle}/menus`).then((r) => r.map((m) => ({ value: m.handle, label: m.title })))
+        : api<{ id: string; name: string }[]>(`/stores/${handle}/collections/options`).then((r) => r.map((c) => ({ value: c.id, label: c.name }))))
+      setTimeout(() => choiceCache.delete(key), 30_000)
+    }
+    void choiceCache.get(key)!.then(setOptions).catch(() => setOptions([]))
+  }, [handle, kind])
+  return <div className="field"><label htmlFor={id}>{label}</label>
+    <select className="input" id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{kind === 'menu' ? (lang === 'bn' ? 'কোনো মেনু নয়' : 'No menu') : (lang === 'bn' ? 'একটি বেছে নিন' : 'Choose one')}</option>
+      {options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {value && options && !options.some((o) => o.value === value) && <option value={value}>{value}</option>}
+    </select>
+  </div>
 }
 
 function SectionForm({ section, onChange, onPick, media, products, group = 'content' }: {
@@ -446,7 +510,7 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
 // Blocks offered as current in Add element; every other block type is listed under Obsolete until it is redone.
 const currentBlocks: SectionType[] = ['iconList', 'html']
 
-function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void; room: number }) {
+function AddNodeDialog({ onClose, onAdd, room, storeBlocks }: { onClose: () => void; onAdd: (build: (id: () => string) => PageNode) => void; room: number; storeBlocks?: boolean }) {
   const { lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
@@ -469,6 +533,15 @@ function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (
           return <li key={kind}><button type="button" onClick={() => close(() => onAdd((id) => newNode(kind, id)))}><Icon size={20} strokeWidth={1.75} aria-hidden="true" /><span>{L(nodeDefs[kind].label)}</span></button></li>
         })}
       </ul>
+      {storeBlocks && <>
+        <p className="node-add__label">{L(['দোকানের ব্লক', 'Store blocks'])}</p>
+        <ul className="node-add__grid">
+          {themeOnlyTypes.map((type) => {
+            const Icon = sectionIcons[type]
+            return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={20} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
+          })}
+        </ul>
+      </>}
       <p className="node-add__label">{L(['ব্লক', 'Blocks'])}</p>
       <ul className="node-add__grid">
         {currentBlocks.map((type) => {
@@ -538,16 +611,14 @@ function LeaveDialog({ onClose, onLeave, onSave, busy }: { onClose: () => void; 
   </dialog>
 }
 
-export function PageEditor() {
+export function Builder({ host }: { host: BuilderHost }) {
   const { t, lang, num } = useLang()
-  const { id } = useParams()
   const navigate = useNavigate()
   const path = useStorePath()
   const current = useCurrentStore()!
-  const base = `/stores/${current.store.handle}/pages/${id}`
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
 
-  const [page, setPage] = useState<Saved | null>(null)
+  const [page, setPage] = useState<BuilderState | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const [doc, setDoc] = useState<Doc | null>(null)
   const [baseline, setBaseline] = useState('')
@@ -578,7 +649,6 @@ export function PageEditor() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState(false)
   const [resetting, setResetting] = useState<string | null>(null)
   const [menuAt, setMenuAt] = useState<{ id: string; x: number; y: number } | null>(null)
   const dragFrom = useRef<number | null>(null)
@@ -587,17 +657,18 @@ export function PageEditor() {
   const nodeDrag = useRef<string | null>(null)
   const [nodeDrop, setNodeDrop] = useState<{ id: string; where: 'before' | 'after' | 'inside' } | null>(null)
 
-  const show = (saved: Saved) => {
-    setPage(saved)
-    setDoc(toDoc(saved))
-    setBaseline(JSON.stringify(toDoc(saved)))
-    setMedia((m) => ({ ...m, ...saved.media }))
+  const serialize = (d: Doc) => (host.serialize ? host.serialize(d) : JSON.stringify(d))
+  const show = (loaded: BuilderLoad) => {
+    setPage(loaded.state)
+    setDoc(loaded.doc)
+    setBaseline(serialize(loaded.doc))
+    if (loaded.media) setMedia((m) => ({ ...m, ...loaded.media }))
   }
 
   const load = async () => {
     setLoadFailed(false)
     try {
-      show(await api<Saved>(base))
+      show(await host.load())
       setPast([])
       setFuture([])
     } catch {
@@ -607,7 +678,7 @@ export function PageEditor() {
 
   useEffect(() => {
     void load()
-  }, [base])
+  }, [host.key])
 
   useEffect(() => {
     api<StoreSettingsData>(`/stores/${current.store.handle}/settings`).then((s) => {
@@ -636,7 +707,7 @@ export function PageEditor() {
     }
   }, [productIds])
 
-  const dirty = doc !== null && JSON.stringify(doc) !== baseline
+  const dirty = doc !== null && serialize(doc) !== baseline
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -679,16 +750,17 @@ export function PageEditor() {
   const save = async () => {
     if (!doc || !page) return null
     setError(null)
-    if (!doc.title.trim()) {
+    const problem = host.check?.(doc)
+    if (problem) {
       setView('page')
       setPane('edit')
-      setError('nameRequired')
+      setError(problem)
       return null
     }
     try {
-      const saved = await api<Saved>(base, { method: 'PUT', body: { title: doc.title, handle: doc.handle, seoTitle: doc.seoTitle, seoDescription: doc.seoDescription, draft: doc.content, revision: page.revision } })
+      const saved = await host.save(doc, page)
       show(saved)
-      return saved
+      return saved.state
     } catch (err) {
       setError(errorCode(err))
       if (errorCode(err) === 'pageHandleTaken') {
@@ -718,27 +790,9 @@ export function PageEditor() {
     const saved = dirty ? await save() : page
     if (!saved) return
     try {
-      show(await api<Saved>(`${base}/publish`, { method: 'POST', body: { revision: saved.revision } }))
+      show(await host.publish(saved))
       setToast(t('pagePublishedToast'))
     } catch (err) {
-      setError(errorCode(err))
-    }
-  })
-  const unpublish = () => run(async () => {
-    try {
-      const saved = await api<Saved>(`${base}/unpublish`, { method: 'POST' })
-      setPage(saved)
-      setToast(t('pageUnpublishedToast'))
-    } catch (err) {
-      setError(errorCode(err))
-    }
-  })
-  const remove = () => run(async () => {
-    try {
-      await api(base, { method: 'DELETE' })
-      navigate(path('/landing-pages'), { replace: true })
-    } catch (err) {
-      setConfirming(false)
       setError(errorCode(err))
     }
   })
@@ -1122,7 +1176,8 @@ export function PageEditor() {
 
   const section = sections.find((s) => s.id === selected)
   const index = section ? sections.indexOf(section) : -1
-  const liveUrl = `${storefrontUrl(current.store.handle)}${pageHref(page.publishedHandle ?? page.handle)}`
+  const liveUrl = page.liveUrl
+  const view_ = host.preview(doc)
   const incompleteOrders = orderBlocks(doc.content).filter((o) => !o.settings.product || (typeof o.settings.product === 'string' && products[o.settings.product]?.status === 'draft'))
   const status = { isPublished: page.isPublished, hasChanges: page.isPublished && (page.hasChanges || dirty) }
 
@@ -1140,15 +1195,16 @@ export function PageEditor() {
 
   return (
     <div className="editor" data-pane={pane}>
-      <PageTitle title={doc.title || t('pages')} />
+      <PageTitle title={host.title(doc) || t('pages')} />
       <header className="editor__bar">
         <div className="editor__nav">
-          <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={path('/landing-pages')} aria-label={t('pageBack')} title={t('pageBack')}><ArrowLeft size={16} aria-hidden="true" /></Link>
+          <Link onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }} className="detail-head__back" to={host.back.to} aria-label={t(host.back.label)} title={t(host.back.label)}><ArrowLeft size={16} aria-hidden="true" /></Link>
           <span className="editor__views">{(({ sections, page, preview }) => <>{sections}{page}{preview}</>)(views(false))}</span>
         </div>
         <div className="editor__title">
-          <h1 title={doc.title}>{doc.title || t('pages')}</h1>
+          <h1 title={host.title(doc)}>{host.title(doc) || t('pages')}</h1>
           <PageStatus page={status} />
+          {host.top?.({ doc, edit, busy })}
         </div>
         <div className="editor__tools">
           <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
@@ -1156,7 +1212,7 @@ export function PageEditor() {
           <div className="editor__devices">
             <IconButton label={t('pageMobile')} title={t(mobile ? 'pageDesktop' : 'pageMobile')} aria-pressed={mobile} onClick={() => setMobile((value) => !value)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
-          {page.isPublished && <a className="btn btn--icon" href={liveUrl} target="_blank" rel="noopener" aria-label={t('pageView')} title={t('pageView')}><ExternalLink size={16} aria-hidden="true" /></a>}
+          {page.isPublished && liveUrl && <a className="btn btn--icon" href={liveUrl} target="_blank" rel="noopener" aria-label={t('pageView')} title={t('pageView')}><ExternalLink size={16} aria-hidden="true" /></a>}
           <Button disabled={busy || !dirty} aria-busy={busy} onClick={() => void onSave()}>{t('pageSave')}</Button>
           <Button variant="primary" disabled={busy || (page.isPublished && !page.hasChanges && !dirty)} aria-busy={busy} onClick={() => void publish()}>{t('pagePublish')}</Button>
         </div>
@@ -1256,7 +1312,7 @@ export function PageEditor() {
                 onLostPointerCapture={endDrag}
               >{(() => { const Icon = sectionIcon(s); return <Icon className="editor-sections__icon" size={15} aria-hidden="true" /> })()}<GripVertical className="editor-sections__drag" size={16} aria-hidden="true" /></button>
               <button type="button" className="editor-sections__name" title={sectionName(s)} aria-current={s.id === selected ? 'true' : undefined} onClick={() => choose(s.id)}>
-                <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span></span>
+                <span className="editor-sections__label"><span className="editor-sections__text">{sectionName(s)}</span>{host.group?.(doc, s.id) && <span className="editor-sections__group">{host.group(doc, s.id)}</span>}</span>
               </button>
               <span className="editor-sections__delete"><IconButton label={`${t('pageDuplicateSection')}: ${sectionName(s)}`} title={t('pageDuplicateSection')} disabled={sections.length >= maxSections} onClick={() => duplicate(s)}><Copy size={15} aria-hidden="true" /></IconButton></span>
               <span className="editor-sections__delete"><IconButton label={`${t('pageRemoveSection')}: ${sectionName(s)}`} title={t('pageRemoveSection')} onClick={() => {
@@ -1344,71 +1400,18 @@ export function PageEditor() {
       </>}
 
       {view === 'page' && (
-          <aside className="editor__settings" inert={busy} aria-label={t('pageSettings')}>
+          <aside className="editor__settings" inert={busy} aria-label={host.settingsLabel}>
             <div className="editor__settings-head">
-              <h2 className="editor__heading">{t('pageSettings')}</h2>
+              <h2 className="editor__heading">{host.settingsLabel}</h2>
             </div>
-            <div className="editor__form">
-              <fieldset className="editor-canvas"><legend>{L(['পেজ ক্যানভাস', 'Page canvas'])}</legend>
-                <p className="muted">{L(['নিজের হেডার ও ফুটার যোগ করতে দোকানের বার বন্ধ রাখুন।', 'Turn off store bars to add your own header and footer sections.'])}</p>
-                {(['header', 'footer'] as const).map((key) => <label key={key}><input type="checkbox" checked={doc.content.canvas?.[key] !== false} onChange={(e) => edit({ ...doc, content: { ...doc.content, canvas: { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, [key]: e.target.checked } } })} />{L(key === 'header' ? ['দোকানের হেডার দেখান', 'Show store header'] : ['দোকানের ফুটার দেখান', 'Show store footer'])}</label>)}
-              </fieldset>
-              {/* Page fonts: blank keeps the theme's. English text uses the English font; Bangla falls through to the Bangla one. */}
-              <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
-                <p className="muted">{L(['পুরো পেজের ফন্ট। ফাঁকা রাখলে থিমের ফন্ট থাকে।', 'Fonts for this whole page. Leave blank to keep the theme’s.'])}</p>
-                {(['bangla', 'latin'] as const).map((kind) => <div key={kind} className="field">
-                  <label htmlFor={`page-font-${kind}`}>{kind === 'bangla' ? L(['বাংলা ফন্ট', 'Bangla font']) : L(['ইংরেজি ফন্ট', 'English font'])}</label>
-                  <select className="input" id={`page-font-${kind}`} value={doc.content.fonts?.[kind] ?? ''} onChange={(e) => {
-                    const fonts = { ...doc.content.fonts, [kind]: e.target.value || undefined }
-                    edit({ ...doc, content: { ...doc.content, fonts: fonts.bangla || fonts.latin ? fonts : undefined } })
-                  }}>
-                    <option value="">{L(['থিমের ফন্ট', 'Theme font'])}</option>
-                    {Object.keys(pageFonts[kind]).map((name) => <option key={name} value={name}>{name}</option>)}
-                  </select>
-                </div>)}
-              </fieldset>
-              <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
-              <Field id="page-handle" label={t('pageAddress')} unit="/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />
-              <p className="muted editor__url">
-                {page.isPublished ? <a href={liveUrl} target="_blank" rel="noopener">{liveUrl}</a> : t('pageNotLive')}
-              </p>
-              <Field id="page-seo-title" label={t('pageSeoTitle')} maxLength={300} placeholder={doc.title} value={doc.seoTitle} help={t('pageSeoHelp')} onChange={(e) => edit({ ...doc, seoTitle: e.target.value }, 'seoTitle')} />
-              <div className="field">
-                <label htmlFor="page-seo-description">{t('pageSeoDescription')}</label>
-                <textarea id="page-seo-description" className="input input--area" rows={3} maxLength={1000} value={doc.seoDescription} onChange={(e) => edit({ ...doc, seoDescription: e.target.value }, 'seoDescription')} />
-              </div>
-              <div className="field">
-                <Suspense fallback={<div className="css-editor css-editor--loading" />}>
-                  <CssEditor value={doc.content.css ?? ''} label={L(['কাস্টম CSS', 'Custom CSS'])} describedBy="page-css-help" maxLength={maxCss} onChange={(css) => edit({ ...doc, content: { ...doc.content, css } }, 'css')} />
-                </Suspense>
-                {doc.content.css?.includes('<')
-                  ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
-                  : <p className="field__help" id="page-css-help">{L(['শুধু এই পেজে কাজ করবে। পুরো পেজ .sf-page, আর প্রতিটি সেকশন [data-section="…"] দিয়ে ধরুন।', 'Applies to this page only. Target the page with .sf-page and a section with [data-section="…"].'])}</p>}
-              </div>
-            </div>
-            <div className="editor__section-actions">
-              {page.isPublished && <Button disabled={busy} onClick={() => void unpublish()}>{t('pageUnpublish')}</Button>}
-              {current.role !== 'staff' && (
-                confirming
-                  ? (
-                    <div className="stack">
-                      <p className="muted">{t('pageDeleteWarning')}</p>
-                      <div className="row">
-                        <Button onClick={() => setConfirming(false)}>{t('cancel')}</Button>
-                        <Button variant="danger" onClick={() => void remove()}>{t('productConfirmDelete')}</Button>
-                      </div>
-                    </div>
-                  )
-                  : <Button variant="danger" onClick={() => setConfirming(true)}><Trash2 size={16} aria-hidden="true" />{t('pageDelete')}</Button>
-              )}
-            </div>
+            {host.settings({ doc, edit, error, busy, state: page, run, setError, setToast, setState: setPage, media, onPickImage: (apply) => setPicking({ kind: 'image', apply }) })}
           </aside>
       )}
 
       </div>
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={t('pagePreview')}>
-        <Preview content={previewContent} ctx={ctx} storeName={current.store.name} theme={theme} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onMenu={openMenu} onAddInto={(cid) => {
+        <Preview content={previewContent} ctx={{ ...ctx, ...view_.ctx }} storeName={view_.storeName ?? current.store.name} look={view_.look ?? fallbackLook} frame={view_.frame} themeCss={view_.themeCss} mobile={mobile} selected={found?.node.id ?? section?.id ?? null} onSelect={choose} onMenu={openMenu} onAddInto={(cid) => {
           const sec = sections.find((x) => x.id === cid)
           if (sec) { setAddingNode({ sectionId: sec.id, parentId: null, index: sec.children?.length ?? 0 }); return }
           const hit = findNode(sections, cid)
@@ -1423,9 +1426,9 @@ export function PageEditor() {
       </section>
 
       {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
-      {addingNode && <AddNodeDialog room={maxBoxDepth - boxesAbove(sections, addingNode.parentId)} onClose={() => setAddingNode(null)} onAdd={addNode} />}
+      {addingNode && <AddNodeDialog room={maxBoxDepth - boxesAbove(sections, addingNode.parentId)} storeBlocks={host.storeBlocks} onClose={() => setAddingNode(null)} onAdd={addNode} />}
 
-      {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(path('/landing-pages'))} onSave={() => void run(async () => { if (await save()) navigate(path('/landing-pages')); else setLeaving(false) })} busy={busy} />}
+      {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(host.back.to)} onSave={() => void run(async () => { if (await save()) navigate(host.back.to); else setLeaving(false) })} busy={busy} />}
 
       {picking?.kind === 'image' && (
         <MediaPicker selected={[]} max={1} onClose={() => setPicking(null)} onDone={(items) => {
@@ -1450,4 +1453,135 @@ export function PageEditor() {
       </div>
     </div>
   )
+}
+
+// Data the preview needs to draw the store's header, footer and store blocks as the live store will.
+export type PreviewData = {
+  store: StoreInfo; menus: Record<string, ResolvedItem[]>; cards: Card[]; collections: CollectionCard[]
+  product: ProductPage | null; collection: { name: string; handle: string; description: string } | null; page: StorePageView | null
+  live: { settings: ThemeSettings; header: Section[]; footer: Section[]; css: string }
+  choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
+}
+export function usePreviewData(storeHandle: string, query = '') {
+  const [data, setData] = useState<PreviewData | null>(null)
+  useEffect(() => {
+    let live = true
+    api<PreviewData>(`/stores/${storeHandle}/theme-preview${query}`).then((d) => { if (live) setData(d) }).catch(() => {})
+    return () => { live = false }
+  }, [storeHandle, query])
+  return data
+}
+export const lookOf = (settings: ThemeSettings): Look => ({ css: themeCss(settings), fontsHref: themeFontsHref(settings) })
+
+// A landing page in the editor: the page API, its Page settings, and the store's live theme around it in the preview.
+export function PageEditor() {
+  const { id } = useParams()
+  const path = useStorePath()
+  const current = useCurrentStore()!
+  const { t } = useLang()
+  const base = `/stores/${current.store.handle}/pages/${id}`
+  const preview = usePreviewData(current.store.handle)
+  const toLoad = (p: Saved): BuilderLoad => ({
+    doc: toDoc(p), media: p.media,
+    state: { revision: p.revision, isPublished: p.isPublished, hasChanges: p.hasChanges, liveUrl: `${storefrontUrl(current.store.handle)}${pageHref(p.publishedHandle ?? p.handle)}` },
+  })
+  const host: BuilderHost = {
+    key: base,
+    back: { to: path('/landing-pages'), label: 'pageBack' },
+    title: (doc) => doc.title,
+    load: async () => toLoad(await api<Saved>(base)),
+    save: async (doc, state) => toLoad(await api<Saved>(base, { method: 'PUT', body: { title: doc.title, handle: doc.handle, seoTitle: doc.seoTitle, seoDescription: doc.seoDescription, draft: doc.content, revision: state.revision } })),
+    publish: async (state) => toLoad(await api<Saved>(`${base}/publish`, { method: 'POST', body: { revision: state.revision } })),
+    check: (doc) => (doc.title.trim() ? null : 'nameRequired'),
+    settingsLabel: t('pageSettings'),
+    settings: (props) => <LandingSettings {...props} base={base} />,
+    preview: () => (preview ? {
+      look: lookOf(preview.live.settings), frame: { header: preview.live.header, footer: preview.live.footer }, themeCss: preview.live.css,
+      ctx: { store: preview.store, menus: preview.menus, current: { path: '' } },
+    } : {}),
+  }
+  return <Builder host={host} />
+}
+
+function LandingSettings({ doc, edit, error, busy, state, run, setError, setToast, setState, base }: SettingsProps & { base: string }) {
+  const { t, lang } = useLang()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
+  const navigate = useNavigate()
+  const path = useStorePath()
+  const current = useCurrentStore()!
+  const [confirming, setConfirming] = useState(false)
+  const unpublish = () => run(async () => {
+    try {
+      await api(`${base}/unpublish`, { method: 'POST' })
+      setState({ ...state, isPublished: false, hasChanges: false })
+      setToast(t('pageUnpublishedToast'))
+    } catch (err) {
+      setError(errorCode(err))
+    }
+  })
+  const remove = () => run(async () => {
+    try {
+      await api(base, { method: 'DELETE' })
+      navigate(path('/landing-pages'), { replace: true })
+    } catch (err) {
+      setConfirming(false)
+      setError(errorCode(err))
+    }
+  })
+  return <>
+            <div className="editor__form">
+              <fieldset className="editor-canvas"><legend>{L(['পেজ ক্যানভাস', 'Page canvas'])}</legend>
+                <p className="muted">{L(['নিজের হেডার ও ফুটার যোগ করতে দোকানের বার বন্ধ রাখুন।', 'Turn off store bars to add your own header and footer sections.'])}</p>
+                {(['header', 'footer'] as const).map((key) => <label key={key}><input type="checkbox" checked={doc.content.canvas?.[key] !== false} onChange={(e) => edit({ ...doc, content: { ...doc.content, canvas: { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, [key]: e.target.checked } } })} />{L(key === 'header' ? ['দোকানের হেডার দেখান', 'Show store header'] : ['দোকানের ফুটার দেখান', 'Show store footer'])}</label>)}
+              </fieldset>
+              {/* Page fonts: blank keeps the theme's. English text uses the English font; Bangla falls through to the Bangla one. */}
+              <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
+                <p className="muted">{L(['পুরো পেজের ফন্ট। ফাঁকা রাখলে থিমের ফন্ট থাকে।', 'Fonts for this whole page. Leave blank to keep the theme’s.'])}</p>
+                {(['bangla', 'latin'] as const).map((kind) => <div key={kind} className="field">
+                  <label htmlFor={`page-font-${kind}`}>{kind === 'bangla' ? L(['বাংলা ফন্ট', 'Bangla font']) : L(['ইংরেজি ফন্ট', 'English font'])}</label>
+                  <select className="input" id={`page-font-${kind}`} value={doc.content.fonts?.[kind] ?? ''} onChange={(e) => {
+                    const fonts = { ...doc.content.fonts, [kind]: e.target.value || undefined }
+                    edit({ ...doc, content: { ...doc.content, fonts: fonts.bangla || fonts.latin ? fonts : undefined } })
+                  }}>
+                    <option value="">{L(['থিমের ফন্ট', 'Theme font'])}</option>
+                    {Object.keys(pageFonts[kind]).map((name) => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                </div>)}
+              </fieldset>
+              <Field id="page-title" label={t('pageTitle')} maxLength={200} value={doc.title} error={error === 'nameRequired' && !doc.title.trim() ? t('errNameRequired') : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
+              <Field id="page-handle" label={t('pageAddress')} unit="/" maxLength={200} value={doc.handle} help={t('pageAddressHelp')} error={error === 'pageHandleTaken' ? t('errPageHandleTaken') : undefined} onChange={(e) => edit({ ...doc, handle: e.target.value }, 'handle')} />
+              <p className="muted editor__url">
+                {state.isPublished && state.liveUrl ? <a href={state.liveUrl} target="_blank" rel="noopener">{state.liveUrl}</a> : t('pageNotLive')}
+              </p>
+              <Field id="page-seo-title" label={t('pageSeoTitle')} maxLength={300} placeholder={doc.title} value={doc.seoTitle} help={t('pageSeoHelp')} onChange={(e) => edit({ ...doc, seoTitle: e.target.value }, 'seoTitle')} />
+              <div className="field">
+                <label htmlFor="page-seo-description">{t('pageSeoDescription')}</label>
+                <textarea id="page-seo-description" className="input input--area" rows={3} maxLength={1000} value={doc.seoDescription} onChange={(e) => edit({ ...doc, seoDescription: e.target.value }, 'seoDescription')} />
+              </div>
+              <div className="field">
+                <Suspense fallback={<div className="css-editor css-editor--loading" />}>
+                  <CssEditor value={doc.content.css ?? ''} label={L(['কাস্টম CSS', 'Custom CSS'])} describedBy="page-css-help" maxLength={maxCss} onChange={(css) => edit({ ...doc, content: { ...doc.content, css } }, 'css')} />
+                </Suspense>
+                {doc.content.css?.includes('<')
+                  ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
+                  : <p className="field__help" id="page-css-help">{L(['শুধু এই পেজে কাজ করবে। পুরো পেজ .sf-page, আর প্রতিটি সেকশন [data-section="…"] দিয়ে ধরুন।', 'Applies to this page only. Target the page with .sf-page and a section with [data-section="…"].'])}</p>}
+              </div>
+            </div>
+            <div className="editor__section-actions">
+              {state.isPublished && <Button disabled={busy} onClick={() => void unpublish()}>{t('pageUnpublish')}</Button>}
+              {current.role !== 'staff' && (
+                confirming
+                  ? (
+                    <div className="stack">
+                      <p className="muted">{t('pageDeleteWarning')}</p>
+                      <div className="row">
+                        <Button onClick={() => setConfirming(false)}>{t('cancel')}</Button>
+                        <Button variant="danger" onClick={() => void remove()}>{t('productConfirmDelete')}</Button>
+                      </div>
+                    </div>
+                  )
+                  : <Button variant="danger" onClick={() => setConfirming(true)}><Trash2 size={16} aria-hidden="true" />{t('pageDelete')}</Button>
+              )}
+            </div>
+  </>
 }

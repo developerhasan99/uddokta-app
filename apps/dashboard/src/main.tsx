@@ -26,6 +26,7 @@ import { OnlineStore } from './pages/OnlineStore'
 import { Orders } from './pages/Orders'
 import { Protection } from './pages/Protection'
 import { PageEditor } from './pages/PageEditor'
+import { ThemeEditor } from './pages/ThemeEditor'
 import { Pages } from './pages/Pages'
 import { Warehouses } from './pages/Warehouses'
 import { Placeholder, NotFound } from './pages/Placeholder'
@@ -77,6 +78,7 @@ createRoot(document.getElementById('root')!).render(
               {/* The page editor fills the screen, like Shopify's: no sidebar. */}
               <Route path="store/:handle" element={<Shell bare />}>
                 <Route path="landing-pages/:id" element={<PageEditor />} />
+                <Route path="online-store/themes/:id/editor" element={<ThemeEditor />} />
               </Route>
               <Route path="store/:handle" element={<Shell />}>
                 <Route index element={<Home />} />

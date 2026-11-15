@@ -8,6 +8,7 @@
     "./rich": "./src/rich.ts",
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
+    "./catalog": "./src/catalog.tsx",
     "./themes": "./src/themes.ts",
     "./theme": "./src/theme.ts",
     "./paths": "./src/paths.ts",

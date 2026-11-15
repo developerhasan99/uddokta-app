@@ -717,3 +717,20 @@ test('store pages show on their address when visible and due, the contact page l
   assert.match(contactPage, /href="https:\/\/wa.me\/8801811000000"/)
   assert.match(contactPage, /মিরপুর, ঢাকা/)
 })
+
+test('a product that picks an alternate template is drawn with it; others keep the default', async () => {
+  const s = await publishedPage()
+  const base = `/stores/${s.handle}/themes`
+  const [theme] = (await s.call('GET', base)).json
+  const full = (await s.call('GET', `${base}/${theme.id}`)).json
+  const gift = { version: 2, sections: [{ id: 'gift', type: 'layout', hidden: false, settings: { name: 'Gift' }, children: [{ id: 'gift-title', kind: 'heading', props: { text: 'উপহারের পাতা', level: 'h2' } }] }, ...full.draft.templates.product.sections] }
+  const saved = (await s.call('PUT', `${base}/${theme.id}`, { draft: { ...full.draft, templates: { ...full.draft.templates, 'product.gift': gift } }, revision: full.revision })).json
+  await s.call('POST', `${base}/${theme.id}/publish`, { revision: saved.revision })
+  const product = (await s.call('GET', `/stores/${s.handle}/products/${s.product.id}`)).json
+  assert.doesNotMatch(await (await visit(s.handle, `/products/${encodeURIComponent(product.handle)}`)).text(), /উপহারের পাতা/)
+  const body = { ...product, template: 'gift', collectionIds: [], mediaIds: [], variants: product.variants.map((v: any) => ({ id: v.id, options: v.options, price: v.price, comparePrice: v.comparePrice, stock: null })) }
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/products/${s.product.id}`, body)).status, 200)
+  const page = await (await visit(s.handle, `/products/${encodeURIComponent(product.handle)}`)).text()
+  assert.match(page, /উপহারের পাতা/)
+  assert.match(page, /data-order/, 'the product template still takes orders')
+})

@@ -127,7 +127,7 @@ async function loadStore(handle: string) {
   return tx(null, async (t) => {
     const store = (await t.execute<StoreRow>(sql`select * from storefront_store(${handle})`)).rows[0]
     if (!store) return null
-    const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
+    const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string; template: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
     const raw = (await t.execute<{ doc: unknown }>(sql`select storefront_theme(${store.id}::uuid) as doc`)).rows[0]?.doc
     const theme: ThemeDoc = (raw ? readTheme(raw) : null) ?? starterTheme(themeOf(store.theme))
     const rows = (await t.execute<{ handle: string; items: MenuItem[] }>(sql`select * from storefront_menus(${store.id}::uuid)`)).rows
@@ -157,7 +157,7 @@ async function listing(storeId: string, collectionId: string | null, page: numbe
 }
 
 async function loadProduct(storeId: string, handle: string) {
-  const row = (await tx(null, (t) => t.execute<{ id: string; name: string; description: string; seo_title: string; seo_description: string; status: string; images: { key: string; alt: string; width: number; height: number }[]; variants: VariantRow[] }>(
+  const row = (await tx(null, (t) => t.execute<{ id: string; name: string; description: string; seo_title: string; seo_description: string; status: string; images: { key: string; alt: string; width: number; height: number }[]; variants: VariantRow[]; template: string }>(
     sql`select * from storefront_product(${storeId}::uuid, ${handle})`))).rows[0]
   if (!row) return null
   const images = row.images.map((m) => image(m.key, m.alt || row.name, m.width, m.height)!)
@@ -322,7 +322,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   const here: Here = { path: productPath(c), product: { id: item.id, name: item.name, description: item.description, images: item.images, product: item.product } }
   return renderThemed(c, store, 'product', here, {
     title: item.seo_title || item.name, description: item.seo_description || plain, canonical: `${c.get('origin')}${productPath(c)}`,
-    shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c),
+    shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c), alternate: item.template,
   })
 }
 
@@ -423,7 +423,7 @@ app.get('/collections/:handle', async (c) => {
   if (!collection) return storeNotFound(c, store)
   const path = collectionHref(collection.handle)
   return renderThemed(c, store, 'collection', { path, collection: { id: collection.id, name: collection.name, handle: collection.handle, description: collection.description } }, {
-    title: collection.seo_title || collection.name, description: collection.seo_description, canonical: `${c.get('origin')}${path}`,
+    title: collection.seo_title || collection.name, description: collection.seo_description, canonical: `${c.get('origin')}${path}`, alternate: collection.template,
   })
 })
 

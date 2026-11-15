@@ -8,7 +8,9 @@ Status: in progress (started November 15, 2026). The owner said to build every p
 | 2 Store pages and policies | Done (November 15, 2026) |
 | 3 Builder extraction | Folded into Phase 5: separating the editor only pays off when the theme editor exists, so it is done there against a real second user instead of a guessed interface |
 | 4 Themes core | Done (November 15, 2026) |
-| 5–8 | Not started |
+| 5 Theme editor | Done (November 15, 2026) |
+| 6 Theme library and history | Library done (November 15, 2026); theme file export/import and version history still to do |
+| 7–8 | Not started |
 
 ## Goal
 

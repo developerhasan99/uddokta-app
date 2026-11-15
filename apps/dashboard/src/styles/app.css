@@ -995,11 +995,29 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .repeat-row__main { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding-block: var(--space-sm); }
 .repeat-row__text { display: grid; min-width: 0; }
 .repeat-row__log { display: grid; gap: var(--space-xs); padding-bottom: var(--space-sm); }
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-md); }
-.theme-card { display: grid; gap: var(--space-sm); padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); }
-.theme-card--current { box-shadow: inset 0 0 0 2px var(--color-primary); border-color: transparent; }
-.theme-card__preview { padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule); }
-.theme-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); min-height: var(--control); }
+/* Online store › Themes: the live theme, the library and a small drawing of each theme in its own colours. */
+.theme-live { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: var(--space-md); align-items: start; }
+.theme-live__body { display: grid; gap: var(--space-xs); }
+.theme-live__body h2 { font-size: var(--text-xl); }
+.theme-rows { display: grid; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
+.theme-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--space-sm); align-items: start; padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
+.theme-row:first-child { padding-top: 0; border-top: 0; }
+.theme-row__body { display: grid; gap: var(--space-2xs); }
+.theme-row__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-2xs); }
+.theme-swatch { display: grid; gap: var(--space-xs); padding: var(--space-xs); border: var(--rule-hair) solid; border-radius: var(--radius-media); font-size: var(--text-sm); }
+.theme-swatch--large { padding: var(--space-sm); font-size: var(--text-md); }
+.theme-swatch__bar { padding-bottom: var(--space-2xs); border-bottom: var(--rule-hair) solid; font-weight: 600; }
+.theme-swatch__cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2xs); }
+.theme-swatch__cards span { aspect-ratio: 1; }
+.theme-swatch__button { width: 50%; height: 14px; }
+.theme-styles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+.theme-styles__item { display: grid; justify-items: center; gap: var(--space-2xs); padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: inherit; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.theme-styles__item[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-primary); border-color: transparent; }
+.theme-styles__item > span { display: grid; place-items: center; width: 100%; height: 32px; border: var(--rule-hair) solid; border-radius: var(--radius-media); }
+.theme-styles__item i { width: 40%; height: 10px; border-radius: var(--radius-pill); }
+.theme-top { display: inline-flex; align-items: center; gap: var(--space-2xs); margin-inline-start: var(--space-xs); }
+.theme-top__select { width: auto; max-width: 12rem; }
+@media (max-width: 640px) { .theme-live, .theme-row { grid-template-columns: minmax(0, 1fr); } }
 /* Online store › Menus: the item tree. Rows indent by depth; drop hints show where a dragged item lands. */
 .menu-tree { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
 .menu-tree .menu-tree { margin-top: var(--space-2xs); }
@@ -1014,6 +1032,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .menu-item__link { overflow: hidden; font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .menu-item__actions { display: flex; flex: none; gap: var(--space-3xs); }
 .choice-list { display: grid; gap: var(--space-xs); min-width: 0; margin: 0; padding: 0; border: 0; }
+.editor-sections__group { flex: none; margin-inline-start: var(--space-2xs); padding: 0 var(--space-2xs); border-radius: var(--radius-pill); background: var(--color-paper-3); color: var(--color-muted); font-size: var(--text-sm); }
 .menu-pick { display: grid; gap: var(--space-xs); }
 .menu-pick__list { max-height: 16rem; overflow-y: auto; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-box); }
 .menu-pick__none { padding: var(--space-sm); }

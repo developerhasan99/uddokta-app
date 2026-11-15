@@ -76,3 +76,50 @@ test('the live theme cannot be deleted, and other stores never see a store’s t
   const other = await shop()
   assert.deepEqual(await tx(other.owner.id, (t) => t.select().from(themes).where(eq(themes.storeId, s.storeId))), [])
 })
+
+test('the editor saves a valid draft, refuses invalid or stale ones, and publishing makes the draft live', async () => {
+  const s = await shop()
+  const base = `/stores/${s.handle}/themes`
+  const [theme] = (await s.owner.call('GET', base)).json
+  const full = (await s.owner.call('GET', `${base}/${theme.id}`)).json
+  const draft = { ...full.draft, settings: { ...full.draft.settings, colors: { ...full.draft.settings.colors, accent: '#123456' } }, templates: { ...full.draft.templates, 'product.gift': full.draft.templates.product } }
+  const saved = await s.owner.call('PUT', `${base}/${theme.id}`, { name: 'Spring', draft, revision: full.revision })
+  assert.equal(saved.status, 200)
+  assert.equal(saved.json.hasChanges, true)
+  assert.equal((await s.live()).name, 'Spring')
+  assert.equal(((await s.live()).published as ThemeDoc).settings.colors.accent === '#123456', false, 'saving does not change the live store')
+  assert.equal((await s.owner.call('PUT', `${base}/${theme.id}`, { draft, revision: full.revision })).json.error, 'themeChanged')
+  assert.equal((await s.owner.call('PUT', `${base}/${theme.id}`, { draft: { ...draft, css: '</style>' }, revision: saved.json.revision })).json.error, 'themeInvalid')
+  const other = await shop()
+  const foreign = { ...draft, header: [{ id: 'logo', type: 'storeHeader', hidden: false, settings: { logo: '00000000-0000-4000-8000-000000000000' } }] }
+  assert.equal((await s.owner.call('PUT', `${base}/${theme.id}`, { draft: foreign, revision: saved.json.revision })).json.error, 'themeInvalid', 'images must be the store’s own')
+  assert.deepEqual((await s.owner.call('GET', `/stores/${s.handle}/theme-templates`)).json, { product: ['gift'], collection: [], page: [] })
+  const published = await s.owner.call('POST', `${base}/${theme.id}/publish`, { revision: saved.json.revision })
+  assert.equal(published.json.hasChanges, false)
+  assert.equal(((await s.live()).published as ThemeDoc).settings.colors.accent, '#123456')
+  const staff = await s.join('staff')
+  assert.equal((await staff.call('PUT', `${base}/${theme.id}`, { draft, revision: published.json.revision })).status, 403)
+  assert.equal((await other.owner.call('GET', `${base}/${theme.id}`)).status, 404)
+})
+
+test('the library: add, duplicate, make live once published, delete all but the live theme, up to ten themes', async () => {
+  const s = await shop()
+  const base = `/stores/${s.handle}/themes`
+  const [live] = (await s.owner.call('GET', base)).json
+  const made = await s.owner.call('POST', base, { name: 'Night', variation: 'night' })
+  assert.equal(made.status, 201)
+  assert.equal(made.json.isLive, false)
+  assert.equal(made.json.isPublished, false)
+  assert.equal((await s.owner.call('POST', `${base}/${made.json.id}/live`)).json.error, 'themeNotPublished')
+  await s.owner.call('POST', `${base}/${made.json.id}/publish`, { revision: made.json.revision })
+  assert.equal((await s.owner.call('POST', `${base}/${made.json.id}/live`)).status, 200)
+  assert.equal((await s.live()).id, made.json.id)
+  assert.equal((await s.owner.call('DELETE', `${base}/${made.json.id}`)).json.error, 'themeLive')
+  assert.equal((await s.owner.call('DELETE', `${base}/${live.id}`)).status, 204, 'the old theme can go once another is live')
+  const copy = await s.owner.call('POST', base, { name: 'Copy', from: made.json.id })
+  assert.equal(copy.status, 201)
+  for (let i = 0; i < 8; i++) await s.owner.call('POST', base, { name: `T${i}` })
+  assert.equal((await s.owner.call('POST', base, { name: 'One too many' })).json.error, 'themeLimit')
+  const staff = await s.join('staff')
+  assert.equal((await staff.call('POST', base, { name: 'x' })).status, 409, 'staff hit the limit check first, then row-level security')
+})

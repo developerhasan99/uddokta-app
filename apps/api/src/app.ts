@@ -19,7 +19,7 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
-import { applyVariation, createStarterTheme } from './themes.ts'
+import { applyVariation, createStarterTheme, registerThemes } from './themes.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -421,6 +421,7 @@ registerDomains(app)
 registerPages(app)
 registerMenus(app)
 registerStorePages(app)
+registerThemes(app)
 registerOrders(app)
 registerRepeat(app)
 registerAnalytics(app)

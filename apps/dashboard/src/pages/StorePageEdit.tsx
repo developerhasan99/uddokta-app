@@ -6,6 +6,7 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl } from '../api'
 import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
+import { TemplateCard } from '../components/TemplateCard'
 import { Badge, Button, Field, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import { storeAddress } from '../product-form'
@@ -173,6 +174,7 @@ export function StorePageEdit() {
               <Field id="page-publish-at" type="datetime-local" label={t('storePagePublishAt')} help={t('storePagePublishAtHelp')} value={form.publishAt ?? ''} onChange={(e) => change({ publishAt: e.target.value })} />
             )}
           </section>
+          <TemplateCard kind="page" value={form.template} onChange={(template) => change({ template })} />
           {page.policy && (
             <section className="card">
               <h2>{t('storePageKind')}</h2>
