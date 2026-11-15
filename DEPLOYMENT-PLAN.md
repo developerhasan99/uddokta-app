@@ -530,3 +530,7 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 
 - Code and docs now use `uddokta.co` / `admin.uddokta.co`. Sellers cannot claim `uddokta.co` as a custom domain; `uddokta.studio` stays blocked while we own it.
 - Still to do, with user approval: attach `admin.uddokta.co` to the Railway admin service (port 8080), add the CNAME and `_railway-verify` TXT Railway gives at the `uddokta.co` DNS host, confirm `/_health` 200, then redirect `admin.uddokta.studio` → `admin.uddokta.co` (sign-in cookies are host-only, so sellers sign in once more). Point the `uddokta.live` apex redirect rule at `https://uddokta.co`.
+
+## Online store (themes, menus, pages)
+
+Proposed plan in `ONLINE-STORE-PLAN.md` (November 15, 2026). Waiting on the owner to confirm its marked decisions before Phase 1.
