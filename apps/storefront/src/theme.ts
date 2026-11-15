@@ -4,10 +4,12 @@
 import { isPageFont, pageFonts, presets, type PresetId } from './themes.ts'
 import { newSection, readContent, references, type Content, type Section, type SectionType, type Settings } from './schema.ts'
 
-export const templateKinds = ['home', 'product', 'collection', 'collections', 'products', 'page', 'notFound'] as const
+export const templateKinds = ['home', 'product', 'collection', 'collections', 'products', 'page', 'cart', 'search', 'notFound'] as const
+// Themes saved before cart and search existed lack them; the starter theme's are used until the seller edits one.
+const requiredKinds: readonly TemplateKind[] = ['home', 'product', 'collection', 'collections', 'products', 'page', 'notFound']
 export type TemplateKind = typeof templateKinds[number]
 // A template key: a kind, or a kind plus an alternate's name ("product.gift") that products, collections and pages can pick.
-export const templateKey = /^(home|product|collection|collections|products|page|notFound)(\.[a-z0-9-]{1,30})?$/
+export const templateKey = /^(home|product|collection|collections|products|page|cart|search|notFound)(\.[a-z0-9-]{1,30})?$/
 export const alternateKinds: readonly TemplateKind[] = ['product', 'collection', 'page']
 export const maxTemplates = 40
 export const maxThemeBytes = 1_000_000
@@ -51,7 +53,7 @@ export function readTheme(raw: unknown): ThemeDoc | null {
   const footer = readContent({ version: 2, sections: doc.footer }, { theme: true })
   if (!settings || !header || !footer || !doc.templates || typeof doc.templates !== 'object' || Array.isArray(doc.templates)) return null
   const keys = Object.keys(doc.templates)
-  if (keys.length > maxTemplates || !keys.every((k) => templateKey.test(k)) || !templateKinds.every((k) => keys.includes(k))) return null
+  if (keys.length > maxTemplates || !keys.every((k) => templateKey.test(k)) || !requiredKinds.every((k) => keys.includes(k))) return null
   const templates: Record<string, Content> = {}
   for (const key of keys) {
     const content = readContent(doc.templates[key], { theme: true })
@@ -63,7 +65,7 @@ export function readTheme(raw: unknown): ThemeDoc | null {
 }
 
 // The template a page uses: its chosen alternate when the theme has it, else the kind's default.
-export const templateFor = (doc: ThemeDoc, kind: TemplateKind, alternate = '') => doc.templates[alternate ? `${kind}.${alternate}` : kind] ?? doc.templates[kind]
+export const templateFor = (doc: ThemeDoc, kind: TemplateKind, alternate = ''): Content => doc.templates[alternate ? `${kind}.${alternate}` : kind] ?? doc.templates[kind] ?? starterTheme('fresh').templates[kind]
 
 // Every image, product and collection a theme points at.
 export function themeReferences(doc: ThemeDoc) {
@@ -111,6 +113,8 @@ export function starterTheme(variation: PresetId): ThemeDoc {
       collections: page(typed('collectionList', 'collections', { heading: 'সব কালেকশন' })),
       products: page(typed('productGrid', 'products', { heading: 'সব পণ্য' })),
       page: page(typed('pageContent', 'content')),
+      cart: page(typed('cart', 'cart')),
+      search: page(typed('search', 'search')),
       notFound: page({ ...newSection('layout', 'missing'), settings: { name: '404' }, style: { align: 'center', paddingTop: 64, paddingBottom: 64 }, children: [
         { id: 'missing-title', kind: 'heading', props: { text: 'পেজটি পাওয়া যায়নি', level: 'h1' } },
         { id: 'missing-text', kind: 'text', props: { text: '<p>লিংকটি ঠিক আছে কিনা দেখুন, অথবা হোম পেজে ফিরে যান।</p>' } },

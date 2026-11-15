@@ -56,7 +56,14 @@ export type Ctx = {
   // Products for each Product list block, by block id, loaded by the server before drawing.
   grid?: (blockId: string) => GridData | undefined
   collections?: CollectionCard[]
+  // The buyer's cart: how many items (header link) and, on the cart page, its lines and checkout state.
+  cartCount?: number
+  cart?: CartView
+  search?: { query: string; cards: Card[] }
 }
+
+export type CartLine = { variantId: string; productId: string; name: string; handle: string; label: string; price: number; comparePrice: number | null; qty: number; image: Img | null; available: boolean }
+export type CartView = { lines: CartLine[]; subtotal: number; qty: number; error?: string; values?: OrderValues; checkoutToken: string }
 
 export type StoreInfo = { name: string; logo: Img | null; phone: string; whatsapp: string; email: string; address: string; facebook: string }
 export type ProductPage = { id: string; name: string; description: string; images: Img[]; product: Product }
@@ -521,7 +528,11 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
             </details>
           </>
         )}
-        {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
+        <span className="sf-bar__links">
+          {s.settings.showSearch !== 'no' && <a href="/search">খুঁজুন</a>}
+          {s.settings.showCart !== 'no' && <a href="/cart" aria-current={current === '/cart' ? 'page' : undefined}>কার্ট{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{number.format(ctx.cartCount!)}</span>}</a>}
+          {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
+        </span>
       </div>
     </header>
   )
@@ -561,6 +572,7 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
   const prices = item.product.variants.map((v) => v.price)
   const compare = Math.max(0, ...item.product.variants.map((v) => v.comparePrice ?? 0))
   const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || 'অর্ডার করুন', product: item.id, button: str(s.settings.formButton) || 'অর্ডার নিশ্চিত করুন' } }
+  const mode = str(s.settings.buyMode) || 'both'
   return (
     <>
       <div className="sf-wrap sf-product">
@@ -568,11 +580,23 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
         <div>
           <h1>{item.name}</h1>
           {prices.length > 0 && <Price price={Math.min(...prices)} comparePrice={compare > 0 ? compare : null} />}
-          {item.product.variants.some((v) => v.available) ? <a className="sf-button" href="#buy">{str(s.settings.buyButton) || 'এখনই অর্ডার করুন'}</a> : <p className="sf-error">এখন স্টকে নেই</p>}
+          {!item.product.variants.some((v) => v.available) && <p className="sf-error">এখন স্টকে নেই</p>}
+          {item.product.variants.some((v) => v.available) && <div className="sf-buy">
+            {mode !== 'cart' && <a className="sf-button" href="#buy">{str(s.settings.buyButton) || 'এখনই অর্ডার করুন'}</a>}
+            {mode !== 'order' && (
+              <form className="sf-add" method="post" action={ctx.preview ? undefined : '/cart/add'}>
+                {item.product.variants.length > 1
+                  ? <label className="sf-field"><span>অপশন</span><select name="variant">{item.product.variants.map((v) => <option key={v.id} value={v.id} disabled={!v.available}>{v.label} · {taka(v.price)}{!v.available && ' (স্টকে নেই)'}</option>)}</select></label>
+                  : <input type="hidden" name="variant" value={item.product.variants[0].id} />}
+                <label className="sf-field sf-add__qty"><span>পরিমাণ</span><input type="number" name="quantity" min={1} max={20} defaultValue="1" inputMode="numeric" /></label>
+                <button type="submit" className={`sf-button${mode === 'both' ? ' sf-button--outline' : ''}`}>{str(s.settings.cartButton) || 'কার্টে রাখুন'}</button>
+              </form>
+            )}
+          </div>}
           {shownSetting(s, 'showDescription') && item.description && <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(item.description) }} />}
         </div>
       </div>
-      <OrderForm s={order} ctx={ctx} />
+      {mode !== 'cart' && <OrderForm s={order} ctx={ctx} />}
     </>
   )
 }
@@ -624,6 +648,102 @@ function CollectionList({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
+// Delivery for a cart: free when the option's conditions hold for the whole cart. Display only; shipping_charge decides.
+const cartCharge = (o: ShippingOption, productIds: string[], subtotal: number, qty: number) =>
+  (o.freeOver !== null && subtotal >= o.freeOver) || (o.freeMinQty !== null && qty >= o.freeMinQty) || productIds.some((id) => o.freeProducts.includes(id)) ? 0 : o.price
+
+function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const cart = ctx.cart
+  if (!cart) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>কার্টের পেজে এখানে ক্রেতার কার্ট ও অর্ডার ফর্ম দেখাবে</Hint></div></section> : null
+  const values = cart.values ?? {}
+  const options = ctx.shipping
+  const rate = options.find((o) => o.id === values.rate) ?? options[0]
+  const productIds = [...new Set(cart.lines.map((l) => l.productId))]
+  const charge = rate ? cartCharge(rate, productIds, cart.subtotal, cart.qty) : 0
+  const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? '', 'aria-invalid': cart.error === name ? true : undefined })
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap sf-cart">
+        {str(s.settings.heading) && <h1 className="sf-heading">{str(s.settings.heading)}</h1>}
+        {cart.lines.length === 0
+          ? <div className="sf-empty"><p>{str(s.settings.emptyText) || 'কার্টে এখনো কিছু নেই।'}</p><a className="sf-button sf-button--outline" href="/products">কেনাকাটা করুন</a></div>
+          : <div className="sf-cart__layout">
+            <div>
+              <ul className="sf-cart__lines">
+                {cart.lines.map((l) => (
+                  <li key={l.variantId} className="sf-cart__line">
+                    <a className="sf-cart__image" href={`/products/${encodeURIComponent(l.handle)}`}>{l.image && <img src={l.image.url} alt="" width={l.image.width} height={l.image.height} loading="lazy" />}</a>
+                    <div className="sf-cart__info">
+                      <a href={`/products/${encodeURIComponent(l.handle)}`}>{l.name}</a>
+                      {l.label && <small>{l.label}</small>}
+                      <span>{taka(l.price)}</span>
+                      {!l.available && <span className="sf-error">এখন স্টকে নেই, অর্ডারের আগে সরিয়ে দিন।</span>}
+                    </div>
+                    <form className="sf-cart__qty" method="post" action={ctx.preview ? undefined : '/cart/update'}>
+                      <input type="hidden" name="variant" value={l.variantId} />
+                      <label><span className="sf-trap">পরিমাণ</span><input type="number" name="quantity" min={0} max={20} defaultValue={String(l.qty)} inputMode="numeric" aria-label={`${l.name}: পরিমাণ`} /></label>
+                      <button type="submit" className="sf-link-button">বদলান</button>
+                      <button type="submit" name="quantity" value="0" className="sf-link-button">সরান</button>
+                    </form>
+                    <strong className="sf-cart__total">{taka(l.price * l.qty)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <form className="sf-order" method="post" action={ctx.preview ? undefined : '/cart'} data-cart data-subtotal={cart.subtotal} data-qty={cart.qty}>
+              {!ctx.preview && <input type="hidden" name="checkout" value={cart.checkoutToken} />}
+              <label className="sf-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
+              {cart.error && <p className="sf-error" role="alert">{orderErrors[cart.error] ?? orderErrors.server}</p>}
+              <label className="sf-field"><span>আপনার নাম</span><input autoComplete="name" maxLength={100} required {...field('name')} /></label>
+              <label className="sf-field"><span>মোবাইল নম্বর</span><input type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="01XXXXXXXXX" required {...field('phone')} /></label>
+              <label className="sf-field"><span>পুরো ঠিকানা</span><textarea rows={3} autoComplete="street-address" maxLength={500} required {...field('address')} /></label>
+              {options.length > 0 && (
+                <fieldset className="sf-choices">
+                  <legend>ডেলিভারি</legend>
+                  {options.map((o) => {
+                    const c = cartCharge(o, productIds, cart.subtotal, cart.qty)
+                    return (
+                      <label key={o.id} className="sf-choice">
+                        <input type="radio" name="rate" value={o.id} defaultChecked={o.id === rate?.id} data-charge-value={c} />
+                        <span className="sf-choice__text"><span>{o.name}</span>{o.note && <small>{o.note}</small>}</span>
+                        <strong>{c === 0 ? 'ফ্রি' : taka(c)}</strong>
+                      </label>
+                    )
+                  })}
+                </fieldset>
+              )}
+              {options.length === 0 && <p className="sf-error" role="alert">{orderErrors.noDelivery}</p>}
+              <label className="sf-field"><span>কুপন কোড (থাকলে)</span><input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} /></label>
+              <p className="sf-total"><span>পণ্য</span><span>{taka(cart.subtotal)}</span></p>
+              <p className="sf-total"><span>সর্বমোট (ডিসকাউন্টের আগে)</span><strong data-total>{taka(cart.subtotal + charge)}</strong></p>
+              <button type="submit" className="sf-button sf-button--block" disabled={options.length === 0 || cart.lines.some((l) => !l.available)}>{str(s.settings.button) || 'অর্ডার নিশ্চিত করুন'}</button>
+              {str(s.settings.note) && <p className="sf-note">{str(s.settings.note)}</p>}
+            </form>
+          </div>}
+      </div>
+    </section>
+  )
+}
+
+function SearchBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const search = ctx.search
+  if (!search) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>খোঁজার পেজে এখানে খোঁজার ঘর ও ফল দেখাবে</Hint></div></section> : null
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap">
+        {str(s.settings.heading) && <h1 className="sf-heading">{str(s.settings.heading)}</h1>}
+        <form className="sf-search" method="get" action="/search" role="search">
+          <input type="search" name="q" defaultValue={search.query} maxLength={100} placeholder="পণ্যের নাম লিখুন" aria-label="পণ্য খুঁজুন" />
+          <button type="submit" className="sf-button">খুঁজুন</button>
+        </form>
+        {search.query && (search.cards.length > 0
+          ? <ProductGrid cards={search.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} />
+          : <p className="sf-empty">"{search.query}" দিয়ে কিছু পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।</p>)}
+      </div>
+    </section>
+  )
+}
+
 function PageContent({ s, ctx }: { s: Section; ctx: Ctx }) {
   const page = ctx.current?.page
   if (!page) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>দোকানের পেজে এখানে পেজের লেখা দেখাবে</Hint></div></section> : null
@@ -666,6 +786,8 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'collectionHeader': return <CollectionHeader s={s} ctx={ctx} />
     case 'collectionList': return <CollectionList s={s} ctx={ctx} />
     case 'pageContent': return <PageContent s={s} ctx={ctx} />
+    case 'cart': return <CartBlock s={s} ctx={ctx} />
+    case 'search': return <SearchBlock s={s} ctx={ctx} />
   }
 }
 
@@ -697,6 +819,9 @@ export function PageView({ content, ctx, storeName, frame, themeCss }: { content
     </div>
   )
 }
+
+// The cart page's script: keeps the shown total in step with the chosen delivery option. Display only.
+export const cartScript = `document.querySelectorAll('form[data-cart]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var r=f.querySelector('input[name=rate]:checked');var c=r?Number(r.dataset.chargeValue):0;f.querySelector('[data-total]').textContent='৳'+n.format(Number(f.dataset.subtotal)+c)}f.addEventListener('change',u)})`
 
 // The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,
 // saves what the buyer typed so the store can call if they do not finish. Forms work without it.

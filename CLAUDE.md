@@ -192,6 +192,13 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Other links: home, all products (`/products`), all collections (`/collections`), web address (`/path` or https only), phone (`tel:`) and WhatsApp (`wa.me`). Saves send `revision`; a stale one gets 409 `menuChanged`.
 - The storefront header draws `main-menu` (dropdowns and the phone menu are `<details>`, no JavaScript); while it is empty the header lists the store's collections. The footer draws `footer`. Tree edits in the dashboard are the pure functions in `apps/dashboard/src/menu-tree.ts`.
 
+## Cart and search (online store)
+
+- The cart is a cookie (`cart`, base64url JSON of `[variant id, quantity]`, at most 20 items, as `place_order_lines` caps storefront orders) with no prices in it; every view reads prices through `storefront_cart_lines`. `/cart/add`, `/cart/update` and `POST /cart` are plain forms (no JavaScript needed) and ignore posts from other sites (Origin check).
+- `POST /cart` checks out through `place_cart_checkout` (receipt token, fingerprint, retries return the first receipt, as `place_checkout`), which calls `place_order_lines` with source `website`: the database prices lines, delivery and discount, takes stock and picks the warehouse. The cart empties on success and `/cart/thanks` shows the receipt. The cart page's script only updates the shown total for the chosen delivery option.
+- Themes have optional `cart` and `search` templates (older themes use the starter's until edited) with the `cart` and `search` store blocks; the store header shows Search and Cart (with a count) links, and Product details can offer order now, cart, or both (`buyMode`).
+- `/search?q=` uses `storefront_search` (active products whose name, type, brand or a tag contain every word; ILIKE, Bangla-safe).
+
 ## Delivery options
 
 - `shipping_rates` replaces the old fixed inside/outside charges. A store has any number of options (name, area note, price, on/off, order), and buyers choose one on the order form. Orders keep `shipping_rate_id` and a copy of the name in `shipping_name`. Deleting an option leaves past orders as they were.

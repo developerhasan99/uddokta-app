@@ -264,8 +264,10 @@ export const sectionDefs = {
       { key: 'menu', kind: 'menu', label: ['মেনু', 'Menu'] },
       button(), link('link', ['বাটনের লিংক', 'Button link']),
       select('sticky', ['স্ক্রল করলে ওপরে আটকে থাকবে', 'Stays on top when scrolling'], [['no', ['না', 'No']], ['yes', ['হ্যাঁ', 'Yes']]]),
+      select('showCart', ['কার্টের লিংক', 'Cart link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      select('showSearch', ['খোঁজার লিংক', 'Search link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
     ],
-    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no' },
+    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes' },
   },
   storeFooter: {
     label: ['দোকানের ফুটার', 'Store footer'],
@@ -285,8 +287,10 @@ export const sectionDefs = {
       { key: 'formButton', kind: 'text', label: ['অর্ডার বাটনের লেখা', 'Order button text'], max: 60 },
       select('showDescription', ['পণ্যের বর্ণনা', 'Product description'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
       select('galleryLayout', ['ছবির সাজ', 'Image layout'], [['grid', ['বড় ছবি, নিচে ছোট', 'Large with thumbnails']], ['stack', ['একটির নিচে আরেকটি', 'Stacked']]]),
+      select('buyMode', ['কেনার উপায়', 'How buyers buy'], [['both', ['সরাসরি অর্ডার ও কার্ট', 'Order now and cart']], ['order', ['শুধু সরাসরি অর্ডার', 'Order now only']], ['cart', ['শুধু কার্ট', 'Cart only']]]),
+      { key: 'cartButton', kind: 'text', label: ['কার্ট বাটনের লেখা', 'Cart button text'], max: 60 },
     ],
-    defaults: { buyButton: 'এখনই অর্ডার করুন', formHeading: 'অর্ডার করুন', formButton: 'অর্ডার নিশ্চিত করুন', showDescription: 'yes', galleryLayout: 'grid' },
+    defaults: { buyButton: 'এখনই অর্ডার করুন', formHeading: 'অর্ডার করুন', formButton: 'অর্ডার নিশ্চিত করুন', showDescription: 'yes', galleryLayout: 'grid', buyMode: 'both', cartButton: 'কার্টে রাখুন' },
   },
   productGrid: {
     label: ['পণ্যের তালিকা', 'Product list'],
@@ -311,6 +315,21 @@ export const sectionDefs = {
     fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' }],
     defaults: { heading: '', columns: 4 },
   },
+  cart: {
+    label: ['কার্ট ও চেকআউট', 'Cart and checkout'],
+    fields: [
+      heading(),
+      { key: 'emptyText', kind: 'text', label: ['কার্ট ফাঁকা থাকলে লেখা', 'Text when the cart is empty'], max: 200 },
+      { key: 'button', kind: 'text', label: ['অর্ডার বাটনের লেখা', 'Order button text'], max: 60 },
+      { key: 'note', kind: 'textarea', label: ['ফর্মের নিচে ছোট লেখা', 'Small note under the form'], max: 300 },
+    ],
+    defaults: { heading: 'আপনার কার্ট', emptyText: 'কার্টে এখনো কিছু নেই।', button: 'অর্ডার নিশ্চিত করুন', note: 'পণ্য হাতে পেয়ে টাকা দেবেন। অর্ডার নিশ্চিত করতে আমরা ফোন করব।' },
+  },
+  search: {
+    label: ['খোঁজার ফল', 'Search results'],
+    fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' }],
+    defaults: { heading: 'খুঁজুন', columns: 4 },
+  },
   pageContent: {
     label: ['পেজের লেখা', 'Page content'],
     fields: [select('showTitle', ['শিরোনাম', 'Title'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]])],
@@ -325,7 +344,7 @@ export type SectionType = keyof typeof sectionDefs
 export const sectionTypes = Object.keys(sectionDefs) as SectionType[]
 export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 // Blocks that draw the store itself; only theme documents may hold them (readContent with { theme: true }).
-export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent']
+export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search']
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)

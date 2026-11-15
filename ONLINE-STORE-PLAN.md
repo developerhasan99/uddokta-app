@@ -10,7 +10,8 @@ Status: in progress (started November 15, 2026). The owner said to build every p
 | 4 Themes core | Done (November 15, 2026) |
 | 5 Theme editor | Done (November 15, 2026) |
 | 6 Theme library and history | Done (November 15, 2026) |
-| 7–8 | Not started |
+| 7 Cart and checkout | Done (November 15, 2026) |
+| 8 Preferences and polish | Search done with Phase 7; Preferences and password page next |
 
 ## Goal
 

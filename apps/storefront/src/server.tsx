@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { serve } from '@hono/node-server'
 import { sql } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { renderToString } from 'react-dom/server'
 import { tx, type Tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
@@ -13,7 +14,7 @@ import { isPreset, type PresetId } from './themes.ts'
 import { readTheme, starterTheme, templateFor, themeCss, themeFontsHref, themeReferences, type TemplateKind, type ThemeDoc } from './theme.ts'
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
-import { css, pageScript, PageView, taka, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
+import { cartScript, css, pageScript, PageView, taka, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -35,7 +36,7 @@ const openCsp = [
   "style-src 'self' 'unsafe-inline' https:", 'font-src https: data:', 'frame-src https:', "connect-src 'self' https:", "form-action 'self' https:", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
 const cspFor = (pixel: string, custom = false) => custom ? openCsp : [
-  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com', "frame-src 'self' https://www.youtube-nocookie.com https://www.facebook.com",
   `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
@@ -242,6 +243,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     checkoutToken: order?.values.checkout || randomUUID(),
     order,
     ...(store ? storeCtx(store, pagePath(c)) : {}),
+    cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
   }
   const frame = store ? { header: store.theme.header, footer: store.theme.footer } : undefined
   return html(c, (
@@ -263,7 +265,7 @@ function gridBlocks(sections: Section[]) {
 }
 const usesBlock = (sections: Section[], type: string) => sections.some((s) => s.type === type || [...walk(s.children ?? [])].some((n) => n.block?.type === type))
 
-type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null } }
+type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[] } }
 
 // A store page drawn through the live theme: the template for its kind (or its chosen alternate), inside the theme's
 // header and footer, with the data its store blocks need loaded first.
@@ -303,11 +305,15 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, 
     current: here,
     grid: (id) => grids.get(id),
     collections,
+    cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
+    cart: here.cart,
+    search: here.search,
   }
   return html(c, (
     <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.theme)} pixel={pixel}>
       <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: store.theme.header, footer: store.theme.footer }} themeCss={store.theme.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
+      {here.cart && here.cart.lines.length > 0 && <script dangerouslySetInnerHTML={{ __html: cartScript }} />}
     </Document>
   ), meta.status ?? 200, pixel, hasCustomHtml({ version: 2, sections: all }))
 }
@@ -448,6 +454,140 @@ app.get('/products/:handle', async (c) => {
   if (!store) return notFound(c)
   const item = await loadProduct(store.id, c.req.param('handle'))
   return item ? renderProduct(c, store, item) : storeNotFound(c, store)
+})
+
+// The cart lives in a cookie as [[variant id, quantity], …]: no account and no table. Prices are never in it; every
+// view reads them from the database, and the order is priced by place_cart_checkout alone. At most 20 items, like the
+// order form, because place_order_lines caps a storefront order there.
+const cartName = 'cart'
+const maxCartItems = 20
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function cartItems(c: Context): [string, number][] {
+  try {
+    const raw = JSON.parse(Buffer.from(getCookie(c, cartName) ?? '', 'base64url').toString() || '[]')
+    if (!Array.isArray(raw)) return []
+    const items: [string, number][] = []
+    for (const item of raw.slice(0, maxCartItems)) {
+      if (Array.isArray(item) && typeof item[0] === 'string' && uuidPattern.test(item[0]) && Number.isInteger(item[1]) && item[1] >= 1 && item[1] <= maxCartItems) items.push([item[0], item[1]])
+    }
+    return items
+  } catch {
+    return []
+  }
+}
+function saveCart(c: Context, items: [string, number][]) {
+  let room = maxCartItems
+  const kept = items.flatMap(([id, q]) => { const take = Math.min(q, room); room -= take; return take > 0 ? [[id, take] as [string, number]] : [] })
+  if (!kept.length) return deleteCookie(c, cartName, { path: '/' })
+  setCookie(c, cartName, Buffer.from(JSON.stringify(kept)).toString('base64url'), { path: '/', sameSite: 'Lax', httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86_400 })
+}
+// Cart forms are posted from the store's own pages; a post from another site never changes the cart.
+const fromThisSite = (c: Context) => {
+  const origin = c.req.header('origin')
+  return !origin || origin === 'null' || new URL(origin).host === new URL(c.req.url).host || new URL(origin).host === (c.req.header('x-forwarded-host') ?? c.req.header('host'))
+}
+
+async function cartLines(storeId: string, items: [string, number][]): Promise<CartLine[]> {
+  if (!items.length) return []
+  const rows = (await tx(null, (t) => t.execute<{ variant_id: string; product_id: string; product_name: string; product_handle: string; options: string[]; price: number; compare_price: number | null; stock: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number }>(
+    sql`select * from storefront_cart_lines(${storeId}::uuid, ${`{${items.map(([id]) => id).join(',')}}`}::uuid[])`))).rows
+  return items.flatMap(([id, qty]) => {
+    const r = rows.find((x) => x.variant_id === id)
+    return r ? [{ variantId: id, productId: r.product_id, name: r.product_name, handle: r.product_handle, label: r.options.join(' / '), price: r.price, comparePrice: r.compare_price, qty, image: image(r.image_key, r.image_alt || r.product_name, r.image_width, r.image_height), available: r.stock === null || r.stock >= qty }] : []
+  })
+}
+
+async function renderCart(c: Context, store: LoadedStore, problem?: { error: string; values: OrderValues }) {
+  const lines = await cartLines(store.id, cartItems(c))
+  const cart: CartView = { lines, subtotal: lines.reduce((n, l) => n + l.price * l.qty, 0), qty: lines.reduce((n, l) => n + l.qty, 0), error: problem?.error, values: problem?.values, checkoutToken: problem?.values.checkout || randomUUID() }
+  return renderThemed(c, store, 'cart', { path: '/cart', cart }, { title: `কার্ট · ${store.name}`, description: '', noindex: true, status: problem ? 422 : 200 })
+}
+
+app.get('/cart', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  return store ? renderCart(c, store) : notFound(c)
+})
+
+app.post('/cart/add', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store || !fromThisSite(c)) return notFound(c)
+  const form = await c.req.parseBody()
+  const variant = typeof form.variant === 'string' ? form.variant : ''
+  const quantity = Math.min(Math.max(Number.parseInt(String(form.quantity ?? '1'), 10) || 1, 1), maxCartItems)
+  // Only a variant of this store's listed or unlisted product goes in.
+  if (!uuidPattern.test(variant) || !(await cartLines(store.id, [[variant, 1]])).length) return c.redirect('/cart', 303)
+  const items = cartItems(c)
+  const at = items.findIndex(([id]) => id === variant)
+  if (at >= 0) items[at] = [variant, Math.min(items[at][1] + quantity, maxCartItems)]
+  else items.push([variant, quantity])
+  saveCart(c, items)
+  return c.redirect('/cart', 303)
+})
+
+app.post('/cart/update', async (c) => {
+  if (!fromThisSite(c)) return notFound(c)
+  const form = await c.req.parseBody()
+  const variant = typeof form.variant === 'string' ? form.variant : ''
+  const raw = Array.isArray(form.quantity) ? form.quantity[form.quantity.length - 1] : form.quantity
+  const quantity = Math.min(Math.max(Number.parseInt(String(raw ?? ''), 10) || 0, 0), maxCartItems)
+  saveCart(c, cartItems(c).flatMap(([id, q]) => (id === variant ? (quantity > 0 ? [[id, quantity] as [string, number]] : []) : [[id, q] as [string, number]])))
+  return c.redirect('/cart', 303)
+})
+
+// Checkout: a plain form, so it works without JavaScript. The database prices the lines, delivery and discount, takes
+// stock and gives back the receipt; on success the cart empties and the buyer sees the confirmed number and total.
+app.post('/cart', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  const form = await c.req.parseBody()
+  if (form.website) return c.redirect('/cart/thanks', 303)
+  const values: OrderValues = {}
+  for (const key of ['name', 'phone', 'address', 'rate', 'coupon', 'checkout'] as const) values[key] = typeof form[key] === 'string' ? (form[key] as string).trim() : ''
+  const reject = (error: string) => renderCart(c, store, { error, values })
+  const lines = await cartLines(store.id, cartItems(c))
+  const phone = readPhone(values.phone ?? '')
+  if (!lines.length) return c.redirect('/cart', 303)
+  if (lines.some((l) => !l.available)) return reject('soldOut')
+  if (!isCheckoutToken(values.checkout)) { values.checkout = ''; return reject('checkout') }
+  if (!values.name || values.name.length > 100) return reject('name')
+  if (!phone) return reject('phone')
+  if (!values.address || values.address.length < 5 || values.address.length > 500) return reject('address')
+  if (!uuidPattern.test(values.rate ?? '')) return reject('rate')
+  if ((values.coupon ?? '').length > 30) return reject('coupon')
+  try {
+    await tx(null, (t) => t.execute(sql`select * from place_cart_checkout(${values.checkout}::uuid, ${store.id}::uuid, ${JSON.stringify(lines.map((l) => ({ variant: l.variantId, qty: l.qty })))}::jsonb, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${values.coupon ?? ''})`))
+    deleteCookie(c, cartName, { path: '/' })
+    return c.redirect(`/cart/thanks?receipt=${values.checkout}`, 303)
+  } catch (err) {
+    const code = databaseCode(err)
+    if (code === 'UD017') return reject('checkout')
+    if (code === 'UD011') return reject('soldOut')
+    if (code === 'UD014') return reject('tooMany')
+    if (code === 'UD015') return reject('blocked')
+    if (code === 'UD016') return reject('coupon')
+    if (code === 'UD019') return reject('rate')
+    if (code !== 'UD010') console.error(err)
+    return reject('server')
+  }
+})
+
+app.get('/cart/thanks', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  return store ? thanks(c, store.id, store.name, '/', lookOf(store.theme)) : notFound(c)
+})
+
+app.get('/search', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  const query = (c.req.query('q') ?? '').trim().slice(0, 100)
+  const rows = query ? (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(sql`select * from storefront_search(${store.id}::uuid, ${query}, 48)`))).rows : []
+  const cards: Card[] = rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: image(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
+  return renderThemed(c, store, 'search', { path: '/search', search: { query, cards } }, { title: query ? `${query} · ${store.name}` : `খুঁজুন · ${store.name}`, description: '', noindex: true })
 })
 
 // Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.

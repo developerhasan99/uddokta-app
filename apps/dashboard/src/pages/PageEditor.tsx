@@ -11,7 +11,7 @@ import DOMPurify from 'dompurify'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
   Code, Paintbrush,
-  FolderOpen, Folders, FileText, History,
+  FolderOpen, Folders, FileText, History, ShoppingCart, Search as SearchIcon,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -84,7 +84,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
-const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone, storeHeader: PanelTop, storeFooter: PanelBottom, productInfo: ShoppingBag, productGrid: LayoutGrid, collectionHeader: FolderOpen, collectionList: Folders, pageContent: FileText }
+const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone, storeHeader: PanelTop, storeFooter: PanelBottom, productInfo: ShoppingBag, productGrid: LayoutGrid, collectionHeader: FolderOpen, collectionList: Folders, pageContent: FileText, cart: ShoppingCart, search: SearchIcon }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 // The tree's icon for a section or node; the preview's corner tags use the same ones.
 const sectionIconOf = (s: Section) => {

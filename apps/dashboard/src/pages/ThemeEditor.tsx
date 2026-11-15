@@ -3,7 +3,7 @@ import { useParams } from 'react-router'
 import { Plus, Trash2 } from 'lucide-react'
 import { toLayout } from 'storefront/convert'
 import { defOf, walk, type Content, type Section } from 'storefront/schema'
-import { alternateKinds, templateKinds, variationSettings, type TemplateKind, type ThemeDoc, type ThemeSettings } from 'storefront/theme'
+import { alternateKinds, starterTheme, templateKinds, variationSettings, type TemplateKind, type ThemeDoc, type ThemeSettings } from 'storefront/theme'
 import { pageFonts, presetIds, presets } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, storefrontUrl } from '../api'
@@ -35,7 +35,8 @@ const normalize = (doc: ThemeDoc, lang: string): ThemeDoc => ({
   ...doc,
   header: asLayouts(doc.header, lang),
   footer: asLayouts(doc.footer, lang),
-  templates: Object.fromEntries(Object.entries(doc.templates).map(([k, c]) => [k, { ...c, sections: asLayouts(c.sections, lang) }])),
+  // Templates added since the theme was made (cart, search) start from the starter theme's.
+  templates: Object.fromEntries(Object.entries({ ...starterTheme('fresh').templates, ...doc.templates }).map(([k, c]) => [k, { ...c, sections: asLayouts(c.sections, lang) }])),
 })
 
 // One template open in the editor, with the header and footer groups around it.
@@ -62,6 +63,7 @@ const withTheme = (doc: Doc, change: (theme: ThemeDoc) => ThemeDoc): Doc => {
 const templateLabels: Record<TemplateKind, readonly [string, string]> = {
   home: ['হোম পেজ', 'Home page'], product: ['পণ্যের পেজ', 'Product page'], collection: ['কালেকশন পেজ', 'Collection page'],
   collections: ['সব কালেকশন', 'All collections'], products: ['সব পণ্য', 'All products'], page: ['দোকানের পেজ', 'Store page'], notFound: ['পাওয়া যায়নি (404)', 'Not found (404)'],
+  cart: ['কার্ট', 'Cart'], search: ['খোঁজা', 'Search'],
 }
 
 export function ThemeEditor() {
@@ -164,6 +166,12 @@ export function ThemeEditor() {
             ...(kind === 'collection' && preview.collection ? { collection: preview.collection } : {}),
             ...(kind === 'page' && preview.page ? { page: preview.page } : {}),
           },
+          // The cart and search templates preview with two and four of the store's own products.
+          ...(kind === 'cart' ? { cart: {
+            lines: preview.cards.slice(0, 2).map((x) => ({ variantId: x.id, productId: x.id, name: x.name, handle: x.handle, label: '', price: x.price, comparePrice: x.comparePrice, qty: 1, image: x.image, available: true })),
+            subtotal: preview.cards.slice(0, 2).reduce((n, x) => n + x.price, 0), qty: Math.min(2, preview.cards.length), checkoutToken: '',
+          } } : {}),
+          ...(kind === 'search' ? { search: { query: preview.cards[0]?.name.split(' ')[0] ?? '', cards: preview.cards.slice(0, 4) } } : {}),
         },
       }
     },

@@ -734,3 +734,51 @@ test('a product that picks an alternate template is drawn with it; others keep t
   assert.match(page, /উপহারের পাতা/)
   assert.match(page, /data-order/, 'the product template still takes orders')
 })
+
+test('the cart: add from the product page, change and remove lines, and check out several products at the database’s price', async () => {
+  const s = await publishedPage()
+  const tea = (await s.call('POST', `/stores/${s.handle}/products`, { name: 'চা পাতা', variants: [{ options: [], price: 250, stock: 10 }] })).json
+  let cookie = ''
+  const send = async (path: string, form: Record<string, string>, origin?: string) => {
+    const res = await visit(s.handle, path, { method: 'POST', body: new URLSearchParams(form), headers: { 'content-type': 'application/x-www-form-urlencoded', cookie, ...(origin ? { origin } : {}) } })
+    const set = res.headers.get('set-cookie')
+    if (set) cookie = set.split(';')[0]
+    return res
+  }
+  const cart = async () => (await visit(s.handle, '/cart', { headers: { cookie } })).text()
+  const [m] = s.product.variants
+  assert.match(await (await visit(s.handle, `/products/${encodeURIComponent((await s.call('GET', `/stores/${s.handle}/products/${s.product.id}`)).json.handle)}`)).text(), /action="\/cart\/add"/, 'product pages offer Add to cart')
+  assert.equal((await send('/cart/add', { variant: m.id, quantity: '2' })).status, 303)
+  await send('/cart/add', { variant: tea.variants[0].id, quantity: '1' })
+  await send('/cart/add', { variant: m.id, quantity: '1' })
+  let page = await cart()
+  assert.match(page, /পাঞ্জাবি/)
+  assert.match(page, /চা পাতা/)
+  assert.match(page, /value="3"/, 'adding the same variant again adds to its line')
+  assert.match(page, /<span class="sf-bar__count">৩<\/span>|sf-bar__count">৪</, 'the header shows how many items')
+  await send('/cart/update', { variant: m.id, quantity: '1' })
+  await send('/cart/add', { variant: tea.variants[0].id, quantity: '1' }, 'https://evil.example')
+  page = await cart()
+  assert.match(page, /value="1"/)
+  assert.doesNotMatch(page, /value="3"/)
+  const token = /name="checkout" value="([^"]+)"/.exec(page)![1]
+  const order = await send('/cart', { checkout: token, name: 'রহিম', phone: '01712345678', address: 'মিরপুর ১০, ঢাকা', rate: s.inside, coupon: '' })
+  assert.equal(order.status, 303)
+  assert.match(order.headers.get('location')!, /^\/cart\/thanks\?receipt=/)
+  const done = await (await visit(s.handle, order.headers.get('location')!)).text()
+  assert.match(done, /পণ্য হাতে পেয়ে দেবেন (<!-- -->)?৳১,৫১০/, '1200 + 250 + 60 delivery, priced by the database')
+  assert.doesNotMatch(await cart(), /চা পাতা/, 'the cart empties after ordering')
+  const placed = (await s.call('GET', `/stores/${s.handle}/orders`)).json
+  const latest = placed.items?.[0] ?? placed[0]
+  assert.equal(latest.total, 1510)
+})
+
+test('search finds active products by name, and never drafts', async () => {
+  const s = await publishedPage()
+  await s.call('POST', `/stores/${s.handle}/products`, { name: 'লাল শাড়ি', status: 'active', variants: [{ options: [], price: 900 }] })
+  await s.call('POST', `/stores/${s.handle}/products`, { name: 'লাল খসড়া', status: 'draft', variants: [{ options: [], price: 900 }] })
+  const found = await (await visit(s.handle, `/search?q=${encodeURIComponent('লাল')}`)).text()
+  assert.match(found, /লাল শাড়ি/)
+  assert.doesNotMatch(found, /লাল খসড়া/)
+  assert.match(await (await visit(s.handle, '/search?q=nothing-like-this')).text(), /কিছু পাওয়া যায়নি/)
+})
