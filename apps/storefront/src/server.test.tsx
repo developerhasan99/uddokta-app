@@ -804,3 +804,11 @@ test('a store password closes store pages (not landing pages) until the buyer en
   await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false })
   assert.match(await (await visit(s.handle, '/')).text(), /পাঞ্জাবি/, 'turning the password off opens the store')
 })
+
+test('order forms link the store’s visible return policy, never a hidden one', async () => {
+  const s = await publishedPage()
+  const refund = (await s.call('POST', `/stores/${s.handle}/store-pages`, { policy: 'refund' })).json
+  assert.doesNotMatch(await (await visit(s.handle, s.url)).text(), /href="\/return-policy"/, 'a hidden policy is not linked')
+  await s.call('PATCH', `/stores/${s.handle}/store-pages/${refund.id}`, { visible: true })
+  assert.match(await (await visit(s.handle, s.url)).text(), /<a href="\/return-policy">রিটার্ন নীতি<\/a>/)
+})

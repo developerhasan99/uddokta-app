@@ -146,7 +146,9 @@ async function loadStore(handle: string) {
     const mediaRows = mediaIds.length ? (await t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(sql`select * from storefront_media(${store.id}::uuid, ${`{${mediaIds.join(',')}}`}::uuid[])`)).rows : []
     const images = new Map<string, Img>(mediaRows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
     const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
-    return { ...store, collections, theme, menus, info: storeInfo, images, prefs, shipping: await shippingOptions(t, store.id) }
+    const policyRows = (await t.execute<{ kind: string; handle: string | null }>(sql`select k.kind, storefront_policy(${store.id}::uuid, k.kind) as handle from unnest(array['refund', 'terms', 'privacy', 'shipping', 'contact']) as k(kind)`)).rows
+    const policies = Object.fromEntries(policyRows.filter((r) => r.handle).map((r) => [r.kind, pageHref(r.handle!)])) as Ctx['policies']
+    return { ...store, collections, theme, menus, info: storeInfo, images, prefs, policies, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
@@ -246,6 +248,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     order,
     ...(store ? storeCtx(store, pagePath(c)) : {}),
     cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
+    policies: store?.policies,
   }
   const frame = store ? { header: store.theme.header, footer: store.theme.footer } : undefined
   return html(c, (
@@ -309,6 +312,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, 
     grid: (id) => grids.get(id),
     collections,
     cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
+    policies: store.policies,
     cart: here.cart,
     search: here.search,
   }

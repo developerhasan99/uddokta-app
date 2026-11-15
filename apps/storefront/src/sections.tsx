@@ -58,6 +58,8 @@ export type Ctx = {
   collections?: CollectionCard[]
   // The buyer's cart: how many items (header link) and, on the cart page, its lines and checkout state.
   cartCount?: number
+  // Addresses of the store's visible policy pages (refund, terms, …), linked under checkout forms.
+  policies?: Partial<Record<'refund' | 'terms' | 'privacy' | 'shipping' | 'contact', string>>
   cart?: CartView
   search?: { query: string; cards: Card[] }
 }
@@ -279,7 +281,8 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
           <p className="sf-note">অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
           {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
-          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || 'অর্ডার করুন'}</button></div>
+          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || 'অর্ডার করুন'}</button>
+          <PolicyNote ctx={ctx} /></div>
         </form>
       </div>
     </section>
@@ -648,6 +651,14 @@ function CollectionList({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
+// "By ordering you accept…" with links to the store's visible terms and return policy, when it has them.
+function PolicyNote({ ctx }: { ctx: Ctx }) {
+  const terms = ctx.policies?.terms
+  const refund = ctx.policies?.refund
+  if (!terms && !refund) return null
+  return <p className="sf-note">অর্ডার করে আপনি দোকানের {terms && <a href={terms}>শর্তাবলি</a>}{terms && refund && ' ও '}{refund && <a href={refund}>রিটার্ন নীতি</a>} মেনে নিচ্ছেন।</p>
+}
+
 // Delivery for a cart: free when the option's conditions hold for the whole cart. Display only; shipping_charge decides.
 const cartCharge = (o: ShippingOption, productIds: string[], subtotal: number, qty: number) =>
   (o.freeOver !== null && subtotal >= o.freeOver) || (o.freeMinQty !== null && qty >= o.freeMinQty) || productIds.some((id) => o.freeProducts.includes(id)) ? 0 : o.price
@@ -718,6 +729,7 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
               <p className="sf-total"><span>সর্বমোট (ডিসকাউন্টের আগে)</span><strong data-total>{taka(cart.subtotal + charge)}</strong></p>
               <button type="submit" className="sf-button sf-button--block" disabled={options.length === 0 || cart.lines.some((l) => !l.available)}>{str(s.settings.button) || 'অর্ডার নিশ্চিত করুন'}</button>
               {str(s.settings.note) && <p className="sf-note">{str(s.settings.note)}</p>}
+              <PolicyNote ctx={ctx} />
             </form>
           </div>}
       </div>
