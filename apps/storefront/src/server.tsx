@@ -8,11 +8,12 @@ import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
-import { hasCustomHtml, orderBlocks, readPhone, references, type Content } from './schema.ts'
-import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
-import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type StoreMenus } from './catalog.tsx'
-import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem } from './menus.ts'
-import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
+import { hasCustomHtml, orderBlocks, readPhone, references, walk, type Content, type Section, type Settings } from './schema.ts'
+import { isPreset, type PresetId } from './themes.ts'
+import { readTheme, starterTheme, templateFor, themeCss, themeFontsHref, themeReferences, type TemplateKind, type ThemeDoc } from './theme.ts'
+import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
+import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
+import { css, pageScript, PageView, taka, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -119,26 +120,36 @@ const image = (key: string | null, alt: string, width: number, height: number): 
 const toVariants = (rows: VariantRow[], name: string) => rows.map((v) => ({ id: v.id, label: v.options.join(' / ') || name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 }))
 const listPageSize = 24
 
+// Everything a store's pages need besides the page itself: its live theme (or the starter theme while it has none),
+// menus by handle with links resolved, logo and contact details, the theme's images, and delivery options.
+// ponytail: loaded and validated on every request; cache by theme revision once the storefront sits behind a CDN.
 async function loadStore(handle: string) {
   return tx(null, async (t) => {
     const store = (await t.execute<StoreRow>(sql`select * from storefront_store(${handle})`)).rows[0]
     if (!store) return null
     const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
+    const raw = (await t.execute<{ doc: unknown }>(sql`select storefront_theme(${store.id}::uuid) as doc`)).rows[0]?.doc
+    const theme: ThemeDoc = (raw ? readTheme(raw) : null) ?? starterTheme(themeOf(store.theme))
     const rows = (await t.execute<{ handle: string; items: MenuItem[] }>(sql`select * from storefront_menus(${store.id}::uuid)`)).rows
-    const items = (handle: string) => rows.find((r) => r.handle === handle)?.items ?? []
-    const ids = linkedIds([...items('main-menu'), ...items('footer')])
+    const ids = linkedIds(rows.flatMap((r) => r.items))
     const targets: LinkTargets = new Map(ids.length
       ? (await t.execute<{ id: string; type: IdLinkType; handle: string }>(sql`select * from storefront_link_targets(${store.id}::uuid, ${`{${ids.join(',')}}`}::uuid[])`)).rows.map((r) => [r.id, { type: r.type, handle: r.handle }])
       : [])
-    const main = resolveMenu(items('main-menu'), targets)
+    const menus: Record<string, ResolvedItem[]> = Object.fromEntries(rows.map((r) => [r.handle, resolveMenu(r.items, targets)]))
     // Until the seller builds a main menu, the header lists their collections.
-    const menus: StoreMenus = { main: main.length > 0 ? main : collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] })), footer: resolveMenu(items('footer'), targets) }
-    return { ...store, collections, menus, shipping: await shippingOptions(t, store.id) }
+    if (!menus['main-menu']?.length) menus['main-menu'] = collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] }))
+    const info = (await t.execute<{ logo_key: string | null; logo_width: number; logo_height: number; phone: string; whatsapp: string; email: string; address: string; facebook: string }>(sql`select * from storefront_store_info(${store.id}::uuid)`)).rows[0]
+    const storeInfo: StoreInfo = { name: store.name, logo: info ? image(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' }
+    const mediaIds = themeReferences(theme).media
+    const mediaRows = mediaIds.length ? (await t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(sql`select * from storefront_media(${store.id}::uuid, ${`{${mediaIds.join(',')}}`}::uuid[])`)).rows : []
+    const images = new Map<string, Img>(mediaRows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
+    return { ...store, collections, theme, menus, info: storeInfo, images, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
 
-async function listing(storeId: string, collectionId: string | null, page: number) {
+async function listing(storeId: string, collectionId: string | null, page: number, size = listPageSize) {
+  const listPageSize = size
   const rows = await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(
     sql`select * from storefront_listing(${storeId}::uuid, ${collectionId}::uuid, ${listPageSize + 1}, ${(page - 1) * listPageSize})`))
   const cards: Card[] = rows.rows.slice(0, listPageSize).map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: image(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
@@ -160,7 +171,12 @@ const pageNumber = (c: Context) => Math.min(Math.max(Number(c.req.query('page'))
 
 const themeOf = (theme: string | undefined): PresetId => (isPreset(theme) ? theme : 'fresh')
 
-function Document({ title, description, noindex, canonical, shareImage, theme, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; theme?: string; pixel?: string; children: React.ReactNode }) {
+// A theme's colours, fonts and width, written into every page's <head>.
+type Look = { css: string; fontsHref: string | null; custom: string }
+const lookOf = (doc: ThemeDoc): Look => ({ css: themeCss(doc.settings), fontsHref: themeFontsHref(doc.settings), custom: doc.css })
+const defaultLook = lookOf(starterTheme('fresh'))
+
+function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; children: React.ReactNode }) {
   return (
     <html lang="bn">
       <head>
@@ -183,8 +199,8 @@ function Document({ title, description, noindex, canonical, shareImage, theme, p
         </>}
         {canonical && <link rel="canonical" href={canonical} />}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="stylesheet" href={presetFontsHref(themeOf(theme))} />
-        <style dangerouslySetInnerHTML={{ __html: css + catalogCss + presetCss(themeOf(theme)) }} />
+        {look.fontsHref && <link rel="stylesheet" href={look.fontsHref} />}
+        <style dangerouslySetInnerHTML={{ __html: css + catalogCss + look.css }} />
         {pixel && <script dangerouslySetInnerHTML={{ __html: pixel }} />}
       </head>
       <body>{children}</body>
@@ -206,72 +222,118 @@ function notFound(c: Context) {
 const pagePath = (c: Context) => pageHref(c.req.param('handle')!)
 const productPath = (c: Context) => `/products/${encodeURIComponent(c.req.param('handle')!)}`
 
+// Store context for any page drawn with the store's header and footer: the store, menus, theme images.
+const storeCtx = (store: LoadedStore, path: string) => ({
+  store: store.info,
+  menus: store.menus,
+  current: { path },
+})
+
 async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   const pixel = pixelScript(await trackingFor(page.store_id))
+  const store = await loadStore(storeHandle(c)!)
   const ctx: Ctx = {
     preview: false,
     live: true,
     shipping: page.shipping,
-    image: (id) => (id ? page.images.get(id) : undefined),
+    image: (id) => (id ? page.images.get(id) ?? store?.images.get(id) : undefined),
     product: (id) => (id ? page.products.get(id) : undefined),
     orderAction: pagePath(c),
     checkoutToken: order?.values.checkout || randomUUID(),
     order,
+    ...(store ? storeCtx(store, pagePath(c)) : {}),
   }
+  const frame = store ? { header: store.theme.header, footer: store.theme.footer } : undefined
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} theme={page.theme} pixel={pixel}>
-      <PageView content={page.content} ctx={ctx} storeName={page.store_name} />
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.theme) : undefined} pixel={pixel}>
+      <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.theme.css} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
     </Document>
-  ), order ? 422 : 200, pixel, hasCustomHtml(page.content))
+  ), order ? 422 : 200, pixel, hasCustomHtml(page.content) || Boolean(frame && hasCustomHtml({ version: 2, sections: [...frame.header, ...frame.footer] })))
 }
 
-// The product page's order form is the same component as a landing page's, given this product.
-const buySection = (productId: string) => ({ id: 'buy', type: 'order' as const, hidden: false, settings: { heading: 'অর্ডার করুন', product: productId, button: 'অর্ডার নিশ্চিত করুন' } })
+// Product list blocks in a template and the theme's header and footer, with their settings.
+function gridBlocks(sections: Section[]) {
+  const found: { id: string; settings: Settings }[] = []
+  for (const s of sections) {
+    if (s.type === 'productGrid') found.push({ id: s.id, settings: s.settings })
+    for (const n of walk(s.children ?? [])) if (n.block?.type === 'productGrid') found.push({ id: n.id, settings: n.block.settings })
+  }
+  return found
+}
+const usesBlock = (sections: Section[], type: string) => sections.some((s) => s.type === type || [...walk(s.children ?? [])].some((n) => n.block?.type === type))
 
-async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct, order?: Ctx['order']) {
+type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null } }
+
+// A store page drawn through the live theme: the template for its kind (or its chosen alternate), inside the theme's
+// header and footer, with the data its store blocks need loaded first.
+async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, here: Here, meta: { title: string; description: string; canonical?: string; shareImage?: Img; noindex?: boolean; status?: 200 | 404 | 422; alternate?: string; order?: Ctx['order']; orderAction?: string }) {
+  const template = templateFor(store.theme, kind, meta.alternate)
+  const all = [...store.theme.header, ...template.sections, ...store.theme.footer]
+  const page = pageNumber(c)
+  const grids = new Map<string, GridData>()
+  for (const block of gridBlocks(all)) {
+    const limit = typeof block.settings.limit === 'number' ? block.settings.limit : listPageSize
+    const source = block.settings.source
+    if (source === 'collection') {
+      const picked = store.collections.find((x) => x.id === block.settings.collection)
+      const data = picked ? await listing(store.id, picked.id, 1, limit) : { cards: [], hasMore: false }
+      grids.set(block.id, { ...data, page: 1, base: picked ? collectionHref(picked.handle) : '/products' })
+    } else if (source === 'all') {
+      grids.set(block.id, { ...(await listing(store.id, null, 1, limit)), page: 1, base: '/products' })
+    } else {
+      grids.set(block.id, { ...(await listing(store.id, here.collection?.id ?? null, page, limit)), page, base: here.path })
+    }
+  }
+  const collections: CollectionCard[] | undefined = usesBlock(all, 'collectionList')
+    ? (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; image_key: string | null; image_width: number; image_height: number }>(sql`select * from storefront_collection_cards(${store.id}::uuid)`))).rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, image: image(r.image_key, r.name, r.image_width, r.image_height) }))
+    : undefined
   const pixel = pixelScript(await trackingFor(store.id))
   const ctx: Ctx = {
     preview: false,
     live: true,
     shipping: store.shipping,
-    image: () => undefined,
-    product: (id) => (id === item.id ? item.product : undefined),
-    orderAction: productPath(c),
-    checkoutToken: order?.values.checkout || randomUUID(),
-    order,
+    image: (id) => (id ? store.images.get(id) : undefined),
+    product: (id) => (id && here.product?.id === id ? here.product.product : undefined),
+    orderAction: meta.orderAction,
+    checkoutToken: meta.order?.values.checkout || randomUUID(),
+    order: meta.order,
+    store: store.info,
+    menus: store.menus,
+    current: here,
+    grid: (id) => grids.get(id),
+    collections,
   }
-  const prices = item.product.variants.map((v) => v.price)
-  const compare = Math.max(...item.product.variants.map((v) => v.comparePrice ?? 0))
-  // Description HTML was cleaned by cleanDescription when it was saved, which is what makes it safe to show here.
-  const plain = item.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
   return html(c, (
-    <Document title={item.seo_title || item.name} description={item.seo_description || plain} canonical={`${c.get('origin')}${productPath(c)}`} shareImage={item.images[0]} noindex={item.status === 'unlisted'} theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus}>
-        <div className="sf-wrap sf-product">
-          <Gallery images={item.images} name={item.name} />
-          <div>
-            <h1>{item.name}</h1>
-            <Price price={Math.min(...prices)} comparePrice={compare > 0 ? compare : null} />
-            {item.product.variants.some((v) => v.available) ? <a className="sf-button" href="#buy">এখনই অর্ডার করুন</a> : <p className="sf-error">এখন স্টকে নেই</p>}
-            {item.description && <div className="sf-description" dangerouslySetInnerHTML={{ __html: item.description }} />}
-          </div>
-        </div>
-        <SectionView s={buySection(item.id)} ctx={ctx} />
-      </StoreLayout>
-      <script dangerouslySetInnerHTML={{ __html: pageScript }} />
+    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.theme)} pixel={pixel}>
+      <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: store.theme.header, footer: store.theme.footer }} themeCss={store.theme.css} />
+      {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
     </Document>
-  ), order ? 422 : 200, pixel)
+  ), meta.status ?? 200, pixel, hasCustomHtml({ version: 2, sections: all }))
 }
 
-async function thanks(c: Context, storeId: string, storeName: string, back: string, theme: string) {
+// A missing page inside a known store: the theme's 404 template.
+const storeNotFound = (c: Context, store: LoadedStore) =>
+  renderThemed(c, store, 'notFound', { path: new URL(c.req.url).pathname }, { title: 'পেজটি পাওয়া যায়নি', description: '', noindex: true, status: 404 })
+
+async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct, order?: Ctx['order']) {
+  // Description HTML was cleaned by cleanDescription when it was saved; the block cleans it again before drawing.
+  const plain = item.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+  const here: Here = { path: productPath(c), product: { id: item.id, name: item.name, description: item.description, images: item.images, product: item.product } }
+  return renderThemed(c, store, 'product', here, {
+    title: item.seo_title || item.name, description: item.seo_description || plain, canonical: `${c.get('origin')}${productPath(c)}`,
+    shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c),
+  })
+}
+
+async function thanks(c: Context, storeId: string, storeName: string, back: string, look?: Look) {
   const token = c.req.query('receipt') ?? ''
   const receipt = isCheckoutToken(token) ? (await tx(null, (t) => t.execute<{ number: number; total: number }>(sql`select * from storefront_receipt(${storeId}::uuid, ${token}::uuid)`))).rows[0] : undefined
   const number = receipt?.number ?? 0
   const total = receipt?.total ?? 0
   const pixel = pixelScript(await trackingFor(storeId), receipt ? { total, receipt: token } : undefined)
   return html(c, (
-    <Document title="অর্ডার হয়েছে" description="" theme={theme} pixel={pixel}>
+    <Document title="অর্ডার হয়েছে" description="" look={look} pixel={pixel}>
       <div className="sf-page">
         <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>
         <main className="sf-done sf-wrap sf-narrow">
@@ -341,49 +403,28 @@ app.get('/api/media-files/:store/:file', async (c) => {
   return c.body(new Uint8Array(data), 200, { 'content-type': 'image/webp', 'x-content-type-options': 'nosniff', 'cache-control': 'public, max-age=31536000, immutable' })
 })
 
+const storeLook = async (handle: string) => {
+  const store = await loadStore(handle)
+  return store ? lookOf(store.theme) : undefined
+}
+
 app.get('/', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  const page = pageNumber(c)
-  const { cards, hasMore } = await listing(store.id, null, page)
-  const pixel = pixelScript(await trackingFor(store.id))
-  return html(c, (
-    <Document title={store.name} description="" theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus}>
-        <section className="sf-section">
-          <div className="sf-wrap">
-            {cards.length > 0 ? <ProductGrid cards={cards} /> : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
-            <Pager page={page} hasMore={hasMore} base="/" />
-          </div>
-        </section>
-      </StoreLayout>
-    </Document>
-  ), 200, pixel)
+  return renderThemed(c, store, 'home', { path: '/' }, { title: store.name, description: '', canonical: `${c.get('origin')}/` })
 })
 
 app.get('/collections/:handle', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  const collection = store && store.collections.find((x) => x.handle === c.req.param('handle'))
-  if (!store || !collection) return notFound(c)
-  const page = pageNumber(c)
-  const { cards, hasMore } = await listing(store.id, collection.id, page)
-  const pixel = pixelScript(await trackingFor(store.id))
-  return html(c, (
-    <Document title={collection.seo_title || collection.name} description={collection.seo_description} theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus} current={collectionHref(collection.handle)}>
-        <section className="sf-section">
-          <div className="sf-wrap">
-            <h1 className="sf-heading">{collection.name}</h1>
-            {collection.description && <div className="sf-description sf-narrow" dangerouslySetInnerHTML={{ __html: collection.description }} />}
-            <ProductGrid cards={cards} />
-            <Pager page={page} hasMore={hasMore} base={collectionHref(collection.handle)} />
-          </div>
-        </section>
-      </StoreLayout>
-    </Document>
-  ), 200, pixel)
+  if (!store) return notFound(c)
+  const collection = store.collections.find((x) => x.handle === c.req.param('handle'))
+  if (!collection) return storeNotFound(c, store)
+  const path = collectionHref(collection.handle)
+  return renderThemed(c, store, 'collection', { path, collection: { id: collection.id, name: collection.name, handle: collection.handle, description: collection.description } }, {
+    title: collection.seo_title || collection.name, description: collection.seo_description, canonical: `${c.get('origin')}${path}`,
+  })
 })
 
 // Every listed product, and every collection a buyer can open: the targets of the "All products" and "All collections" menu links.
@@ -391,50 +432,22 @@ app.get('/products', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  const page = pageNumber(c)
-  const { cards, hasMore } = await listing(store.id, null, page)
-  const pixel = pixelScript(await trackingFor(store.id))
-  return html(c, (
-    <Document title={`সব পণ্য · ${store.name}`} description="" theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus} current="/products">
-        <section className="sf-section">
-          <div className="sf-wrap">
-            <h1 className="sf-heading">সব পণ্য</h1>
-            {cards.length > 0 ? <ProductGrid cards={cards} /> : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
-            <Pager page={page} hasMore={hasMore} base="/products" />
-          </div>
-        </section>
-      </StoreLayout>
-    </Document>
-  ), 200, pixel)
+  return renderThemed(c, store, 'products', { path: '/products' }, { title: `সব পণ্য · ${store.name}`, description: '', canonical: `${c.get('origin')}/products` })
 })
 
 app.get('/collections', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  const pixel = pixelScript(await trackingFor(store.id))
-  return html(c, (
-    <Document title={`সব কালেকশন · ${store.name}`} description="" theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus} current="/collections">
-        <section className="sf-section">
-          <div className="sf-wrap">
-            <h1 className="sf-heading">সব কালেকশন</h1>
-            {store.collections.length > 0
-              ? <ul className="sf-collections">{store.collections.map((x) => <li key={x.id}><a href={collectionHref(x.handle)}>{x.name}</a></li>)}</ul>
-              : <p className="sf-empty">শিগগিরই নতুন কালেকশন আসছে।</p>}
-          </div>
-        </section>
-      </StoreLayout>
-    </Document>
-  ), 200, pixel)
+  return renderThemed(c, store, 'collections', { path: '/collections' }, { title: `সব কালেকশন · ${store.name}`, description: '', canonical: `${c.get('origin')}/collections` })
 })
 
 app.get('/products/:handle', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  const item = store && await loadProduct(store.id, c.req.param('handle'))
-  return store && item ? renderProduct(c, store, item) : notFound(c)
+  if (!store) return notFound(c)
+  const item = await loadProduct(store.id, c.req.param('handle'))
+  return item ? renderProduct(c, store, item) : storeNotFound(c, store)
 })
 
 // Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.
@@ -536,48 +549,27 @@ app.get('/pages/:handle/thanks', async (c) => {
   const handle = c.req.param('handle')!
   const page = store && await loadPage(store, handle)
   if (!page) return notFound(c)
-  return isReservedPageHandle(handle) ? thanks(c, page.store_id, page.store_name, pagePath(c), page.theme) : c.redirect(`${pageHref(handle)}/thanks${new URL(c.req.url).search}`, 308)
+  return isReservedPageHandle(handle) ? thanks(c, page.store_id, page.store_name, pagePath(c), await storeLook(store)) : c.redirect(`${pageHref(handle)}/thanks${new URL(c.req.url).search}`, 308)
 })
 
 app.get('/products/:handle/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  return store ? thanks(c, store.id, store.name, productPath(c), store.theme) : notFound(c)
+  return store ? thanks(c, store.id, store.name, productPath(c), lookOf(store.theme)) : notFound(c)
 })
 
 // Specific catalog, media and system routes above always take precedence.
-// Store pages (About, policies, …): rich text inside the store layout. The contact page also lists the store's contact details.
-type StorePageRow = { id: string; title: string; body: string; policy: string | null; template: string; seo_title: string; seo_description: string; phone: string; whatsapp: string; email: string; address: string; facebook: string }
+// Store pages (About, policies, …): the theme's page template (or the page's chosen alternate) with the page's text.
+type StorePageRow = { id: string; title: string; body: string; policy: string | null; template: string; seo_title: string; seo_description: string }
 async function renderStorePage(c: Context, storeHandleValue: string, pageHandle: string) {
   const store = await loadStore(storeHandleValue)
   if (!store) return notFound(c)
   const page = (await tx(null, (t) => t.execute<StorePageRow>(sql`select * from storefront_store_page(${store.id}::uuid, ${pageHandle})`))).rows[0]
-  if (!page) return notFound(c)
-  const pixel = pixelScript(await trackingFor(store.id))
-  const digits = (v: string) => v.replace(/[^\d+]/g, '')
-  const whatsapp = (v: string) => { const d = v.replace(/\D/g, ''); return `https://wa.me/${d.startsWith('0') ? `88${d}` : d}` }
+  if (!page) return storeNotFound(c, store)
   const plain = cleanRichText(page.body).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
-  return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description || plain} canonical={`${c.get('origin')}${pageHref(pageHandle)}`} theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} menus={store.menus} current={pageHref(pageHandle)}>
-        <section className="sf-section">
-          <div className="sf-wrap sf-narrow sf-store-page">
-            <h1 className="sf-heading">{page.title}</h1>
-            <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(page.body) }} />
-            {page.policy === 'contact' && (
-              <ul className="sf-contact-list">
-                {page.phone && <li><span>ফোন</span><a href={`tel:${digits(page.phone)}`}>{page.phone}</a></li>}
-                {page.whatsapp && <li><span>হোয়াটসঅ্যাপ</span><a href={whatsapp(page.whatsapp)} rel="noopener">{page.whatsapp}</a></li>}
-                {page.email && <li><span>ইমেইল</span><a href={`mailto:${page.email}`}>{page.email}</a></li>}
-                {page.facebook && /^https:\/\//.test(page.facebook) && <li><span>ফেসবুক</span><a href={page.facebook} rel="noopener">{page.facebook.replace(/^https:\/\/(www\.)?/, '')}</a></li>}
-                {page.address && <li><span>ঠিকানা</span><span>{page.address}</span></li>}
-              </ul>
-            )}
-          </div>
-        </section>
-      </StoreLayout>
-    </Document>
-  ), 200, pixel)
+  return renderThemed(c, store, 'page', { path: pageHref(pageHandle), page: { title: page.title, body: page.body, policy: page.policy } }, {
+    title: page.seo_title || page.title, description: page.seo_description || plain, canonical: `${c.get('origin')}${pageHref(pageHandle)}`, alternate: page.template,
+  })
 }
 
 // /policies/refund and friends: a stable address for each policy, whatever its page is called.
@@ -603,7 +595,7 @@ app.get('/:handle/thanks', async (c) => {
   if (isReservedPageHandle(handle)) return notFound(c)
   const store = storeHandle(c)
   const page = store && await loadPage(store, handle)
-  return page ? thanks(c, page.store_id, page.store_name, pagePath(c), page.theme) : notFound(c)
+  return page ? thanks(c, page.store_id, page.store_name, pagePath(c), await storeLook(store)) : notFound(c)
 })
 app.notFound(notFound)
 

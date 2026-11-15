@@ -9,6 +9,7 @@
     "./schema": "./src/schema.ts",
     "./sections": "./src/sections.tsx",
     "./themes": "./src/themes.ts",
+    "./theme": "./src/theme.ts",
     "./paths": "./src/paths.ts",
     "./menus": "./src/menus.ts",
     "./icons": "./src/icons/catalog.ts",

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { hasRetiredBlocks, retireOldBlocks, toLayout } from './convert.ts'
-import { newSection, orderBlocks, readContent, sectionTypes, walk, type Content } from './schema.ts'
+import { newSection, orderBlocks, readContent, sectionTypes, themeOnlyTypes, walk, type Content } from './schema.ts'
 
 test('every built-in section converts into a valid layout section that keeps its content', () => {
   let n = 0
   const id = () => `n${n++}`
-  for (const type of sectionTypes) {
+  for (const type of sectionTypes.filter((t) => !themeOnlyTypes.includes(t))) {
     const section = toLayout(newSection(type, `s-${type}`), id)
     const content: Content = { version: 2, sections: [section] }
     assert.equal(section.type, 'layout', type)

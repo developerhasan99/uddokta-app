@@ -1,5 +1,5 @@
 // The store's own pages: home, collection and product. A fixed layout for now; themes come in build step 9.
-import type { ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { taka, type Img } from './sections.tsx'
 import type { ResolvedItem } from './menus.ts'
 
@@ -9,11 +9,9 @@ export type CollectionLink = { name: string; handle: string }
 const productHref = (handle: string) => `/products/${encodeURIComponent(handle)}`
 export const collectionHref = (handle: string) => `/collections/${encodeURIComponent(handle)}`
 
-export type StoreMenus = { main: ResolvedItem[]; footer: ResolvedItem[] }
-
 // The seller's menus. Addresses come from resolveMenu, and are checked again here as they go into the page.
 export const safeHref = (href: string) => /^\/(?!\/)[^\s]*$/.test(href) || /^https:\/\/[^\s]+$/.test(href) || /^tel:\+?[0-9]{6,20}$/.test(href)
-const shown = (items: ResolvedItem[]): ResolvedItem[] => items.filter((i) => safeHref(i.href)).map((i) => ({ ...i, children: shown(i.children) }))
+export const shown = (items: ResolvedItem[]): ResolvedItem[] => items.filter((i) => safeHref(i.href)).map((i) => ({ ...i, children: shown(i.children) }))
 const external = (href: string) => (href.startsWith('https:') ? 'noopener' : undefined)
 
 function MenuLinkItem({ item, current }: { item: ResolvedItem; current?: string }) {
@@ -21,7 +19,7 @@ function MenuLinkItem({ item, current }: { item: ResolvedItem; current?: string 
 }
 
 // Nested items open with <details>, so menus work without JavaScript. A parent's own link comes first inside it.
-function MenuTree({ items, current, level = 1 }: { items: ResolvedItem[]; current?: string; level?: number }) {
+export function MenuTree({ items, current, level = 1 }: { items: ResolvedItem[]; current?: string; level?: number }) {
   return (
     <ul className={`sf-menu-list sf-menu-list--${level}`}>
       {items.map((item, i) => (
@@ -35,36 +33,6 @@ function MenuTree({ items, current, level = 1 }: { items: ResolvedItem[]; curren
   )
 }
 
-export function StoreLayout({ storeName, menus, current, children }: { storeName: string; menus: StoreMenus; current?: string; children: ReactNode }) {
-  const main = shown(menus.main)
-  const footer = shown(menus.footer)
-  return (
-    <div className="sf-page">
-      <header className="sf-bar">
-        <div className="sf-wrap sf-bar__row">
-          <a className="sf-bar__name" href="/">{storeName}</a>
-          {main.length > 0 && (
-            <>
-              <nav className="sf-nav" aria-label="মেনু"><MenuTree items={main} current={current} /></nav>
-              <details className="sf-nav-phone">
-                <summary><span className="sf-burger" aria-hidden="true" />মেনু</summary>
-                <nav aria-label="মেনু"><MenuTree items={main} current={current} /></nav>
-              </details>
-            </>
-          )}
-        </div>
-      </header>
-      <main>{children}</main>
-      <footer className="sf-foot">
-        <div className="sf-wrap">
-          {footer.length > 0 && <nav className="sf-foot__menu" aria-label="ফুটার মেনু"><MenuTree items={footer} current={current} /></nav>}
-          <p>© {storeName}</p>
-        </div>
-      </footer>
-    </div>
-  )
-}
-
 export function Price({ price, comparePrice }: { price: number; comparePrice: number | null }) {
   return (
     <span className="sf-price">
@@ -74,9 +42,9 @@ export function Price({ price, comparePrice }: { price: number; comparePrice: nu
   )
 }
 
-export function ProductGrid({ cards }: { cards: Card[] }) {
+export function ProductGrid({ cards, columns, mobileColumns }: { cards: Card[]; columns?: number; mobileColumns?: number }) {
   return (
-    <ul className="sf-grid">
+    <ul className="sf-grid" style={{ ...(columns ? { '--cols': columns } : {}), ...(mobileColumns ? { '--mcols': mobileColumns } : {}) } as CSSProperties}>
       {cards.map((card) => (
         <li key={card.id}>
           <a className="sf-card" href={productHref(card.handle)}>
@@ -101,10 +69,10 @@ export function Pager({ page, hasMore, base }: { page: number; hasMore: boolean;
   )
 }
 
-export function Gallery({ images, name }: { images: Img[]; name: string }) {
+export function Gallery({ images, name, stacked }: { images: Img[]; name: string; stacked?: boolean }) {
   if (images.length === 0) return <div className="sf-product__image sf-product__image--empty" />
   return (
-    <div className="sf-product__images">
+    <div className={stacked ? 'sf-product__images sf-product__images--stacked' : 'sf-product__images'}>
       {images.map((img, i) => <img key={img.url} className="sf-product__image" src={img.url} alt={img.alt || name} width={img.width} height={img.height} loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />)}
     </div>
   )
@@ -145,7 +113,7 @@ export const catalogCss = `
 .sf-contact-list a{color:inherit}
 .sf-burger{display:inline-block;vertical-align:middle;width:16px;height:2px;margin:0 8px 2px 0;background:currentColor;box-shadow:0 -5px 0 currentColor,0 5px 0 currentColor}
 @media (max-width:719px){.sf-nav{display:none}.sf-nav-phone{display:block}}
-.sf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
+.sf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--mcols,2),minmax(0,1fr));gap:16px 12px}
 .sf-card{display:grid;gap:4px;color:inherit;text-decoration:none}
 .sf-card__image{display:block;aspect-ratio:1;border-radius:var(--sf-radius);overflow:hidden;background:var(--sf-tint)}
 .sf-card__image img{width:100%;height:100%;object-fit:cover}
@@ -159,6 +127,15 @@ export const catalogCss = `
 .sf-product__images{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .sf-product__images .sf-product__image:not(:first-child){aspect-ratio:1;object-fit:cover}
 .sf-product__images .sf-product__image:first-child{grid-column:1/-1}
+.sf-product__images--stacked{grid-template-columns:1fr}.sf-product__images--stacked .sf-product__image:not(:first-child){aspect-ratio:auto}
+.sf-bar--sticky{position:sticky;top:0;z-index:30;background:var(--sf-paper)}
+.sf-bar__logo{display:block;width:auto;max-width:200px;object-fit:contain}
+.sf-bar__name{display:flex;align-items:center;gap:10px}
+.sf-bar__button{margin:0 0 0 auto}
+.sf-foot__text{max-width:640px;margin:0 auto 12px;white-space:pre-line}
+.sf-foot__contact{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;margin:0 0 12px;padding:0;list-style:none}
+.sf-foot__contact a{color:inherit}
+.sf-collection-head{padding-bottom:0}
 .sf-product__image{width:100%;border-radius:var(--sf-radius);background:var(--sf-tint)}
 .sf-product__image--empty{aspect-ratio:1}
 .sf-product h1{font-size:26px;line-height:1.3;margin-bottom:8px}
@@ -167,7 +144,8 @@ export const catalogCss = `
 .sf-description p,.sf-description ul,.sf-description ol{margin:0 0 12px}
 .sf-description h2{font-size:20px;margin:16px 0 8px}
 @media (min-width:720px){
-  .sf-grid,.sf-collections{grid-template-columns:repeat(4,1fr);gap:24px 16px}
+  .sf-grid{grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:24px 16px}
+  .sf-collections{grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:24px 16px}
   .sf-product{grid-template-columns:1fr 1fr;gap:40px;align-items:start}
 }
 `

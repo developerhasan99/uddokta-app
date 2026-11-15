@@ -168,6 +168,13 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
 
+## Themes
+
+- A theme is one JSON document (`ThemeDoc` in `apps/storefront/src/theme.ts`): `settings` (5 colours, corner radius, Bangla and English font from `pageFonts`, content width), `header` and `footer` section groups, `templates` (home, product, collection, collections, products, page, notFound, plus alternates like `product.gift`, at most 40) and `css`. Templates are page `Content` v2, validated by `readContent(…, { theme: true })` inside `readTheme`, the trust boundary. No template language and no uploaded code themes.
+- Store blocks (`themeOnlyTypes` in `schema.ts`: storeHeader, storeFooter, productInfo, productGrid, collectionHeader, collectionList, pageContent) read the store, its menus and what the page is about from `ctx` (`store`, `menus`, `current`, `grid`, `collections`). Landing pages refuse them. Field kinds `menu` (a menu handle) and `collection` (an id) exist for them.
+- `themes` (draft, published, revision) with `stores.live_theme_id` (deferred key, so the live theme cannot be deleted) and `theme_media` (blocks deleting images in use). Owners and admins change themes; staff only look. New stores get `starterTheme` (in `createStarterTheme`); `migrate.ts` gives existing stores one. The six style presets are now style variations: `PUT /stores/:handle/theme` restyles the live theme's draft and published copy.
+- The storefront draws every store page through the live theme's published copy (`renderThemed` in `server.tsx`, `storefront_theme`), falling back to the starter theme. Landing pages with "Show store header/footer" on draw the theme's header and footer groups. Theme colours and fonts come only from `themeCss`/`themeFontsHref` over checked values.
+
 ## Store pages
 
 - `store_pages` (title, handle, rich-text `body` cleaned by `cleanRichText` on save and again when drawn, `visible`, optional `publish_at`, `policy`, `template`, SEO, revision). Shown at `/:handle` inside the store layout when visible and due (`storefront_store_page`); landing pages win the address if both existed. Staff add and edit; owners and admins delete.

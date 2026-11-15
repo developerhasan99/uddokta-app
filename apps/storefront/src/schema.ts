@@ -10,7 +10,7 @@ export type Label = readonly [bn: string, en: string]
 export type Leaf =
   | { key: string; kind: 'icon'; label: Label; defaultIcon?: IconName }
   | { key: string; kind: 'text' | 'textarea' | 'richtext' | 'html'; label: Label; max: number }
-  | { key: string; kind: 'image' | 'product' | 'url' | 'link' | 'color'; label: Label }
+  | { key: string; kind: 'image' | 'product' | 'collection' | 'menu' | 'url' | 'link' | 'color'; label: Label }
   | { key: string; kind: 'number'; label: Label; min: number; max: number }
   | { key: string; kind: 'select'; label: Label; options: readonly { value: string; label: Label }[] }
   | { key: string; kind: 'amount' | 'datetime'; label: Label }
@@ -253,6 +253,69 @@ export const sectionDefs = {
       direction: 'vertical', align: 'start', itemGap: 12, iconGap: 10, iconSize: 20, iconColor: '', textColor: '', iconHoverColor: '', textHoverColor: '', divider: 'none', dividerWidth: 1, dividerColor: '',
     },
   },
+  // Online store blocks: they draw the store itself (its header and footer, and what a theme template is about: the
+  // product, collection or page being opened). Only themes use them (themeOnlyTypes); landing pages refuse them.
+  storeHeader: {
+    label: ['দোকানের হেডার', 'Store header'],
+    fields: [
+      { key: 'logo', kind: 'image', label: ['লোগো (ফাঁকা রাখলে দোকানের লোগো)', 'Logo (blank uses the store logo)'] },
+      { key: 'logoHeight', kind: 'number', min: 20, max: 120, label: ['লোগোর উচ্চতা (px)', 'Logo height (px)'] },
+      select('showName', ['দোকানের নাম', 'Store name'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      { key: 'menu', kind: 'menu', label: ['মেনু', 'Menu'] },
+      button(), link('link', ['বাটনের লিংক', 'Button link']),
+      select('sticky', ['স্ক্রল করলে ওপরে আটকে থাকবে', 'Stays on top when scrolling'], [['no', ['না', 'No']], ['yes', ['হ্যাঁ', 'Yes']]]),
+    ],
+    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no' },
+  },
+  storeFooter: {
+    label: ['দোকানের ফুটার', 'Store footer'],
+    fields: [
+      { key: 'menu', kind: 'menu', label: ['মেনু', 'Menu'] },
+      { key: 'text', kind: 'textarea', label: ['লেখা', 'Text'], max: 600 },
+      select('showContact', ['দোকানের যোগাযোগ', 'Store contact details'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      { key: 'copyright', kind: 'text', label: ['কপিরাইট লেখা (ফাঁকা রাখলে © দোকানের নাম)', 'Copyright line (blank uses © store name)'], max: 120 },
+    ],
+    defaults: { menu: 'footer', text: '', showContact: 'no', copyright: '' },
+  },
+  productInfo: {
+    label: ['পণ্যের তথ্য ও অর্ডার', 'Product details and order'],
+    fields: [
+      { key: 'buyButton', kind: 'text', label: ['ওপরের বাটনের লেখা', 'Top button text'], max: 60 },
+      { key: 'formHeading', kind: 'text', label: ['অর্ডার ফর্মের শিরোনাম', 'Order form heading'], max: 120 },
+      { key: 'formButton', kind: 'text', label: ['অর্ডার বাটনের লেখা', 'Order button text'], max: 60 },
+      select('showDescription', ['পণ্যের বর্ণনা', 'Product description'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      select('galleryLayout', ['ছবির সাজ', 'Image layout'], [['grid', ['বড় ছবি, নিচে ছোট', 'Large with thumbnails']], ['stack', ['একটির নিচে আরেকটি', 'Stacked']]]),
+    ],
+    defaults: { buyButton: 'এখনই অর্ডার করুন', formHeading: 'অর্ডার করুন', formButton: 'অর্ডার নিশ্চিত করুন', showDescription: 'yes', galleryLayout: 'grid' },
+  },
+  productGrid: {
+    label: ['পণ্যের তালিকা', 'Product list'],
+    fields: [
+      heading(),
+      select('source', ['কোন পণ্য', 'Which products'], [['auto', ['এই পেজের (কালেকশন বা সব পণ্য)', 'This page’s (collection or all)']], ['all', ['সব পণ্য', 'All products']], ['collection', ['একটি কালেকশন', 'One collection']]]),
+      { key: 'collection', kind: 'collection', label: ['কালেকশন', 'Collection'] },
+      { key: 'limit', kind: 'number', min: 1, max: 48, label: ['কয়টি পণ্য', 'How many products'] },
+      { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' },
+      { key: 'mobileColumns', kind: 'number', min: 1, max: 3, label: ['মোবাইল কলাম', 'Mobile columns'], group: 'layout' },
+      select('pager', ['পরের পাতার বাটন', 'Next page buttons'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+    ],
+    defaults: { heading: '', source: 'auto', collection: null, limit: 24, columns: 4, mobileColumns: 2, pager: 'yes' },
+  },
+  collectionHeader: {
+    label: ['কালেকশনের নাম ও বর্ণনা', 'Collection title and description'],
+    fields: [select('showDescription', ['বর্ণনা', 'Description'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]])],
+    defaults: { showDescription: 'yes' },
+  },
+  collectionList: {
+    label: ['কালেকশনের তালিকা', 'Collection list'],
+    fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' }],
+    defaults: { heading: '', columns: 4 },
+  },
+  pageContent: {
+    label: ['পেজের লেখা', 'Page content'],
+    fields: [select('showTitle', ['শিরোনাম', 'Title'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]])],
+    defaults: { showTitle: 'yes' },
+  },
   // Seller-written HTML, CSS and scripts, part of the live page (the seller is responsible for it; see openCsp in
   // server.tsx). Never run in the dashboard: the editor preview draws it in a scripts-off frame. Only offered as a block.
   html: { label: ['কাস্টম HTML', 'Custom HTML'], fields: [{ key: 'html', kind: 'html', label: ['HTML', 'HTML'], max: 50000 }], defaults: { html: '' } },
@@ -261,6 +324,8 @@ export const sectionDefs = {
 export type SectionType = keyof typeof sectionDefs
 export const sectionTypes = Object.keys(sectionDefs) as SectionType[]
 export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
+// Blocks that draw the store itself; only theme documents may hold them (readContent with { theme: true }).
+export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent']
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)
@@ -286,7 +351,8 @@ export const starterContent = (id: (n: number) => string): Content => ({
   sections: (['features', 'reviews', 'faq', 'order', 'contact'] as const).map((type, n) => newSection(type, id(n))),
 })
 
-export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^(?:#[a-z0-9-]+|https:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d -]+)$/i.test(raw))
+// A link: an anchor on the page, a path in the store ("/collections/eid"), https, mailto or tel. Never a script URL.
+export const isSectionLink = (raw: unknown): raw is string => typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^(?:#[a-z0-9-]+|\/(?!\/)[^\s]*|https:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d -]+)$/i.test(raw))
 
 export function readLeaf(field: Leaf, raw: unknown): string | number | null | undefined {
   switch (field.kind) {
@@ -313,7 +379,11 @@ export function readLeaf(field: Leaf, raw: unknown): string | number | null | un
       return typeof raw === 'string' && raw.length <= 500 && (raw === '' || /^https:\/\//.test(raw)) ? raw : undefined
     case 'image':
     case 'product':
+    case 'collection':
       return raw === null || isId(raw) ? raw : undefined
+    // A menu's handle (storefront/src/menus.ts); blank shows no menu.
+    case 'menu':
+      return typeof raw === 'string' && (raw === '' || (raw.length <= 60 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(raw))) ? raw : undefined
     case 'datetime':
       return typeof raw === 'string' && (raw === '' || (raw.length <= 40 && !Number.isNaN(Date.parse(raw)))) ? raw : undefined
     case 'amount':
@@ -355,7 +425,15 @@ function readSettings(type: SectionType, raw: unknown): Settings | null {
 }
 
 // The trust boundary for page content: anything that does not match the section's schema is refused, and unknown keys are dropped.
-export function readContent(raw: unknown): Content | null {
+// Store blocks (themeOnlyTypes) are allowed only in theme documents.
+export function readContent(raw: unknown, options: { theme?: boolean } = {}): Content | null {
+  const content = readContentAny(raw)
+  if (!content || options.theme) return content
+  const types = content.sections.flatMap((s) => [s.type, ...[...walk(s.children ?? [])].flatMap((n) => (n.block ? [n.block.type] : []))])
+  return types.some((type) => themeOnlyTypes.includes(type)) ? null : content
+}
+
+function readContentAny(raw: unknown): Content | null {
   const doc = raw as Content
   if (!doc || typeof doc !== 'object' || doc.version !== 2 || !Array.isArray(doc.sections) || doc.sections.length > maxSections) return null
   const ids = new Set<string>()
@@ -410,6 +488,7 @@ export const blankContent = (): Content => ({ version: 2, sections: [], canvas: 
 export function references(content: Content) {
   const media = new Set<string>()
   const products = new Set<string>()
+  const collections = new Set<string>()
   for (const section of content.sections) {
     for (const node of walk(section.children ?? [])) {
       if (node.block) add(node.block.type, node.block.settings)
@@ -421,13 +500,14 @@ export function references(content: Content) {
     add(section.type, section.settings)
     if (typeof section.style?.bgImage === 'string') media.add(section.style.bgImage)
   }
-  return { media: [...media], products: [...products] }
+  return { media: [...media], products: [...products], collections: [...collections] }
   function add(type: SectionType, settings: Settings) {
     for (const field of defOf(type).fields) {
       const value = settings[field.key]
       if (field.kind === 'image' && typeof value === 'string') media.add(value)
       if (field.kind === 'icon' && mediaIconId(value)) media.add(mediaIconId(value)!)
       if (field.kind === 'product' && typeof value === 'string') products.add(value)
+      if (field.kind === 'collection' && typeof value === 'string') collections.add(value)
       if (field.kind === 'list' && Array.isArray(value)) {
         for (const sub of field.fields) {
           if (sub.kind === 'image') for (const item of value) if (item[sub.key]) media.add(item[sub.key]!)

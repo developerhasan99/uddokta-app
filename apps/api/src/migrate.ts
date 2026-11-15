@@ -2,6 +2,9 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { hasRetiredBlocks, retireOldBlocks, retiredTypes } from 'storefront/convert'
 import { readContent } from 'storefront/schema'
+import { starterTheme } from 'storefront/theme'
+import { isPreset } from 'storefront/themes'
+import { starterName } from './themes.ts'
 import { pool } from './db.ts'
 
 await migrate(drizzle(pool), { migrationsFolder: new URL('../migrations', import.meta.url).pathname })
@@ -26,5 +29,16 @@ for (const page of rows) {
   await pool.query('update pages set draft = $1, published = $2, revision = revision + 1 where id = $3', [draft, published, page.id])
   console.log(`Page ${page.id}: retired blocks converted to elements`)
 }
+
+// Data step: every store gets the starter theme (in its chosen style) as its live theme. Does nothing once all have one.
+const bare = await pool.query<{ id: string; theme: string }>('select id, theme from stores where live_theme_id is null')
+for (const store of bare.rows) {
+  const variation = isPreset(store.theme) ? store.theme : 'fresh'
+  const doc = starterTheme(variation)
+  const made = await pool.query<{ id: string }>(`insert into themes (store_id, name, draft, published, starter, published_at) values ($1, $2, $3, $3, $4, now()) returning id`, [store.id, starterName, doc, `starter:${variation}`])
+  await pool.query('update stores set live_theme_id = $1 where id = $2', [made.rows[0].id, store.id])
+  console.log(`Store ${store.id}: starter theme added`)
+}
+
 await pool.end()
 console.log('Migrations applied')

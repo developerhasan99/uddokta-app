@@ -6,6 +6,9 @@ import { iconCatalog, isIconName, isIconValue } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
 import { pageFontCss } from './themes.ts'
+import { Gallery as ProductImages, MenuTree, Pager, Price, ProductGrid, shown, type Card } from './catalog.tsx'
+import type { ResolvedItem } from './menus.ts'
+import { cleanRichText } from './rich.ts'
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -46,7 +49,21 @@ export type Ctx = {
   checkoutToken?: string
   orderAction?: string
   order?: { sectionId: string; error: string; values: OrderValues }
+  // Online store pages (themes): the store, its menus by handle, and what this page is about. Store blocks read these.
+  store?: StoreInfo
+  menus?: Record<string, ResolvedItem[]>
+  current?: { path: string; product?: ProductPage; collection?: CollectionView; page?: StorePageView }
+  // Products for each Product list block, by block id, loaded by the server before drawing.
+  grid?: (blockId: string) => GridData | undefined
+  collections?: CollectionCard[]
 }
+
+export type StoreInfo = { name: string; logo: Img | null; phone: string; whatsapp: string; email: string; address: string; facebook: string }
+export type ProductPage = { id: string; name: string; description: string; images: Img[]; product: Product }
+export type CollectionView = { name: string; handle: string; description: string }
+export type StorePageView = { title: string; body: string; policy: string | null }
+export type GridData = { cards: Card[]; page: number; hasMore: boolean; base: string }
+export type CollectionCard = { id: string; name: string; handle: string; image: Img | null }
 
 const number = new Intl.NumberFormat('bn-BD')
 export const taka = (n: number) => `৳${number.format(n)}`
@@ -476,6 +493,151 @@ function EmbedFrame({ html, ctx }: { html: string; ctx: Ctx }) {
   return <div className="sf-html" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
+// Online store blocks. Each reads its data from ctx; without it (an editor preview with nothing to show) it shows a hint.
+const shownSetting = (s: Section, key: string) => str(s.settings[key]) !== 'no'
+const digitsOnly = (v: string) => v.replace(/[^\d+]/g, '')
+const whatsappHref = (v: string) => { const d = v.replace(/\D/g, ''); return `https://wa.me/${d.startsWith('0') ? `88${d}` : d}` }
+
+function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const name = ctx.store?.name ?? ''
+  const logo = ctx.image(str(s.settings.logo) || null) ?? ctx.store?.logo ?? undefined
+  const menu = shown(ctx.menus?.[str(s.settings.menu)] ?? [])
+  const height = typeof s.settings.logoHeight === 'number' ? s.settings.logoHeight : 40
+  const button = str(s.settings.button)
+  const current = ctx.current?.path
+  return (
+    <header className={`sf-bar${s.settings.sticky === 'yes' ? ' sf-bar--sticky' : ''}`}>
+      <div className="sf-wrap sf-bar__row">
+        <a className="sf-bar__name" href="/">
+          {logo && <img className="sf-bar__logo" src={logo.url} alt={shownSetting(s, 'showName') ? '' : name} style={{ height }} />}
+          {shownSetting(s, 'showName') && name}
+        </a>
+        {menu.length > 0 && (
+          <>
+            <nav className="sf-nav" aria-label="মেনু"><MenuTree items={menu} current={current} /></nav>
+            <details className="sf-nav-phone">
+              <summary><span className="sf-burger" aria-hidden="true" />মেনু</summary>
+              <nav aria-label="মেনু"><MenuTree items={menu} current={current} /></nav>
+            </details>
+          </>
+        )}
+        {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
+      </div>
+    </header>
+  )
+}
+
+function ContactList({ store, className }: { store: StoreInfo; className: string }) {
+  if (!store.phone && !store.whatsapp && !store.email && !store.address && !store.facebook) return null
+  return (
+    <ul className={className}>
+      {store.phone && <li><span>ফোন</span><a href={`tel:${digitsOnly(store.phone)}`}>{store.phone}</a></li>}
+      {store.whatsapp && <li><span>হোয়াটসঅ্যাপ</span><a href={whatsappHref(store.whatsapp)} rel="noopener">{store.whatsapp}</a></li>}
+      {store.email && <li><span>ইমেইল</span><a href={`mailto:${store.email}`}>{store.email}</a></li>}
+      {store.facebook && /^https:\/\//.test(store.facebook) && <li><span>ফেসবুক</span><a href={store.facebook} rel="noopener">{store.facebook.replace(/^https:\/\/(www\.)?/, '')}</a></li>}
+      {store.address && <li><span>ঠিকানা</span><span>{store.address}</span></li>}
+    </ul>
+  )
+}
+
+function StoreFooter({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const menu = shown(ctx.menus?.[str(s.settings.menu)] ?? [])
+  const text = str(s.settings.text)
+  return (
+    <footer className="sf-foot">
+      <div className="sf-wrap">
+        {menu.length > 0 && <nav className="sf-foot__menu" aria-label="ফুটার মেনু"><MenuTree items={menu} current={ctx.current?.path} /></nav>}
+        {text && <p className="sf-foot__text">{text}</p>}
+        {s.settings.showContact === 'yes' && ctx.store && <ContactList store={ctx.store} className="sf-foot__contact" />}
+        <p>{str(s.settings.copyright) || `© ${ctx.store?.name ?? ''}`}</p>
+      </div>
+    </footer>
+  )
+}
+
+function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const item = ctx.current?.product
+  if (!item) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>পণ্যের পেজে এখানে পণ্যটি, দাম ও অর্ডার ফর্ম দেখাবে</Hint></div></section> : null
+  const prices = item.product.variants.map((v) => v.price)
+  const compare = Math.max(0, ...item.product.variants.map((v) => v.comparePrice ?? 0))
+  const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || 'অর্ডার করুন', product: item.id, button: str(s.settings.formButton) || 'অর্ডার নিশ্চিত করুন' } }
+  return (
+    <>
+      <div className="sf-wrap sf-product">
+        <ProductImages images={item.images} name={item.name} stacked={s.settings.galleryLayout === 'stack'} />
+        <div>
+          <h1>{item.name}</h1>
+          {prices.length > 0 && <Price price={Math.min(...prices)} comparePrice={compare > 0 ? compare : null} />}
+          {item.product.variants.some((v) => v.available) ? <a className="sf-button" href="#buy">{str(s.settings.buyButton) || 'এখনই অর্ডার করুন'}</a> : <p className="sf-error">এখন স্টকে নেই</p>}
+          {shownSetting(s, 'showDescription') && item.description && <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(item.description) }} />}
+        </div>
+      </div>
+      <OrderForm s={order} ctx={ctx} />
+    </>
+  )
+}
+
+function ProductList({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const data = ctx.grid?.(s.id)
+  const heading = str(s.settings.heading)
+  if (!data) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>এখানে দোকানের পণ্যগুলো দেখাবে</Hint></div></section> : null
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap">
+        {heading && <h2 className="sf-heading">{heading}</h2>}
+        {data.cards.length > 0
+          ? <ProductGrid cards={data.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} mobileColumns={typeof s.settings.mobileColumns === 'number' ? s.settings.mobileColumns : undefined} />
+          : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
+        {shownSetting(s, 'pager') && <Pager page={data.page} hasMore={data.hasMore} base={data.base} />}
+      </div>
+    </section>
+  )
+}
+
+function CollectionHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const collection = ctx.current?.collection
+  if (!collection) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>কালেকশনের পেজে এখানে কালেকশনের নাম ও বর্ণনা দেখাবে</Hint></div></section> : null
+  return (
+    <section className="sf-section sf-collection-head">
+      <div className="sf-wrap">
+        <h1 className="sf-heading">{collection.name}</h1>
+        {shownSetting(s, 'showDescription') && collection.description && <div className="sf-description sf-narrow" dangerouslySetInnerHTML={{ __html: cleanRichText(collection.description) }} />}
+      </div>
+    </section>
+  )
+}
+
+function CollectionList({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const list = ctx.collections
+  const heading = str(s.settings.heading)
+  if (!list) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>এখানে দোকানের কালেকশনগুলো দেখাবে</Hint></div></section> : null
+  const columns = typeof s.settings.columns === 'number' ? s.settings.columns : 4
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap">
+        {heading && <h1 className="sf-heading">{heading}</h1>}
+        {list.length > 0
+          ? <ul className="sf-collections" style={{ '--cols': columns } as CSSProperties}>{list.map((x) => <li key={x.id}><a href={`/collections/${encodeURIComponent(x.handle)}`}>{x.image && <img src={x.image.url} alt="" width={x.image.width} height={x.image.height} loading="lazy" />}<span>{x.name}</span></a></li>)}</ul>
+          : <p className="sf-empty">শিগগিরই নতুন কালেকশন আসছে।</p>}
+      </div>
+    </section>
+  )
+}
+
+function PageContent({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const page = ctx.current?.page
+  if (!page) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>দোকানের পেজে এখানে পেজের লেখা দেখাবে</Hint></div></section> : null
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap sf-narrow sf-store-page">
+        {shownSetting(s, 'showTitle') && <h1 className="sf-heading">{page.title}</h1>}
+        <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(page.body) }} />
+        {page.policy === 'contact' && ctx.store && <ContactList store={ctx.store} className="sf-contact-list" />}
+      </div>
+    </section>
+  )
+}
+
 export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   switch (s.type) {
     case 'layout': return <LayoutSection s={s} ctx={ctx} orderId={orderId} />
@@ -497,14 +659,29 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'contact': return <Contact s={s} ctx={ctx} />
     case 'gallery': return <Gallery s={s} ctx={ctx} />
     case 'countdown': return <Countdown s={s} ctx={ctx} />
+    case 'storeHeader': return <StoreHeader s={s} ctx={ctx} />
+    case 'storeFooter': return <StoreFooter s={s} ctx={ctx} />
+    case 'productInfo': return <ProductInfo s={s} ctx={ctx} />
+    case 'productGrid': return <ProductList s={s} ctx={ctx} />
+    case 'collectionHeader': return <CollectionHeader s={s} ctx={ctx} />
+    case 'collectionList': return <CollectionList s={s} ctx={ctx} />
+    case 'pageContent': return <PageContent s={s} ctx={ctx} />
   }
 }
 
-export function PageView({ content, ctx, storeName }: { content: Content; ctx: Ctx; storeName: string }) {
+const visible = (sections: Section[]) => sections.filter((s) => !s.hidden)
+
+// A page: the theme's header and footer groups around the page's own sections. Landing pages get the store's header and
+// footer from its theme while their canvas switches are on (frame); without a frame they keep the plain name bar.
+export function PageView({ content, ctx, storeName, frame, themeCss }: { content: Content; ctx: Ctx; storeName: string; frame?: { header: Section[]; footer: Section[] }; themeCss?: string }) {
+  const header = content.canvas?.header === false ? [] : frame?.header
+  const footer = content.canvas?.footer === false ? [] : frame?.footer
+  const all: Content = { ...content, sections: [...(header ?? []), ...content.sections, ...(footer ?? [])] }
   const orderId = firstOrderId(content)
-  const fonts = new Set(content.sections.filter((s) => !s.hidden).map((s) => s.style?.font).filter(Boolean))
-  const nodes = layoutCss(content, ctx)
+  const fonts = new Set(visible(all.sections).map((s) => s.style?.font).filter(Boolean))
+  const nodes = layoutCss(all, ctx)
   const pageFont = pageFontCss(content.fonts)
+  const draw = (list: Section[]) => visible(list).map((s) => <SectionFrame key={s.id} s={s} ctx={ctx}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)
   return (
     <div className="sf-page">
       {pageFont && <link rel="stylesheet" href={pageFont.href} />}
@@ -512,11 +689,10 @@ export function PageView({ content, ctx, storeName }: { content: Content; ctx: C
       {fonts.has('serif') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap" />}
       {fonts.has('sans') && <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" />}
       {nodes && <style dangerouslySetInnerHTML={{ __html: nodes }} />}
-      {content.canvas?.header !== false && <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>}
-      <main>
-        {content.sections.filter((s) => !s.hidden).map((s) => <SectionFrame key={s.id} s={s} ctx={ctx}><SectionView s={s} ctx={ctx} orderId={orderId} /></SectionFrame>)}
-      </main>
-      {content.canvas?.footer !== false && <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>}
+      {header ? draw(header) : content.canvas?.header !== false && <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>}
+      <main>{draw(content.sections)}</main>
+      {footer ? draw(footer) : content.canvas?.footer !== false && <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>}
+      {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
       {content.css && <style dangerouslySetInnerHTML={{ __html: content.css }} />}
     </div>
   )

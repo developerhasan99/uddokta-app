@@ -53,6 +53,8 @@ export const stores = pgTable('stores', {
   logoMediaId: uuid('logo_media_id'),
   // The browser-tab icon on every sales channel (landing pages now, the online store later). Held like the logo (migration 0073).
   faviconMediaId: uuid('favicon_media_id'),
+  // The theme buyers see (themes); deferred key in migration 0084, set when the store is made.
+  liveThemeId: uuid('live_theme_id'),
   phone: text('phone').notNull().default(''),
   whatsapp: text('whatsapp').notNull().default(''),
   email: text('email').notNull().default(''),
@@ -262,6 +264,36 @@ export const pages = pgTable('pages', {
   unique('pages_store_id').on(t.storeId, t.id),
   unique('pages_store_handle').on(t.storeId, t.handle),
   uniqueIndex('pages_store_published_handle').on(t.storeId, sql`(${t.publishedMeta}->>'handle')`).where(sql`${t.published} is not null`),
+])
+
+// Online store themes (storefront/src/theme.ts): one JSON document each, with a draft and a published copy like pages.
+// stores.live_theme_id names the one buyers see; the others are a library to edit and preview. theme_media keeps the
+// images both copies use, which blocks deleting them (deferred key to media in the security migration).
+export const themes = pgTable('themes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  draft: jsonb('draft').notNull(),
+  published: jsonb('published'),
+  revision: integer('revision').notNull().default(1),
+  starter: text('starter').notNull().default(''),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('themes_store_id').on(t.storeId, t.id),
+  index('themes_store_updated').on(t.storeId, t.updatedAt),
+  check('themes_name', sql`char_length(btrim(${t.name})) between 1 and 60`),
+])
+
+export const themeMedia = pgTable('theme_media', {
+  storeId: uuid('store_id').notNull(),
+  themeId: uuid('theme_id').notNull(),
+  mediaId: uuid('media_id').notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.themeId, t.mediaId] }),
+  foreignKey({ name: 'theme_media_theme', columns: [t.storeId, t.themeId], foreignColumns: [themes.storeId, themes.id] }).onDelete('cascade'),
+  index('theme_media_media').on(t.storeId, t.mediaId),
 ])
 
 // Online store pages (About, policies, …): rich text drawn inside the theme's page template. They share the address space

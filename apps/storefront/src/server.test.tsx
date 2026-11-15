@@ -259,7 +259,7 @@ test('the store home and collections list only active products; unlisted ones op
   await s.call('PUT', `/stores/${s.handle}/collections/${cols.find((x: any) => x.type === 'collection').id}`, { name: 'ঈদ', handle: 'eid', productIds: [s.product.id] })
   assert.match(await (await visit(s.handle, '/')).text(), /href="\/collections\/eid">ঈদ সংগ্রহ</, 'renaming a collection keeps its menu link')
   assert.match(await (await visit(s.handle, '/products')).text(), /পাঞ্জাবি/)
-  assert.match(await (await visit(s.handle, '/collections')).text(), /href="\/collections\/eid">ঈদ</)
+  assert.match(await (await visit(s.handle, '/collections')).text(), /href="\/collections\/eid"><span>ঈদ<\/span>/)
   const collection = await (await visit(s.handle, '/collections/eid')).text()
   assert.match(collection, /পাঞ্জাবি/)
   assert.doesNotMatch(collection, /গোপন অফার|খসড়া পণ্য/)

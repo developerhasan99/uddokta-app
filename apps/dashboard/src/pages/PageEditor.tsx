@@ -11,11 +11,12 @@ import DOMPurify from 'dompurify'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
   Code, Paintbrush,
+  FolderOpen, Folders, FileText,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
 import { toRich } from 'storefront/rich'
-import { blockTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx, type Product, type ShippingOption } from 'storefront/sections'
 import { loadRates } from '../shipping'
 import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
@@ -45,7 +46,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
-const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone }
+const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone, storeHeader: PanelTop, storeFooter: PanelBottom, productInfo: ShoppingBag, productGrid: LayoutGrid, collectionHeader: FolderOpen, collectionList: Folders, pageContent: FileText }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 // The tree's icon for a section or node; the preview's corner tags use the same ones.
 const sectionIconOf = (s: Section) => {
@@ -478,7 +479,7 @@ function AddNodeDialog({ onClose, onAdd, room }: { onClose: () => void; onAdd: (
       {/* Older ready-made blocks, kept so they can still be added while each is redone and moved up to Blocks. */}
       <p className="node-add__label">{L(['পুরোনো', 'Obsolete'])}</p>
       <ul className="node-add__grid node-add__grid--blocks">
-        {blockTypes.filter((type) => !currentBlocks.includes(type)).map((type) => {
+        {blockTypes.filter((type) => !currentBlocks.includes(type) && !themeOnlyTypes.includes(type)).map((type) => {
           const Icon = sectionIcons[type]
           return <li key={type}><button type="button" onClick={() => close(() => onAdd((id) => newBlock(type, id)))}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{L(defOf(type).label)}</span></button></li>
         })}

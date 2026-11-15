@@ -582,6 +582,20 @@
       "when": 1794760341475,
       "tag": "0082_store_pages_security",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1794761256399,
+      "tag": "0083_themes",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794761256790,
+      "tag": "0084_themes_security",
+      "breakpoints": true
     }
   ]
 }

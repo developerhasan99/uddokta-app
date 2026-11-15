@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { blankContent, customHtmlCss, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, type Content, type PageNode } from './schema.ts'
+import { blankContent, customHtmlCss, maxBoxDepth, maxDepth, maxNodes, newBlock, newSection, orderBlocks, readContent, references, sectionTypes, themeOnlyTypes, type Content, type PageNode } from './schema.ts'
 
 test('legacy content preserves implicit chrome, and blank content persists explicit empty canvas', () => {
   const legacy = { version: 2, sections: [newSection('faq', 'old-section')] }
@@ -14,7 +14,7 @@ test('legacy content preserves implicit chrome, and blank content persists expli
 })
 
 test('every section family survives validation, including layout variants and nested image references', () => {
-  const content: Content = { version: 2, sections: sectionTypes.map((type, i) => newSection(type, `section-${i}`)) }
+  const content: Content = { version: 2, sections: sectionTypes.filter((t) => !themeOnlyTypes.includes(t)).map((type, i) => newSection(type, `section-${i}`)) }
   const cards = content.sections.find((s) => s.type === 'cards')!
   const imageId = '00000000-0000-4000-8000-000000000001'
   cards.settings.items = [{ title: 'Ingredient', text: 'Details', image: imageId }]

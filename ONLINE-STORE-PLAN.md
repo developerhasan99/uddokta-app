@@ -6,7 +6,9 @@ Status: in progress (started November 15, 2026). The owner said to build every p
 |---|---|
 | 1 Menus | Done (November 15, 2026) |
 | 2 Store pages and policies | Done (November 15, 2026) |
-| 3–8 | Not started |
+| 3 Builder extraction | Folded into Phase 5: separating the editor only pays off when the theme editor exists, so it is done there against a real second user instead of a guessed interface |
+| 4 Themes core | Done (November 15, 2026) |
+| 5–8 | Not started |
 
 ## Goal
 

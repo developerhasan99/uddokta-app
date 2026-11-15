@@ -8,7 +8,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
 import { isReservedStoreHandle } from 'storefront/paths'
 import { registrationAllowed } from './runtime.ts'
-import { isPreset } from 'storefront/themes'
+import { isPreset, type PresetId } from 'storefront/themes'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerAnalytics } from './analytics.ts'
 import { registerCollections } from './collections.ts'
@@ -19,6 +19,7 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
+import { applyVariation, createStarterTheme } from './themes.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -225,6 +226,7 @@ app.post('/stores', async (c) => {
         { storeId: id, name: defaultRateNames.inside, price: inside, position: 0 },
         { storeId: id, name: defaultRateNames.outside, price: outside, position: 1 },
       ])
+      await createStarterTheme(t, id)
     })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')
@@ -290,6 +292,7 @@ app.put('/stores/:handle/theme', async (c) => {
     const store = await storeByHandle(t, c.req.param('handle'))
     const [row] = await t.update(stores).set({ theme: body.theme as string }).where(eq(stores.id, store.id)).returning({ theme: stores.theme })
     if (!row) throw fail(403, 'forbidden')
+    await applyVariation(t, store.id, store.liveThemeId, body.theme as PresetId)
     return c.json(row)
   })
 })
