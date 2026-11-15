@@ -692,3 +692,28 @@ test('Custom HTML is part of the live page as written, and only that page gets t
   assert.match(open, /frame-ancestors 'none'/, 'still never framed by other sites')
   assert.equal((await visit(handle, '/embed/x/custom-html')).status, 404, 'the old frame address is gone')
 })
+
+test('store pages show on their address when visible and due, the contact page lists the store details, policies redirect', async () => {
+  const s = await publishedPage()
+  await s.call('PUT', `/stores/${s.handle}/settings`, { name: 'রঙিন শপ', phone: '01711-000000', whatsapp: '01811000000', email: 'shop@example.com', address: 'মিরপুর, ঢাকা' })
+  const about = (await s.call('POST', `/stores/${s.handle}/store-pages`, { title: 'আমাদের কথা', body: '<p>হাতে বানানো পোশাক</p>' })).json
+  const page = await (await visit(s.handle, `/${encodeURIComponent(about.handle)}`)).text()
+  assert.match(page, /<h1 class="sf-heading">আমাদের কথা<\/h1>/)
+  assert.match(page, /হাতে বানানো পোশাক/)
+  await s.call('PATCH', `/stores/${s.handle}/store-pages/${about.id}`, { visible: false })
+  assert.equal((await visit(s.handle, `/${encodeURIComponent(about.handle)}`)).status, 404, 'hidden pages are not served')
+  const shown = (await s.call('PATCH', `/stores/${s.handle}/store-pages/${about.id}`, { visible: true })).json
+  await s.call('PUT', `/stores/${s.handle}/store-pages/${about.id}`, { ...shown, publishAt: new Date(Date.now() + 3_600_000).toISOString() })
+  assert.equal((await visit(s.handle, `/${encodeURIComponent(about.handle)}`)).status, 404, 'scheduled pages wait for their time')
+
+  const contact = (await s.call('POST', `/stores/${s.handle}/store-pages`, { policy: 'contact' })).json
+  assert.equal((await visit(s.handle, '/policies/contact')).status, 404, 'policies start hidden')
+  await s.call('PATCH', `/stores/${s.handle}/store-pages/${contact.id}`, { visible: true })
+  const policy = await visit(s.handle, '/policies/contact')
+  assert.equal(policy.status, 302)
+  assert.equal(policy.headers.get('location'), '/contact')
+  const contactPage = await (await visit(s.handle, '/contact')).text()
+  assert.match(contactPage, /href="tel:01711000000">01711-000000</)
+  assert.match(contactPage, /href="https:\/\/wa.me\/8801811000000"/)
+  assert.match(contactPage, /মিরপুর, ঢাকা/)
+})

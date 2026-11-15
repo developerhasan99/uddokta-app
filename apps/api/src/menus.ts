@@ -4,7 +4,7 @@ import { fixedMenus, linkedIds, maxMenus, readMenuItems, walkMenu, type MenuItem
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 import { tx, type Tx } from './db.ts'
 import { isId } from './products.ts'
-import { collections, menus, pages, products } from './schema.ts'
+import { collections, menus, pages, products, storePages } from './schema.ts'
 
 const isFixed = (handle: string) => (fixedMenus as readonly string[]).includes(handle)
 const handleFormat = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -120,11 +120,14 @@ export function registerMenus(app: Hono<Env>) {
         .where(and(eq(products.storeId, store.id), byIds ? inArray(products.id, ids) : and(ne(products.status, 'draft'), ilike(products.name, like)))).orderBy(asc(products.name)).limit(limit)
     const lps = await t.select({ id: pages.id, title: pages.title, handle: sql<string>`coalesce(${pages.publishedMeta}->>'handle', ${pages.handle})` }).from(pages)
         .where(and(eq(pages.storeId, store.id), byIds ? inArray(pages.id, ids) : and(sql`${pages.published} is not null`, or(ilike(pages.title, like), ilike(pages.handle, like))))).orderBy(asc(pages.title)).limit(limit)
-    const visible = await visibleTargets(t, store.id, [...cols, ...prods, ...lps].map((r) => r.id))
+    const sps = await t.select({ id: storePages.id, title: storePages.title, handle: storePages.handle }).from(storePages)
+      .where(and(eq(storePages.storeId, store.id), byIds ? inArray(storePages.id, ids) : or(ilike(storePages.title, like), ilike(storePages.handle, like)))).orderBy(asc(storePages.title)).limit(limit)
+    const visible = await visibleTargets(t, store.id, [...cols, ...prods, ...lps, ...sps].map((r) => r.id))
     return c.json([
       ...cols.map((r) => ({ type: 'collection', id: r.id, title: r.title, handle: r.handle, visible: visible.has(r.id) })),
       ...prods.map((r) => ({ type: 'product', id: r.id, title: r.title, handle: r.handle, visible: visible.has(r.id) })),
       ...lps.map((r) => ({ type: 'page', id: r.id, title: r.title, handle: r.handle, visible: visible.has(r.id) })),
+      ...sps.map((r) => ({ type: 'storePage', id: r.id, title: r.title, handle: r.handle, visible: visible.has(r.id) })),
     ])
   }))
 }

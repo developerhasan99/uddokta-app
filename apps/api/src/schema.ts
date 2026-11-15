@@ -264,6 +264,33 @@ export const pages = pgTable('pages', {
   uniqueIndex('pages_store_published_handle').on(t.storeId, sql`(${t.publishedMeta}->>'handle')`).where(sql`${t.published} is not null`),
 ])
 
+// Online store pages (About, policies, …): rich text drawn inside the theme's page template. They share the address space
+// /:handle with landing pages; a trigger on both tables keeps a handle to one page. Visible from publish_at when set.
+export const storePagePolicies = ['refund', 'privacy', 'shipping', 'terms', 'contact'] as const
+export const storePages = pgTable('store_pages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  handle: text('handle').notNull(),
+  body: text('body').notNull().default(''),
+  visible: boolean('visible').notNull().default(true),
+  publishAt: timestamp('publish_at', { withTimezone: true }),
+  policy: text('policy', { enum: storePagePolicies }),
+  template: text('template').notNull().default(''),
+  seoTitle: text('seo_title').notNull().default(''),
+  seoDescription: text('seo_description').notNull().default(''),
+  revision: integer('revision').notNull().default(1),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('store_pages_store_id').on(t.storeId, t.id),
+  unique('store_pages_store_handle').on(t.storeId, t.handle),
+  uniqueIndex('store_pages_store_policy').on(t.storeId, t.policy).where(sql`${t.policy} is not null`),
+  index('store_pages_store_updated').on(t.storeId, t.updatedAt),
+  check('store_pages_text', sql`char_length(btrim(${t.title})) between 1 and 200 and char_length(${t.handle}) between 1 and 100 and char_length(${t.body}) <= 100000 and char_length(${t.template}) <= 60 and char_length(${t.seoTitle}) <= 300 and char_length(${t.seoDescription}) <= 1000`),
+  check('store_pages_policy', sql`${t.policy} in ('refund', 'privacy', 'shipping', 'terms', 'contact')`),
+])
+
 // Online store menus (storefront/src/menus.ts): a tree of links held as JSON, links to records by id.
 // main-menu and footer are made with the store and cannot be deleted; the revision guards against overwriting.
 export const menus = pgTable('menus', {

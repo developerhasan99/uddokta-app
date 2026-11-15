@@ -51,11 +51,9 @@ function readPage(body: any) {
   return { ...readSettings(body), draft, revision: body.revision as number }
 }
 
-async function chooseHandle(t: Tx, storeId: string, title: string, handle: string, pageId?: string) {
-  const taken = async (h: string) => {
-    const [found] = await t.select({ id: pages.id }).from(pages).where(and(eq(pages.storeId, storeId), sql`(${pages.handle} = ${h} or (${pages.published} is not null and ${pages.publishedMeta}->>'handle' = ${h}))`, pageId ? sql`${pages.id} <> ${pageId}::uuid` : undefined))
-    return Boolean(found)
-  }
+// A handle for a landing page (landing) or store page (storePage): /:handle belongs to one page across both kinds.
+export async function chooseHandle(t: Tx, storeId: string, title: string, handle: string, own: { landing?: string; storePage?: string } = {}) {
+  const taken = async (h: string) => !(await t.execute<{ free: boolean }>(sql`select page_handle_free(${storeId}::uuid, ${h}, ${own.landing ?? null}::uuid, ${own.storePage ?? null}::uuid) as free`)).rows[0].free
   if (handle) {
     if (isReservedPageHandle(handle)) throw fail(409, 'pageHandleReserved')
     if (await taken(handle)) throw fail(409, 'pageHandleTaken')
@@ -64,7 +62,7 @@ async function chooseHandle(t: Tx, storeId: string, title: string, handle: strin
   return firstFreeHandle(slugify(title) || 'page', async (h) => isReservedPageHandle(h) || await taken(h))
 }
 
-const refuseTakenHandle = (err: unknown) => {
+export const refuseTakenHandle = (err: unknown) => {
   throw databaseCode(err) === '23505' ? fail(409, 'pageHandleTaken') : err
 }
 
@@ -153,7 +151,7 @@ export function registerPages(app: Hono<Env>) {
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
       await checkReferences(t, storeId, input.draft)
       const [row] = await t.update(pages)
-        .set({ title: input.title, handle: await chooseHandle(t, storeId, input.title, input.handle, id), seoTitle: input.seoTitle, seoDescription: input.seoDescription, draft: input.draft, revision: sql`${pages.revision} + 1`, updatedAt: sql`now()` })
+        .set({ title: input.title, handle: await chooseHandle(t, storeId, input.title, input.handle, { landing: id }), seoTitle: input.seoTitle, seoDescription: input.seoDescription, draft: input.draft, revision: sql`${pages.revision} + 1`, updatedAt: sql`now()` })
         .where(and(eq(pages.storeId, storeId), eq(pages.id, id), eq(pages.revision, input.revision)))
         .returning({ published: pages.published })
       if (!row) {

@@ -13,6 +13,8 @@ import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Menus } from './pages/Menus'
 import { MenuEdit } from './pages/MenuEdit'
+import { StorePages } from './pages/StorePages'
+import { StorePageEdit } from './pages/StorePageEdit'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
@@ -99,6 +101,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="online-store/themes" element={<Themes />} />
                 <Route path="online-store/menus" element={<Menus />} />
                 <Route path="online-store/menus/:id" element={<MenuEdit />} />
+                <Route path="online-store/pages" element={<StorePages />} />
+                <Route path="online-store/pages/:id" element={<StorePageEdit />} />
                 <Route path="orders/new" element={<NewOrder />} />
                 <Route path="orders/protection" element={<Protection />} />
                 <Route path="orders/incomplete" element={<Incomplete />} />

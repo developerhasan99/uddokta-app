@@ -18,6 +18,7 @@ import { registerNotifications } from './notifications.ts'
 import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
+import { registerStorePages } from './store-pages.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -416,6 +417,7 @@ registerWarehouses(app)
 registerDomains(app)
 registerPages(app)
 registerMenus(app)
+registerStorePages(app)
 registerOrders(app)
 registerRepeat(app)
 registerAnalytics(app)

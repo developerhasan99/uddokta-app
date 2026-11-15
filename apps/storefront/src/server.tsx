@@ -6,6 +6,7 @@ import { renderToString } from 'react-dom/server'
 import { tx, type Tx } from '../../api/src/db.ts'
 import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
+import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
@@ -545,12 +546,56 @@ app.get('/products/:handle/thanks', async (c) => {
 })
 
 // Specific catalog, media and system routes above always take precedence.
+// Store pages (About, policies, …): rich text inside the store layout. The contact page also lists the store's contact details.
+type StorePageRow = { id: string; title: string; body: string; policy: string | null; template: string; seo_title: string; seo_description: string; phone: string; whatsapp: string; email: string; address: string; facebook: string }
+async function renderStorePage(c: Context, storeHandleValue: string, pageHandle: string) {
+  const store = await loadStore(storeHandleValue)
+  if (!store) return notFound(c)
+  const page = (await tx(null, (t) => t.execute<StorePageRow>(sql`select * from storefront_store_page(${store.id}::uuid, ${pageHandle})`))).rows[0]
+  if (!page) return notFound(c)
+  const pixel = pixelScript(await trackingFor(store.id))
+  const digits = (v: string) => v.replace(/[^\d+]/g, '')
+  const whatsapp = (v: string) => { const d = v.replace(/\D/g, ''); return `https://wa.me/${d.startsWith('0') ? `88${d}` : d}` }
+  const plain = cleanRichText(page.body).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+  return html(c, (
+    <Document title={page.seo_title || page.title} description={page.seo_description || plain} canonical={`${c.get('origin')}${pageHref(pageHandle)}`} theme={store.theme} pixel={pixel}>
+      <StoreLayout storeName={store.name} menus={store.menus} current={pageHref(pageHandle)}>
+        <section className="sf-section">
+          <div className="sf-wrap sf-narrow sf-store-page">
+            <h1 className="sf-heading">{page.title}</h1>
+            <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(page.body) }} />
+            {page.policy === 'contact' && (
+              <ul className="sf-contact-list">
+                {page.phone && <li><span>ফোন</span><a href={`tel:${digits(page.phone)}`}>{page.phone}</a></li>}
+                {page.whatsapp && <li><span>হোয়াটসঅ্যাপ</span><a href={whatsapp(page.whatsapp)} rel="noopener">{page.whatsapp}</a></li>}
+                {page.email && <li><span>ইমেইল</span><a href={`mailto:${page.email}`}>{page.email}</a></li>}
+                {page.facebook && /^https:\/\//.test(page.facebook) && <li><span>ফেসবুক</span><a href={page.facebook} rel="noopener">{page.facebook.replace(/^https:\/\/(www\.)?/, '')}</a></li>}
+                {page.address && <li><span>ঠিকানা</span><span>{page.address}</span></li>}
+              </ul>
+            )}
+          </div>
+        </section>
+      </StoreLayout>
+    </Document>
+  ), 200, pixel)
+}
+
+// /policies/refund and friends: a stable address for each policy, whatever its page is called.
+app.get('/policies/:kind', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  const found = (await tx(null, (t) => t.execute<{ handle: string | null }>(sql`select storefront_policy(${store.id}::uuid, ${c.req.param('kind')}) as handle`))).rows[0]?.handle
+  return found ? c.redirect(pageHref(found), 302) : notFound(c)
+})
+
 app.get('/:handle', async (c) => {
   const handle = c.req.param('handle')
   if (isReservedPageHandle(handle) || handle.includes('.')) return notFound(c)
   const store = storeHandle(c)
   const page = store && await loadPage(store, handle)
-  return page ? renderPage(c, page) : notFound(c)
+  if (page) return renderPage(c, page)
+  return store ? renderStorePage(c, store, handle) : notFound(c)
 })
 app.post('/:handle', async (c) => isReservedPageHandle(c.req.param('handle')) ? notFound(c) : submitLandingPage(c))
 app.get('/:handle/thanks', async (c) => {

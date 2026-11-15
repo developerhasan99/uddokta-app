@@ -568,6 +568,20 @@
       "when": 1794759583572,
       "tag": "0080_drop_store_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794760341129,
+      "tag": "0081_store_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794760341475,
+      "tag": "0082_store_pages_security",
+      "breakpoints": true
     }
   ]
 }

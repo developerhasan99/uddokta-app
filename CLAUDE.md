@@ -80,10 +80,10 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Media**
 - **Analytics**
 - **Landing pages** (first under Sales channels)
-- **Online store:** Themes, Pages (coming soon), Menus
+- **Online store:** Themes, Pages, Menus
 - **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
-The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS, Billing and store-information Pages visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
+The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
 ## Media gallery
 
@@ -167,6 +167,12 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Icon fields hold a library icon name or `media:<id>` (the seller's own PNG/JPG/SVG from the media gallery; `mediaIconId`/`isIconValue` in `icons/catalog.ts`). Own icons are page images in `references()` (so they cannot be deleted while used) and are drawn by `MarketingIcon` with the `image` lookup from `ctx`. SVG uploads are rasterised to WebP like every image; no SVG is served.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
+
+## Store pages
+
+- `store_pages` (title, handle, rich-text `body` cleaned by `cleanRichText` on save and again when drawn, `visible`, optional `publish_at`, `policy`, `template`, SEO, revision). Shown at `/:handle` inside the store layout when visible and due (`storefront_store_page`); landing pages win the address if both existed. Staff add and edit; owners and admins delete.
+- Landing pages and store pages share one address space: `chooseHandle` in `pages.ts` (via `page_handle_free`) picks free handles for both, and the `check_page_handle` trigger on both tables refuses a clash (409 `pageHandleTaken`).
+- Policies (refund, privacy, shipping, terms, contact), one of each per store, start hidden from our own Bangla drafts in `apps/api/src/policy-drafts.ts`; `/policies/:kind` redirects to the policy's page. The contact page also lists the Settings › Store contact details. Creating a page can append a link to the footer menu.
 
 ## Menus
 

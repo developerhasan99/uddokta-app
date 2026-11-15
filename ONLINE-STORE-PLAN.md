@@ -5,7 +5,8 @@ Status: in progress (started November 15, 2026). The owner said to build every p
 | Phase | State |
 |---|---|
 | 1 Menus | Done (November 15, 2026) |
-| 2–8 | Not started |
+| 2 Store pages and policies | Done (November 15, 2026) |
+| 3–8 | Not started |
 
 ## Goal
 

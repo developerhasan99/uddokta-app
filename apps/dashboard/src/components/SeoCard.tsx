@@ -7,12 +7,14 @@ type Seo = { seoTitle: string; seoDescription: string; handle: string }
 
 // A preview of the search result, with the fields behind a pencil. Blank fields fall back to the name and description.
 export function SeoCard({ section, name, description: body, seoTitle, seoDescription, handle: typed, storeName, address, price, open, handleError, onToggle, onChange }: Seo & {
-  section: 'products' | 'collections'; name: string; description: string; storeName: string; address: string; price?: string | null; open: boolean; handleError?: string; onToggle: () => void; onChange: (changes: Partial<Seo>) => void
+  section: 'products' | 'collections' | 'pages'; name: string; description: string; storeName: string; address: string; price?: string | null; open: boolean; handleError?: string; onToggle: () => void; onChange: (changes: Partial<Seo>) => void
 }) {
   const { t, num } = useLang()
   const title = seoTitle || name
   const description = seoDescription || searchDescription(body)
   const handle = slugify(typed) || slugify(name) || section.slice(0, -1)
+  // Pages live at the store's root, like landing pages.
+  const where = section === 'pages' ? `${address} › ${handle}` : `${address} › ${section} › ${handle}`
   const count = (n: number, max: number) => `${t('productSeoCount', { n: num(n), max: num(max) })}${n > max ? ` ${t('productSeoOver')}` : ''}`
   return (
     <section className="card card--flush seo-card">
@@ -24,8 +26,8 @@ export function SeoCard({ section, name, description: body, seoTitle, seoDescrip
       </div>
       <div className="seo-preview">
         <p className="seo-preview__store">{storeName}</p>
-        <p className="muted seo-preview__url">{address} › {section} › {handle}</p>
-        <p className="seo-preview__title">{title || t(section === 'products' ? 'productNew' : 'collectionNew')}</p>
+        <p className="muted seo-preview__url">{where}</p>
+        <p className="seo-preview__title">{title || t(section === 'products' ? 'productNew' : section === 'pages' ? 'storePageNew' : 'collectionNew')}</p>
         <p className="muted seo-preview__text">{description || t('productSeoNoDescription')}</p>
         {price && <p className="muted">{price}</p>}
       </div>
@@ -40,12 +42,12 @@ export function SeoCard({ section, name, description: body, seoTitle, seoDescrip
           <div className="field">
             <label htmlFor="seo-handle">{t('productHandle')}</label>
             <div className={handleError ? 'input-affix input-affix--invalid' : 'input-affix'}>
-              <span aria-hidden="true">{section}/</span>
+              <span aria-hidden="true">{section === 'pages' ? '/' : `${section}/`}</span>
               <input id="seo-handle" name="handle" maxLength={100} autoComplete="off" placeholder={slugify(name)} aria-invalid={handleError ? true : undefined} aria-describedby="seo-handle-help" value={typed} onChange={(e) => onChange({ handle: e.target.value })} onBlur={() => onChange({ handle: slugify(typed) })} />
             </div>
             <div id="seo-handle-help">
               {handleError && <p className="field__help field__help--error">{handleError}</p>}
-              <p className="field__help seo-card__url">{address}/{section}/{handle}</p>
+              <p className="field__help seo-card__url">{section === 'pages' ? `${address}/${handle}` : `${address}/${section}/${handle}`}</p>
               <p className="field__help">{t('productHandleHelp')}</p>
             </div>
           </div>

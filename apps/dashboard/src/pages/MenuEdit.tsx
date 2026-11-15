@@ -19,8 +19,8 @@ const linkLabels: Record<LinkType, Key> = {
   home: 'menuLinkHome', products: 'menuLinkProducts', collections: 'menuLinkCollections', collection: 'menuLinkCollection', product: 'menuLinkProduct',
   page: 'menuLinkPage', storePage: 'menuLinkStorePage', url: 'menuLinkUrl', phone: 'menuLinkPhone', whatsapp: 'menuLinkWhatsapp',
 }
-// The kinds offered in the picker; store pages join once Pages ships.
-const pickable: LinkType[] = ['home', 'products', 'collections', 'collection', 'product', 'page', 'url', 'phone', 'whatsapp']
+// The kinds offered in the picker.
+const pickable: LinkType[] = ['home', 'products', 'collections', 'collection', 'product', 'storePage', 'page', 'url', 'phone', 'whatsapp']
 const needsId = (type: LinkType) => (idLinkTypes as readonly string[]).includes(type)
 const needsText = (type: LinkType) => type === 'url' || type === 'phone' || type === 'whatsapp'
 

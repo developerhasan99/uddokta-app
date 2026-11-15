@@ -138,6 +138,11 @@ export const catalogCss = `
 .sf-collections{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
 .sf-collections a{display:flex;align-items:center;min-height:96px;padding:16px;border:1px solid var(--sf-rule);border-radius:var(--sf-radius);background:var(--sf-tint);color:inherit;text-decoration:none;font-weight:600}
 .sf-collections a:hover{border-color:var(--sf-ink)}
+.sf-store-page .sf-description{margin-top:8px}
+.sf-contact-list{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:12px}
+.sf-contact-list li{display:grid;grid-template-columns:120px 1fr;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--sf-rule)}
+.sf-contact-list span:first-child{color:var(--sf-muted)}
+.sf-contact-list a{color:inherit}
 .sf-burger{display:inline-block;vertical-align:middle;width:16px;height:2px;margin:0 8px 2px 0;background:currentColor;box-shadow:0 -5px 0 currentColor,0 5px 0 currentColor}
 @media (max-width:719px){.sf-nav{display:none}.sf-nav-phone{display:block}}
 .sf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
