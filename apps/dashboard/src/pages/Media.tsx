@@ -450,9 +450,9 @@ function MediaDetails({ item, base, canDelete, wasCropped, size, dateText, dimen
 
   useEffect(() => {
     let current = true
-    api<{ products: { id: string; name: string }[]; collections: { id: string; name: string }[]; pages: { id: string; name: string }[]; logo: boolean; favicon: boolean }>(`${base}/${item.id}/usage`)
+    api<{ products: { id: string; name: string }[]; collections: { id: string; name: string }[]; pages: { id: string; name: string }[]; themes: { id: string; name: string }[]; logo: boolean; favicon: boolean; share: boolean }>(`${base}/${item.id}/usage`)
       .then((result) => {
-        if (current) setUsedIn([...result.products.map((p) => ({ ...p, to: `/products/${p.id}` })), ...result.collections.map((c) => ({ ...c, to: `/products/collections/${c.id}` })), ...result.pages.map((p) => ({ ...p, to: `/landing-pages/${p.id}` })), ...(result.logo ? [{ id: 'logo', name: t('storeLogoUsage'), to: '/settings' }] : []), ...(result.favicon ? [{ id: 'favicon', name: t('storeFaviconUsage'), to: '/settings' }] : [])])
+        if (current) setUsedIn([...result.products.map((p) => ({ ...p, to: `/products/${p.id}` })), ...result.collections.map((c) => ({ ...c, to: `/products/collections/${c.id}` })), ...result.pages.map((p) => ({ ...p, to: `/landing-pages/${p.id}` })), ...result.themes.map((x) => ({ ...x, name: `${t('themes')}: ${x.name}`, to: `/online-store/themes/${x.id}/editor` })), ...(result.share ? [{ id: 'share', name: t('prefShareImage'), to: '/online-store/preferences' }] : []), ...(result.logo ? [{ id: 'logo', name: t('storeLogoUsage'), to: '/settings' }] : []), ...(result.favicon ? [{ id: 'favicon', name: t('storeFaviconUsage'), to: '/settings' }] : [])])
       })
       .catch(() => {})
     return () => { current = false }

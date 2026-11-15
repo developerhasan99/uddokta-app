@@ -4,7 +4,7 @@ import type { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import sharp from 'sharp'
 import { one, tx } from './db.ts'
-import { collections, media, pageMedia, pages, productMedia, products, stores } from './schema.ts'
+import { collections, media, pageMedia, pages, productMedia, products, stores, themes, themeMedia } from './schema.ts'
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
 
@@ -164,8 +164,14 @@ export function registerMedia(app: Hono<Env>) {
         .innerJoin(pages, eq(pages.id, pageMedia.pageId))
         .where(and(eq(pageMedia.storeId, store.id), eq(pageMedia.mediaId, c.req.param('id'))))
         .orderBy(asc(pages.title))
-      const [own] = await t.select({ logo: stores.logoMediaId, favicon: stores.faviconMediaId }).from(stores).where(eq(stores.id, store.id))
-      return c.json({ products: used, collections: usedCollections, pages: usedPages, logo: own?.logo === c.req.param('id'), favicon: own?.favicon === c.req.param('id') })
+      const usedThemes = await t
+        .select({ id: themes.id, name: themes.name })
+        .from(themeMedia)
+        .innerJoin(themes, eq(themes.id, themeMedia.themeId))
+        .where(and(eq(themeMedia.storeId, store.id), eq(themeMedia.mediaId, c.req.param('id'))))
+        .orderBy(asc(themes.name))
+      const [own] = await t.select({ logo: stores.logoMediaId, favicon: stores.faviconMediaId, share: stores.shareMediaId }).from(stores).where(eq(stores.id, store.id))
+      return c.json({ products: used, collections: usedCollections, pages: usedPages, themes: usedThemes, logo: own?.logo === c.req.param('id'), favicon: own?.favicon === c.req.param('id'), share: own?.share === c.req.param('id') })
     })
   })
 
