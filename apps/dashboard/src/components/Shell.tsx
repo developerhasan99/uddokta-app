@@ -71,6 +71,7 @@ function StoreShell() {
   const { t } = useLang()
   const { pathname } = useLocation()
   const handle = useCurrentStore()!.store.handle
+  const path = useStorePath()
   const feed = useNotificationFeed(handle)
   const unread = feed.page?.unread ?? 0
 
@@ -127,7 +128,7 @@ function StoreShell() {
         <button type="button" className="icon-button" aria-label={t('openMenu')} onClick={() => setDrawerOpen(true)}>
           <Menu size={20} aria-hidden="true" />
         </button>
-        <span className="brand">{t('appName')}</span>
+        <Link to={path('/')} className="brand"><img src="/favicon.svg" width="24" height="24" alt={t('appName')} /></Link>
         <span className="mobilebar__end"><NotificationBell feed={feed} handle={handle} align="end" /></span>
       </header>
       <main id="main" className="shell__main" tabIndex={-1}>
