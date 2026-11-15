@@ -46,8 +46,7 @@ function Sidebar({ menuContainer, feed }: { menuContainer?: HTMLElement | null; 
     <nav className="sidebar" aria-label={t('mainNav')}>
       <div className="sidebar__top">
         <Link to={path('/')} className="brand">
-          <img src="/favicon.svg" width="28" height="28" alt="" />
-          {t('appName')}
+          <img src="/favicon.svg" width="28" height="28" alt={t('appName')} />
         </Link>
         {feed && <NotificationBell feed={feed} handle={handle} />}
       </div>
@@ -169,8 +168,7 @@ export function AccountLayout({ children }: { children?: React.ReactNode }) {
       <a className="skip-link" href="#main">{t('skip')}</a>
       <header className="account__bar">
         <Link to="/stores" className="brand">
-          <img src="/favicon.svg" width="28" height="28" alt="" />
-          {t('appName')}
+          <img src="/favicon.svg" width="28" height="28" alt={t('appName')} />
         </Link>
         <AppMenu />
       </header>
