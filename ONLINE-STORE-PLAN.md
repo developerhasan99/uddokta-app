@@ -1,6 +1,11 @@
 # Online store plan: Themes, Menus, Pages
 
-Status: proposed, November 15, 2026. Nothing here is built yet. Decisions marked **Confirm** need the owner's yes before the phase that depends on them starts.
+Status: in progress (started November 15, 2026). The owner said to build every phase in order; the **Confirm** items were taken at their recommended defaults: Phase 7 (cart) is in, Preferences goes under Online store, and theme imports accept only signed files.
+
+| Phase | State |
+|---|---|
+| 1 Menus | Done (November 15, 2026) |
+| 2–8 | Not started |
 
 ## Goal
 

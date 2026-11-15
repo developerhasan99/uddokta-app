@@ -219,10 +219,10 @@ test('owners and admins set the store name and delivery charges; staff can only 
   const admin = await join(handle, owner, 'admin')
   const staff = await join(handle, owner, 'staff')
   const base = `/stores/${handle}/settings`
-  const online = ({ name, theme, metaPixel, tiktokPixel, menu }: any) => ({ name, theme, metaPixel, tiktokPixel, menu })
-  assert.deepEqual(online((await owner.call('GET', base)).json), { name: 'Shop', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  const online = ({ name, theme, metaPixel, tiktokPixel }: any) => ({ name, theme, metaPixel, tiktokPixel })
+  assert.deepEqual(online((await owner.call('GET', base)).json), { name: 'Shop', theme: 'fresh', metaPixel: '', tiktokPixel: '' })
   assert.equal((await admin.call('PUT', base, { name: 'নতুন নাম' })).status, 200)
-  assert.deepEqual(online((await staff.call('GET', base)).json), { name: 'নতুন নাম', theme: 'fresh', metaPixel: '', tiktokPixel: '', menu: [] })
+  assert.deepEqual(online((await staff.call('GET', base)).json), { name: 'নতুন নাম', theme: 'fresh', metaPixel: '', tiktokPixel: '' })
   assert.equal((await admin.call('PUT', `/stores/${handle}/theme`, { theme: 'night' })).status, 200)
   assert.equal((await staff.call('PUT', `/stores/${handle}/theme`, { theme: 'bold' })).status, 403)
   assert.equal((await owner.call('PUT', `/stores/${handle}/theme`, { theme: 'neon' })).status, 400)
@@ -230,12 +230,6 @@ test('owners and admins set the store name and delivery charges; staff can only 
   assert.equal((await owner.call('PUT', `/stores/${handle}/tracking`, { metaPixel: "1');alert(1)//", tiktokPixel: '' })).json.error, 'pixelInvalid')
   assert.deepEqual((await owner.call('PUT', `/stores/${handle}/tracking`, { metaPixel: '123456789012345', tiktokPixel: 'c1abc2def3' })).json, { metaPixel: '123456789012345', tiktokPixel: 'C1ABC2DEF3' })
   assert.equal((await staff.call('PUT', `/stores/${handle}/tracking`, { metaPixel: '', tiktokPixel: '' })).status, 403)
-  for (const href of ['javascript:alert(1)', '//evil.example', 'http://plain.example', 'data:text/html,x']) {
-    assert.equal((await owner.call('PUT', `/stores/${handle}/menu`, { items: [{ label: 'x', href }] })).json.error, 'menuInvalid', href)
-  }
-  const menu = [{ label: 'ঈদ', href: '/collections/ঈদ' }, { label: 'ফেসবুক', href: 'https://facebook.com/shop' }]
-  assert.deepEqual((await owner.call('PUT', `/stores/${handle}/menu`, { items: menu })).json.menu, menu)
-  assert.equal((await staff.call('PUT', `/stores/${handle}/menu`, { items: [] })).status, 403)
   assert.equal((await staff.call('PUT', base, { name: 'x' })).status, 403)
   for (const bad of [{ name: '' }, { name: 'x'.repeat(101) }]) {
     assert.equal((await owner.call('PUT', base, bad)).status, 400)

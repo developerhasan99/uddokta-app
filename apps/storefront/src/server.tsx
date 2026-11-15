@@ -9,7 +9,8 @@ import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.t
 import { validateRuntime } from '../../api/src/runtime.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, type Content } from './schema.ts'
 import { isPreset, presetCss, presetFontsHref, type PresetId } from './themes.ts'
-import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type MenuLink } from './catalog.tsx'
+import { catalogCss, collectionHref, Gallery, Pager, Price, ProductGrid, StoreLayout, type Card, type CollectionLink, type StoreMenus } from './catalog.tsx'
+import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem } from './menus.ts'
 import { css, pageScript, PageView, SectionView, taka, type Ctx, type Img, type OrderValues, type Product, type ShippingOption } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
@@ -122,9 +123,16 @@ async function loadStore(handle: string) {
     const store = (await t.execute<StoreRow>(sql`select * from storefront_store(${handle})`)).rows[0]
     if (!store) return null
     const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
-    const [{ menu }] = (await t.execute<{ menu: MenuLink[] }>(sql`select storefront_menu(${store.id}::uuid) as menu`)).rows
-    const links: MenuLink[] = menu.length > 0 ? menu : collections.map((x) => ({ label: x.name, href: collectionHref(x.handle) }))
-    return { ...store, collections, links, shipping: await shippingOptions(t, store.id) }
+    const rows = (await t.execute<{ handle: string; items: MenuItem[] }>(sql`select * from storefront_menus(${store.id}::uuid)`)).rows
+    const items = (handle: string) => rows.find((r) => r.handle === handle)?.items ?? []
+    const ids = linkedIds([...items('main-menu'), ...items('footer')])
+    const targets: LinkTargets = new Map(ids.length
+      ? (await t.execute<{ id: string; type: IdLinkType; handle: string }>(sql`select * from storefront_link_targets(${store.id}::uuid, ${`{${ids.join(',')}}`}::uuid[])`)).rows.map((r) => [r.id, { type: r.type, handle: r.handle }])
+      : [])
+    const main = resolveMenu(items('main-menu'), targets)
+    // Until the seller builds a main menu, the header lists their collections.
+    const menus: StoreMenus = { main: main.length > 0 ? main : collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] })), footer: resolveMenu(items('footer'), targets) }
+    return { ...store, collections, menus, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
@@ -238,7 +246,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   const plain = item.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
   return html(c, (
     <Document title={item.seo_title || item.name} description={item.seo_description || plain} canonical={`${c.get('origin')}${productPath(c)}`} shareImage={item.images[0]} noindex={item.status === 'unlisted'} theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} links={store.links}>
+      <StoreLayout storeName={store.name} menus={store.menus}>
         <div className="sf-wrap sf-product">
           <Gallery images={item.images} name={item.name} />
           <div>
@@ -341,7 +349,7 @@ app.get('/', async (c) => {
   const pixel = pixelScript(await trackingFor(store.id))
   return html(c, (
     <Document title={store.name} description="" theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} links={store.links}>
+      <StoreLayout storeName={store.name} menus={store.menus}>
         <section className="sf-section">
           <div className="sf-wrap">
             {cards.length > 0 ? <ProductGrid cards={cards} /> : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
@@ -363,13 +371,57 @@ app.get('/collections/:handle', async (c) => {
   const pixel = pixelScript(await trackingFor(store.id))
   return html(c, (
     <Document title={collection.seo_title || collection.name} description={collection.seo_description} theme={store.theme} pixel={pixel}>
-      <StoreLayout storeName={store.name} links={store.links} current={collectionHref(collection.handle)}>
+      <StoreLayout storeName={store.name} menus={store.menus} current={collectionHref(collection.handle)}>
         <section className="sf-section">
           <div className="sf-wrap">
             <h1 className="sf-heading">{collection.name}</h1>
             {collection.description && <div className="sf-description sf-narrow" dangerouslySetInnerHTML={{ __html: collection.description }} />}
             <ProductGrid cards={cards} />
             <Pager page={page} hasMore={hasMore} base={collectionHref(collection.handle)} />
+          </div>
+        </section>
+      </StoreLayout>
+    </Document>
+  ), 200, pixel)
+})
+
+// Every listed product, and every collection a buyer can open: the targets of the "All products" and "All collections" menu links.
+app.get('/products', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  const page = pageNumber(c)
+  const { cards, hasMore } = await listing(store.id, null, page)
+  const pixel = pixelScript(await trackingFor(store.id))
+  return html(c, (
+    <Document title={`সব পণ্য · ${store.name}`} description="" theme={store.theme} pixel={pixel}>
+      <StoreLayout storeName={store.name} menus={store.menus} current="/products">
+        <section className="sf-section">
+          <div className="sf-wrap">
+            <h1 className="sf-heading">সব পণ্য</h1>
+            {cards.length > 0 ? <ProductGrid cards={cards} /> : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
+            <Pager page={page} hasMore={hasMore} base="/products" />
+          </div>
+        </section>
+      </StoreLayout>
+    </Document>
+  ), 200, pixel)
+})
+
+app.get('/collections', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  const pixel = pixelScript(await trackingFor(store.id))
+  return html(c, (
+    <Document title={`সব কালেকশন · ${store.name}`} description="" theme={store.theme} pixel={pixel}>
+      <StoreLayout storeName={store.name} menus={store.menus} current="/collections">
+        <section className="sf-section">
+          <div className="sf-wrap">
+            <h1 className="sf-heading">সব কালেকশন</h1>
+            {store.collections.length > 0
+              ? <ul className="sf-collections">{store.collections.map((x) => <li key={x.id}><a href={collectionHref(x.handle)}>{x.name}</a></li>)}</ul>
+              : <p className="sf-empty">শিগগিরই নতুন কালেকশন আসছে।</p>}
           </div>
         </section>
       </StoreLayout>

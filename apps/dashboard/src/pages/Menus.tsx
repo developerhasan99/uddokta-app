@@ -1,99 +1,127 @@
-import { pageHref } from 'storefront/paths'
-import { useEffect, useState } from 'react'
-import { ArrowUp, CircleCheck, Plus, X } from 'lucide-react'
-import { useCurrentStore } from '../account-context'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { ListTree, Plus } from 'lucide-react'
+import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode } from '../api'
-import { Button, PageHeader, Skeleton } from '../components/ui'
+import { DialogHead } from '../components/DialogHead'
+import { useDialog } from '../components/dialog'
+import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
-import type { PageRow } from './Pages'
-import type { StoreSettingsData } from './StoreSettings'
 
-type Item = { label: string; href: string }
-type Choice = { label: string; href: string }
+export type MenuRow = { id: string; handle: string; title: string; fixed: boolean; items: number; broken: number; updatedAt: string }
 
 export function Menus() {
-  const { t } = useLang()
-  const current = useCurrentStore()!
-  const handle = current.store.handle
-  const canEdit = current.role !== 'staff'
-  const [items, setItems] = useState<Item[] | null>(null)
-  const [saved, setSaved] = useState('')
-  const [collections, setCollections] = useState<Choice[]>([])
-  const [pages, setPages] = useState<Choice[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
+  const { t, num, ago } = useLang()
+  const path = useStorePath()
+  const navigate = useNavigate()
+  const handle = useCurrentStore()!.store.handle
+  const [rows, setRows] = useState<MenuRow[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [adding, setAdding] = useState(false)
 
-  useEffect(() => {
-    api<StoreSettingsData>(`/stores/${handle}/settings`).then((s) => {
-      setItems(s.menu)
-      setSaved(JSON.stringify(s.menu))
-    }).catch((err) => setError(errorCode(err)))
-    api<{ name: string; handle: string }[]>(`/stores/${handle}/collections/options`).then((r) => setCollections(r.map((c) => ({ label: c.name, href: `/collections/${encodeURIComponent(c.handle)}` })))).catch(() => {})
-    api<PageRow[]>(`/stores/${handle}/pages`).then((r) => setPages(r.filter((p) => p.isPublished).map((p) => ({ label: p.title, href: pageHref(p.handle) })))).catch(() => {})
+  const load = useCallback(async () => {
+    setFailed(false)
+    try {
+      setRows(await api<MenuRow[]>(`/stores/${handle}/menus`))
+    } catch {
+      setFailed(true)
+    }
   }, [handle])
 
   useEffect(() => {
-    if (!done) return
-    const timer = setTimeout(() => setDone(false), 4000)
-    return () => clearTimeout(timer)
-  }, [done])
+    void load()
+  }, [load])
 
-  const known = [{ label: t('menuHome'), href: '/' }, ...collections, ...pages]
-  const isKnown = (href: string) => known.some((k) => k.href === href)
-  const change = (i: number, next: Partial<Item>) => setItems((all) => all && all.map((x, j) => (j === i ? { ...x, ...next } : x)))
+  const open = (id: string) => navigate(path(`/online-store/menus/${id}`))
 
-  const save = async () => {
-    if (!items) return
+  return (
+    <div className="page">
+      <PageHeader title={t('menus')} description={t('menus.d')} action={<Button variant="primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{t('menuAddMenu')}</Button>} />
+      {failed && <section className="card card--flush"><Notice role="alert" title={t('menuLoadFailed')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section>}
+      {!failed && (
+        <div className="data-list">
+          {!rows && <div role="status" aria-label={t('loading')}>{Array.from({ length: 2 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="14rem" /><Skeleton width="5rem" /></div>)}</div>}
+          {rows && rows.length === 0 && <Notice title={t('menuListEmpty')} action={<Button onClick={() => setAdding(true)}>{t('menuAddMenu')}</Button>} />}
+          {rows && rows.length > 0 && (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('menuTitle')}</th>
+                  <th scope="col" className="data-table__meta">{t('menuHandle')}</th>
+                  <th scope="col" className="data-table__meta">{t('menuItems')}</th>
+                  <th scope="col" className="data-table__meta">{t('pageUpdated')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="data-table__row" onClick={() => open(row.id)}>
+                    <td>
+                      <Link className="data-table__file" to={path(`/online-store/menus/${row.id}`)} onClick={(e) => e.stopPropagation()}>
+                        <span className="data-table__thumb data-table__thumb--icon"><ListTree size={16} aria-hidden="true" /></span>
+                        <span className="data-table__text">
+                          <span className="data-table__name" title={row.title}>{row.title}</span>
+                          <span className="menu-row__badges">
+                            {row.fixed && <Badge>{t('menuFixedBadge')}</Badge>}
+                            {row.broken > 0 && <Badge tone="warning">{t('menuBrokenCount', { n: num(row.broken) })}</Badge>}
+                          </span>
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="data-table__meta"><code>{row.handle}</code></td>
+                    <td className="data-table__meta">{num(row.items)}</td>
+                    <td className="data-table__meta muted">{ago(row.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      {adding && <NewMenuDialog handle={handle} onClose={() => setAdding(false)} onMade={open} />}
+    </div>
+  )
+}
+
+function NewMenuDialog({ handle, onClose, onMade }: { handle: string; onClose: () => void; onMade: (id: string) => void }) {
+  const { t } = useLang()
+  const { ref, close, props } = useDialog(onClose)
+  const [title, setTitle] = useState('')
+  const [tried, setTried] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    ref.current?.showModal()
+  }, [])
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    if (!title.trim() || busy) return
+    setBusy(true)
     setError(null)
     try {
-      const row = await api<{ menu: Item[] }>(`/stores/${handle}/menu`, { method: 'PUT', body: { items } })
-      setItems(row.menu)
-      setSaved(JSON.stringify(row.menu))
-      setDone(true)
+      const made = await api<{ id: string }>(`/stores/${handle}/menus`, { method: 'POST', body: { title } })
+      close(() => onMade(made.id))
     } catch (err) {
       setError(errorCode(err))
+      setBusy(false)
     }
   }
 
-  const dirty = items !== null && JSON.stringify(items) !== saved
-
   return (
-    <div className="page page--narrow">
-      <PageHeader title={t('menus')} description={t('menuHelp')} action={canEdit ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>{t('productSave')}</Button> : undefined} />
-      {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
-      {!items && !error && <section className="card"><Skeleton /></section>}
-      {items && (
-        <section className="card">
-          {items.length === 0 && <p className="muted">{t('menuEmpty')}</p>}
-          <ul className="menu-rows">
-            {items.map((item, i) => (
-              <li key={i} className="menu-row">
-                <input className="input" aria-label={t('menuLabel')} placeholder={t('menuLabel')} maxLength={40} disabled={!canEdit} value={item.label} onChange={(e) => change(i, { label: e.target.value })} />
-                <select className="input" aria-label={t('menuLink')} disabled={!canEdit} value={isKnown(item.href) ? item.href : 'custom'} onChange={(e) => {
-                  const choice = known.find((k) => k.href === e.target.value)
-                  change(i, choice ? { href: choice.href, label: item.label || choice.label } : { href: 'https://' })
-                }}>
-                  <option value="/">{t('menuHome')}</option>
-                  {collections.length > 0 && <optgroup label={t('menuCollections')}>{collections.map((c) => <option key={c.href} value={c.href}>{c.label}</option>)}</optgroup>}
-                  {pages.length > 0 && <optgroup label={t('menuPages')}>{pages.map((p) => <option key={p.href} value={p.href}>{p.label}</option>)}</optgroup>}
-                  <option value="custom">{t('menuCustom')}</option>
-                </select>
-                {!isKnown(item.href) && <input className="input menu-row__url" aria-label={t('menuCustom')} placeholder={t('menuCustomHint')} maxLength={500} disabled={!canEdit} value={item.href} onChange={(e) => change(i, { href: e.target.value.trim() })} />}
-                {canEdit && (
-                  <span className="row">
-                    <button type="button" className="media__dismiss" disabled={i === 0} aria-label={`${t('pageMoveUp')}: ${item.label}`} onClick={() => setItems((all) => { const next = [...all!]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; return next })}><ArrowUp size={16} aria-hidden="true" /></button>
-                    <button type="button" className="media__dismiss" aria-label={t('menuRemove', { value: item.label })} onClick={() => setItems((all) => all!.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /></button>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-          {canEdit && items.length < 12 && <div className="row"><Button onClick={() => setItems([...items, { label: '', href: '/' }])}><Plus size={16} aria-hidden="true" />{t('menuAdd')}</Button></div>}
-        </section>
-      )}
-      <div className="toast-anchor" role="status">
-        {done && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{t('menuSaved')}</p>}
-      </div>
-    </div>
+    <dialog {...props} className="modal" aria-labelledby="new-menu-heading" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
+      <form onSubmit={(e) => void submit(e)} noValidate>
+        <DialogHead id="new-menu-heading" title={t('menuNewTitle')} disabled={busy} onClose={() => close()} />
+        <div className="dialog__body">
+          <Field id="new-menu-title" label={t('menuTitle')} placeholder={t('menuTitleHint')} maxLength={60} autoComplete="off" autoFocus value={title} disabled={busy} error={tried && !title.trim() ? t('errNameRequired') : undefined} onChange={(e) => setTitle(e.target.value)} />
+          {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+        </div>
+        <footer className="dialog__foot dialog__foot--split">
+          <Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button>
+          <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t('menuAddMenu')}</Button>
+        </footer>
+      </form>
+    </dialog>
   )
 }

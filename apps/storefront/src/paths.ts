@@ -1,5 +1,5 @@
 // The root of a merchant host is shared by campaign pages and system routes.
-const reservedPages = new Set(['api', 'assets', 'products', 'collections', 'pages', 'checkout', 'cart', 'drafts', 'thanks', 'robots', 'robots-txt', 'sitemap', 'sitemap-xml', 'favicon', 'favicon-ico', 'favicon-svg', 'health', 'healthz', '_health', 'well-known', 'account', 'login', 'logout', 'admin'])
+const reservedPages = new Set(['api', 'assets', 'products', 'collections', 'pages', 'checkout', 'cart', 'drafts', 'thanks', 'robots', 'robots-txt', 'sitemap', 'sitemap-xml', 'favicon', 'favicon-ico', 'favicon-svg', 'health', 'healthz', '_health', 'well-known', 'account', 'login', 'logout', 'admin', 'search', 'policies', 'password'])
 const reservedStores = new Set(['www', 'admin', 'api', 'app', 'media', 'domains', 'cdn', 'assets', 'mail', 'smtp', 'support', 'status', 'staging', 'beta'])
 export const isReservedPageHandle = (handle: string) => reservedPages.has(handle.toLowerCase()) || handle.startsWith('.')
 export const isReservedStoreHandle = (handle: string) => reservedStores.has(handle.toLowerCase())

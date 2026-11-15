@@ -12,6 +12,7 @@ import { Invite, Login, Signup } from './pages/Auth'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Menus } from './pages/Menus'
+import { MenuEdit } from './pages/MenuEdit'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
@@ -97,6 +98,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="online-store" element={<OnlineStore />} />
                 <Route path="online-store/themes" element={<Themes />} />
                 <Route path="online-store/menus" element={<Menus />} />
+                <Route path="online-store/menus/:id" element={<MenuEdit />} />
                 <Route path="orders/new" element={<NewOrder />} />
                 <Route path="orders/protection" element={<Protection />} />
                 <Route path="orders/incomplete" element={<Incomplete />} />

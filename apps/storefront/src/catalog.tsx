@@ -1,6 +1,7 @@
 // The store's own pages: home, collection and product. A fixed layout for now; themes come in build step 9.
 import type { ReactNode } from 'react'
 import { taka, type Img } from './sections.tsx'
+import type { ResolvedItem } from './menus.ts'
 
 export type Card = { id: string; name: string; handle: string; price: number; comparePrice: number | null; image: Img | null; inStock: boolean }
 export type CollectionLink = { name: string; handle: string }
@@ -8,27 +9,58 @@ export type CollectionLink = { name: string; handle: string }
 const productHref = (handle: string) => `/products/${encodeURIComponent(handle)}`
 export const collectionHref = (handle: string) => `/collections/${encodeURIComponent(handle)}`
 
-export type MenuLink = { label: string; href: string }
+export type StoreMenus = { main: ResolvedItem[]; footer: ResolvedItem[] }
 
-// The seller's menu, or their collections until they make one. Links are checked again here, as they go into the page.
-export const safeHref = (href: string) => /^\/(?!\/)[^\s]*$/.test(href) || /^https:\/\/[^\s]+$/.test(href)
+// The seller's menus. Addresses come from resolveMenu, and are checked again here as they go into the page.
+export const safeHref = (href: string) => /^\/(?!\/)[^\s]*$/.test(href) || /^https:\/\/[^\s]+$/.test(href) || /^tel:\+?[0-9]{6,20}$/.test(href)
+const shown = (items: ResolvedItem[]): ResolvedItem[] => items.filter((i) => safeHref(i.href)).map((i) => ({ ...i, children: shown(i.children) }))
+const external = (href: string) => (href.startsWith('https:') ? 'noopener' : undefined)
 
-export function StoreLayout({ storeName, links, current, children }: { storeName: string; links: MenuLink[]; current?: string; children: ReactNode }) {
-  const shown = links.filter((l) => safeHref(l.href))
+function MenuLinkItem({ item, current }: { item: ResolvedItem; current?: string }) {
+  return <a href={item.href} aria-current={item.href === current ? 'page' : undefined} rel={external(item.href)}>{item.title}</a>
+}
+
+// Nested items open with <details>, so menus work without JavaScript. A parent's own link comes first inside it.
+function MenuTree({ items, current, level = 1 }: { items: ResolvedItem[]; current?: string; level?: number }) {
+  return (
+    <ul className={`sf-menu-list sf-menu-list--${level}`}>
+      {items.map((item, i) => (
+        <li key={i}>
+          {item.children.length > 0
+            ? <details className="sf-menu-group"><summary>{item.title}</summary><ul className={`sf-menu-list sf-menu-list--${level + 1}`}><li><MenuLinkItem item={item} current={current} /></li>{item.children.map((child, j) => <li key={j}>{child.children.length ? <><MenuLinkItem item={child} current={current} /><MenuTree items={child.children} current={current} level={level + 2} /></> : <MenuLinkItem item={child} current={current} />}</li>)}</ul></details>
+            : <MenuLinkItem item={item} current={current} />}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+export function StoreLayout({ storeName, menus, current, children }: { storeName: string; menus: StoreMenus; current?: string; children: ReactNode }) {
+  const main = shown(menus.main)
+  const footer = shown(menus.footer)
   return (
     <div className="sf-page">
       <header className="sf-bar">
         <div className="sf-wrap sf-bar__row">
           <a className="sf-bar__name" href="/">{storeName}</a>
-          {shown.length > 0 && (
-            <nav className="sf-nav" aria-label="মেনু">
-              {shown.map((l) => <a key={l.href + l.label} href={l.href} aria-current={l.href === current ? 'page' : undefined} rel={l.href.startsWith('https:') ? 'noopener' : undefined}>{l.label}</a>)}
-            </nav>
+          {main.length > 0 && (
+            <>
+              <nav className="sf-nav" aria-label="মেনু"><MenuTree items={main} current={current} /></nav>
+              <details className="sf-nav-phone">
+                <summary><span className="sf-burger" aria-hidden="true" />মেনু</summary>
+                <nav aria-label="মেনু"><MenuTree items={main} current={current} /></nav>
+              </details>
+            </>
           )}
         </div>
       </header>
       <main>{children}</main>
-      <footer className="sf-foot"><div className="sf-wrap">© {storeName}</div></footer>
+      <footer className="sf-foot">
+        <div className="sf-wrap">
+          {footer.length > 0 && <nav className="sf-foot__menu" aria-label="ফুটার মেনু"><MenuTree items={footer} current={current} /></nav>}
+          <p>© {storeName}</p>
+        </div>
+      </footer>
     </div>
   )
 }
@@ -81,9 +113,33 @@ export function Gallery({ images, name }: { images: Img[]; name: string }) {
 export const catalogCss = `
 .sf-bar__row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px}
 .sf-bar__name{color:inherit;text-decoration:none}
-.sf-nav{display:flex;gap:16px;overflow-x:auto;font-weight:400;font-size:15px}
-.sf-nav a{color:var(--sf-muted);text-decoration:none;white-space:nowrap}
-.sf-nav a[aria-current],.sf-nav a:hover{color:var(--sf-ink)}
+.sf-nav{font-weight:400;font-size:15px}
+.sf-menu-list{list-style:none;margin:0;padding:0}
+.sf-nav>.sf-menu-list{display:flex;flex-wrap:wrap;gap:4px 20px;align-items:center}
+.sf-nav a,.sf-nav summary,.sf-nav-phone a,.sf-nav-phone summary{color:var(--sf-muted);text-decoration:none;white-space:nowrap;cursor:pointer}
+.sf-nav a[aria-current],.sf-nav a:hover,.sf-nav summary:hover,.sf-nav-phone a[aria-current]{color:var(--sf-ink)}
+.sf-menu-group{position:relative}
+.sf-menu-group>summary{list-style:none}.sf-menu-group>summary::-webkit-details-marker{display:none}
+.sf-menu-group>summary::after{content:'';display:inline-block;width:6px;height:6px;margin-left:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:translateY(-3px) rotate(45deg)}
+.sf-nav .sf-menu-group>.sf-menu-list{position:absolute;z-index:20;top:calc(100% + 8px);left:-12px;min-width:200px;display:grid;gap:2px;padding:8px;background:var(--sf-paper);border:1px solid var(--sf-rule);border-radius:var(--sf-radius);box-shadow:0 8px 24px rgb(0 0 0/.08)}
+.sf-nav .sf-menu-group .sf-menu-list a{display:block;padding:6px 8px}
+.sf-menu-list--3,.sf-menu-list--4{padding-left:12px}
+.sf-nav-phone{display:none;margin-left:auto}
+.sf-nav-phone>summary{list-style:none;padding:6px 0}.sf-nav-phone>summary::-webkit-details-marker{display:none}
+.sf-nav-phone nav{font-weight:400;position:absolute;left:0;right:0;z-index:20;padding:8px 16px 16px;background:var(--sf-paper);border-bottom:1px solid var(--sf-rule)}
+.sf-nav-phone .sf-menu-list a,.sf-nav-phone .sf-menu-group>summary{display:block;padding:10px 0;font-size:15px}
+.sf-nav-phone .sf-menu-list .sf-menu-list{padding-left:16px}
+.sf-bar{position:relative}
+.sf-foot__menu{margin-bottom:12px}
+.sf-foot__menu>.sf-menu-list{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 20px}
+.sf-foot__menu a{color:inherit}
+.sf-foot__menu .sf-menu-group>.sf-menu-list{display:grid;gap:4px;margin-top:8px}
+.sf-foot p{margin:0}
+.sf-collections{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
+.sf-collections a{display:flex;align-items:center;min-height:96px;padding:16px;border:1px solid var(--sf-rule);border-radius:var(--sf-radius);background:var(--sf-tint);color:inherit;text-decoration:none;font-weight:600}
+.sf-collections a:hover{border-color:var(--sf-ink)}
+.sf-burger{display:inline-block;vertical-align:middle;width:16px;height:2px;margin:0 8px 2px 0;background:currentColor;box-shadow:0 -5px 0 currentColor,0 5px 0 currentColor}
+@media (max-width:719px){.sf-nav{display:none}.sf-nav-phone{display:block}}
 .sf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
 .sf-card{display:grid;gap:4px;color:inherit;text-decoration:none}
 .sf-card__image{display:block;aspect-ratio:1;border-radius:var(--sf-radius);overflow:hidden;background:var(--sf-tint)}
@@ -106,7 +162,7 @@ export const catalogCss = `
 .sf-description p,.sf-description ul,.sf-description ol{margin:0 0 12px}
 .sf-description h2{font-size:20px;margin:16px 0 8px}
 @media (min-width:720px){
-  .sf-grid{grid-template-columns:repeat(4,1fr);gap:24px 16px}
+  .sf-grid,.sf-collections{grid-template-columns:repeat(4,1fr);gap:24px 16px}
   .sf-product{grid-template-columns:1fr 1fr;gap:40px;align-items:start}
 }
 `

@@ -17,6 +17,7 @@ import { registerDiscounts } from './discounts.ts'
 import { registerNotifications } from './notifications.ts'
 import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
+import { registerMenus } from './menus.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -256,7 +257,7 @@ async function storeSettings(t: Tx, store: typeof stores.$inferSelect) {
     return row ? present(row) : null
   }
   return {
-    name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel, menu: store.menu,
+    name: store.name, theme: store.theme, metaPixel: store.metaPixel, tiktokPixel: store.tiktokPixel,
     logo: await image(store.logoMediaId), favicon: await image(store.faviconMediaId),
     ...Object.fromEntries(detailKeys.map((k) => [k, store[k]])) as Record<DetailKey, string>,
   }
@@ -264,22 +265,6 @@ async function storeSettings(t: Tx, store: typeof stores.$inferSelect) {
 
 app.get('/stores/:handle/settings', async (c) => {
   return tx(c.get('userId'), async (t) => c.json(await storeSettings(t, await storeByHandle(t, c.req.param('handle')))))
-})
-
-// Header links. A link is a path inside the store or an https address, so a menu can never run script.
-export const isMenuHref = (v: unknown) => typeof v === 'string' && v.length <= 500 && (/^\/(?!\/)[^\s]*$/.test(v) || /^https:\/\/[^\s]+$/.test(v))
-app.put('/stores/:handle/menu', async (c) => {
-  const body = await readBody(c)
-  const items = body.items
-  if (!Array.isArray(items) || items.length > 12) throw fail(400, 'invalidRequest')
-  const menu = items.map((item) => ({ label: typeof item?.label === 'string' ? item.label.trim() : '', href: item?.href }))
-  if (menu.some((m) => !m.label || m.label.length > 40 || !isMenuHref(m.href))) throw fail(400, 'menuInvalid')
-  return tx(c.get('userId'), async (t) => {
-    const store = await storeByHandle(t, c.req.param('handle'))
-    const [row] = await t.update(stores).set({ menu }).where(eq(stores.id, store.id)).returning({ menu: stores.menu })
-    if (!row) throw fail(403, 'forbidden')
-    return c.json(row)
-  })
 })
 
 // Ad pixels for the storefront. Owners and admins only; the formats are the only thing that makes them safe to put in a script.
@@ -430,6 +415,7 @@ registerInventory(app)
 registerWarehouses(app)
 registerDomains(app)
 registerPages(app)
+registerMenus(app)
 registerOrders(app)
 registerRepeat(app)
 registerAnalytics(app)

@@ -533,4 +533,6 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 
 ## Online store (themes, menus, pages)
 
-Proposed plan in `ONLINE-STORE-PLAN.md` (November 15, 2026). Waiting on the owner to confirm its marked decisions before Phase 1.
+Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (defaults taken for the open decisions).
+
+- Phase 1 done (November 15, 2026): Menus. Migrations `0078_menus.sql`, `0079_menus_security.sql` (row-level security, a trigger that makes `main-menu` and `footer` for every store, the old flat `stores.menu` copied into each store's main menu with known collection and landing-page addresses turned into id links, `storefront_menus`, `storefront_link_targets`), `0080_drop_store_menu.sql`. API `apps/api/src/menus.ts` (list with broken-link counts, get, create with a handle from the title, save with revision, delete, `/link-targets` search and lookup), tests `menus.test.ts` (built-in menus, nested save, bad links, stale save, roles, store isolation). Storefront: nested header menu with dropdowns and a phone menu (`<details>`, no JS), footer menu, new `/products` and `/collections` pages; `search`, `policies` and `password` are now reserved page handles. Dashboard: Menus list and editor (drag tree with before/inside/after drops and keyboard moves, item dialog with link kinds and record search, broken-link badges). Staff may now edit menus (Settings › Team updated). Checked in the browser: migrated menu, adding a nested product link, keyboard moves, save, desktop dropdown and phone menu.

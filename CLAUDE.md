@@ -168,6 +168,13 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
 
+## Menus
+
+- `menus` (store_id, handle, title, `items` jsonb tree, revision): any number per store, up to 30. `main-menu` and `footer` are made for every store by a trigger, cannot be deleted (row-level security) and keep their handles (API). Staff edit; owners and admins delete.
+- Items are `{ id, title, link, children }`, at most 3 levels and 150 items, validated by `readMenuItems` in `apps/storefront/src/menus.ts` (shared by API, storefront and dashboard). Links to collections, products and pages hold the record's **id**; `resolveMenu` turns them into addresses when the page is drawn, so renames never break a menu. A link whose record is gone, a draft or unpublished is left out of the storefront and counted as broken in the dashboard (`storefront_link_targets`).
+- Other links: home, all products (`/products`), all collections (`/collections`), web address (`/path` or https only), phone (`tel:`) and WhatsApp (`wa.me`). Saves send `revision`; a stale one gets 409 `menuChanged`.
+- The storefront header draws `main-menu` (dropdowns and the phone menu are `<details>`, no JavaScript); while it is empty the header lists the store's collections. The footer draws `footer`. Tree edits in the dashboard are the pure functions in `apps/dashboard/src/menu-tree.ts`.
+
 ## Delivery options
 
 - `shipping_rates` replaces the old fixed inside/outside charges. A store has any number of options (name, area note, price, on/off, order), and buyers choose one on the order form. Orders keep `shipping_rate_id` and a copy of the name in `shipping_name`. Deleting an option leaves past orders as they were.

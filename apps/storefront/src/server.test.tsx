@@ -240,11 +240,27 @@ test('the store home and collections list only active products; unlisted ones op
   assert.match(home, /পাঞ্জাবি/)
   assert.doesNotMatch(home, /গোপন অফার|খসড়া পণ্য/)
   assert.match(home, /href="\/collections\/%E0%A6%88%E0%A6%A6"/, 'collections with active products are in the menu')
-  await s.call('PUT', `/stores/${s.handle}/menu`, { items: [{ label: 'অফার', href: s.url }] })
+  const menus = (await s.call('GET', `/stores/${s.handle}/menus`)).json
+  const main = (await s.call('GET', `/stores/${s.handle}/menus/${menus.find((m: any) => m.handle === 'main-menu').id}`)).json
+  const footer = (await s.call('GET', `/stores/${s.handle}/menus/${menus.find((m: any) => m.handle === 'footer').id}`)).json
+  const item = (id: string, title: string, link: object, children: object[] = []) => ({ id, title, link, children })
+  const cols = (await s.call('GET', `/stores/${s.handle}/link-targets?q=ঈদ`)).json
+  await s.call('PUT', `/stores/${s.handle}/menus/${main.id}`, { ...main, items: [
+    item('a', 'অফার', { type: 'page', id: s.page.id }),
+    item('b', 'কেনাকাটা', { type: 'products' }, [item('c', 'ঈদ সংগ্রহ', { type: 'collection', id: cols.find((x: any) => x.type === 'collection').id }), item('d', 'খসড়া', { type: 'product', id: draft.id })]),
+  ] })
+  await s.call('PUT', `/stores/${s.handle}/menus/${footer.id}`, { ...footer, items: [item('f', 'ফোন করুন', { type: 'phone', url: '01711-000000' })] })
   const menued = await (await visit(s.handle, '/')).text()
   assert.match(menued, />অফার<\/a>/)
-  assert.doesNotMatch(menued, /href="\/collections\//, 'a seller’s menu replaces the automatic one')
-  const collection = await (await visit(s.handle, '/collections/ঈদ')).text()
+  assert.match(menued, /<summary>কেনাকাটা<\/summary>/, 'a parent opens its children')
+  assert.match(menued, /href="\/collections\/%E0%A6%88%E0%A6%A6">ঈদ সংগ্রহ</, 'collection links resolve by id')
+  assert.doesNotMatch(menued, /খসড়া/, 'links to drafts are left out')
+  assert.match(menued, /href="tel:01711000000">ফোন করুন</, 'the footer menu')
+  await s.call('PUT', `/stores/${s.handle}/collections/${cols.find((x: any) => x.type === 'collection').id}`, { name: 'ঈদ', handle: 'eid', productIds: [s.product.id] })
+  assert.match(await (await visit(s.handle, '/')).text(), /href="\/collections\/eid">ঈদ সংগ্রহ</, 'renaming a collection keeps its menu link')
+  assert.match(await (await visit(s.handle, '/products')).text(), /পাঞ্জাবি/)
+  assert.match(await (await visit(s.handle, '/collections')).text(), /href="\/collections\/eid">ঈদ</)
+  const collection = await (await visit(s.handle, '/collections/eid')).text()
   assert.match(collection, /পাঞ্জাবি/)
   assert.doesNotMatch(collection, /গোপন অফার|খসড়া পণ্য/)
 
@@ -536,7 +552,8 @@ test('short campaign URLs preserve legacy links, checkout posts, and receipt red
   const oldThanks = await visit(s.handle, `${legacy}/thanks${receipt}`)
   assert.equal(oldThanks.headers.get('location'), `${s.url}/thanks${receipt}`)
   assert.equal((await visit(s.handle, '/api')).status, 404)
-  assert.equal((await visit(s.handle, '/products')).status, 404)
+  assert.equal((await visit(s.handle, '/products')).status, 200, 'the all-products page')
+  assert.equal((await visit(s.handle, '/checkout')).status, 404)
   assert.equal((await visit(s.handle, '/missing-page')).status, 404)
   assert.equal((await visit('media', s.url)).status, 404)
   assert.equal((await visit('nested.store', s.url)).status, 404)

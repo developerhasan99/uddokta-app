@@ -22,6 +22,7 @@ export const permissionGroups: { title: Key; rows: { label: Key; roles: Role[] }
   ] },
   { title: 'permSelling', rows: [
     { label: 'permPagesEdit', roles: all },
+    { label: 'permMenusEdit', roles: all },
     { label: 'permDiscountsEdit', roles: all },
     { label: 'permMediaUpload', roles: all },
     { label: 'permSellingDelete', roles: managers },

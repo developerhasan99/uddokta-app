@@ -41,7 +41,6 @@ export const stores = pgTable('stores', {
   metaPixel: text('meta_pixel').notNull().default(''),
   tiktokPixel: text('tiktok_pixel').notNull().default(''),
   // The storefront header's links: [{ label, href }], hrefs being paths in the store or https links. Empty means: list collections.
-  menu: jsonb('menu').$type<{ label: string; href: string }[]>().notNull().default([]),
   // The seller's own domain, bare and lowercase ("rinafashion.com"; www is served too). Set by owners and admins.
   // Any store may claim a domain; it serves only once verified, by a TXT record proving the claimant controls its DNS, and one store holds it then.
   // Live once the domain check in domains.ts reached the store over HTTPS; the uddokta.live address then redirects to it while primary.
@@ -263,6 +262,24 @@ export const pages = pgTable('pages', {
   unique('pages_store_id').on(t.storeId, t.id),
   unique('pages_store_handle').on(t.storeId, t.handle),
   uniqueIndex('pages_store_published_handle').on(t.storeId, sql`(${t.publishedMeta}->>'handle')`).where(sql`${t.published} is not null`),
+])
+
+// Online store menus (storefront/src/menus.ts): a tree of links held as JSON, links to records by id.
+// main-menu and footer are made with the store and cannot be deleted; the revision guards against overwriting.
+export const menus = pgTable('menus', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  handle: text('handle').notNull(),
+  title: text('title').notNull(),
+  items: jsonb('items').$type<import('storefront/menus').MenuItem[]>().notNull().default([]),
+  revision: integer('revision').notNull().default(1),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('menus_store_id').on(t.storeId, t.id),
+  unique('menus_store_handle').on(t.storeId, t.handle),
+  check('menus_title', sql`char_length(btrim(${t.title})) between 1 and 60 and ${t.handle} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(${t.handle}) <= 60`),
+  check('menus_items', sql`jsonb_typeof(${t.items}) = 'array'`),
 ])
 
 // Images used by a page's draft or published version. The deferred foreign key to media, which blocks deleting them, is in the security migration.
