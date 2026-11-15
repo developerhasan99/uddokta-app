@@ -40,7 +40,7 @@ test('what sellers type becomes a bare hostname', () => {
   assert.equal(readDomain(' https://WWW.RinaFashion.com/shop?x=1 '), 'rinafashion.com')
   assert.equal(readDomain('shop.rina.com.bd'), 'shop.rina.com.bd')
   assert.equal(readDomain('রিনা.বাংলা'), new URL('http://রিনা.বাংলা').hostname, 'Bangla domains become punycode')
-  for (const bad of ['', 'rina', 'rina..com', '-rina.com', 'rina.uddokta.live', 'uddokta.studio', 'localhost', 'a b.com', 42]) {
+  for (const bad of ['', 'rina', 'rina..com', '-rina.com', 'rina.uddokta.live', 'uddokta.co', 'admin.uddokta.co', 'uddokta.studio', 'localhost', 'a b.com', 42]) {
     assert.equal(readDomain(bad), null, String(bad))
   }
 })

@@ -6,8 +6,8 @@ Prepared 4 November 2026. Status: deployment preparation underway. Railway proje
 
 | Purpose | Address |
 |---|---|
-| Brand website, outside this deployment | `uddokta.studio` |
-| Merchant dashboard and same-origin API | `admin.uddokta.studio` and `/api/*` |
+| Brand website, outside this deployment | `uddokta.co` (was `uddokta.studio`) |
+| Merchant dashboard and same-origin API | `admin.uddokta.co` and `/api/*` |
 | Default merchant storefronts | `{handle}.uddokta.live` |
 | Campaign landing pages | `{handle}.uddokta.live/{page-handle}` |
 | Products / collections | `/products/{handle}` and `/collections/{handle}` |
@@ -525,3 +525,8 @@ Measured every control on all 24 section types × Content/Layout/Style at deskto
 - Hero banner block retired: migration 0077 rewrites saved hero sections/blocks (draft and published) to imageText; its schema, renderer, styles, converter case, editor icon and starter-layout use removed (starter layout opens with Image with text).
 - Text and Image blocks retired: saved pages converted to elements by the migrate.ts data step (and on import); their schema, renderers, styles and editor entries removed.
 - Retired the Image with text, Video, Call to action and Standalone icon blocks the same way (converted to elements by the migrate.ts data step and on import; a Video block without a link converts without its heading, as it showed nothing live). Starter layout now features, reviews, FAQ, order form, contact.
+
+## Brand domain move to uddokta.co (November 15, 2026)
+
+- Code and docs now use `uddokta.co` / `admin.uddokta.co`. Sellers cannot claim `uddokta.co` as a custom domain; `uddokta.studio` stays blocked while we own it.
+- Still to do, with user approval: attach `admin.uddokta.co` to the Railway admin service (port 8080), add the CNAME and `_railway-verify` TXT Railway gives at the `uddokta.co` DNS host, confirm `/_health` 200, then redirect `admin.uddokta.studio` → `admin.uddokta.co` (sign-in cookies are host-only, so sellers sign in once more). Point the `uddokta.live` apex redirect rule at `https://uddokta.co`.

@@ -7,7 +7,7 @@ import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // Sellers point their domain at the domains proxy (deploy/proxy) with two A records, both to this address.
 const proxyIp = () => process.env.DOMAINS_IP?.trim() || null
-const ours = ['uddokta.live', 'uddokta.studio', 'localhost']
+const ours = ['uddokta.live', 'uddokta.co', 'uddokta.studio', 'localhost']
 
 // What a seller types, cut down to a bare hostname: "https://www.Rina.com/shop" → "rina.com". Bangla domains become punycode.
 export function readDomain(value: unknown) {

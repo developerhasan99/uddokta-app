@@ -12,7 +12,7 @@ Railway no longer permits new services to opt into legacy `railway.json`/`railwa
 | Pre-deploy command | node apps/api/src/migrate.ts | none |
 | Healthcheck path | /_health | /_health |
 | Restart policy | On Failure, 3 retries | same |
-| Domain | admin.uddokta.studio | *.uddokta.live |
+| Domain | admin.uddokta.co | *.uddokta.live |
 
 Use private `DATABASE_URL=${{Postgres.DATABASE_URL}}` references in both services. Apply the rest of `production.env.example` as appropriate; never use the fake storage values from local container smoke tests. Keep credentials in Railway variables, not in this file.
 
