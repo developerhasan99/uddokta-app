@@ -927,6 +927,10 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .editor__tools > .btn:not(.btn--icon) { flex: none; min-height: 32px; height: 32px; padding: 0 var(--space-sm); line-height: 1.1; }
   .editor__devices { display: none; }
   .editor__tools .editor__save-state { display: none; }
+  /* Themes on phones: the template picker takes the title's place; its extra buttons and history wait for a wider screen. */
+  .editor__title:has(.theme-top) h1, .theme-top > :not(:first-child), .editor__history-open { display: none; }
+  .theme-top { margin: 0; min-width: 0; }
+  .theme-top__select { max-width: 100%; min-width: 0; }
   .editor__sidebar { grid-area: main; gap: 0; padding: 0; border: 0; background: var(--color-paper); }
   .editor[data-pane="preview"] .editor__sidebar { display: none; }
   .editor .editor__sidebar[data-editing] > aside { flex: 1; border: 0; border-radius: 0; }

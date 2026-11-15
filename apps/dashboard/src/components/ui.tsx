@@ -8,8 +8,8 @@ export function Button({ variant = 'default', ...props }: ButtonHTMLAttributes<H
   return <button type="button" {...props} className={`btn btn--${variant}`} />
 }
 
-export function IconButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button type="button" {...props} aria-label={label} className="btn btn--icon">{children}</button>
+export function IconButton({ label, children, className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return <button type="button" {...props} aria-label={label} className={className ? `btn btn--icon ${className}` : 'btn btn--icon'}>{children}</button>
 }
 
 export function LinkButton({ to, variant = 'default', children }: { to: string; variant?: Variant; children: ReactNode }) {

@@ -1212,7 +1212,7 @@ export function Builder({ host }: { host: BuilderHost }) {
         <div className="editor__tools">
           <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
           <span className="editor__history">{history(false)}</span>
-          {host.history && <IconButton label={L(['আগের সংস্করণ', 'Version history'])} title={L(['আগের সংস্করণ', 'Version history'])} disabled={busy} onClick={() => setHistoryOpen(true)}><History size={16} aria-hidden="true" /></IconButton>}
+          {host.history && <IconButton className="editor__history-open" label={L(['আগের সংস্করণ', 'Version history'])} title={L(['আগের সংস্করণ', 'Version history'])} disabled={busy} onClick={() => setHistoryOpen(true)}><History size={16} aria-hidden="true" /></IconButton>}
           <div className="editor__devices">
             <IconButton label={t('pageMobile')} title={t(mobile ? 'pageDesktop' : 'pageMobile')} aria-pressed={mobile} onClick={() => setMobile((value) => !value)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
