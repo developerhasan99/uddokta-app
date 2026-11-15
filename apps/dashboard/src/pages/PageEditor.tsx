@@ -11,7 +11,7 @@ import DOMPurify from 'dompurify'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
   Code, Paintbrush,
-  FolderOpen, Folders, FileText,
+  FolderOpen, Folders, FileText, History,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
@@ -77,6 +77,8 @@ export type BuilderHost = {
   storeBlocks?: boolean
   // A label for sections that belong to a group shown on every page (a theme's header and footer).
   group?: (doc: Doc, sectionId: string) => string | null
+  // Where this document's saved and published versions are listed (GET); restoring goes through /versions/:id/restore.
+  history?: string
 }
 type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
@@ -644,6 +646,7 @@ export function Builder({ host }: { host: BuilderHost }) {
   const device: Device = mobile ? 'mobile' : 'desktop'
   const [adding, setAdding] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const working = useRef(false)
   const [picking, setPicking] = useState<Pick | null>(null)
   const [busy, setBusy] = useState(false)
@@ -1209,6 +1212,7 @@ export function Builder({ host }: { host: BuilderHost }) {
         <div className="editor__tools">
           <span className="editor__save-state" role="status">{t(busy ? 'pageSaving' : dirty ? 'pageUnsaved' : 'pageAllSaved')}</span>
           <span className="editor__history">{history(false)}</span>
+          {host.history && <IconButton label={L(['আগের সংস্করণ', 'Version history'])} title={L(['আগের সংস্করণ', 'Version history'])} disabled={busy} onClick={() => setHistoryOpen(true)}><History size={16} aria-hidden="true" /></IconButton>}
           <div className="editor__devices">
             <IconButton label={t('pageMobile')} title={t(mobile ? 'pageDesktop' : 'pageMobile')} aria-pressed={mobile} onClick={() => setMobile((value) => !value)}><Smartphone size={16} aria-hidden="true" /></IconButton>
           </div>
@@ -1446,6 +1450,7 @@ export function Builder({ host }: { host: BuilderHost }) {
         }} />
       )}
 
+      {historyOpen && host.history && page && <HistoryDialog url={host.history} dirty={dirty} revision={page.revision} onClose={() => setHistoryOpen(false)} onRestored={() => { setHistoryOpen(false); void load(); setToast(L(['সংস্করণটি খসড়ায় ফিরেছে। প্রকাশ করলে দোকানে দেখাবে।', 'The version is back in the draft. Publish to show it in your store.'])) }} />}
       {menuAt && <ContextMenu x={menuAt.x} y={menuAt.y} items={menuItems(menuAt.id)} onClose={() => setMenuAt(null)} />}
 
       <div className="editor__toast" role="status">
@@ -1495,6 +1500,7 @@ export function PageEditor() {
     check: (doc) => (doc.title.trim() ? null : 'nameRequired'),
     settingsLabel: t('pageSettings'),
     settings: (props) => <LandingSettings {...props} base={base} />,
+    history: `${base}/versions`,
     preview: () => (preview ? {
       look: lookOf(preview.live.settings), frame: { header: preview.live.header, footer: preview.live.footer }, themeCss: preview.live.css,
       ctx: { store: preview.store, menus: preview.menus, current: { path: '' } },
@@ -1584,4 +1590,62 @@ function LandingSettings({ doc, edit, error, busy, state, run, setError, setToas
               )}
             </div>
   </>
+}
+
+type Version = { id: string; label: 'save' | 'publish' | 'restore'; createdAt: string; createdBy: string | null }
+
+// Saved and published versions, newest first. Restoring puts one back in the draft; what buyers see changes only on publish.
+function HistoryDialog({ url, dirty, revision, onClose, onRestored }: { url: string; dirty: boolean; revision: number; onClose: () => void; onRestored: () => void }) {
+  const { t, lang, ago } = useLang()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
+  const current = useCurrentStore()!
+  const { ref, close, props } = useDialog(onClose)
+  const [versions, setVersions] = useState<Version[] | null>(null)
+  const [names, setNames] = useState<Record<string, string>>({})
+  const [me, setMe] = useState('')
+  const [asking, setAsking] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    ref.current?.showModal()
+    api<Version[]>(url).then(setVersions).catch(() => setVersions([]))
+    api<{ members: { id: string; name: string }[] }>(`/stores/${current.store.handle}/members`).then((r) => setNames(Object.fromEntries(r.members.map((m) => [m.id, m.name])))).catch(() => {})
+    api<{ user: { id: string } }>('/me').then((r) => setMe(r.user.id)).catch(() => {})
+  }, [])
+  const labels = { save: L(['সেভ', 'Saved']), publish: L(['প্রকাশিত', 'Published']), restore: L(['ফিরিয়ে আনা', 'Restored']) }
+  const restore = async (id: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api(`/stores/${current.store.handle}/versions/${id}/restore`, { method: 'POST', body: { revision } })
+      close(onRestored)
+    } catch (err) {
+      setError(errorCode(err))
+      setBusy(false)
+    }
+  }
+  return <dialog {...props} className="picker" aria-labelledby="history-heading">
+    <DialogHead id="history-heading" title={L(['আগের সংস্করণ', 'Version history'])} sub={L(['শেষ ২০টি সেভ ও ৩০ দিনের প্রকাশিত সংস্করণ থাকে।', 'The last 20 saves and 30 days of published versions are kept.'])} onClose={() => close()} />
+    <div className="dialog__body">
+      {dirty && <p className="page-banner">{L(['সেভ না করা পরিবর্তন আছে। আগের সংস্করণ ফেরালে সেগুলো চলে যাবে।', 'You have unsaved changes. Restoring a version discards them.'])}</p>}
+      {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+      {!versions && <Skeleton />}
+      {versions?.length === 0 && <p className="muted">{L(['এখনো কোনো সংস্করণ নেই। সেভ বা প্রকাশ করলে এখানে জমা হবে।', 'No versions yet. Saving or publishing keeps one here.'])}</p>}
+      <ul className="history-list">
+        {versions?.map((v, i) => (
+          <li key={v.id} className="history-list__row">
+            <span className="history-list__text">
+              <strong>{labels[v.label]}</strong>
+              <span className="muted">{ago(v.createdAt)} · {v.createdBy === me ? L(['আপনি', 'You']) : (v.createdBy && names[v.createdBy]) || L(['টিমের কেউ', 'Team member'])}</span>
+            </span>
+            {i > 0 || dirty
+              ? asking === v.id
+                ? <span className="row"><Button disabled={busy} onClick={() => setAsking(null)}>{t('cancel')}</Button><Button variant="primary" disabled={busy} aria-busy={busy} onClick={() => void restore(v.id)}>{L(['ফিরিয়ে আনুন', 'Restore'])}</Button></span>
+                : <Button disabled={busy} onClick={() => setAsking(v.id)}>{L(['ফিরিয়ে আনুন', 'Restore'])}</Button>
+              : <span className="muted">{L(['এখনকার খসড়া', 'Current draft'])}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </dialog>
 }

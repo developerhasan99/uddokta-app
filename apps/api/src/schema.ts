@@ -299,6 +299,28 @@ export const themeMedia = pgTable('theme_media', {
   index('theme_media_media').on(t.storeId, t.mediaId),
 ])
 
+// Version history for landing pages and themes: what was saved or published, to restore into the draft. Exactly one of
+// page_id and theme_id is set, so a version goes with its page or theme. Saves by one person within 10 minutes are one
+// version; the last 20 saves and 30 days of publishes are kept (pruned when a version is written, see versions.ts).
+export const versionLabels = ['save', 'publish', 'restore'] as const
+export const versions = pgTable('versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  pageId: uuid('page_id'),
+  themeId: uuid('theme_id'),
+  label: text('label', { enum: versionLabels }).notNull(),
+  content: jsonb('content').notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ name: 'versions_page', columns: [t.storeId, t.pageId], foreignColumns: [pages.storeId, pages.id] }).onDelete('cascade'),
+  foreignKey({ name: 'versions_theme', columns: [t.storeId, t.themeId], foreignColumns: [themes.storeId, themes.id] }).onDelete('cascade'),
+  index('versions_page').on(t.pageId, t.createdAt),
+  index('versions_theme').on(t.themeId, t.createdAt),
+  check('versions_owner', sql`(${t.pageId} is null) <> (${t.themeId} is null)`),
+  check('versions_label', sql`${t.label} in ('save', 'publish', 'restore')`),
+])
+
 // Online store pages (About, policies, …): rich text drawn inside the theme's page template. They share the address space
 // /:handle with landing pages; a trigger on both tables keeps a handle to one page. Visible from publish_at when set.
 export const storePagePolicies = ['refund', 'privacy', 'shipping', 'terms', 'contact'] as const

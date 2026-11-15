@@ -123,3 +123,38 @@ test('the library: add, duplicate, make live once published, delete all but the 
   const staff = await s.join('staff')
   assert.equal((await staff.call('POST', base, { name: 'x' })).status, 409, 'staff hit the limit check first, then row-level security')
 })
+
+test('history keeps saves (one per person per ten minutes) and publishes, and restores a version into the draft', async () => {
+  const s = await shop()
+  const base = `/stores/${s.handle}/themes`
+  const [theme] = (await s.owner.call('GET', base)).json
+  let full = (await s.owner.call('GET', `${base}/${theme.id}`)).json
+  const tint = (accent: string) => ({ ...full.draft, settings: { ...full.draft.settings, colors: { ...full.draft.settings.colors, accent } } })
+  full = (await s.owner.call('PUT', `${base}/${theme.id}`, { draft: tint('#111111'), revision: full.revision })).json
+  full = (await s.owner.call('PUT', `${base}/${theme.id}`, { draft: tint('#222222'), revision: full.revision })).json
+  full = (await s.owner.call('POST', `${base}/${theme.id}/publish`, { revision: full.revision })).json
+  full = (await s.owner.call('PUT', `${base}/${theme.id}`, { draft: tint('#333333'), revision: full.revision })).json
+  const history = (await s.owner.call('GET', `${base}/${theme.id}/versions`)).json
+  assert.deepEqual(history.map((v: any) => v.label), ['save', 'publish', 'save'], 'two quick saves are one version')
+  const published = history[1]
+  assert.equal((await s.owner.call('POST', `/stores/${s.handle}/versions/${published.id}/restore`, { revision: full.revision - 1 })).json.error, 'themeChanged')
+  assert.equal((await s.owner.call('POST', `/stores/${s.handle}/versions/${published.id}/restore`, { revision: full.revision })).status, 200)
+  assert.equal((await s.live()).draft && ((await s.live()).draft as ThemeDoc).settings.colors.accent, '#222222')
+  const other = await shop()
+  assert.equal((await other.owner.call('POST', `/stores/${other.handle}/versions/${published.id}/restore`, { revision: 1 })).status, 404)
+  assert.deepEqual((await other.owner.call('GET', `/stores/${other.handle}/themes/${theme.id}/versions`)).json, [])
+})
+
+test('a theme file imports as a new unpublished theme in the library; changed files are refused', async () => {
+  const s = await shop()
+  const [theme] = (await s.owner.call('GET', `/stores/${s.handle}/themes`)).json
+  const file = (await s.owner.call('GET', `/stores/${s.handle}/themes/${theme.id}/export`)).json
+  assert.equal(file.format, 'uddokta-theme')
+  const other = await shop()
+  const made = await other.owner.call('POST', `/stores/${other.handle}/themes/import`, file)
+  assert.equal(made.status, 201)
+  assert.equal(made.json.isLive, false)
+  assert.equal(made.json.isPublished, false)
+  const changed = { ...file, payload: file.payload.replace('"version":1', '"version":1 ') }
+  assert.equal((await other.owner.call('POST', `/stores/${other.handle}/themes/import`, changed)).json.error, 'importInvalid')
+})

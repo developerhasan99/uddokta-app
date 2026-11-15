@@ -10,6 +10,7 @@ import { firstFreeHandle, isId, isName, slugify } from './products.ts'
 import { media, pageMedia, pages, products } from './schema.ts'
 import { getFile } from './storage.ts'
 import { signExport, verifyExport } from './secrets.ts'
+import { recordVersion } from './versions.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // ponytail: one cap for every store; read it from the store's plan once plans exist (Starter allows 3).
@@ -21,7 +22,7 @@ const exportFormat = 'uddokta-page'
 const maxImportBytes = 400_000
 
 // Swaps image and product ids (also inside media:<id> icon values) for the importing store's; null blanks them.
-function remap(content: Content, swap: Map<string, string | null>): unknown {
+export function remap(content: Content, swap: Map<string, string | null>): unknown {
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string') {
       if (swap.has(v)) return swap.get(v)
@@ -80,7 +81,7 @@ async function checkReferences(t: Tx, storeId: string, content: Content) {
 }
 
 // Keeps page_media equal to the images in the draft and the published version, which is what blocks deleting them.
-async function syncMedia(t: Tx, storeId: string, pageId: string, draft: Content, published: Content | null) {
+export async function syncMedia(t: Tx, storeId: string, pageId: string, draft: Content, published: Content | null) {
   const ids = new Set([...references(draft).media, ...(published ? references(published).media : [])])
   await t.delete(pageMedia).where(eq(pageMedia.pageId, pageId))
   if (ids.size > 0) await t.insert(pageMedia).values([...ids].map((mediaId) => ({ storeId, pageId, mediaId })))
@@ -159,6 +160,7 @@ export function registerPages(app: Hono<Env>) {
         throw exists ? fail(409, 'pageChanged') : fail(404, 'notFound')
       }
       await syncMedia(t, storeId, id, input.draft, row.published as Content | null)
+      await recordVersion(t, storeId, { pageId: id }, 'save', { title: input.title, seoTitle: input.seoTitle, seoDescription: input.seoDescription, draft: input.draft }, c.get('userId'))
       return c.json(await loadPage(t, storeId, id))
     })(c)
   })
@@ -176,6 +178,8 @@ export function registerPages(app: Hono<Env>) {
         throw exists ? fail(409, 'pageChanged') : fail(404, 'notFound')
       }
       await syncMedia(t, storeId, id, row.draft as Content, null)
+      const [now] = await t.select().from(pages).where(eq(pages.id, id))
+      await recordVersion(t, storeId, { pageId: id }, 'publish', { title: now.title, seoTitle: now.seoTitle, seoDescription: now.seoDescription, draft: now.draft }, c.get('userId'))
       return c.json(await loadPage(t, storeId, id))
     })(c)
   })

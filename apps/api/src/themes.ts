@@ -7,7 +7,12 @@ import { fail, storeByHandle, type Env } from './app.ts'
 import { tx, type Tx } from './db.ts'
 import { isId } from './products.ts'
 import { collections, media, products, storePages, stores, themeMedia, themes } from './schema.ts'
-import { publicUrl } from './storage.ts'
+import { getFile, publicUrl } from './storage.ts'
+import { saveImage } from './media.ts'
+import { remap } from './pages.ts'
+import { signExport, verifyExport } from './secrets.ts'
+import type { Content } from 'storefront/schema'
+import { recordVersion } from './versions.ts'
 
 export const starterName = 'উদ্যোক্তা'
 
@@ -39,6 +44,8 @@ export async function applyVariation(t: Tx, storeId: string, themeId: string | n
 // ---- API ----
 
 const maxThemes = 10
+const themeFormat = 'uddokta-theme'
+const maxThemeImportBytes = 2_000_000
 
 const presentTheme = (row: typeof themes.$inferSelect, liveId: string | null) => ({
   id: row.id, name: row.name, starter: row.starter, revision: row.revision, isLive: row.id === liveId, isPublished: row.published !== null,
@@ -92,6 +99,7 @@ export function registerThemes(app: Hono<Env>) {
       .where(and(eq(themes.id, row.id), eq(themes.revision, body.revision))).returning()
     if (!saved) throw fail(row.revision !== body.revision ? 409 : 403, row.revision !== body.revision ? 'themeChanged' : 'forbidden')
     await syncThemeMedia(t, store.id, row.id, draft, saved.published as ThemeDoc | null)
+    await recordVersion(t, store.id, { themeId: row.id }, 'save', { name, draft }, c.get('userId'))
     return c.json({ ...presentTheme(saved, store.liveThemeId), draft: saved.draft })
   }))
 
@@ -103,6 +111,7 @@ export function registerThemes(app: Hono<Env>) {
     if (row.revision !== body.revision) throw fail(409, 'themeChanged')
     const [saved] = await t.update(themes).set({ published: sql`${themes.draft}`, publishedAt: sql`now()`, revision: sql`${themes.revision} + 1` }).where(eq(themes.id, row.id)).returning()
     if (!saved) throw fail(403, 'forbidden')
+    await recordVersion(t, store.id, { themeId: row.id }, 'publish', { name: saved.name, draft: saved.draft }, c.get('userId'))
     return c.json({ ...presentTheme(saved, store.liveThemeId), draft: saved.draft })
   }))
 
@@ -145,6 +154,59 @@ export function registerThemes(app: Hono<Env>) {
         starter = `starter:${body.variation ?? 'fresh'}`
       }
       const [row] = await t.insert(themes).values({ storeId: store.id, name, draft: doc, starter }).returning()
+      if (!row) throw fail(403, 'forbidden')
+      await syncThemeMedia(t, store.id, row.id, doc)
+      return c.json(presentTheme(row, store.liveThemeId), 201)
+    })
+  })
+
+  // Theme file: the draft and where its images live, signed so only our own unchanged files come back in.
+  app.get('/stores/:handle/themes/:id/export', themeRoute(async (c, t, store, row) => {
+    const doc = row.draft as ThemeDoc
+    const ids = themeReferences(doc).media
+    const files = ids.length ? await t.select().from(media).where(and(eq(media.storeId, store.id), inArray(media.id, ids))) : []
+    const payload = JSON.stringify({
+      exportedAt: new Date().toISOString(), name: row.name, draft: doc,
+      media: files.map((m) => ({ id: m.id, key: m.key, thumbKey: m.thumbKey, name: m.name, alt: m.alt, width: m.width, height: m.height, sourceFormat: m.sourceFormat })),
+    })
+    return c.json({ format: themeFormat, version: 1, payload, signature: signExport(payload) })
+  }))
+
+  // Import: a new, unpublished theme in the library. Images already in this store are kept, others on the platform are
+  // copied in (counting against storage); missing images, products and collections become blank.
+  app.post('/stores/:handle/themes/import', async (c) => {
+    const body = await c.req.json().catch(() => null)
+    if (!body || body.format !== themeFormat || body.version !== 1 || typeof body.payload !== 'string' || body.payload.length > maxThemeImportBytes || !verifyExport(body.payload, body.signature)) throw fail(400, 'importInvalid')
+    const data = JSON.parse(body.payload)
+    const userId = c.get('userId')
+    const source = readTheme(data.draft)
+    if (!source) throw fail(400, 'importInvalid')
+    const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : starterName
+    const storeId = await tx(userId, async (t) => (await storeByHandle(t, c.req.param('handle')!)).id)
+    const refs = themeReferences(source)
+    const swap = new Map<string, string | null>()
+    const own = await tx(userId, async (t) => {
+      const have = async (table: typeof media | typeof products | typeof collections, ids: string[]) => (ids.length ? (await t.select({ id: table.id }).from(table).where(and(eq(table.storeId, storeId), inArray(table.id, ids)))).map((r) => r.id) : [])
+      return new Set([...await have(media, refs.media), ...await have(products, refs.products), ...await have(collections, refs.collections)])
+    })
+    const files = new Map<string, any>((Array.isArray(data.media) ? data.media : []).map((m: any) => [m.id, m]))
+    for (const id of refs.media) {
+      if (own.has(id)) continue
+      const file = files.get(id)
+      const [full, thumb] = file ? await Promise.all([getFile(file.key), getFile(file.thumbKey)]).catch(() => [null, null]) : [null, null]
+      if (!full || !thumb) { swap.set(id, null); continue }
+      const copy = await saveImage(userId, storeId, String(file.name ?? 'image'), { full, thumb, width: file.width, height: file.height, sourceFormat: String(file.sourceFormat ?? 'webp') })
+      swap.set(id, copy.id)
+    }
+    for (const id of [...refs.products, ...refs.collections]) if (!own.has(id)) swap.set(id, null)
+    const doc = readTheme(remap(source as unknown as Content, swap))
+    if (!doc) throw fail(400, 'importInvalid')
+    return tx(userId, async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle')!)
+      await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`themes:${store.id}`}))`)
+      const [{ n }] = await t.select({ n: sql<number>`count(*)::int` }).from(themes).where(eq(themes.storeId, store.id))
+      if (n >= maxThemes) throw fail(409, 'themeLimit')
+      const [row] = await t.insert(themes).values({ storeId: store.id, name, draft: doc, starter: 'import' }).returning()
       if (!row) throw fail(403, 'forbidden')
       await syncThemeMedia(t, store.id, row.id, doc)
       return c.json(presentTheme(row, store.liveThemeId), 201)

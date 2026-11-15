@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { CircleCheck, ExternalLink, Palette, Plus } from 'lucide-react'
+import { CircleCheck, Download, ExternalLink, Palette, Plus, Upload } from 'lucide-react'
 import type { ThemeSettings } from 'storefront/theme'
 import { presetIds, presets, type PresetId } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -62,6 +62,20 @@ export function Themes() {
       setBusy(false)
     }
   }
+  const uploadFile = useRef<HTMLInputElement>(null)
+  // A theme file downloads signed; only such unchanged files upload, as a new unpublished theme in the library.
+  const download = (theme: Theme) => act(async () => {
+    const file = await api(`${base}/${theme.id}/export`)
+    const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }))
+    const link = Object.assign(document.createElement('a'), { href: url, download: `${theme.name.replace(/[^\p{L}\p{N}-]+/gu, '-') || 'theme'}.uddokta-theme.json` })
+    link.click()
+    URL.revokeObjectURL(url)
+  })
+  const upload = (file: File) => act(async () => {
+    // A file that is not JSON goes up as an empty body, which the API refuses as importInvalid like any other bad file.
+    const body: unknown = await file.text().then(JSON.parse).catch(() => ({}))
+    await api(`${base}/import`, { method: 'POST', body })
+  }, t('themeImported'))
   const duplicate = (theme: Theme) => act(() => api(base, { method: 'POST', body: { name: t('themeCopyName', { value: theme.name }).slice(0, 60), from: theme.id } }))
   const customize = (theme: Theme) => navigate(path(`/online-store/themes/${theme.id}/editor`))
 
@@ -74,6 +88,7 @@ export function Themes() {
       {!theme.isLive && <Button disabled={busy || !theme.isPublished} title={theme.isPublished ? undefined : t('themeNotPublishedHelp')} onClick={() => setAsking({ kind: 'live', theme })}>{t('themeMakeLive')}</Button>}
       <Button disabled={busy} onClick={() => void duplicate(theme)}>{t('themeDuplicate')}</Button>
       <Button disabled={busy} onClick={() => setAsking({ kind: 'rename', theme })}>{t('themeRename')}</Button>
+      <Button disabled={busy} onClick={() => void download(theme)}><Download size={16} aria-hidden="true" />{t('themeDownload')}</Button>
       {!theme.isLive && <Button variant="danger" disabled={busy} onClick={() => setAsking({ kind: 'delete', theme })}>{t('themeDelete')}</Button>}
     </div>
   )
@@ -111,7 +126,11 @@ export function Themes() {
               <h2>{t('themeLibrary')}</h2>
               <p className="muted">{t('themeLibraryHelp')}</p>
             </div>
-            {canEdit && <Button onClick={() => setAsking({ kind: 'add' })}><Plus size={16} aria-hidden="true" />{t('themeAdd')}</Button>}
+            {canEdit && <div className="row">
+              <input ref={uploadFile} type="file" accept=".json,application/json" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
+              <Button disabled={busy} onClick={() => uploadFile.current?.click()}><Upload size={16} aria-hidden="true" />{t('themeUpload')}</Button>
+              <Button onClick={() => setAsking({ kind: 'add' })}><Plus size={16} aria-hidden="true" />{t('themeAdd')}</Button>
+            </div>}
           </div>
           {library.length === 0
             ? <p className="muted">{t('themeLibraryEmpty')}</p>

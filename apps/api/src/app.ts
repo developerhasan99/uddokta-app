@@ -20,6 +20,7 @@ import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
 import { applyVariation, createStarterTheme, registerThemes } from './themes.ts'
+import { registerVersions } from './versions.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -422,6 +423,7 @@ registerPages(app)
 registerMenus(app)
 registerStorePages(app)
 registerThemes(app)
+registerVersions(app)
 registerOrders(app)
 registerRepeat(app)
 registerAnalytics(app)

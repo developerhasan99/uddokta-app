@@ -107,6 +107,7 @@ export function ThemeEditor() {
     serialize: (doc) => JSON.stringify([doc.title, compose(doc)]),
     check: (doc) => (doc.title.trim() ? null : 'nameRequired'),
     storeBlocks: true,
+    history: `${base}/versions`,
     group: (doc, sid) => {
       const extra = doc.extra as Extra
       return extra.header.includes(sid) ? L(['হেডার', 'Header']) : extra.footer.includes(sid) ? L(['ফুটার', 'Footer']) : null
