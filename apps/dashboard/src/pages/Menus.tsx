@@ -91,7 +91,7 @@ function NewMenuDialog({ handle, onClose, onMade }: { handle: string; onClose: (
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    ref.current?.showModal()
+    ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#new-menu-title')?.focus()
   }, [])
 
   const submit = async (e: FormEvent) => {

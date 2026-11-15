@@ -11,7 +11,7 @@ Status: in progress (started November 15, 2026). The owner said to build every p
 | 5 Theme editor | Done (November 15, 2026) |
 | 6 Theme library and history | Done (November 15, 2026) |
 | 7 Cart and checkout | Done (November 15, 2026) |
-| 8 Preferences and polish | Search done with Phase 7; Preferences and password page next |
+| 8 Preferences and polish | Done (November 15, 2026): search, Preferences (home SEO, share image, password page), second starter design |
 
 ## Goal
 

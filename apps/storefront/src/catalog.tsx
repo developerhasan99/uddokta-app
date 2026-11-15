@@ -128,6 +128,7 @@ export const catalogCss = `
 .sf-cart__total{grid-column:3;grid-row:1}
 .sf-search{display:flex;gap:8px;max-width:560px;margin:0 auto 24px}.sf-search input{flex:1;min-height:48px;padding:10px 12px;border:1px solid var(--sf-rule);border-radius:8px;font:inherit;background:var(--sf-paper);color:inherit}.sf-search .sf-button{margin:0}
 @media (min-width:720px){.sf-cart__layout{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}}
+.sf-password{display:grid;gap:16px;justify-items:center}.sf-password__logo{max-height:80px;width:auto}.sf-password .sf-search{width:100%}
 .sf-burger{display:inline-block;vertical-align:middle;width:16px;height:2px;margin:0 8px 2px 0;background:currentColor;box-shadow:0 -5px 0 currentColor,0 5px 0 currentColor}
 @media (max-width:719px){.sf-nav{display:none}.sf-nav-phone{display:block}}
 .sf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--mcols,2),minmax(0,1fr));gap:16px 12px}

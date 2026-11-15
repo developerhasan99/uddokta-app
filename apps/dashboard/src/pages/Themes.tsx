@@ -151,8 +151,8 @@ export function Themes() {
         </section>
       )}
 
-      {asking?.kind === 'add' && <AddThemeDialog busy={busy} onClose={() => setAsking(null)} onAdd={async (name, variation) => {
-        if (await act(() => api(base, { method: 'POST', body: { name, variation } }), t('themeSaved', { value: name }))) setAsking(null)
+      {asking?.kind === 'add' && <AddThemeDialog busy={busy} onClose={() => setAsking(null)} onAdd={async (name, variation, design) => {
+        if (await act(() => api(base, { method: 'POST', body: { name, variation, design } }), t('themeSaved', { value: name }))) setAsking(null)
       }} />}
       {asking?.kind === 'rename' && <RenameDialog theme={asking.theme} busy={busy} onClose={() => setAsking(null)} onRename={async (name) => {
         const full = await api<{ draft: unknown; revision: number }>(`${base}/${asking.theme.id}`)
@@ -191,17 +191,23 @@ function ThemeSwatch({ settings, storeName, large }: { settings: ThemeSettings; 
   )
 }
 
-function AddThemeDialog({ busy, onClose, onAdd }: { busy: boolean; onClose: () => void; onAdd: (name: string, variation: PresetId) => void }) {
+const designs = [
+  { id: 'classic', label: ['ক্লাসিক', 'Classic'], help: ['হোম পেজে সব পণ্যের তালিকা। সহজ ও পরিষ্কার।', 'All products on the home page. Simple and clean.'] },
+  { id: 'bazar', label: ['বাজার', 'Bazar'], help: ['ঘোষণা বার, বড় ব্যানার, কালেকশন ও নতুন পণ্য।', 'Announcement bar, a large banner, collections and new arrivals.'] },
+] as const
+
+function AddThemeDialog({ busy, onClose, onAdd }: { busy: boolean; onClose: () => void; onAdd: (name: string, variation: PresetId, design: string) => void }) {
   const { t, lang } = useLang()
   const { ref, close, props } = useDialog(onClose)
   const [name, setName] = useState('')
   const [variation, setVariation] = useState<PresetId>('fresh')
+  const [design, setDesign] = useState<string>('classic')
   const [tried, setTried] = useState(false)
-  useEffect(() => { ref.current?.showModal() }, [])
+  useEffect(() => { ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#theme-new-name')?.focus() }, [])
   const submit = (e: FormEvent) => {
     e.preventDefault()
     setTried(true)
-    if (name.trim()) onAdd(name.trim(), variation)
+    if (name.trim()) onAdd(name.trim(), variation, design)
   }
   return <dialog {...props} className="modal" aria-labelledby="add-theme-heading" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
     <form onSubmit={submit} noValidate>
@@ -209,6 +215,15 @@ function AddThemeDialog({ busy, onClose, onAdd }: { busy: boolean; onClose: () =
       <div className="dialog__body">
         <p className="muted">{t('themeAddHelp')}</p>
         <Field id="theme-new-name" label={t('themeName')} maxLength={60} autoFocus autoComplete="off" value={name} error={tried && !name.trim() ? t('errNameRequired') : undefined} onChange={(e) => setName(e.target.value)} />
+        <fieldset className="choice-list">
+          <legend className="field__label">{t('themeDesign')}</legend>
+          {designs.map((d) => (
+            <label key={d.id} className="switch-row">
+              <input type="radio" className="check" name="design" checked={design === d.id} onChange={() => setDesign(d.id)} />
+              <span className="switch-row__text"><span className="switch-row__title">{d.label[lang === 'bn' ? 0 : 1]}</span><span className="muted">{d.help[lang === 'bn' ? 0 : 1]}</span></span>
+            </label>
+          ))}
+        </fieldset>
         <fieldset className="choice-list">
           <legend className="field__label">{t('themeStyle')}</legend>
           <div className="theme-styles">
@@ -231,7 +246,7 @@ function RenameDialog({ theme, busy, onClose, onRename }: { theme: Theme; busy: 
   const { t } = useLang()
   const { ref, close, props } = useDialog(onClose)
   const [name, setName] = useState(theme.name)
-  useEffect(() => { ref.current?.showModal() }, [])
+  useEffect(() => { ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#theme-rename')?.focus() }, [])
   return <dialog {...props} className="modal" aria-labelledby="rename-theme-heading" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
     <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) onRename(name.trim()) }} noValidate>
       <DialogHead id="rename-theme-heading" title={t('themeRename')} disabled={busy} onClose={() => close()} />

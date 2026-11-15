@@ -15,6 +15,7 @@ import { Menus } from './pages/Menus'
 import { MenuEdit } from './pages/MenuEdit'
 import { StorePages } from './pages/StorePages'
 import { StorePageEdit } from './pages/StorePageEdit'
+import { Preferences } from './pages/Preferences'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
@@ -105,6 +106,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="online-store/menus/:id" element={<MenuEdit />} />
                 <Route path="online-store/pages" element={<StorePages />} />
                 <Route path="online-store/pages/:id" element={<StorePageEdit />} />
+                <Route path="online-store/preferences" element={<Preferences />} />
                 <Route path="orders/new" element={<NewOrder />} />
                 <Route path="orders/protection" element={<Protection />} />
                 <Route path="orders/incomplete" element={<Incomplete />} />

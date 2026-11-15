@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem } from 'storefront/menus'
-import { readTheme, starterTheme, themeReferences, variationSettings, type ThemeDoc } from 'storefront/theme'
+import { isStarterDesign, readTheme, starterTheme, themeReferences, variationSettings, type ThemeDoc } from 'storefront/theme'
 import { isPreset, type PresetId } from 'storefront/themes'
 import { fail, storeByHandle, type Env } from './app.ts'
 import { tx, type Tx } from './db.ts'
@@ -149,9 +149,9 @@ export function registerThemes(app: Hono<Env>) {
         doc = source.draft as ThemeDoc
         starter = source.starter
       } else {
-        if (!isPreset(body.variation ?? 'fresh')) throw fail(400, 'invalidRequest')
-        doc = starterTheme(body.variation ?? 'fresh')
-        starter = `starter:${body.variation ?? 'fresh'}`
+        if (!isPreset(body.variation ?? 'fresh') || !isStarterDesign(body.design ?? 'classic')) throw fail(400, 'invalidRequest')
+        doc = starterTheme(body.variation ?? 'fresh', body.design ?? 'classic')
+        starter = `${body.design ?? 'classic'}:${body.variation ?? 'fresh'}`
       }
       const [row] = await t.insert(themes).values({ storeId: store.id, name, draft: doc, starter }).returning()
       if (!row) throw fail(403, 'forbidden')

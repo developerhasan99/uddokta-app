@@ -80,7 +80,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Media**
 - **Analytics**
 - **Landing pages** (first under Sales channels)
-- **Online store:** Themes, Pages, Menus
+- **Online store:** Themes, Pages, Menus, Preferences
 - **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
 The current development focus is landing-page COD selling. Keep Online store and its existing working tools accessible while deferring further store development. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
@@ -178,6 +178,11 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Theme files: `GET …/themes/:id/export` signs the draft with its images' storage details (`signExport`); `POST …/themes/import` accepts only unchanged signed files and makes a new unpublished library theme, copying images in as page import does.
 - Themes page: the live theme card and a library (add from a starter style, duplicate, rename, make live once published, delete any but the live one; up to 10). Products, collections and store pages pick an alternate template in a Template card (shown once the live theme has one; `theme-templates`).
 - The storefront draws every store page through the live theme's published copy (`renderThemed` in `server.tsx`, `storefront_theme`), falling back to the starter theme. Landing pages with "Show store header/footer" on draw the theme's header and footer groups. Theme colours and fonts come only from `themeCss`/`themeFontsHref` over checked values.
+
+## Online store preferences
+
+- Online store › Preferences (`apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every themed store page shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
+- Two starter designs (`starterDesigns` in `theme.ts`): classic (the old fixed layout) and bazar (announcement, sticky header, hero, collections, new arrivals); Add theme picks a design and a style.
 
 ## Store pages
 

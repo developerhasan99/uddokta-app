@@ -9,6 +9,7 @@ import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
+import { verifyPassword } from '../../api/src/password.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, walk, type Content, type Section, type Settings } from './schema.ts'
 import { isPreset, type PresetId } from './themes.ts'
 import { readTheme, starterTheme, templateFor, themeCss, themeFontsHref, themeReferences, type TemplateKind, type ThemeDoc } from './theme.ts'
@@ -144,7 +145,8 @@ async function loadStore(handle: string) {
     const mediaIds = themeReferences(theme).media
     const mediaRows = mediaIds.length ? (await t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(sql`select * from storefront_media(${store.id}::uuid, ${`{${mediaIds.join(',')}}`}::uuid[])`)).rows : []
     const images = new Map<string, Img>(mediaRows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
-    return { ...store, collections, theme, menus, info: storeInfo, images, shipping: await shippingOptions(t, store.id) }
+    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
+    return { ...store, collections, theme, menus, info: storeInfo, images, prefs, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
@@ -270,6 +272,7 @@ type Here = { path: string; product?: ProductPage; collection?: { id: string; na
 // A store page drawn through the live theme: the template for its kind (or its chosen alternate), inside the theme's
 // header and footer, with the data its store blocks need loaded first.
 async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, here: Here, meta: { title: string; description: string; canonical?: string; shareImage?: Img; noindex?: boolean; status?: 200 | 404 | 422; alternate?: string; order?: Ctx['order']; orderAction?: string }) {
+  if (locked(c, store)) return passwordPage(c, store)
   const template = templateFor(store.theme, kind, meta.alternate)
   const all = [...store.theme.header, ...template.sections, ...store.theme.footer]
   const page = pageNumber(c)
@@ -418,7 +421,8 @@ app.get('/', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  return renderThemed(c, store, 'home', { path: '/' }, { title: store.name, description: '', canonical: `${c.get('origin')}/` })
+  const share = store.prefs?.share_key ? image(store.prefs.share_key, store.name, store.prefs.share_width, store.prefs.share_height) ?? undefined : undefined
+  return renderThemed(c, store, 'home', { path: '/' }, { title: store.prefs?.home_title || store.name, description: store.prefs?.home_description ?? '', canonical: `${c.get('origin')}/`, shareImage: share })
 })
 
 app.get('/collections/:handle', async (c) => {
@@ -454,6 +458,47 @@ app.get('/products/:handle', async (c) => {
   if (!store) return notFound(c)
   const item = await loadProduct(store.id, c.req.param('handle'))
   return item ? renderProduct(c, store, item) : storeNotFound(c, store)
+})
+
+// Password protection (Online store › Preferences): while a store has a password, its store pages show the password page
+// instead; landing pages stay open so ads keep working. The cookie holds a digest of the store and its password hash,
+// so changing the password closes every open visit.
+const passName = 'store_pass'
+const passToken = (store: LoadedStore) => createHash('sha256').update(`${store.id}:${store.prefs?.password_hash}`).digest('base64url')
+const locked = (c: Context, store: LoadedStore) => Boolean(store.prefs?.password_hash) && getCookie(c, passName) !== passToken(store)
+
+function passwordPage(c: Context, store: LoadedStore, wrong = false) {
+  return html(c, (
+    <Document title={store.name} description="" noindex look={lookOf(store.theme)}>
+      <main className="sf-done sf-wrap sf-narrow sf-password">
+        {store.info.logo ? <img className="sf-password__logo" src={store.info.logo.url} alt={store.name} /> : <h1>{store.name}</h1>}
+        <p>{store.prefs?.password_message || 'দোকানটি শিগগিরই খুলছে। পাসওয়ার্ড থাকলে নিচে লিখুন।'}</p>
+        <form method="post" action="/password" className="sf-search">
+          <input type="password" name="password" required maxLength={100} autoComplete="current-password" aria-label="পাসওয়ার্ড" aria-invalid={wrong || undefined} placeholder="পাসওয়ার্ড" />
+          <button type="submit" className="sf-button">ঢুকুন</button>
+        </form>
+        {wrong && <p className="sf-error" role="alert">পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।</p>}
+      </main>
+    </Document>
+  ), wrong ? 422 : 200)
+}
+
+app.get('/password', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store) return notFound(c)
+  return locked(c, store) ? passwordPage(c, store) : c.redirect('/', 302)
+})
+
+app.post('/password', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store || !store.prefs?.password_hash) return c.redirect('/', 303)
+  const form = await c.req.parseBody()
+  const typed = typeof form.password === 'string' ? form.password.trim().slice(0, 100) : ''
+  if (!typed || !(await verifyPassword(typed, store.prefs.password_hash))) return passwordPage(c, store, true)
+  setCookie(c, passName, passToken(store), { path: '/', sameSite: 'Lax', httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86_400 })
+  return c.redirect('/', 303)
 })
 
 // The cart lives in a cookie as [[variant id, quantity], …]: no account and no table. Prices are never in it; every
@@ -513,6 +558,7 @@ app.post('/cart/add', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store || !fromThisSite(c)) return notFound(c)
+  if (locked(c, store)) return c.redirect('/password', 303)
   const form = await c.req.parseBody()
   const variant = typeof form.variant === 'string' ? form.variant : ''
   const quantity = Math.min(Math.max(Number.parseInt(String(form.quantity ?? '1'), 10) || 1, 1), maxCartItems)
@@ -542,6 +588,7 @@ app.post('/cart', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
+  if (locked(c, store)) return c.redirect('/password', 303)
   const form = await c.req.parseBody()
   if (form.website) return c.redirect('/cart/thanks', 303)
   const values: OrderValues = {}
@@ -664,6 +711,7 @@ app.post('/products/:handle', async (c) => {
   const store = handle && await loadStore(handle)
   const item = store && await loadProduct(store.id, c.req.param('handle'))
   if (!store || !item) return notFound(c)
+  if (locked(c, store)) return c.redirect('/password', 303)
   return takeOrder(c, {
     storeId: store.id, pageId: null, source: 'website', product: item.product, sectionId: 'buy',
     back: productPath(c), reject: (order) => renderProduct(c, store, item, order),

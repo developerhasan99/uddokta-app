@@ -55,6 +55,13 @@ export const stores = pgTable('stores', {
   faviconMediaId: uuid('favicon_media_id'),
   // The theme buyers see (themes); deferred key in migration 0084, set when the store is made.
   liveThemeId: uuid('live_theme_id'),
+  // Online store › Preferences: the home page's search listing and share image, and an optional password that keeps
+  // the store (not its landing pages) closed while it is being prepared. Only the hash of the password is kept.
+  homeTitle: text('home_title').notNull().default(''),
+  homeDescription: text('home_description').notNull().default(''),
+  shareMediaId: uuid('share_media_id'),
+  storePasswordHash: text('store_password_hash'),
+  passwordMessage: text('password_message').notNull().default(''),
   phone: text('phone').notNull().default(''),
   whatsapp: text('whatsapp').notNull().default(''),
   email: text('email').notNull().default(''),

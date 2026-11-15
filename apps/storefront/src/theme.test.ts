@@ -2,12 +2,12 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readContent, newSection } from './schema.ts'
 import { presetIds } from './themes.ts'
-import { readTheme, starterTheme, templateFor, templateKinds, themeCss, themeReferences } from './theme.ts'
+import { readTheme, starterDesigns, starterTheme, templateFor, templateKinds, themeCss, themeReferences } from './theme.ts'
 
-test('the starter theme passes validation in every style and has every template', () => {
-  for (const id of presetIds) {
-    const doc = starterTheme(id)
-    assert.deepEqual(readTheme(doc), doc, id)
+test('both starter designs pass validation in every style and have every template', () => {
+  for (const design of starterDesigns) for (const id of presetIds) {
+    const doc = starterTheme(id, design)
+    assert.deepEqual(readTheme(doc), doc, `${design} ${id}`)
     for (const kind of templateKinds) assert.ok(doc.templates[kind], kind)
   }
 })

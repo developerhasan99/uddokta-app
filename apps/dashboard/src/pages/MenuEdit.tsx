@@ -301,7 +301,7 @@ function ItemDialog({ item, base, onClose, onDone }: { item: MenuItem | null; ba
   const [tried, setTried] = useState(false)
 
   useEffect(() => {
-    ref.current?.showModal()
+    ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#menu-item-title')?.focus()
   }, [])
 
   useEffect(() => {

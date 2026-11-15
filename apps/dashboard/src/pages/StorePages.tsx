@@ -141,7 +141,7 @@ function NewPageDialog({ base, existing, onClose, onMade }: { base: string; exis
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    ref.current?.showModal()
+    ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#new-page-title')?.focus()
   }, [])
 
   const submit = async (e: FormEvent) => {

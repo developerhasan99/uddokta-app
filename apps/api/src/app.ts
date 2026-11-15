@@ -21,6 +21,7 @@ import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
 import { applyVariation, createStarterTheme, registerThemes } from './themes.ts'
 import { registerVersions } from './versions.ts'
+import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { isId, registerProducts } from './products.ts'
@@ -107,7 +108,7 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk', 'stores_share_fk', 'theme_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -424,6 +425,7 @@ registerMenus(app)
 registerStorePages(app)
 registerThemes(app)
 registerVersions(app)
+registerPreferences(app)
 registerOrders(app)
 registerRepeat(app)
 registerAnalytics(app)

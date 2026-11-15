@@ -99,8 +99,38 @@ const typed = (type: SectionType, id: string, settings: Settings = {}): Section 
 }
 const page = (...sections: Section[]): Content => ({ version: 2, sections })
 
+export const starterDesigns = ['classic', 'bazar'] as const
+export type StarterDesign = typeof starterDesigns[number]
+export const isStarterDesign = (v: unknown): v is StarterDesign => (starterDesigns as readonly unknown[]).includes(v)
+
+// The second starter: a shop front. Announcement bar and sticky header, a hero, shopping by collection and new arrivals.
+function bazar(variation: PresetId): ThemeDoc {
+  const base = classic(variation)
+  return {
+    ...base,
+    header: [typed('announcement', 'notice', { text: 'সারা দেশে ক্যাশ অন ডেলিভারি · পণ্য হাতে পেয়ে টাকা দিন', button: '', link: '' }), typed('storeHeader', 'header', { sticky: 'yes' })],
+    footer: [typed('storeFooter', 'footer', { showContact: 'yes' })],
+    templates: {
+      ...base.templates,
+      home: page(
+        { ...newSection('layout', 'hero'), settings: { name: 'হিরো' }, style: { align: 'center', paddingTop: 72, paddingBottom: 72 }, children: [
+          { id: 'hero-title', kind: 'heading', props: { text: 'নতুন কালেকশন এসেছে', level: 'h1' } },
+          { id: 'hero-text', kind: 'text', props: { text: '<p>পছন্দের পণ্য বেছে নিন, ঘরে বসে হাতে পেয়ে টাকা দিন।</p>' } },
+          { id: 'hero-button', kind: 'button', props: { text: 'সব পণ্য দেখুন', link: '/products', icon: '', iconPosition: 'before', variant: 'solid' }, style: { alignSelf: 'center' } },
+        ] },
+        typed('collectionList', 'shop-by', { heading: 'কালেকশন অনুযায়ী কিনুন', columns: 3 }),
+        typed('productGrid', 'new', { heading: 'নতুন পণ্য', source: 'all', limit: 8, pager: 'no' }),
+      ),
+    },
+  }
+}
+
 // The theme every store starts with: the same pages the storefront always had, now as editable templates.
-export function starterTheme(variation: PresetId): ThemeDoc {
+export function starterTheme(variation: PresetId, design: StarterDesign = 'classic'): ThemeDoc {
+  return design === 'bazar' ? bazar(variation) : classic(variation)
+}
+
+function classic(variation: PresetId): ThemeDoc {
   return {
     version: 1,
     settings: variationSettings(variation),

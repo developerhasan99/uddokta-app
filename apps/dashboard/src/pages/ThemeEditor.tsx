@@ -25,7 +25,7 @@ const newId = () => crypto.randomUUID().slice(0, 8)
 const kindOf = (key: string) => key.split('.')[0] as TemplateKind
 // Sections are edited as layouts (like landing pages): built-in ones become a block inside a layout section.
 // The store's header and footer sit flush, without the space a section normally gets above and below.
-const flush: readonly string[] = ['storeHeader', 'storeFooter']
+const flush: readonly string[] = ['storeHeader', 'storeFooter', 'announcement']
 const asLayouts = (sections: Section[], lang: string) => sections.map((s) => {
   if (s.type === 'layout') return s
   const layout = toLayout(s, newId)
@@ -195,7 +195,7 @@ function NewTemplateDialog({ kind, taken, onClose, onMake }: { kind: TemplateKin
   const { ref, close, props } = useDialog(onClose)
   const [name, setName] = useState('')
   const [tried, setTried] = useState(false)
-  useEffect(() => { ref.current?.showModal() }, [])
+  useEffect(() => { ref.current?.showModal(); ref.current?.querySelector<HTMLInputElement>('#template-name')?.focus() }, [])
   const clean = name.trim().toLowerCase()
   const problem = !/^[a-z0-9-]{1,30}$/.test(clean) ? L(['ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন দিয়ে লিখুন, যেমন gift', 'Use lowercase English letters, numbers and hyphens, like gift'])
     : taken.includes(`${kind}.${clean}`) ? L(['এই নামে টেমপ্লেট আছে', 'A template with this name exists']) : null
