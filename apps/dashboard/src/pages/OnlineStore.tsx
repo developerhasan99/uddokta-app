@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight, CircleCheck, ExternalLink, FileText, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
+import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
 import { styleFromPreset, type SiteColors, type SiteStyle } from 'storefront/site'
 import { pageFonts, presetIds, presets } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -35,6 +35,7 @@ export function OnlineStore() {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
     setFailed(false)
@@ -59,6 +60,13 @@ export function OnlineStore() {
     const timer = setTimeout(() => setDone(false), 4000)
     return () => clearTimeout(timer)
   }, [done])
+  const unsaved = Boolean(style && prefs && (JSON.stringify(style) !== saved.style || JSON.stringify(prefs) !== saved.prefs || password !== ''))
+  useEffect(() => {
+    if (!unsaved) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [unsaved])
 
   if (failed) return <div className="page page--narrow"><section className="card card--flush"><Notice role="alert" title={t('errGeneric')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section></div>
   if (!style || !prefs) return <div className="page page--narrow"><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
@@ -92,40 +100,63 @@ export function OnlineStore() {
   const colorLabels: Record<keyof SiteColors, readonly [string, string]> = {
     accent: ['মূল রং', 'Main'], ink: ['লেখা', 'Text'], paper: ['পটভূমি', 'Background'], tint: ['হালকা পটভূমি', 'Soft background'], rule: ['রেখা', 'Lines'],
   }
-  const part = (to: string, Icon: typeof FileText, title: string, sub: string, badge?: ReactNode) => (
+  const discard = () => {
+    setStyle(JSON.parse(saved.style) as SiteStyle)
+    setPrefs(JSON.parse(saved.prefs) as Prefs)
+    setPassword('')
+    setError(null)
+  }
+  const copy = () => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }
+  const part = (to: string, Icon: typeof FileText, title: string, count: number | null, badge?: ReactNode) => (
     <Link className="store-part" to={path(to)}>
-      <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-      <span className="store-part__text"><strong>{title}{badge}</strong><span className="muted">{sub}</span></span>
-      <ChevronRight size={16} aria-hidden="true" />
+      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+      <strong>{title}</strong>
+      {count !== null && <span className="store-part__count">{num(count)}</span>}
+      {badge}
+      <ChevronRight size={14} aria-hidden="true" />
     </Link>
   )
-  const section = (title: string, help: string, children: ReactNode) => (
+  const section = (title: string, help: string, children: ReactNode, aside?: ReactNode) => (
     <section className="settings-split">
-      <div className="settings-split__head"><h2>{title}</h2><p className="muted">{help}</p></div>
+      <div className="settings-split__head"><h2>{title}</h2><p className="muted">{help}</p>{aside}</div>
       <div className="card card--form settings-split__body">{children}</div>
     </section>
+  )
+  const font = `${style.latin ? `"${style.latin}", ` : ''}"${style.bangla || 'Hind Siliguri'}", sans-serif`
+  const radius = Math.min(style.radius, 16)
+  // A small store page drawn with the chosen look (the store's colours, not the dashboard's), updated as settings change.
+  const sample = (
+    <div className="look-sample" aria-hidden="true" style={{ background: c.paper, color: c.ink, borderColor: c.rule, fontFamily: font }}>
+      <div className="look-sample__bar" style={{ borderColor: c.rule }}><strong>{current.store.name}</strong><span>হোম</span><span>পণ্য</span></div>
+      <div className="look-sample__body">
+        <div className="look-sample__image" style={{ background: c.tint, borderRadius: radius }} />
+        <div className="look-sample__text">
+          <strong>পণ্যের নাম</strong>
+          <span style={{ color: c.accent }}>৳১,২০০</span>
+          <span className="look-sample__button" style={{ background: c.accent, color: c.paper, borderRadius: radius }}>অর্ডার করুন</span>
+        </div>
+      </div>
+    </div>
   )
 
   return (
     <form className="page page--settings" onSubmit={(e) => void save(e)} noValidate>
-      <PageHeader title={t('onlineStore')} description={t('onlineStore.d')} action={<div className="row">
-        <a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
-        {canEdit && <Button type="submit" variant="primary" disabled={busy || (!styleDirty && !prefsDirty)} aria-busy={busy}>{t('productSave')}</Button>}
-      </div>} />
+      <PageHeader title={t('onlineStore')} description={t('onlineStore.d')} action={<a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>} />
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
       {!canEdit && <p className="muted">{L(['এখানের সেটিংস শুধু মালিক ও অ্যাডমিন বদলাতে পারেন।', 'Only owners and admins can change these settings.'])}</p>}
 
-      <section className="card store-overview">
-        <div className="store-overview__address">
-          <span className="muted">{t('storeAddressTitle')}</span>
+      <section className="card store-strip">
+        <div className="store-strip__address">
+          <Globe size={16} aria-hidden="true" />
           <a href={url} target="_blank" rel="noopener">{url.replace(/^https?:\/\//, '')}</a>
+          <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
           {wasLocked && <Badge tone="warning"><Lock size={11} aria-hidden="true" /> {L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected'])}</Badge>}
         </div>
-        <div className="store-parts">
-          {part('/online-store/templates', LayoutTemplate, t('templates'), counts ? L([`${num(counts.templates)}টি নিজের টেমপ্লেট`, `${num(counts.templates)} of your own`]) : '…')}
-          {part('/online-store/pages', FileText, t('pages'), counts ? L([`${num(counts.pages)}টি পেজ`, `${num(counts.pages)} pages`]) : '…')}
-          {part('/online-store/menus', ListTree, t('menus'), counts ? L([`${num(counts.menus)}টি মেনু`, `${num(counts.menus)} menus`]) : '…', counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
-        </div>
+        <nav className="store-strip__parts" aria-label={t('onlineStore')}>
+          {part('/online-store/templates', LayoutTemplate, t('templates'), counts?.templates ?? null)}
+          {part('/online-store/pages', FileText, t('pages'), counts?.pages ?? null)}
+          {part('/online-store/menus', ListTree, t('menus'), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
+        </nav>
       </section>
 
       <fieldset className="settings-stack" disabled={!canEdit}>
@@ -135,7 +166,7 @@ export function OnlineStore() {
               const v = presets[id].vars
               const on = v.accent === c.accent && v.paper === c.paper
               return <button key={id} type="button" className="look-preset" aria-pressed={on} title={presets[id].label[lang === 'bn' ? 0 : 1]} onClick={() => setS({ ...styleFromPreset(id), latin: style.latin, width: style.width, css: style.css })}>
-                <span style={{ background: v.paper, borderColor: v.rule }}><i style={{ background: v.accent }} /></span>{presets[id].label[lang === 'bn' ? 0 : 1]}
+                <span className="look-preset__dot" style={{ background: v.paper, borderColor: v.rule }}><i style={{ background: v.accent }} /></span>{presets[id].label[lang === 'bn' ? 0 : 1]}
               </button>
             })}
           </div>
@@ -152,8 +183,16 @@ export function OnlineStore() {
                 {Object.keys(pageFonts[kind]).map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </div>)}
-            <Field id="site-radius" type="number" label={L(['কোণের গোলভাব (px)', 'Corner roundness (px)'])} min={0} max={32} value={String(style.radius)} onChange={(e) => { const n = Number.parseInt(e.target.value, 10); if (n >= 0 && n <= 32) setS({ radius: n }) }} />
-            <Field id="site-width" type="number" label={L(['কন্টেন্টের প্রস্থ (px)', 'Content width (px)'])} min={720} max={1600} step={20} value={String(style.width)} onChange={(e) => { const n = Number.parseInt(e.target.value, 10); if (n >= 720 && n <= 1600) setS({ width: n }) }} />
+          </div>
+          <div className="price-grid price-grid--two">
+            <label className="look-range">
+              <span className="look-range__head"><span>{L(['কোণের গোলভাব', 'Corner roundness'])}</span><output>{num(style.radius)}px</output></span>
+              <input type="range" min={0} max={32} value={style.radius} onChange={(e) => setS({ radius: Number(e.target.value) })} />
+            </label>
+            <label className="look-range">
+              <span className="look-range__head"><span>{L(['কন্টেন্টের প্রস্থ', 'Content width'])}</span><output>{num(style.width)}px</output></span>
+              <input type="range" min={720} max={1600} step={20} value={style.width} onChange={(e) => setS({ width: Number(e.target.value) })} />
+            </label>
           </div>
           <details className="look-css" open={style.css !== '' || undefined}>
             <summary>{L(['কাস্টম CSS', 'Custom CSS'])}</summary>
@@ -164,9 +203,14 @@ export function OnlineStore() {
               ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
               : <p className="field__help" id="site-css-help">{L(['দোকানের সব পেজ ও ল্যান্ডিং পেজে কাজ করে।', 'Applies to every store page and landing page.'])}</p>}
           </details>
-        </>)}
+        </>, sample)}
 
         {section(t('prefHome'), t('prefHomeHelp'), <>
+          <div className="serp" aria-hidden="true">
+            <span className="serp__url">{url.replace(/^https?:\/\//, '')}</span>
+            <span className="serp__title">{prefs.homeTitle || current.store.name}</span>
+            <span className="serp__text">{prefs.homeDescription || L(['বর্ণনা লিখলে সার্চে এখানে দেখাবে।', 'Your description shows here in search results.'])}</span>
+          </div>
           <Field id="pref-title" label={t('prefHomeTitle')} maxLength={300} placeholder={current.store.name} value={prefs.homeTitle} onChange={(e) => setP({ homeTitle: e.target.value })} />
           <div className="field">
             <label htmlFor="pref-description">{t('prefHomeDescription')}</label>
@@ -185,7 +229,10 @@ export function OnlineStore() {
         </>)}
 
         {section(t('prefPassword'), t('prefPasswordHelp'), <>
-          <label className="check-line"><input type="checkbox" className="check" checked={prefs.passwordOn} onChange={(e) => setP({ passwordOn: e.target.checked })} />{t('prefPasswordOn')}</label>
+          <label className="switch-row switch-row--flush">
+            <input type="checkbox" className="check" checked={prefs.passwordOn} onChange={(e) => setP({ passwordOn: e.target.checked })} />
+            <span className="switch-row__text"><span className="switch-row__title">{t('prefPasswordOn')}</span><span className="muted">{wasLocked ? L(['ক্রেতারা এখন পাসওয়ার্ড ছাড়া দোকানে ঢুকতে পারছেন না।', 'Buyers need the password to enter right now.']) : L(['চালু করলে দোকানে ঢুকতে পাসওয়ার্ড লাগবে।', 'When on, buyers need a password to enter.'])}</span></span>
+          </label>
           {prefs.passwordOn && <div className="price-grid price-grid--two">
             <Field id="pref-password" type="password" autoComplete="new-password" maxLength={100} label={wasLocked ? t('prefPasswordNew') : t('prefPasswordSet')} help={wasLocked ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
             <Field id="pref-message" label={t('prefPasswordMessage')} maxLength={300} placeholder={t('prefPasswordMessageHint')} value={prefs.passwordMessage} onChange={(e) => setP({ passwordMessage: e.target.value })} />
@@ -195,6 +242,12 @@ export function OnlineStore() {
       </fieldset>
 
       {picking && <MediaPicker selected={prefs.shareImage ? [prefs.shareImage] : []} max={1} onClose={() => setPicking(false)} onDone={(items) => { setP({ shareImage: items[0] ?? null }); setPicking(false) }} />}
+      {/* Appears only while something is unsaved, next to wherever the seller is working. */}
+      {canEdit && unsaved && <div className="save-bar" role="region" aria-label={L(['সেভ না করা পরিবর্তন', 'Unsaved changes'])}>
+        <span>{L(['সেভ না করা পরিবর্তন', 'Unsaved changes'])}</span>
+        <Button disabled={busy} onClick={discard}>{t('productDiscard')}</Button>
+        <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{t('productSave')}</Button>
+      </div>}
       <div className="toast-anchor" role="status">{done && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{L(['সেভ হয়েছে।', 'Saved.'])}</p>}</div>
     </form>
   )
