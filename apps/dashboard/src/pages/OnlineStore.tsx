@@ -6,6 +6,7 @@ import { pageFonts, presetIds, presets } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
+import { StorePreview } from '../components/StorePreview'
 import { ColorControl } from '../components/SectionDesignControls'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
@@ -144,11 +145,14 @@ export function OnlineStore() {
           </div>
           <a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
         </div>
+        <div className="store-hero__body">
+          <StorePreview handle={handle} style={style} />
         <nav className="store-parts" aria-label={t('onlineStore')}>
           {part('/online-store/templates', LayoutTemplate, t('templates'), L(['হেডার, ফুটার আর প্রতিটি পেজের নকশা', 'Header, footer and each page type']), counts?.templates ?? null)}
           {part('/online-store/pages', FileText, t('pages'), L(['আমাদের সম্পর্কে, নীতিমালা, যোগাযোগ', 'About, policies and contact']), counts?.pages ?? null)}
           {part('/online-store/menus', ListTree, t('menus'), L(['হেডার ও ফুটারের লিংক', 'Links in the header and footer']), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
         </nav>
+        </div>
       </section>
 
       <fieldset className="settings-stack" disabled={!canEdit}>

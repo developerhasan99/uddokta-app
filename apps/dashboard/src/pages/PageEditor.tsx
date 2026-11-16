@@ -1469,6 +1469,8 @@ export type PreviewData = {
   // Published header and footer templates (the default first) and the built-in ones, for drawing pages inside them.
   headers: FrameTemplate[]; footers: FrameTemplate[]
   builtIn: { header: Section[]; footer: Section[] }
+  // The store's home page (default home template or built-in) and the images it and the frames use.
+  home: Content; images: Record<string, { url: string; alt: string; width: number; height: number }>
   choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
 }
 export function usePreviewData(storeHandle: string, query = '') {

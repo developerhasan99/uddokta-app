@@ -109,3 +109,16 @@ test('history restores a template version into the draft; Site settings refuse u
   assert.equal((await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, css: '</style>' })).status, 400)
   assert.equal((await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, radius: 4 })).json.radius, 4)
 })
+
+test('the store preview shows the default published home template, else the built-in one', async () => {
+  const s = await shop()
+  const preview = async () => (await s.owner.call('GET', `/stores/${s.handle}/store-preview`)).json
+  const { builtInTemplates } = await import('storefront/site')
+  assert.deepEqual((await preview()).home, builtInTemplates.home)
+  const made = (await s.owner.call('POST', s.base, { type: 'home', title: 'Blank', from: 'blank' })).json
+  await s.owner.call('POST', `${s.base}/${made.id}/publish`, { revision: made.revision })
+  assert.deepEqual((await preview()).home, builtInTemplates.home, 'not shown until it is the default')
+  await s.owner.call('POST', `${s.base}/${made.id}/default`)
+  assert.deepEqual((await preview()).home.sections, [])
+  assert.deepEqual((await preview()).images, {})
+})

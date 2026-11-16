@@ -201,6 +201,13 @@ export function registerTemplates(app: Hono<Env>) {
     const frames = await t.select({ id: templates.id, type: templates.type, title: templates.title, isDefault: templates.isDefault, published: templates.published })
       .from(templates).where(and(eq(templates.storeId, store.id), inArray(templates.type, ['header', 'footer']), sql`${templates.published} is not null`)).orderBy(desc(templates.isDefault), templates.title)
     const frame = (type: 'header' | 'footer') => frames.filter((f) => f.type === type).map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault, sections: (f.published as Content).sections }))
+    // The home page as the storefront draws it (the default published home template, else the built-in one), and the
+    // images it and the header and footer templates use, so the Online store page can preview the real home page.
+    const [homeRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'home'), eq(templates.isDefault, true), sql`${templates.published} is not null`))
+    const home = (homeRow?.published as Content | undefined) ?? builtInTemplates.home
+    const mediaIds = [...new Set([home, ...frames.map((f) => f.published as Content)].flatMap((d) => references(d).media))]
+    const images = Object.fromEntries((mediaIds.length ? await t.select({ id: media.id, key: media.key, name: media.name, alt: media.alt, width: media.width, height: media.height }).from(media).where(and(eq(media.storeId, store.id), inArray(media.id, mediaIds))) : [])
+      .map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt || m.name, width: m.width, height: m.height }]))
     const choices = {
       products: await t.select({ id: products.id, name: products.name }).from(products).where(and(eq(products.storeId, store.id), ne(products.status, 'draft'))).orderBy(desc(products.createdAt)).limit(50),
       collections: collectionRows.map((x) => ({ id: x.id, name: x.name })),
@@ -213,6 +220,7 @@ export function registerTemplates(app: Hono<Env>) {
       style: siteStyleOf(store),
       headers: frame('header'), footers: frame('footer'),
       builtIn: { header: builtInTemplates.header.sections, footer: builtInTemplates.footer.sections },
+      home, images,
       choices,
     })
   }))
