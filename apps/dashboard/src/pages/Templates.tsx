@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { CircleCheck, Copy, Ellipsis, ExternalLink, FileText, Folder, Folders, Home, LayoutGrid, Lock, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
-import { readyMade, templateTypes, type TemplateType } from 'storefront/site'
+import { CircleCheck, Copy, Ellipsis, ExternalLink, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
+import { readyMade, templateLabels, templateTypes, type TemplateType } from 'storefront/site'
+
+export { templateLabels }
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl } from '../api'
 import { DialogHead } from '../components/DialogHead'
@@ -10,13 +12,8 @@ import { useDialog } from '../components/dialog'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 
-type Row = { id: string; type: TemplateType; title: string; isDefault: boolean; isPublished: boolean; hasChanges: boolean; updatedAt: string }
+type Row = { id: string; type: TemplateType; title: string; isDefault: boolean; builtIn: boolean; isPublished: boolean; hasChanges: boolean; updatedAt: string }
 
-export const templateLabels: Record<TemplateType, readonly [string, string]> = {
-  header: ['হেডার', 'Header'], footer: ['ফুটার', 'Footer'], home: ['হোম পেজ', 'Home page'], product: ['পণ্যের পেজ', 'Product page'],
-  collection: ['কালেকশন পেজ', 'Collection page'], products: ['সব পণ্য', 'All products'], collections: ['সব কালেকশন', 'All collections'],
-  page: ['দোকানের পেজ', 'Store page'], cart: ['কার্ট', 'Cart'], search: ['খোঁজার ফল', 'Search results'], notFound: ['পাওয়া যায়নি (404)', 'Not found (404)'],
-}
 const typeHelp: Record<TemplateType, readonly [string, string]> = {
   header: ['প্রতিটি পেজের ওপরে: লোগো, মেনু, কার্ট।', 'At the top of every page: logo, menu, cart.'],
   footer: ['প্রতিটি পেজের নিচে: লিংক, যোগাযোগ।', 'At the bottom of every page: links, contact.'],
@@ -36,8 +33,8 @@ const typeIcons: Record<TemplateType, typeof Home> = {
 }
 
 // Online store › Templates (like Elementor Pro's Theme Builder): every part of the store is a template made in the page
-// builder. Each type has a built-in default (read-only); a published template can replace it as the default, and
-// products, collections and store pages can pick another one.
+// builder. Each type has a built-in template, the store's own copy: edited like any other, never deleted, and used
+// unless another published template is made the default. Products, collections and store pages can pick another one.
 export function Templates() {
   const { t, lang, ago } = useLang()
   const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
@@ -89,12 +86,17 @@ export function Templates() {
     open(made.id)
   })
 
-  const shown = rows?.filter((r) => tab === 'all' || r.type === tab) ?? []
-  // Types still using their built-in template, shown as read-only rows so sellers see what each page uses.
-  const builtIns = templateTypes.filter((type) => (tab === 'all' || tab === type) && !rows?.some((r) => r.type === type && r.isDefault))
+  // Grouped by type in the tabs' order, the built-in copy first, then the newest change.
+  const shown = rows?.filter((r) => tab === 'all' || r.type === tab)
+    .sort((a, b) => templateTypes.indexOf(a.type) - templateTypes.indexOf(b.type) || Number(b.builtIn) - Number(a.builtIn) || b.updatedAt.localeCompare(a.updatedAt)) ?? []
+  // A built-in copy keeps its type's name in the dashboard's language until the seller renames it.
+  const name = (r: Row) => (r.builtIn && r.title === templateLabels[r.type][0] ? L(templateLabels[r.type]) : r.title)
+  // A built-in template is the default while no other template of its type is.
+  const isDefault = (r: Row) => r.isDefault || (r.builtIn && !rows?.some((x) => x.type === r.type && x.isDefault))
   const status = (r: Row) => <span className="row template-status">
-    {r.isDefault && <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge>}
-    {r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
+    {isDefault(r) && <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge>}
+    {r.builtIn && <Badge>{L(['বিল্ট-ইন', 'Built in'])}</Badge>}
+    {r.builtIn ? null : r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
     {r.hasChanges && <Badge tone="info">{L(['পরিবর্তন আছে', 'Changed'])}</Badge>}
   </span>
 
@@ -122,7 +124,7 @@ export function Templates() {
           </div>
           {!rows && <div role="status" aria-label={t('loading')}>{Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="16rem" /><Skeleton width="5rem" /></div>)}</div>}
           {rows && (
-            <table className="data-table">
+            <table className="data-table templates-table">
               <thead>
                 <tr>
                   <th scope="col">{L(['নাম', 'Name'])}</th>
@@ -140,7 +142,7 @@ export function Templates() {
                       <td>
                         <Link className="data-table__file" to={path(`/online-store/templates/${r.id}`)} onClick={(e) => e.stopPropagation()}>
                           <span className="data-table__thumb data-table__thumb--icon"><Icon size={16} aria-hidden="true" /></span>
-                          <span className="data-table__text"><span className="data-table__name" title={r.title}>{r.title}</span></span>
+                          <span className="data-table__text"><span className="data-table__name" title={name(r)}>{name(r)}</span></span>
                         </Link>
                       </td>
                       <td className="data-table__meta">{L(templateLabels[r.type])}</td>
@@ -148,43 +150,23 @@ export function Templates() {
                       <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
                       <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
                         {canEdit && <Dropdown.Root>
-                          <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['আরও', 'More'])}: ${r.title}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
+                          <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['আরও', 'More'])}: ${name(r)}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
                           <Dropdown.Portal>
                             <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
                               <Dropdown.Group className="menu__section">
                                 <Dropdown.Item className="menu__item menu__action" onSelect={() => open(r.id)}><Pencil size={16} aria-hidden="true" />{L(['এডিট করুন', 'Edit'])}</Dropdown.Item>
-                                {r.isDefault
+                                {r.isDefault && !r.builtIn
                                   ? <Dropdown.Item className="menu__item menu__action" onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'DELETE' }), L(['বিল্ট-ইন টেমপ্লেট আবার ডিফল্ট।', 'The built-in template is the default again.']))}><StarOff size={16} aria-hidden="true" />{L(['ডিফল্ট থেকে সরান', 'Stop being the default'])}</Dropdown.Item>
-                                  : <Dropdown.Item className="menu__item menu__action" disabled={!r.isPublished} onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'POST' }), L(['ডিফল্ট করা হয়েছে।', 'Made the default.']))}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['ডিফল্ট করুন', 'Make default'])}</span>{!r.isPublished && <span className="menu__sub">{L(['আগে এডিটরে প্রকাশ করুন।', 'Publish it in the editor first.'])}</span>}</span></Dropdown.Item>}
-                                <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, r.title, r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
+                                  : !isDefault(r) && <Dropdown.Item className="menu__item menu__action" disabled={!r.isPublished} onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'POST' }), L(['ডিফল্ট করা হয়েছে।', 'Made the default.']))}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['ডিফল্ট করুন', 'Make default'])}</span>{!r.isPublished && <span className="menu__sub">{L(['আগে এডিটরে প্রকাশ করুন।', 'Publish it in the editor first.'])}</span>}</span></Dropdown.Item>}
+                                <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, name(r), r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
                               </Dropdown.Group>
-                              <Dropdown.Group className="menu__section menu__section--ruled">
+                              {!r.builtIn && <Dropdown.Group className="menu__section menu__section--ruled">
                                 <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setDeleting(r)}><Trash2 size={16} aria-hidden="true" />{L(['মুছুন', 'Delete'])}</Dropdown.Item>
-                              </Dropdown.Group>
+                              </Dropdown.Group>}
                             </Dropdown.Content>
                           </Dropdown.Portal>
                         </Dropdown.Root>}
                       </td>
-                    </tr>
-                  )
-                })}
-                {builtIns.map((type) => {
-                  const Icon = typeIcons[type]
-                  return (
-                    <tr key={`builtin-${type}`} className="template-builtin">
-                      <td>
-                        <span className="data-table__file">
-                          <span className="data-table__thumb data-table__thumb--icon"><Icon size={16} aria-hidden="true" /></span>
-                          <span className="data-table__text">
-                            <span className="data-table__name">{L(['বিল্ট-ইন ', 'Built-in ']) + L(templateLabels[type]).toLowerCase()}</span>
-                            <span className="muted data-table__sub"><Lock size={12} aria-hidden="true" /> {L(['বদলানো যায় না; কপি বানিয়ে সাজান।', 'Read-only; duplicate it to make your own.'])}</span>
-                          </span>
-                        </span>
-                      </td>
-                      <td className="data-table__meta">{L(templateLabels[type])}</td>
-                      <td className="data-table__meta"><span className="row template-status"><Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge><Badge>{L(['বিল্ট-ইন', 'Built in'])}</Badge></span></td>
-                      <td className="data-table__meta muted">—</td>
-                      <td className="data-table__meta">{canEdit && <button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['কপি বানিয়ে সাজান', 'Duplicate to edit'])}: ${L(templateLabels[type])}`} title={L(['কপি বানিয়ে সাজান', 'Duplicate to edit'])} onClick={() => void duplicate(type, L(templateLabels[type]), 'builtin')}><Copy size={16} aria-hidden="true" /></button>}</td>
                     </tr>
                   )
                 })}

@@ -1461,7 +1461,7 @@ export function Builder({ host }: { host: BuilderHost }) {
 }
 
 // Data the preview needs to draw the store's header, footer and store blocks as the live store will.
-export type FrameTemplate = { id: string; title: string; isDefault: boolean; sections: Section[] }
+export type FrameTemplate = { id: string; title: string; isDefault: boolean; builtIn: boolean; sections: Section[] }
 export type PreviewData = {
   store: StoreInfo; menus: Record<string, ResolvedItem[]>; cards: Card[]; collections: CollectionCard[]
   product: ProductPage | null; collection: { name: string; handle: string; description: string } | null; page: StorePageView | null
@@ -1483,10 +1483,10 @@ export function usePreviewData(storeHandle: string, query = '') {
   return data
 }
 export const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style) })
-// The header or footer a page shows: the template it picked, else the store's default, else the built-in one.
+// The header or footer a page shows: the template it picked, else the store's default, else its built-in copy.
 export const frameFor = (data: PreviewData, type: 'header' | 'footer', chosen?: string) => {
   const list = type === 'header' ? data.headers : data.footers
-  return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault))?.sections ?? data.builtIn[type]
+  return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data.builtIn[type]
 }
 
 // A landing page in the editor: the page API, its Page settings, and the store's live theme around it in the preview.

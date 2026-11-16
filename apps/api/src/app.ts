@@ -19,7 +19,7 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
-import { applyPreset, registerTemplates } from './templates.ts'
+import { applyPreset, builtInRows, registerTemplates } from './templates.ts'
 import { registerVersions } from './versions.ts'
 import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
@@ -30,7 +30,7 @@ import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { readLocalFile } from './storage.ts'
 import { present } from './media.ts'
-import { media, roles, shippingRates, storeInvites, storeMembers, stores, users, type Role, warehouses } from './schema.ts'
+import { media, roles, shippingRates, storeInvites, storeMembers, stores, templates, users, type Role, warehouses } from './schema.ts'
 import { defaultRateNames, isPrice, registerShipping } from './shipping.ts'
 
 const sessionDays = 30
@@ -230,6 +230,7 @@ app.post('/stores', async (c) => {
         { storeId: id, name: defaultRateNames.inside, price: inside, position: 0 },
         { storeId: id, name: defaultRateNames.outside, price: outside, position: 1 },
       ])
+      await t.insert(templates).values(builtInRows(id))
     })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')

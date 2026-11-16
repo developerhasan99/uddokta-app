@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app } from './app.ts'
@@ -58,7 +58,7 @@ test('a template starts blank, from the built-in one, from a ready-made start or
   const saved = await s.owner.call('PUT', `${s.base}/${built.id}`, { title: 'Gift', draft: built.draft, revision: built.revision })
   assert.equal(saved.json.title, 'Gift')
   assert.equal((await s.owner.call('PUT', `${s.base}/${built.id}`, { draft: built.draft, revision: built.revision })).json.error, 'templateChanged')
-  assert.deepEqual((await s.owner.call('GET', `${s.base}?type=home`)).json.map((t: any) => t.type), ['home', 'home', 'home'])
+  assert.deepEqual((await s.owner.call('GET', `${s.base}?type=home`)).json.map((t: any) => t.builtIn), [false, false, false, true], 'three made plus the built-in copy')
 })
 
 test('one published default per type; deleting a template returns its products to the default', async () => {
@@ -121,4 +121,32 @@ test('the store preview shows the default published home template, else the buil
   await s.owner.call('POST', `${s.base}/${made.id}/default`)
   assert.deepEqual((await preview()).home.sections, [])
   assert.deepEqual((await preview()).images, {})
+})
+
+test('every store has editable built-in templates that cannot be deleted, unpublished or stop being built in', async () => {
+  const s = await shop()
+  const { builtInTemplates, templateTypes } = await import('storefront/site')
+  const list = (await s.owner.call('GET', s.base)).json
+  assert.deepEqual(list.filter((t: any) => t.builtIn).map((t: any) => t.type).sort(), [...templateTypes].sort())
+  const home = list.find((t: any) => t.builtIn && t.type === 'home')
+  assert.equal(home.isPublished, true)
+  assert.equal(home.isDefault, false)
+  assert.equal((await s.owner.call('DELETE', `${s.base}/${home.id}`)).json.error, 'templateBuiltIn')
+  assert.equal((await s.owner.call('POST', `${s.base}/${home.id}/unpublish`)).json.error, 'templateBuiltIn')
+  // Row-level security refuses the delete even past the API, and the flag cannot be switched off.
+  assert.equal((await tx(s.owner.id, (t) => t.delete(templates).where(eq(templates.id, home.id)).returning())).length, 0)
+  await assert.rejects(tx(s.owner.id, (t) => t.update(templates).set({ builtIn: false }).where(eq(templates.id, home.id))))
+  // Edited and published, it is what the store shows until another template is the default.
+  const opened = (await s.owner.call('GET', `${s.base}/${home.id}`)).json
+  const saved = (await s.owner.call('PUT', `${s.base}/${home.id}`, { title: 'Front', draft: { version: 2, sections: [] }, revision: opened.revision })).json
+  await s.owner.call('POST', `${s.base}/${home.id}/publish`, { revision: saved.revision })
+  const shown = async () => (await tx(null, (t) => t.execute<{ doc: any }>(sql`select storefront_template(${s.storeId}::uuid, 'home', null) as doc`))).rows[0].doc
+  assert.deepEqual((await shown()).sections, [])
+  const other = (await s.owner.call('POST', s.base, { type: 'home', title: 'Other', from: 'builtin' })).json
+  await s.owner.call('POST', `${s.base}/${other.id}/publish`, { revision: other.revision })
+  await s.owner.call('POST', `${s.base}/${other.id}/default`)
+  assert.deepEqual((await shown()).sections, builtInTemplates.home.sections, 'the new default wins')
+  await s.owner.call('DELETE', `${s.base}/${other.id}`)
+  assert.deepEqual((await shown()).sections, [], 'back to the edited built-in copy')
+  assert.equal((await s.owner.call('GET', `/stores/${s.handle}/store-preview`)).json.home.sections.length, 0)
 })

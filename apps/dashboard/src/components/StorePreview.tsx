@@ -29,7 +29,10 @@ export function StorePreview({ handle, style }: { handle: string; style: SiteSty
     return () => observer.disconnect()
   }, [])
 
-  const frame = (type: 'header' | 'footer') => (type === 'header' ? data?.headers : data?.footers)?.find((f) => f.isDefault)?.sections ?? data?.builtIn[type] ?? []
+  const frame = (type: 'header' | 'footer') => {
+    const list = (type === 'header' ? data?.headers : data?.footers) ?? []
+    return (list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data?.builtIn[type] ?? []
+  }
   const ctx: Ctx | null = data && {
     preview: true, shipping: [],
     image: (id) => (id ? data.images[id] : undefined),

@@ -290,6 +290,9 @@ export const templates = pgTable('templates', {
   draft: jsonb('draft').notNull(),
   published: jsonb('published'),
   isDefault: boolean('is_default').notNull().default(false),
+  // The store's own copy of the built-in template for its type: editable, never deleted (row-level security), always
+  // published, and what the storefront draws when no other template is the default.
+  builtIn: boolean('built_in').notNull().default(false),
   revision: integer('revision').notNull().default(1),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -297,10 +300,12 @@ export const templates = pgTable('templates', {
 }, (t) => [
   unique('templates_store_id').on(t.storeId, t.id),
   uniqueIndex('templates_store_default').on(t.storeId, t.type).where(sql`${t.isDefault}`),
+  uniqueIndex('templates_store_built_in').on(t.storeId, t.type).where(sql`${t.builtIn}`),
   index('templates_store_updated').on(t.storeId, t.updatedAt),
   check('templates_title', sql`char_length(btrim(${t.title})) between 1 and 100`),
   check('templates_type', sql`${t.type} in ('header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound')`),
   check('templates_default_published', sql`not ${t.isDefault} or ${t.published} is not null`),
+  check('templates_built_in_published', sql`not ${t.builtIn} or ${t.published} is not null`),
 ])
 
 export const templateMedia = pgTable('template_media', {

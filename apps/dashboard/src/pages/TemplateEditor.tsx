@@ -13,7 +13,7 @@ import { templateLabels } from './Templates'
 
 const CssEditor = lazy(() => import('../components/CssEditor'))
 
-type Saved = { id: string; type: TemplateType; title: string; revision: number; isDefault: boolean; isPublished: boolean; hasChanges: boolean; draft: Doc['content'] }
+type Saved = { id: string; type: TemplateType; title: string; revision: number; isDefault: boolean; builtIn: boolean; isPublished: boolean; hasChanges: boolean; draft: Doc['content'] }
 
 const newId = () => crypto.randomUUID().slice(0, 8)
 // Header and footer templates are the frame themselves; every other type previews inside the store's default ones.
@@ -38,6 +38,7 @@ export function TemplateEditor() {
   const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
   const [type, setType] = useState<TemplateType | null>(null)
   const [isDefault, setIsDefault] = useState(false)
+  const [builtIn, setBuiltIn] = useState(false)
   // What product, collection or store page the preview shows, picked in the top bar.
   const [sample, setSample] = useState<{ product: string; collection: string; page: string }>({ product: '', collection: '', page: '' })
   const query = useMemo(() => `?${new URLSearchParams(Object.entries(sample).filter(([, v]) => v)).toString()}`, [sample])
@@ -55,6 +56,7 @@ export function TemplateEditor() {
   const toLoad = (saved: Saved): BuilderLoad => {
     setType(saved.type)
     setIsDefault(saved.isDefault)
+    setBuiltIn(saved.builtIn)
     return {
       doc: { title: saved.title, handle: '', seoTitle: '', seoDescription: '', content: { ...saved.draft, canvas: { header: !framesItself(saved.type), footer: !framesItself(saved.type) }, sections: asLayouts(saved.draft.sections, lang) } },
       state: { revision: saved.revision, isPublished: saved.isPublished, hasChanges: saved.hasChanges, liveUrl: saved.isPublished ? storefrontUrl(current.store.handle) : null },
@@ -90,7 +92,7 @@ export function TemplateEditor() {
       </span>
     ),
     settingsLabel: L(['টেমপ্লেটের সেটিংস', 'Template settings']),
-    settings: (props) => <TemplateSettings {...props} base={base} type={type} isDefault={isDefault} onDefault={setIsDefault} />,
+    settings: (props) => <TemplateSettings {...props} base={base} type={type} isDefault={isDefault} builtIn={builtIn} onDefault={setIsDefault} />,
     preview: (doc) => {
       if (!preview || !type) return {}
       const framed = !framesItself(type)
@@ -129,7 +131,7 @@ export function TemplateEditor() {
 }
 
 // Template settings: name, whether it is the store's default for its type, page fonts and the template's own CSS.
-function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, onDefault }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; onDefault: (v: boolean) => void }) {
+function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, builtIn, onDefault }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; builtIn: boolean; onDefault: (v: boolean) => void }) {
   const { lang } = useLang()
   const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
   const path = useStorePath()
@@ -144,7 +146,11 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
   })
   return <div className="editor__form">
     <Field id="template-title" label={L(['টেমপ্লেটের নাম', 'Template name'])} maxLength={100} value={doc.title} error={!doc.title.trim() ? L(['নাম দিন', 'Enter a name']) : undefined} onChange={(e) => edit({ ...doc, title: e.target.value }, 'title')} />
-    {type && <fieldset className="editor-canvas">
+    {type && builtIn && <fieldset className="editor-canvas">
+      <legend>{L(['বিল্ট-ইন টেমপ্লেট', 'Built-in template'])}</legend>
+      <p className="muted">{L(['অন্য কোনো টেমপ্লেট ডিফল্ট না থাকলে দোকানে এটিই দেখায়। ইচ্ছেমতো এডিট করুন; এটি মোছা যায় না।', 'Your store shows this unless another template is the default. Edit it as you like; it cannot be deleted.'])}</p>
+    </fieldset>}
+    {type && !builtIn && <fieldset className="editor-canvas">
       <legend>{L(['ডিফল্ট', 'Default'])}</legend>
       <p className="muted">{isDefault
         ? L(['দোকানের সব জায়গায় এই ধরনের পেজে এটি দেখায়, যদি না কোনো পণ্য, কালেকশন বা পেজ অন্যটি বেছে নেয়।', 'Shows for this kind of page everywhere in the store, unless a product, collection or page picks another.'])

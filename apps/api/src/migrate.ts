@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { hasRetiredBlocks, retireOldBlocks, retiredTypes } from 'storefront/convert'
 import { readContent } from 'storefront/schema'
+import { builtInTemplates, templateLabels, templateTypes } from 'storefront/site'
 import { pool } from './db.ts'
 
 await migrate(drizzle(pool), { migrationsFolder: new URL('../migrations', import.meta.url).pathname })
@@ -25,6 +26,17 @@ for (const page of rows) {
   if (!draft || (page.published && !published)) { console.warn(`Page ${page.id}: retired blocks could not be converted; left as is`); continue }
   await pool.query('update pages set draft = $1, published = $2, revision = revision + 1 where id = $3', [draft, published, page.id])
   console.log(`Page ${page.id}: retired blocks converted to elements`)
+}
+
+// Data step: every store gets its own editable copy of each built-in template (stores made before they were editable).
+// Inserts only the types a store lacks, so it does nothing once all stores have them.
+for (const { id } of (await pool.query<{ id: string }>('select id from stores')).rows) {
+  for (const type of templateTypes) {
+    const added = await pool.query(
+      'insert into templates (store_id, type, title, draft, published, published_at, built_in) values ($1, $2, $3, $4, $4, now(), true) on conflict (store_id, type) where built_in do nothing',
+      [id, type, templateLabels[type][0], builtInTemplates[type]])
+    if (added.rowCount) console.log(`Store ${id}: built-in ${type} template added`)
+  }
 }
 
 await pool.end()

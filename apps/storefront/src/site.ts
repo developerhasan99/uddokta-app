@@ -7,6 +7,12 @@ import { newSection, readContent, type Content, type Section, type SectionType, 
 export const templateTypes = ['header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound'] as const
 export type TemplateType = typeof templateTypes[number]
 export const isTemplateType = (v: unknown): v is TemplateType => (templateTypes as readonly unknown[]).includes(v)
+// Bangla and English names of each type; a store's built-in copies take the Bangla one as their title.
+export const templateLabels: Record<TemplateType, readonly [string, string]> = {
+  header: ['হেডার', 'Header'], footer: ['ফুটার', 'Footer'], home: ['হোম পেজ', 'Home page'], product: ['পণ্যের পেজ', 'Product page'],
+  collection: ['কালেকশন পেজ', 'Collection page'], products: ['সব পণ্য', 'All products'], collections: ['সব কালেকশন', 'All collections'],
+  page: ['দোকানের পেজ', 'Store page'], cart: ['কার্ট', 'Cart'], search: ['খোঁজার ফল', 'Search results'], notFound: ['পাওয়া যায়নি (404)', 'Not found (404)'],
+}
 // Types a product, collection or store page can choose a template of in its own settings.
 export const assignableTypes = ['product', 'collection', 'page'] as const satisfies readonly TemplateType[]
 // Types a landing page can choose for its header and footer.

@@ -1121,6 +1121,7 @@ const bn = {
   errTemplateChanged: 'অন্য কেউ এই টেমপ্লেট এর মধ্যে সেভ করেছেন। পেজটি রিলোড করে আবার চেষ্টা করুন।',
   errTemplateLimit: 'একটি দোকানে সর্বোচ্চ ১০০টি টেমপ্লেট রাখা যায়।',
   errTemplateDefault: 'ডিফল্ট টেমপ্লেট অপ্রকাশিত করা যায় না। আগে ডিফল্ট থেকে সরান।',
+  errTemplateBuiltIn: 'বিল্ট-ইন টেমপ্লেট মোছা বা অপ্রকাশিত করা যায় না। বদলাতে চাইলে এডিট করুন।',
   errTemplateNotPublished: 'টেমপ্লেটটি আগে এডিটরে প্রকাশ করুন।',
   storePageAdd: 'পেজ যোগ করুন',
   storePageLoadFailed: 'পেজ লোড করা যায়নি।',
@@ -2455,6 +2456,7 @@ const en: Record<Key, string> = {
   errTemplateChanged: 'Someone else saved this template meanwhile. Reload the page and try again.',
   errTemplateLimit: 'A store can have up to 100 templates.',
   errTemplateDefault: 'A default template cannot be unpublished. Stop it being the default first.',
+  errTemplateBuiltIn: 'A built-in template cannot be deleted or unpublished. Edit it instead.',
   errTemplateNotPublished: 'Publish the template in the editor first.',
   storePageAdd: 'Add page',
   storePageLoadFailed: 'Pages could not be loaded.',
@@ -2738,6 +2740,7 @@ const errorKeys: Record<string, Key> = {
   templateChanged: 'errTemplateChanged',
   templateLimit: 'errTemplateLimit',
   templateDefault: 'errTemplateDefault',
+  templateBuiltIn: 'errTemplateBuiltIn',
   templateNotPublished: 'errTemplateNotPublished',
 }
 

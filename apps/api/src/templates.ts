@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem } from 'storefront/menus'
 import { references, type Content } from 'storefront/schema'
-import { builtInTemplates, isTemplateType, maxTemplates, readSiteStyle, readTemplateContent, readyMade, styleFromPreset, type SiteStyle, type TemplateType } from 'storefront/site'
+import { builtInTemplates, isTemplateType, templateLabels, templateTypes, maxTemplates, readSiteStyle, readTemplateContent, readyMade, styleFromPreset, type SiteStyle, type TemplateType } from 'storefront/site'
 import { isPreset, type PresetId } from 'storefront/themes'
 import { fail, storeByHandle, type Env } from './app.ts'
 import { tx, type Tx } from './db.ts'
@@ -30,8 +30,15 @@ async function checkReferences(t: Tx, storeId: string, content: Content) {
   if (await count(media, refs.media) !== refs.media.length || await count(products, refs.products) !== refs.products.length || await count(collections, refs.collections) !== refs.collections.length) throw fail(400, 'templateInvalid')
 }
 
+// Every store has its own copy of each built-in template: published, editable, never deleted. Made with the store, and
+// for stores made before built-ins were editable by the deploy data step (migrate.ts); a store keeps the one it has.
+export const builtInRows = (storeId: string) => templateTypes.map((type) => {
+  const content = builtInTemplates[type]
+  return { storeId, type, title: templateLabels[type][0], draft: content, published: content, publishedAt: new Date(), builtIn: true }
+})
+
 const present = (row: typeof templates.$inferSelect) => ({
-  id: row.id, type: row.type, title: row.title, isDefault: row.isDefault, isPublished: row.published !== null, revision: row.revision,
+  id: row.id, type: row.type, title: row.title, isDefault: row.isDefault, builtIn: row.builtIn, isPublished: row.published !== null, revision: row.revision,
   hasChanges: row.published !== null && JSON.stringify(row.draft) !== JSON.stringify(row.published), updatedAt: row.updatedAt, publishedAt: row.publishedAt,
 })
 
@@ -73,7 +80,7 @@ export function registerTemplates(app: Hono<Env>) {
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`templates:${store.id}`}))`)
-      const [{ n }] = await t.select({ n: sql<number>`count(*)::int` }).from(templates).where(eq(templates.storeId, store.id))
+      const [{ n }] = await t.select({ n: sql<number>`count(*)::int` }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.builtIn, false)))
       if (n >= maxTemplates) throw fail(409, 'templateLimit')
       let draft: Content
       if (from === 'blank') draft = { version: 2, sections: [] }
@@ -126,6 +133,7 @@ export function registerTemplates(app: Hono<Env>) {
   // Back to draft only: the store stops using it (a default must first stop being the default).
   app.post('/stores/:handle/templates/:id/unpublish', templateRoute(async (c, t, store, row) => {
     if (row.isDefault) throw fail(409, 'templateDefault')
+    if (row.builtIn) throw fail(409, 'templateBuiltIn')
     const [saved] = await t.update(templates).set({ published: null, publishedAt: null, revision: sql`${templates.revision} + 1` }).where(eq(templates.id, row.id)).returning()
     if (!saved) throw fail(403, 'forbidden')
     await syncTemplateMedia(t, store.id, row.id, saved.draft as Content)
@@ -141,7 +149,7 @@ export function registerTemplates(app: Hono<Env>) {
     return c.json(present(saved))
   }))
 
-  // Stops being the default: the built-in template takes over for this type.
+  // Stops being the default: the store's built-in copy takes over for this type.
   app.delete('/stores/:handle/templates/:id/default', templateRoute(async (c, t, _store, row) => {
     const [saved] = await t.update(templates).set({ isDefault: false }).where(eq(templates.id, row.id)).returning()
     if (!saved) throw fail(403, 'forbidden')
@@ -150,6 +158,7 @@ export function registerTemplates(app: Hono<Env>) {
 
   // Products, collections and pages that picked it go back to the default (the database sets their choice to null).
   app.delete('/stores/:handle/templates/:id', templateRoute(async (c, t, _store, row) => {
+    if (row.builtIn) throw fail(409, 'templateBuiltIn')
     const gone = await t.delete(templates).where(eq(templates.id, row.id)).returning({ id: templates.id })
     if (!gone.length) throw fail(403, 'forbidden')
     return c.body(null, 204)
@@ -198,12 +207,12 @@ export function registerTemplates(app: Hono<Env>) {
     const [collection] = collectionId ? await t.select({ name: collections.name, handle: collections.handle, description: collections.description }).from(collections).where(and(eq(collections.storeId, store.id), eq(collections.id, collectionId))) : []
     const pageId = q('page')
     const [page] = pageId ? await t.select({ title: storePages.title, body: storePages.body, policy: storePages.policy }).from(storePages).where(and(eq(storePages.storeId, store.id), eq(storePages.id, pageId))) : []
-    const frames = await t.select({ id: templates.id, type: templates.type, title: templates.title, isDefault: templates.isDefault, published: templates.published })
-      .from(templates).where(and(eq(templates.storeId, store.id), inArray(templates.type, ['header', 'footer']), sql`${templates.published} is not null`)).orderBy(desc(templates.isDefault), templates.title)
-    const frame = (type: 'header' | 'footer') => frames.filter((f) => f.type === type).map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault, sections: (f.published as Content).sections }))
-    // The home page as the storefront draws it (the default published home template, else the built-in one), and the
+    const frames = await t.select({ id: templates.id, type: templates.type, title: templates.title, isDefault: templates.isDefault, builtIn: templates.builtIn, published: templates.published })
+      .from(templates).where(and(eq(templates.storeId, store.id), inArray(templates.type, ['header', 'footer']), sql`${templates.published} is not null`)).orderBy(desc(templates.isDefault), desc(templates.builtIn), templates.title)
+    const frame = (type: 'header' | 'footer') => frames.filter((f) => f.type === type).map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault, builtIn: f.builtIn, sections: (f.published as Content).sections }))
+    // The home page as the storefront draws it (the default published home template, else the store's built-in copy), and the
     // images it and the header and footer templates use, so the Online store page can preview the real home page.
-    const [homeRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'home'), eq(templates.isDefault, true), sql`${templates.published} is not null`))
+    const [homeRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'home'), sql`(${templates.isDefault} or ${templates.builtIn}) and ${templates.published} is not null`)).orderBy(desc(templates.isDefault)).limit(1)
     const home = (homeRow?.published as Content | undefined) ?? builtInTemplates.home
     const mediaIds = [...new Set([home, ...frames.map((f) => f.published as Content)].flatMap((d) => references(d).media))]
     const images = Object.fromEntries((mediaIds.length ? await t.select({ id: media.id, key: media.key, name: media.name, alt: media.alt, width: media.width, height: media.height }).from(media).where(and(eq(media.storeId, store.id), inArray(media.id, mediaIds))) : [])
