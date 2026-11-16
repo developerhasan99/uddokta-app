@@ -130,7 +130,8 @@ export function OnlineStore() {
       {!canEdit && <p className="muted">{L(['এখানের সেটিংস শুধু মালিক ও অ্যাডমিন বদলাতে পারেন।', 'Only owners and admins can change these settings.'])}</p>}
 
       <section className="card store-hero">
-        <div className="store-hero__head">
+        <StorePreview handle={handle} style={style} />
+        <div className="store-hero__side">
           <div className="store-hero__info">
             <h2>{current.store.name}
               {wasLocked
@@ -143,15 +144,12 @@ export function OnlineStore() {
               <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
             </div>
           </div>
-          <a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
-        </div>
-        <div className="store-hero__body">
-          <StorePreview handle={handle} style={style} />
-        <nav className="store-parts" aria-label={t('onlineStore')}>
-          {part('/online-store/templates', LayoutTemplate, t('templates'), L(['হেডার, ফুটার আর প্রতিটি পেজের নকশা', 'Header, footer and each page type']), counts?.templates ?? null)}
-          {part('/online-store/pages', FileText, t('pages'), L(['আমাদের সম্পর্কে, নীতিমালা, যোগাযোগ', 'About, policies and contact']), counts?.pages ?? null)}
-          {part('/online-store/menus', ListTree, t('menus'), L(['হেডার ও ফুটারের লিংক', 'Links in the header and footer']), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
-        </nav>
+          <a className="btn store-hero__view" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
+          <nav className="store-parts" aria-label={t('onlineStore')}>
+            {part('/online-store/templates', LayoutTemplate, t('templates'), L(['হেডার, ফুটার আর প্রতিটি পেজের নকশা', 'Header, footer and each page type']), counts?.templates ?? null)}
+            {part('/online-store/pages', FileText, t('pages'), L(['আমাদের সম্পর্কে, নীতিমালা, যোগাযোগ', 'About, policies and contact']), counts?.pages ?? null)}
+            {part('/online-store/menus', ListTree, t('menus'), L(['হেডার ও ফুটারের লিংক', 'Links in the header and footer']), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
+          </nav>
         </div>
       </section>
 
