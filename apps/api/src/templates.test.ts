@@ -150,3 +150,16 @@ test('every store has editable built-in templates that cannot be deleted, unpubl
   assert.deepEqual((await shown()).sections, [], 'back to the edited built-in copy')
   assert.equal((await s.owner.call('GET', `/stores/${s.handle}/store-preview`)).json.home.sections.length, 0)
 })
+
+test('your own template can be unpublished unless it is the default; the store then shows the default again', async () => {
+  const s = await shop()
+  const made = (await s.owner.call('POST', s.base, { type: 'home', title: 'Mine', from: 'blank' })).json
+  await s.owner.call('POST', `${s.base}/${made.id}/publish`, { revision: made.revision })
+  await s.owner.call('POST', `${s.base}/${made.id}/default`)
+  assert.equal((await s.owner.call('POST', `${s.base}/${made.id}/unpublish`)).json.error, 'templateDefault')
+  await s.owner.call('DELETE', `${s.base}/${made.id}/default`)
+  const done = await s.owner.call('POST', `${s.base}/${made.id}/unpublish`)
+  assert.equal(done.json.isPublished, false)
+  const shown = (await tx(null, (t) => t.execute<{ doc: any }>(sql`select storefront_template(${s.storeId}::uuid, 'home', ${made.id}::uuid) as doc`))).rows[0].doc
+  assert.ok(shown.sections.length > 0, 'a page that picked it gets the built-in copy')
+})
