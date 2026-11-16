@@ -163,7 +163,6 @@ export function OnlineStore() {
             <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
           </div>
           <div className="row">
-            <Link className="btn btn--primary" to={path('/online-store/templates')}><LayoutTemplate size={16} aria-hidden="true" />{L(['ডিজাইন করুন', 'Customize'])}</Link>
             <a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
           </div>
           <nav className="store-parts" aria-label={t('onlineStore')}>
