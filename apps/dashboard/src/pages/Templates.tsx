@@ -93,12 +93,13 @@ export function Templates() {
   const name = (r: Row) => (r.builtIn && r.title === templateLabels[r.type][0] ? L(templateLabels[r.type]) : r.title)
   // A built-in template is the default while no other template of its type is.
   const isDefault = (r: Row) => r.isDefault || (r.builtIn && !rows?.some((x) => x.type === r.type && x.isDefault))
-  const status = (r: Row) => <span className="row template-status">
-    {isDefault(r) && <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge>}
-    {r.builtIn && <Badge>{L(['বিল্ট-ইন', 'Built in'])}</Badge>}
-    {r.builtIn ? null : r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
+  // One state badge beside the name (Default, else Published or Draft), plus Changed when the draft differs.
+  const status = (r: Row) => <>
+    {isDefault(r) ? <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge> : r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
     {r.hasChanges && <Badge tone="info">{L(['পরিবর্তন আছে', 'Changed'])}</Badge>}
-  </span>
+  </>
+  // Under the name: its type (on the All tab, unless the name already says it) and whether it is the built-in template.
+  const detail = (r: Row) => [tab === 'all' && name(r) !== L(templateLabels[r.type]) ? L(templateLabels[r.type]) : '', r.builtIn ? L(['বিল্ট-ইন টেমপ্লেট', 'Built-in template']) : ''].filter(Boolean).join(' · ')
 
   return (
     <div className="page">
@@ -128,8 +129,6 @@ export function Templates() {
               <thead>
                 <tr>
                   <th scope="col">{L(['নাম', 'Name'])}</th>
-                  <th scope="col" className="data-table__meta">{L(['ধরন', 'Type'])}</th>
-                  <th scope="col" className="data-table__meta">{L(['অবস্থা', 'Status'])}</th>
                   <th scope="col" className="data-table__meta">{t('pageUpdated')}</th>
                   <th scope="col" className="data-table__meta"><span className="visually-hidden">{L(['কাজ', 'Actions'])}</span></th>
                 </tr>
@@ -142,11 +141,12 @@ export function Templates() {
                       <td>
                         <Link className="data-table__file" to={path(`/online-store/templates/${r.id}`)} onClick={(e) => e.stopPropagation()}>
                           <span className="data-table__thumb data-table__thumb--icon"><Icon size={16} aria-hidden="true" /></span>
-                          <span className="data-table__text"><span className="data-table__name" title={name(r)}>{name(r)}</span></span>
+                          <span className="data-table__text">
+                            <span className="template-name"><span className="data-table__name" title={name(r)}>{name(r)}</span>{status(r)}</span>
+                            {detail(r) && <span className="template-detail">{detail(r)}</span>}
+                          </span>
                         </Link>
                       </td>
-                      <td className="data-table__meta">{L(templateLabels[r.type])}</td>
-                      <td className="data-table__meta">{status(r)}</td>
                       <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
                       <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
                         {canEdit && <Dropdown.Root>

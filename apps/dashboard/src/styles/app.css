@@ -1065,11 +1065,12 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 @media (prefers-reduced-motion: reduce) { .save-bar { animation: none; } }
 @media (max-width: 900px) { .settings-split { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); } .settings-split__head { position: static; padding-top: 0; } .store-hero { grid-template-columns: minmax(0, 1fr); } .store-preview { min-height: 0; aspect-ratio: 16 / 10; } }
 @media (max-width: 640px) { .save-bar { left: var(--space-sm); right: var(--space-sm); transform: none; justify-content: flex-end; } @keyframes save-bar-in { from { opacity: 0; } } }
-.template-status { flex-wrap: nowrap; gap: var(--space-2xs); }
 .templates-table th:nth-child(2) { width: 9rem; }
-.templates-table th:nth-child(3) { width: 10.5rem; }
-.templates-table th:nth-child(4) { width: 8rem; }
-.templates-table th:nth-child(5) { width: 3.5rem; }
+.templates-table th:nth-child(3) { width: 3.5rem; }
+.template-name { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.template-name .data-table__name { flex: 0 1 auto; min-width: 0; }
+.template-name .badge { flex: none; }
+.template-detail { overflow: hidden; color: var(--color-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .template-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
 .template-types button { display: grid; gap: var(--space-3xs); width: 100%; height: 100%; padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); background: var(--color-paper); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .template-types button:hover { border-color: var(--color-primary); }
