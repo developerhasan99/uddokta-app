@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { CircleCheck, Copy, Ellipsis, ExternalLink, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
+import { CircleCheck, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
 import { readyMade, templateLabels, templateTypes, type TemplateType } from 'storefront/site'
 
 export { templateLabels }
@@ -128,7 +128,8 @@ export function Templates() {
                   {r.isDefault && !r.builtIn
                     ? <Dropdown.Item className="menu__item menu__action" onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'DELETE' }), L(['বিল্ট-ইন টেমপ্লেট আবার ডিফল্ট।', 'The built-in template is the default again.']))}><StarOff size={16} aria-hidden="true" />{L(['ডিফল্ট থেকে সরান', 'Stop being the default'])}</Dropdown.Item>
                     : !isDefault(r) && <Dropdown.Item className="menu__item menu__action" disabled={!r.isPublished} onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'POST' }), L(['ডিফল্ট করা হয়েছে।', 'Made the default.']))}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['ডিফল্ট করুন', 'Make default'])}</span>{!r.isPublished && <span className="menu__sub">{L(['আগে এডিটরে প্রকাশ করুন।', 'Publish it in the editor first.'])}</span>}</span></Dropdown.Item>}
-                  <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, name(r), r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
+                  {!r.builtIn && r.isPublished && <Dropdown.Item className="menu__item menu__action" disabled={r.isDefault} onSelect={() => void act(() => api(`${base}/${r.id}/unpublish`, { method: 'POST' }), L(['অপ্রকাশিত হয়েছে। দোকানে আর দেখাবে না।', 'Unpublished. Your store no longer shows it.']))}><EyeOff size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['অপ্রকাশিত করুন', 'Unpublish'])}</span>{r.isDefault && <span className="menu__sub">{L(['আগে ডিফল্ট থেকে সরান।', 'Stop it being the default first.'])}</span>}</span></Dropdown.Item>}
+          <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, name(r), r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
                 </Dropdown.Group>
                 {!r.builtIn && <Dropdown.Group className="menu__section menu__section--ruled">
                   <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setDeleting(r)}><Trash2 size={16} aria-hidden="true" />{L(['মুছুন', 'Delete'])}</Dropdown.Item>

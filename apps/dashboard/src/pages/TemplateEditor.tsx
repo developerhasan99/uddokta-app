@@ -131,7 +131,7 @@ export function TemplateEditor() {
 }
 
 // Template settings: name, whether it is the store's default for its type, page fonts and the template's own CSS.
-function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, builtIn, onDefault }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; builtIn: boolean; onDefault: (v: boolean) => void }) {
+function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, builtIn, onDefault, setState }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; builtIn: boolean; onDefault: (v: boolean) => void }) {
   const { lang } = useLang()
   const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
   const path = useStorePath()
@@ -140,6 +140,16 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
       await api(`${base}/default`, { method: isDefault ? 'DELETE' : 'POST' })
       onDefault(!isDefault)
       setToast(isDefault ? L(['আর ডিফল্ট নয়, বিল্ট-ইন টেমপ্লেট দেখাবে।', 'No longer the default; the built-in template shows instead.']) : L(['এটি এখন ডিফল্ট টেমপ্লেট।', 'This is now the default template.']))
+    } catch (err) {
+      setError(errorCode(err))
+    }
+  })
+  // Back to draft: products, collections and pages that picked it show the default again. A default must stop being one first.
+  const unpublish = () => run(async () => {
+    try {
+      await api(`${base}/unpublish`, { method: 'POST' })
+      setState({ ...state, isPublished: false, hasChanges: false, liveUrl: null })
+      setToast(L(['অপ্রকাশিত হয়েছে। দোকানে আর দেখাবে না।', 'Unpublished. Your store no longer shows it.']))
     } catch (err) {
       setError(errorCode(err))
     }
@@ -156,6 +166,13 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
         ? L(['দোকানের সব জায়গায় এই ধরনের পেজে এটি দেখায়, যদি না কোনো পণ্য, কালেকশন বা পেজ অন্যটি বেছে নেয়।', 'Shows for this kind of page everywhere in the store, unless a product, collection or page picks another.'])
         : L(['ডিফল্ট করলে দোকানের সব জায়গায় এই ধরনের পেজে এটি দেখাবে। আগে প্রকাশ করুন।', 'Make it the default to show it for this kind of page everywhere in the store. Publish it first.'])}</p>
       <button type="button" className="btn" disabled={busy || (!isDefault && !state.isPublished)} onClick={() => void toggleDefault()}>{isDefault ? L(['ডিফল্ট থেকে সরান', 'Stop being the default']) : L(['ডিফল্ট করুন', 'Make default'])}</button>
+    </fieldset>}
+    {type && !builtIn && state.isPublished && <fieldset className="editor-canvas">
+      <legend>{L(['প্রকাশিত', 'Published'])}</legend>
+      <p className="muted">{isDefault
+        ? L(['ডিফল্ট টেমপ্লেট অপ্রকাশিত করা যায় না। আগে ডিফল্ট থেকে সরান।', 'A default template cannot be unpublished. Stop it being the default first.'])
+        : L(['অপ্রকাশিত করলে দোকান এটি আর দেখাবে না; যে পণ্য, কালেকশন বা পেজ এটি বেছে নিয়েছিল সেগুলো ডিফল্ট দেখাবে।', 'Unpublish to stop your store using it; products, collections and pages that picked it show the default instead.'])}</p>
+      <button type="button" className="btn" disabled={busy || isDefault} onClick={() => void unpublish()}>{L(['অপ্রকাশিত করুন', 'Unpublish'])}</button>
     </fieldset>}
     <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
       <p className="muted">{L(['এই টেমপ্লেটের ফন্ট। ফাঁকা রাখলে সাইট সেটিংসের ফন্ট থাকে।', 'Fonts for this template. Leave blank to keep the Site settings fonts.'])}</p>
