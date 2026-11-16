@@ -20,7 +20,7 @@ import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, walk, defOf, is
 import { css as storefrontCss, PageView, type CollectionCard, type Ctx, type Product, type ProductPage, type ShippingOption, type StoreInfo, type StorePageView } from 'storefront/sections'
 import { catalogCss, type Card } from 'storefront/catalog'
 import type { ResolvedItem } from 'storefront/menus'
-import { siteCss, siteFontsHref, type SiteStyle } from 'storefront/site'
+import { siteCss, siteFontsHref, templateLabels, type SiteStyle } from 'storefront/site'
 import { loadRates } from '../shipping'
 import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
 const presetVars = (theme: PresetId) => presets[theme].vars
@@ -1489,6 +1489,34 @@ export const frameFor = (data: PreviewData, type: 'header' | 'footer', chosen?: 
   return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data.builtIn[type]
 }
 
+// Header and footer of a page or page template: the store's default, one of its header or footer templates, or none
+// (for a page that draws its own). Saved in content.canvas; the API checks the ids are the store's own templates.
+export function HeaderFooterFields({ doc, edit, frames }: { doc: Doc; edit: (next: Doc, key?: string) => void; frames: PreviewData | null }) {
+  const { lang } = useLang()
+  const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
+  return <fieldset className="editor-canvas"><legend>{L(['হেডার ও ফুটার', 'Header and footer'])}</legend>
+    {(['header', 'footer'] as const).map((key) => {
+      const canvas = { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, ...doc.content.canvas }
+      const value = !canvas[key] ? 'none' : canvas[key === 'header' ? 'headerId' : 'footerId'] ?? ''
+      const list = (key === 'header' ? frames?.headers : frames?.footers) ?? []
+      return <div key={key} className="field">
+        <label htmlFor={`frame-${key}`}>{key === 'header' ? L(['হেডার', 'Header']) : L(['ফুটার', 'Footer'])}</label>
+        <select className="input" id={`frame-${key}`} value={value} onChange={(e) => {
+          const v = e.target.value
+          const idKey = key === 'header' ? 'headerId' : 'footerId'
+          const { [idKey]: _, ...rest } = canvas
+          edit({ ...doc, content: { ...doc.content, canvas: { ...rest, [key]: v !== 'none', ...(v && v !== 'none' ? { [idKey]: v } : {}) } } })
+        }}>
+          <option value="">{L(['দোকানের ডিফল্ট', 'Store default'])}</option>
+          {list.filter((f) => !f.isDefault).map((f) => <option key={f.id} value={f.id}>{f.builtIn ? L(['বিল্ট-ইন ', 'Built-in ']) + L(templateLabels[key]).toLowerCase() : f.title}</option>)}
+          <option value="none">{L(['কোনোটি নয়', 'None'])}</option>
+        </select>
+      </div>
+    })}
+    <p className="muted">{L(['অনলাইন স্টোর › টেমপ্লেট থেকে নতুন হেডার ও ফুটার বানান। "কোনোটি নয়" দিলে পেজে নিজের হেডার সেকশন রাখতে পারেন।', 'Make headers and footers in Online store › Templates. Choose None to put your own header section on the page.'])}</p>
+  </fieldset>
+}
+
 // A landing page in the editor: the page API, its Page settings, and the store's live theme around it in the preview.
 export function PageEditor() {
   const { id } = useParams()
@@ -1547,28 +1575,7 @@ function LandingSettings({ doc, edit, error, busy, state, run, setError, setToas
   })
   return <>
             <div className="editor__form">
-              {/* Header and footer: the store's default, one of its header or footer templates, or none (for a page that draws its own). */}
-              <fieldset className="editor-canvas"><legend>{L(['হেডার ও ফুটার', 'Header and footer'])}</legend>
-                {(['header', 'footer'] as const).map((key) => {
-                  const canvas = { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, ...doc.content.canvas }
-                  const value = !canvas[key] ? 'none' : canvas[key === 'header' ? 'headerId' : 'footerId'] ?? ''
-                  const list = (key === 'header' ? frames?.headers : frames?.footers) ?? []
-                  return <div key={key} className="field">
-                    <label htmlFor={`page-${key}`}>{key === 'header' ? L(['হেডার', 'Header']) : L(['ফুটার', 'Footer'])}</label>
-                    <select className="input" id={`page-${key}`} value={value} onChange={(e) => {
-                      const v = e.target.value
-                      const idKey = key === 'header' ? 'headerId' : 'footerId'
-                      const { [idKey]: _, ...rest } = canvas
-                      edit({ ...doc, content: { ...doc.content, canvas: { ...rest, [key]: v !== 'none', ...(v && v !== 'none' ? { [idKey]: v } : {}) } } })
-                    }}>
-                      <option value="">{L(['দোকানের ডিফল্ট', 'Store default'])}</option>
-                      {list.filter((f) => !f.isDefault).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-                      <option value="none">{L(['কোনোটি নয়', 'None'])}</option>
-                    </select>
-                  </div>
-                })}
-                <p className="muted">{L(['অনলাইন স্টোর › টেমপ্লেট থেকে নতুন হেডার ও ফুটার বানান। "কোনোটি নয়" দিলে পেজে নিজের হেডার সেকশন রাখতে পারেন।', 'Make headers and footers in Online store › Templates. Choose None to put your own header section on the page.'])}</p>
-              </fieldset>
+              <HeaderFooterFields doc={doc} edit={edit} frames={frames} />
               {/* Page fonts: blank keeps the theme's. English text uses the English font; Bangla falls through to the Bangla one. */}
               <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
                 <p className="muted">{L(['পুরো পেজের ফন্ট। ফাঁকা রাখলে থিমের ফন্ট থাকে।', 'Fonts for this whole page. Leave blank to keep the theme’s.'])}</p>

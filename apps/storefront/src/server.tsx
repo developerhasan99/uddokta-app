@@ -290,7 +290,14 @@ type Here = { path: string; product?: ProductPage; collection?: { id: string; na
 // footer templates, with the data its store blocks need loaded first.
 async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, here: Here, meta: { title: string; description: string; canonical?: string; shareImage?: Img; noindex?: boolean; status?: 200 | 404 | 422; templateId?: string | null; order?: Ctx['order']; orderAction?: string }) {
   if (locked(c, store)) return passwordPage(c, store)
-  const [template, header, footer] = await Promise.all([templateOf(store.id, kind, meta.templateId ?? null), templateOf(store.id, 'header'), templateOf(store.id, 'footer')])
+  // The template's chosen header and footer (blank: the store's defaults; switched off: none).
+  const template = await templateOf(store.id, kind, meta.templateId ?? null)
+  const canvas = template.canvas
+  const none: Content = { version: 2, sections: [] }
+  const [header, footer] = await Promise.all([
+    canvas?.header === false ? none : templateOf(store.id, 'header', canvas?.headerId ?? null),
+    canvas?.footer === false ? none : templateOf(store.id, 'footer', canvas?.footerId ?? null),
+  ])
   const all = [...header.sections, ...template.sections, ...footer.sections]
   const images = await templateImages(store.id, [template, header, footer])
   const page = pageNumber(c)

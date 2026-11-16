@@ -757,6 +757,21 @@ test('templates: a product draws the published template it picked, the store def
   assert.match(lp, /আজ সেল/, 'the landing page draws the header it picked')
   assert.doesNotMatch(lp, /ঈদ মোবারক/)
   assert.equal(published.isPublished, true)
+
+  // A page template picks its own header and can switch the footer off; only the store's header templates are accepted.
+  const giftNow = (await s.call('GET', `${base}/${gift.id}`)).json
+  const framed = { ...giftNow.draft, canvas: { header: true, footer: false, headerId: sale.id } }
+  assert.equal((await s.call('PUT', `${base}/${gift.id}`, { draft: { ...framed, canvas: { header: true, footer: true, headerId: gift.id } }, revision: giftNow.revision })).json.error, 'templateInvalid', 'a product template is not a header')
+  const giftSaved = (await s.call('PUT', `${base}/${gift.id}`, { draft: framed, revision: giftNow.revision })).json
+  await s.call('POST', `${base}/${gift.id}/publish`, { revision: giftSaved.revision })
+  const productPage = await (await visit(s.handle, productPath)).text()
+  assert.match(productPage, /আজ সেল/, 'the product template draws the header it picked')
+  assert.doesNotMatch(productPage, /ঈদ মোবারক/)
+  assert.doesNotMatch(productPage, /sf-footer|class="sf-foot/, 'its footer is switched off')
+  assert.match(await (await visit(s.handle, '/')).text(), /ঈদ মোবারক/, 'other pages keep the store default header')
+  const saleNow = (await s.call('GET', `${base}/${sale.id}`)).json
+  const saleSaved = (await s.call('PUT', `${base}/${sale.id}`, { draft: { ...saleNow.draft, canvas: { header: false, footer: false, headerId: header.id } }, revision: saleNow.revision })).json
+  assert.equal(saleSaved.draft.canvas, undefined, 'a header template never picks a header')
 })
 
 test('the cart: add from the product page, change and remove lines, and check out several products at the database’s price', async () => {

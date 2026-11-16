@@ -28,6 +28,12 @@ async function checkReferences(t: Tx, storeId: string, content: Content) {
   const count = async (table: typeof media | typeof products | typeof collections, ids: string[]) =>
     ids.length ? (await t.select({ id: table.id }).from(table).where(and(eq(table.storeId, storeId), inArray(table.id, ids)))).length : 0
   if (await count(media, refs.media) !== refs.media.length || await count(products, refs.products) !== refs.products.length || await count(collections, refs.collections) !== refs.collections.length) throw fail(400, 'templateInvalid')
+  // The header and footer a page template picked must be this store's header and footer templates.
+  for (const [id, type] of [[content.canvas?.headerId, 'header'], [content.canvas?.footerId, 'footer']] as const) {
+    if (!id) continue
+    const [found] = await t.select({ id: templates.id }).from(templates).where(and(eq(templates.storeId, storeId), eq(templates.id, id), eq(templates.type, type)))
+    if (!found) throw fail(400, 'templateInvalid')
+  }
 }
 
 // Every store has its own copy of each built-in template: published, editable, never deleted. Made with the store, and
@@ -107,6 +113,8 @@ export function registerTemplates(app: Hono<Env>) {
     if (!body || !Number.isInteger(body.revision)) throw fail(400, 'invalidRequest')
     const draft = readTemplateContent(body.draft)
     if (!draft || JSON.stringify(draft).length > 300_000) throw fail(400, 'templateInvalid')
+    // A header or footer is the frame itself, so it never picks one.
+    if (draft.canvas && (row.type === 'header' || row.type === 'footer')) delete draft.canvas
     const title = body.title === undefined ? row.title : readTitle(body.title)
     await checkReferences(t, store.id, draft)
     if (row.revision !== body.revision) throw fail(409, 'templateChanged')

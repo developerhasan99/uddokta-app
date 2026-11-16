@@ -8,7 +8,7 @@ import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl } from '../api'
 import { Field, LinkButton } from '../components/ui'
 import { useLang } from '../i18n'
-import { Builder, frameFor, lookOf, usePreviewData, type BuilderHost, type BuilderLoad, type Doc, type SettingsProps } from './PageEditor'
+import { Builder, frameFor, HeaderFooterFields, lookOf, usePreviewData, type BuilderHost, type BuilderLoad, type Doc, type PreviewData, type SettingsProps } from './PageEditor'
 import { templateLabels } from './Templates'
 
 const CssEditor = lazy(() => import('../components/CssEditor'))
@@ -58,14 +58,16 @@ export function TemplateEditor() {
     setIsDefault(saved.isDefault)
     setBuiltIn(saved.builtIn)
     return {
-      doc: { title: saved.title, handle: '', seoTitle: '', seoDescription: '', content: { ...saved.draft, canvas: { header: !framesItself(saved.type), footer: !framesItself(saved.type) }, sections: asLayouts(saved.draft.sections, lang) } },
+      doc: { title: saved.title, handle: '', seoTitle: '', seoDescription: '', content: { ...saved.draft, canvas: framesItself(saved.type) ? { header: false, footer: false } : saved.draft.canvas ?? { header: true, footer: true }, sections: asLayouts(saved.draft.sections, lang) } },
       state: { revision: saved.revision, isPublished: saved.isPublished, hasChanges: saved.hasChanges, liveUrl: saved.isPublished ? storefrontUrl(current.store.handle) : null },
     }
   }
-  // The canvas is the editor's own (no frame around the template); it is not part of the saved template.
+  // A page template saves its chosen header and footer (left out while both are the store's defaults); a header or
+  // footer template's canvas is the editor's own (no frame around it) and is not saved.
   const draftOf = (doc: Doc) => {
-    const { canvas: _, ...content } = doc.content
-    return content
+    const { canvas, ...content } = doc.content
+    const chosen = type && !framesItself(type) && canvas && (!canvas.header || !canvas.footer || canvas.headerId || canvas.footerId)
+    return chosen ? { ...content, canvas } : content
   }
   const pickFrom = type === 'product' ? 'products' : type === 'collection' ? 'collections' : type === 'page' ? 'pages' : null
   const sampleKey = type === 'product' ? 'product' : type === 'collection' ? 'collection' : 'page'
@@ -92,7 +94,7 @@ export function TemplateEditor() {
       </span>
     ),
     settingsLabel: L(['টেমপ্লেটের সেটিংস', 'Template settings']),
-    settings: (props) => <TemplateSettings {...props} base={base} type={type} isDefault={isDefault} builtIn={builtIn} onDefault={setIsDefault} />,
+    settings: (props) => <TemplateSettings {...props} base={base} type={type} isDefault={isDefault} builtIn={builtIn} onDefault={setIsDefault} frames={preview} />,
     preview: (doc) => {
       if (!preview || !type) return {}
       const framed = !framesItself(type)
@@ -106,7 +108,7 @@ export function TemplateEditor() {
         look: lookOf(preview.style),
         themeCss: preview.style.css,
         storeName: preview.store.name,
-        frame: framed ? { header: frameFor(preview, 'header'), footer: frameFor(preview, 'footer') } : undefined,
+        frame: framed ? { header: frameFor(preview, 'header', doc.content.canvas?.headerId), footer: frameFor(preview, 'footer', doc.content.canvas?.footerId) } : undefined,
         ctx: {
           store: preview.store, menus: preview.menus, collections: preview.collections,
           grid: (gid) => ({ cards: preview.cards.slice(0, limits.get(gid) ?? 24), page: 1, hasMore: false, base: '' }),
@@ -131,7 +133,7 @@ export function TemplateEditor() {
 }
 
 // Template settings: name, whether it is the store's default for its type, page fonts and the template's own CSS.
-function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, builtIn, onDefault, setState }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; builtIn: boolean; onDefault: (v: boolean) => void }) {
+function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, base, type, isDefault, builtIn, onDefault, setState, frames }: SettingsProps & { base: string; type: TemplateType | null; isDefault: boolean; builtIn: boolean; onDefault: (v: boolean) => void; frames: PreviewData | null }) {
   const { lang } = useLang()
   const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
   const path = useStorePath()
@@ -174,6 +176,7 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
         : L(['অপ্রকাশিত করলে দোকান এটি আর দেখাবে না; যে পণ্য, কালেকশন বা পেজ এটি বেছে নিয়েছিল সেগুলো ডিফল্ট দেখাবে।', 'Unpublish to stop your store using it; products, collections and pages that picked it show the default instead.'])}</p>
       <button type="button" className="btn" disabled={busy || isDefault} onClick={() => void unpublish()}>{L(['অপ্রকাশিত করুন', 'Unpublish'])}</button>
     </fieldset>}
+    {type && !framesItself(type) && <HeaderFooterFields doc={doc} edit={edit} frames={frames} />}
     <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>
       <p className="muted">{L(['এই টেমপ্লেটের ফন্ট। ফাঁকা রাখলে সাইট সেটিংসের ফন্ট থাকে।', 'Fonts for this template. Leave blank to keep the Site settings fonts.'])}</p>
       {(['bangla', 'latin'] as const).map((kind) => <div key={kind} className="field">

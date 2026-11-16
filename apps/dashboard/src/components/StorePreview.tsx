@@ -31,7 +31,8 @@ export function StorePreview({ handle, style }: { handle: string; style: SiteSty
 
   const frame = (type: 'header' | 'footer') => {
     const list = (type === 'header' ? data?.headers : data?.footers) ?? []
-    return (list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data?.builtIn[type] ?? []
+    const chosen = type === 'header' ? data?.home.canvas?.headerId : data?.home.canvas?.footerId
+    return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data?.builtIn[type] ?? []
   }
   const ctx: Ctx | null = data && {
     preview: true, shipping: [],
