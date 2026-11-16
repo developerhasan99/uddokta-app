@@ -45,10 +45,8 @@ export const channels: NavItem[] = [
     key: 'onlineStore', path: '/online-store', icon: Store,
     children: [
       { key: 'templates', path: '/online-store/templates' },
-      { key: 'siteSettings', path: '/online-store/site-settings' },
       { key: 'pages', path: '/online-store/pages' },
       { key: 'menus', path: '/online-store/menus' },
-      { key: 'preferences', path: '/online-store/preferences' },
     ],
   },
 ]

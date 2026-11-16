@@ -15,7 +15,6 @@ import { Menus } from './pages/Menus'
 import { MenuEdit } from './pages/MenuEdit'
 import { StorePages } from './pages/StorePages'
 import { StorePageEdit } from './pages/StorePageEdit'
-import { Preferences } from './pages/Preferences'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
@@ -40,7 +39,6 @@ import { Delivery } from './pages/Delivery'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
 import { Templates } from './pages/Templates'
-import { SiteSettings } from './pages/SiteSettings'
 import { Invoices } from './pages/Invoices'
 import { StoreSettings } from './pages/StoreSettings'
 import { Analytics } from './pages/Analytics'
@@ -103,12 +101,12 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="customers/repeat-sales" element={<RepeatSales />} />
                 <Route path="online-store" element={<OnlineStore />} />
                 <Route path="online-store/templates" element={<Templates />} />
-                <Route path="online-store/site-settings" element={<SiteSettings />} />
+                <Route path="online-store/site-settings" element={<Navigate to=".." relative="path" replace />} />
                 <Route path="online-store/menus" element={<Menus />} />
                 <Route path="online-store/menus/:id" element={<MenuEdit />} />
                 <Route path="online-store/pages" element={<StorePages />} />
                 <Route path="online-store/pages/:id" element={<StorePageEdit />} />
-                <Route path="online-store/preferences" element={<Preferences />} />
+                <Route path="online-store/preferences" element={<Navigate to=".." relative="path" replace />} />
                 <Route path="orders/new" element={<NewOrder />} />
                 <Route path="orders/protection" element={<Protection />} />
                 <Route path="orders/incomplete" element={<Incomplete />} />

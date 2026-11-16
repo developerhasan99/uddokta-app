@@ -80,7 +80,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Media**
 - **Analytics**
 - **Landing pages** (first under Sales channels)
-- **Online store:** Templates, Site settings, Pages, Menus, Preferences
+- **Online store:** Templates, Pages, Menus (the Online store page itself holds the store address, Site settings and preferences)
 - **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
 Landing-page COD selling and the online store (templates, site settings, pages, menus, preferences, cart and search; see `ONLINE-STORE-PLAN.md`) are both built and share one page builder. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
@@ -174,12 +174,12 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Each type has a **built-in template** in code (`builtInTemplates`), read-only; sellers duplicate it. One published template per type can be the store's **default** (`is_default`, unique per type; a default cannot be unpublished). What the storefront draws (`storefront_template`, `templateOf` in `server.tsx`): the item's chosen template if published and of that type, else the default, else the built-in. Products, collections and store pages pick with `template_id` (the Template card; deleting the template sets it back to null). Landing pages pick a header and footer template in Page settings (`canvas.headerId`/`footerId`; blank = store default, None = canvas off; checked to be this store's header/footer templates).
 - Template content is page `Content` validated by `readTemplateContent` (store blocks allowed); new templates start blank, from the built-in, from a ready-made start (`readyMade`) or as a copy. Owners and admins change templates; staff only look.
 - The template editor (`pages/TemplateEditor.tsx`) is a `BuilderHost` of the shared `Builder`: page templates preview inside the store's default header and footer; product, collection and page templates preview with a store item picked in the top bar. Template settings: name, Make default, fonts, the template's CSS.
-- **Site settings** (`stores.site_style`, `readSiteStyle`, screen `pages/SiteSettings.tsx`): colours, fonts, corners, width and site CSS for every store page and landing page; until saved, the style preset in `stores.theme` applies. Never write these values into CSS except through `siteCss`/`siteFontsHref`.
+- **Site settings** (`stores.site_style`, `readSiteStyle`, on the Online store page, `pages/OnlineStore.tsx`): colours, fonts, corners, width and site CSS for every store page and landing page; until saved, the style preset in `stores.theme` applies. Never write these values into CSS except through `siteCss`/`siteFontsHref`.
 - Themes (the earlier single-document design) were removed by migrations `0089`/`0090`; each store's live theme look became its Site settings.
 
 ## Online store preferences
 
-- Online store › Preferences (`apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every store page (templates) shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
+- Online store preferences (on the Online store page; API `apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every store page (templates) shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
 
 ## Store pages
 

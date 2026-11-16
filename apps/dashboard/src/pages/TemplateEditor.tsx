@@ -172,6 +172,6 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
         ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
         : <p className="field__help" id="template-css-help">{L(['পুরো দোকানের রং ও ফন্ট সাইট সেটিংসে।', 'The whole store’s colours and fonts are in Site settings.'])}</p>}
     </div>
-    <LinkButton to={path('/online-store/site-settings')}>{L(['সাইট সেটিংস খুলুন', 'Open Site settings'])}</LinkButton>
+    <LinkButton to={path('/online-store')}>{L(['সাইট সেটিংস খুলুন', 'Open Site settings'])}</LinkButton>
   </div>
 }
