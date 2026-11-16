@@ -19,7 +19,7 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
-import { applyVariation, createStarterTheme, registerThemes } from './themes.ts'
+import { applyPreset, registerTemplates } from './templates.ts'
 import { registerVersions } from './versions.ts'
 import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
@@ -108,7 +108,9 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
-  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk', 'stores_share_fk', 'theme_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk', 'stores_share_fk', 'template_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
+  // A template from another store (the composite key refuses it) is simply not a valid choice.
+  if (['products_template', 'collections_template', 'store_pages_template'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'invalidRequest' }, { status: 400 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })
@@ -228,7 +230,6 @@ app.post('/stores', async (c) => {
         { storeId: id, name: defaultRateNames.inside, price: inside, position: 0 },
         { storeId: id, name: defaultRateNames.outside, price: outside, position: 1 },
       ])
-      await createStarterTheme(t, id)
     })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')
@@ -294,7 +295,7 @@ app.put('/stores/:handle/theme', async (c) => {
     const store = await storeByHandle(t, c.req.param('handle'))
     const [row] = await t.update(stores).set({ theme: body.theme as string }).where(eq(stores.id, store.id)).returning({ theme: stores.theme })
     if (!row) throw fail(403, 'forbidden')
-    await applyVariation(t, store.id, store.liveThemeId, body.theme as PresetId)
+    await applyPreset(t, store, body.theme as PresetId)
     return c.json(row)
   })
 })
@@ -423,7 +424,7 @@ registerDomains(app)
 registerPages(app)
 registerMenus(app)
 registerStorePages(app)
-registerThemes(app)
+registerTemplates(app)
 registerVersions(app)
 registerPreferences(app)
 registerOrders(app)

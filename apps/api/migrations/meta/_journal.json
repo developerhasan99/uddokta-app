@@ -624,6 +624,20 @@
       "when": 1794763404586,
       "tag": "0088_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1794802066821,
+      "tag": "0089_drop_themes",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1794802081650,
+      "tag": "0090_templates",
+      "breakpoints": true
     }
   ]
 }

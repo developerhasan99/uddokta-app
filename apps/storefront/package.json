@@ -10,7 +10,7 @@
     "./sections": "./src/sections.tsx",
     "./catalog": "./src/catalog.tsx",
     "./themes": "./src/themes.ts",
-    "./theme": "./src/theme.ts",
+    "./site": "./src/site.ts",
     "./paths": "./src/paths.ts",
     "./menus": "./src/menus.ts",
     "./icons": "./src/icons/catalog.ts",

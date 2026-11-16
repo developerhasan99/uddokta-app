@@ -15,19 +15,19 @@ const maxProducts = 1000
 function readCollection(body: any) {
   if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
   if (!isName(body.name, 200)) throw fail(400, 'nameRequired')
-  const { description = '', handle = '', seoTitle = '', seoDescription = '', mediaId = null, productIds = [], template = '' } = body
-  if (typeof template !== 'string' || !/^[a-z0-9-]{0,30}$/.test(template)) throw fail(400, 'invalidRequest')
+  const { description = '', handle = '', seoTitle = '', seoDescription = '', mediaId = null, productIds = [], templateId = null } = body
+  if (!(templateId === null || isId(templateId))) throw fail(400, 'invalidRequest')
   const shortText = (v: unknown, max: number) => typeof v === 'string' && v.length <= max
   const validProducts = Array.isArray(productIds) && productIds.length <= maxProducts && productIds.every(isId) && new Set(productIds).size === productIds.length
   if (!shortText(description, 50_000) || !shortText(handle, 200) || !shortText(seoTitle, 300) || !shortText(seoDescription, 1000) || !(mediaId === null || isId(mediaId)) || !validProducts) throw fail(400, 'invalidRequest')
   return {
-    name: body.name.trim() as string, description: cleanDescription(description), handle: slugify(handle), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, template: template as string,
+    name: body.name.trim() as string, description: cleanDescription(description), handle: slugify(handle), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, templateId: templateId as string | null,
     mediaId: mediaId as string | null, productIds: productIds as string[],
   }
 }
 type Input = ReturnType<typeof readCollection>
 
-const fields = ({ name, description, seoTitle, seoDescription, mediaId, template }: Input) => ({ name, description, seoTitle, seoDescription, mediaId, template })
+const fields = ({ name, description, seoTitle, seoDescription, mediaId, templateId }: Input) => ({ name, description, seoTitle, seoDescription, mediaId, templateId })
 
 // A handle the seller typed is used as it is, and refused if taken. Otherwise the name gives one, numbered if needed.
 async function chooseHandle(t: Tx, storeId: string, input: Input, collectionId?: string) {
@@ -75,7 +75,7 @@ async function loadCollection(t: Tx, storeId: string, id: string) {
     where cp.collection_id = ${id}::uuid
     order by cp.position`)
   return {
-    id: row.id, name: row.name, description: row.description, handle: row.handle, seoTitle: row.seoTitle, seoDescription: row.seoDescription, template: row.template,
+    id: row.id, name: row.name, description: row.description, handle: row.handle, seoTitle: row.seoTitle, seoDescription: row.seoDescription, templateId: row.templateId,
     media: image ? presentMedia(image) : null,
     products: rows.rows.map((r) => ({ id: r.id, name: r.name, status: r.status, thumbUrl: r.thumb_key && publicUrl(r.thumb_key), minPrice: r.min_price, maxPrice: r.max_price })),
   }

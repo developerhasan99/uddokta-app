@@ -12,7 +12,7 @@ import { validateRuntime } from '../../api/src/runtime.ts'
 import { verifyPassword } from '../../api/src/password.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, walk, type Content, type Section, type Settings } from './schema.ts'
 import { isPreset, type PresetId } from './themes.ts'
-import { readTheme, starterTheme, templateFor, themeCss, themeFontsHref, themeReferences, type TemplateKind, type ThemeDoc } from './theme.ts'
+import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPreset, type SiteStyle, type TemplateType } from './site.ts'
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
 import { cartScript, css, pageScript, PageView, taka, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
@@ -111,7 +111,7 @@ async function offersFor(t: Tx, storeId: string, productIds: string[]) {
 }
 
 type VariantRow = { id: string; options: string[]; price: number; comparePrice: number | null; stock: number | null }
-type StoreRow = { id: string; name: string; theme: string }
+type StoreRow = { id: string; name: string; theme: string; site_style: unknown }
 
 async function shippingOptions(t: Tx, storeId: string): Promise<ShippingOption[]> {
   const rows = await t.execute<{ id: string; name: string; note: string; price: number; free_over: number | null; free_min_qty: number | null; free_products: string[] }>(
@@ -122,16 +122,15 @@ const image = (key: string | null, alt: string, width: number, height: number): 
 const toVariants = (rows: VariantRow[], name: string) => rows.map((v) => ({ id: v.id, label: v.options.join(' / ') || name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 }))
 const listPageSize = 24
 
-// Everything a store's pages need besides the page itself: its live theme (or the starter theme while it has none),
-// menus by handle with links resolved, logo and contact details, the theme's images, and delivery options.
-// ponytail: loaded and validated on every request; cache by theme revision once the storefront sits behind a CDN.
+// Everything a store's pages need besides the page itself: its look (Site settings), menus by handle with links
+// resolved, logo and contact details, preferences, visible policies and delivery options. Templates are read per page.
+// ponytail: loaded on every request; cache per store once the storefront sits behind a CDN.
 async function loadStore(handle: string) {
   return tx(null, async (t) => {
     const store = (await t.execute<StoreRow>(sql`select * from storefront_store(${handle})`)).rows[0]
     if (!store) return null
-    const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string; template: string }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
-    const raw = (await t.execute<{ doc: unknown }>(sql`select storefront_theme(${store.id}::uuid) as doc`)).rows[0]?.doc
-    const theme: ThemeDoc = (raw ? readTheme(raw) : null) ?? starterTheme(themeOf(store.theme))
+    const collections = (await t.execute<CollectionLink & { id: string; description: string; seo_title: string; seo_description: string; template_id: string | null }>(sql`select * from storefront_collections(${store.id}::uuid)`)).rows
+    const style: SiteStyle = (store.site_style ? readSiteStyle(store.site_style) : null) ?? styleFromPreset(themeOf(store.theme))
     const rows = (await t.execute<{ handle: string; items: MenuItem[] }>(sql`select * from storefront_menus(${store.id}::uuid)`)).rows
     const ids = linkedIds(rows.flatMap((r) => r.items))
     const targets: LinkTargets = new Map(ids.length
@@ -142,13 +141,10 @@ async function loadStore(handle: string) {
     if (!menus['main-menu']?.length) menus['main-menu'] = collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] }))
     const info = (await t.execute<{ logo_key: string | null; logo_width: number; logo_height: number; phone: string; whatsapp: string; email: string; address: string; facebook: string }>(sql`select * from storefront_store_info(${store.id}::uuid)`)).rows[0]
     const storeInfo: StoreInfo = { name: store.name, logo: info ? image(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' }
-    const mediaIds = themeReferences(theme).media
-    const mediaRows = mediaIds.length ? (await t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(sql`select * from storefront_media(${store.id}::uuid, ${`{${mediaIds.join(',')}}`}::uuid[])`)).rows : []
-    const images = new Map<string, Img>(mediaRows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
     const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
     const policyRows = (await t.execute<{ kind: string; handle: string | null }>(sql`select k.kind, storefront_policy(${store.id}::uuid, k.kind) as handle from unnest(array['refund', 'terms', 'privacy', 'shipping', 'contact']) as k(kind)`)).rows
     const policies = Object.fromEntries(policyRows.filter((r) => r.handle).map((r) => [r.kind, pageHref(r.handle!)])) as Ctx['policies']
-    return { ...store, collections, theme, menus, info: storeInfo, images, prefs, policies, shipping: await shippingOptions(t, store.id) }
+    return { ...store, collections, style, menus, info: storeInfo, prefs, policies, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
@@ -162,7 +158,7 @@ async function listing(storeId: string, collectionId: string | null, page: numbe
 }
 
 async function loadProduct(storeId: string, handle: string) {
-  const row = (await tx(null, (t) => t.execute<{ id: string; name: string; description: string; seo_title: string; seo_description: string; status: string; images: { key: string; alt: string; width: number; height: number }[]; variants: VariantRow[]; template: string }>(
+  const row = (await tx(null, (t) => t.execute<{ id: string; name: string; description: string; seo_title: string; seo_description: string; status: string; images: { key: string; alt: string; width: number; height: number }[]; variants: VariantRow[]; template_id: string | null }>(
     sql`select * from storefront_product(${storeId}::uuid, ${handle})`))).rows[0]
   if (!row) return null
   const images = row.images.map((m) => image(m.key, m.alt || row.name, m.width, m.height)!)
@@ -176,10 +172,10 @@ const pageNumber = (c: Context) => Math.min(Math.max(Number(c.req.query('page'))
 
 const themeOf = (theme: string | undefined): PresetId => (isPreset(theme) ? theme : 'fresh')
 
-// A theme's colours, fonts and width, written into every page's <head>.
+// The store's colours, fonts and width (Site settings), written into every page's <head>.
 type Look = { css: string; fontsHref: string | null; custom: string }
-const lookOf = (doc: ThemeDoc): Look => ({ css: themeCss(doc.settings), fontsHref: themeFontsHref(doc.settings), custom: doc.css })
-const defaultLook = lookOf(starterTheme('fresh'))
+const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style), custom: style.css })
+const defaultLook = lookOf(styleFromPreset('fresh'))
 
 function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; children: React.ReactNode }) {
   return (
@@ -227,6 +223,19 @@ function notFound(c: Context) {
 const pagePath = (c: Context) => pageHref(c.req.param('handle')!)
 const productPath = (c: Context) => `/products/${encodeURIComponent(c.req.param('handle')!)}`
 
+// The template drawn for one type: the chosen one if it is published and of that type, else the store's default for the
+// type, else the built-in template. Published content was checked by readContent when it was saved.
+async function templateOf(storeId: string, type: TemplateType, chosen: string | null = null): Promise<Content> {
+  const row = (await tx(null, (t) => t.execute<{ doc: Content | null }>(sql`select storefront_template(${storeId}::uuid, ${type}, ${chosen}::uuid) as doc`))).rows[0]
+  return row?.doc ?? builtInTemplates[type]
+}
+// Images the given templates use, for drawing them.
+async function templateImages(storeId: string, contents: Content[]) {
+  const ids = [...new Set(contents.flatMap((c) => references(c).media))]
+  const rows = ids.length ? (await tx(null, (t) => t.execute<{ id: string; key: string; alt: string; width: number; height: number }>(sql`select * from storefront_media(${storeId}::uuid, ${`{${ids.join(',')}}`}::uuid[])`))).rows : []
+  return new Map<string, Img>(rows.map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt, width: m.width, height: m.height }]))
+}
+
 // Store context for any page drawn with the store's header and footer: the store, menus, theme images.
 const storeCtx = (store: LoadedStore, path: string) => ({
   store: store.info,
@@ -237,11 +246,16 @@ const storeCtx = (store: LoadedStore, path: string) => ({
 async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   const pixel = pixelScript(await trackingFor(page.store_id))
   const store = await loadStore(storeHandle(c)!)
+  const canvas = page.content.canvas
+  // The page's chosen header and footer templates (or the store's defaults), when its canvas shows them.
+  const header = store && canvas?.header !== false ? (await templateOf(store.id, 'header', canvas?.headerId ?? null)).sections : []
+  const footer = store && canvas?.footer !== false ? (await templateOf(store.id, 'footer', canvas?.footerId ?? null)).sections : []
+  const frameImages = store ? await templateImages(store.id, [{ version: 2, sections: [...header, ...footer] }]) : new Map<string, Img>()
   const ctx: Ctx = {
     preview: false,
     live: true,
     shipping: page.shipping,
-    image: (id) => (id ? page.images.get(id) ?? store?.images.get(id) : undefined),
+    image: (id) => (id ? page.images.get(id) ?? frameImages.get(id) : undefined),
     product: (id) => (id ? page.products.get(id) : undefined),
     orderAction: pagePath(c),
     checkoutToken: order?.values.checkout || randomUUID(),
@@ -250,10 +264,10 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
     policies: store?.policies,
   }
-  const frame = store ? { header: store.theme.header, footer: store.theme.footer } : undefined
+  const frame = store ? { header, footer } : undefined
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.theme) : undefined} pixel={pixel}>
-      <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.theme.css} />
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel}>
+      <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.style.css} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
     </Document>
   ), order ? 422 : 200, pixel, hasCustomHtml(page.content) || Boolean(frame && hasCustomHtml({ version: 2, sections: [...frame.header, ...frame.footer] })))
@@ -272,12 +286,13 @@ const usesBlock = (sections: Section[], type: string) => sections.some((s) => s.
 
 type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[] } }
 
-// A store page drawn through the live theme: the template for its kind (or its chosen alternate), inside the theme's
-// header and footer, with the data its store blocks need loaded first.
-async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, here: Here, meta: { title: string; description: string; canonical?: string; shareImage?: Img; noindex?: boolean; status?: 200 | 404 | 422; alternate?: string; order?: Ctx['order']; orderAction?: string }) {
+// A store page drawn with templates: the page's own template (the item's choice or the default), inside the header and
+// footer templates, with the data its store blocks need loaded first.
+async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, here: Here, meta: { title: string; description: string; canonical?: string; shareImage?: Img; noindex?: boolean; status?: 200 | 404 | 422; templateId?: string | null; order?: Ctx['order']; orderAction?: string }) {
   if (locked(c, store)) return passwordPage(c, store)
-  const template = templateFor(store.theme, kind, meta.alternate)
-  const all = [...store.theme.header, ...template.sections, ...store.theme.footer]
+  const [template, header, footer] = await Promise.all([templateOf(store.id, kind, meta.templateId ?? null), templateOf(store.id, 'header'), templateOf(store.id, 'footer')])
+  const all = [...header.sections, ...template.sections, ...footer.sections]
+  const images = await templateImages(store.id, [template, header, footer])
   const page = pageNumber(c)
   const grids = new Map<string, GridData>()
   for (const block of gridBlocks(all)) {
@@ -301,7 +316,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, 
     preview: false,
     live: true,
     shipping: store.shipping,
-    image: (id) => (id ? store.images.get(id) : undefined),
+    image: (id) => (id ? images.get(id) : undefined),
     product: (id) => (id && here.product?.id === id ? here.product.product : undefined),
     orderAction: meta.orderAction,
     checkoutToken: meta.order?.values.checkout || randomUUID(),
@@ -317,8 +332,8 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateKind, 
     search: here.search,
   }
   return html(c, (
-    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.theme)} pixel={pixel}>
-      <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: store.theme.header, footer: store.theme.footer }} themeCss={store.theme.css} />
+    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel}>
+      <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: header.sections, footer: footer.sections }} themeCss={store.style.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
       {here.cart && here.cart.lines.length > 0 && <script dangerouslySetInnerHTML={{ __html: cartScript }} />}
     </Document>
@@ -335,7 +350,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   const here: Here = { path: productPath(c), product: { id: item.id, name: item.name, description: item.description, images: item.images, product: item.product } }
   return renderThemed(c, store, 'product', here, {
     title: item.seo_title || item.name, description: item.seo_description || plain, canonical: `${c.get('origin')}${productPath(c)}`,
-    shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c), alternate: item.template,
+    shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c), templateId: item.template_id,
   })
 }
 
@@ -418,7 +433,7 @@ app.get('/api/media-files/:store/:file', async (c) => {
 
 const storeLook = async (handle: string) => {
   const store = await loadStore(handle)
-  return store ? lookOf(store.theme) : undefined
+  return store ? lookOf(store.style) : undefined
 }
 
 app.get('/', async (c) => {
@@ -437,7 +452,7 @@ app.get('/collections/:handle', async (c) => {
   if (!collection) return storeNotFound(c, store)
   const path = collectionHref(collection.handle)
   return renderThemed(c, store, 'collection', { path, collection: { id: collection.id, name: collection.name, handle: collection.handle, description: collection.description } }, {
-    title: collection.seo_title || collection.name, description: collection.seo_description, canonical: `${c.get('origin')}${path}`, alternate: collection.template,
+    title: collection.seo_title || collection.name, description: collection.seo_description, canonical: `${c.get('origin')}${path}`, templateId: collection.template_id,
   })
 })
 
@@ -473,7 +488,7 @@ const locked = (c: Context, store: LoadedStore) => Boolean(store.prefs?.password
 
 function passwordPage(c: Context, store: LoadedStore, wrong = false) {
   return html(c, (
-    <Document title={store.name} description="" noindex look={lookOf(store.theme)}>
+    <Document title={store.name} description="" noindex look={lookOf(store.style)}>
       <main className="sf-done sf-wrap sf-narrow sf-password">
         {store.info.logo ? <img className="sf-password__logo" src={store.info.logo.url} alt={store.name} /> : <h1>{store.name}</h1>}
         <p>{store.prefs?.password_message || 'দোকানটি শিগগিরই খুলছে। পাসওয়ার্ড থাকলে নিচে লিখুন।'}</p>
@@ -631,7 +646,7 @@ app.post('/cart', async (c) => {
 app.get('/cart/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  return store ? thanks(c, store.id, store.name, '/', lookOf(store.theme)) : notFound(c)
+  return store ? thanks(c, store.id, store.name, '/', lookOf(store.style)) : notFound(c)
 })
 
 app.get('/search', async (c) => {
@@ -750,12 +765,12 @@ app.get('/pages/:handle/thanks', async (c) => {
 app.get('/products/:handle/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  return store ? thanks(c, store.id, store.name, productPath(c), lookOf(store.theme)) : notFound(c)
+  return store ? thanks(c, store.id, store.name, productPath(c), lookOf(store.style)) : notFound(c)
 })
 
 // Specific catalog, media and system routes above always take precedence.
 // Store pages (About, policies, …): the theme's page template (or the page's chosen alternate) with the page's text.
-type StorePageRow = { id: string; title: string; body: string; policy: string | null; template: string; seo_title: string; seo_description: string }
+type StorePageRow = { id: string; title: string; body: string; policy: string | null; template_id: string | null; seo_title: string; seo_description: string }
 async function renderStorePage(c: Context, storeHandleValue: string, pageHandle: string) {
   const store = await loadStore(storeHandleValue)
   if (!store) return notFound(c)
@@ -763,7 +778,7 @@ async function renderStorePage(c: Context, storeHandleValue: string, pageHandle:
   if (!page) return storeNotFound(c, store)
   const plain = cleanRichText(page.body).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
   return renderThemed(c, store, 'page', { path: pageHref(pageHandle), page: { title: page.title, body: page.body, policy: page.policy } }, {
-    title: page.seo_title || page.title, description: page.seo_description || plain, canonical: `${c.get('origin')}${pageHref(pageHandle)}`, alternate: page.template,
+    title: page.seo_title || page.title, description: page.seo_description || plain, canonical: `${c.get('origin')}${pageHref(pageHandle)}`, templateId: page.template_id,
   })
 }
 

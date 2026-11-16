@@ -718,21 +718,45 @@ test('store pages show on their address when visible and due, the contact page l
   assert.match(contactPage, /মিরপুর, ঢাকা/)
 })
 
-test('a product that picks an alternate template is drawn with it; others keep the default', async () => {
+test('templates: a product draws the published template it picked, the store default header shows everywhere, a landing page picks its own header', async () => {
   const s = await publishedPage()
-  const base = `/stores/${s.handle}/themes`
-  const [theme] = (await s.call('GET', base)).json
-  const full = (await s.call('GET', `${base}/${theme.id}`)).json
-  const gift = { version: 2, sections: [{ id: 'gift', type: 'layout', hidden: false, settings: { name: 'Gift' }, children: [{ id: 'gift-title', kind: 'heading', props: { text: 'উপহারের পাতা', level: 'h2' } }] }, ...full.draft.templates.product.sections] }
-  const saved = (await s.call('PUT', `${base}/${theme.id}`, { draft: { ...full.draft, templates: { ...full.draft.templates, 'product.gift': gift } }, revision: full.revision })).json
-  await s.call('POST', `${base}/${theme.id}/publish`, { revision: saved.revision })
+  const base = `/stores/${s.handle}/templates`
+  const heading = (id: string, text: string) => ({ id, type: 'layout', hidden: false, settings: { name: text }, children: [{ id: `${id}-h`, kind: 'heading', props: { text, level: 'h2' } }] })
+  const make = async (type: string, title: string, text: string, from = 'builtin') => {
+    const made = (await s.call('POST', base, { type, title, from })).json
+    const full = (await s.call('GET', `${base}/${made.id}`)).json
+    const saved = (await s.call('PUT', `${base}/${made.id}`, { draft: { ...full.draft, sections: [heading(`${type}-mark`, text), ...full.draft.sections] }, revision: full.revision })).json
+    return { id: made.id, saved }
+  }
   const product = (await s.call('GET', `/stores/${s.handle}/products/${s.product.id}`)).json
-  assert.doesNotMatch(await (await visit(s.handle, `/products/${encodeURIComponent(product.handle)}`)).text(), /উপহারের পাতা/)
-  const body = { ...product, template: 'gift', collectionIds: [], mediaIds: [], variants: product.variants.map((v: any) => ({ id: v.id, options: v.options, price: v.price, comparePrice: v.comparePrice, stock: null })) }
+  const productPath = `/products/${encodeURIComponent(product.handle)}`
+  const gift = await make('product', 'Gift page', 'উপহারের পাতা')
+  const body = { ...product, templateId: gift.id, collectionIds: [], mediaIds: [], variants: product.variants.map((v: any) => ({ id: v.id, options: v.options, price: v.price, comparePrice: v.comparePrice, stock: null })) }
   assert.equal((await s.call('PUT', `/stores/${s.handle}/products/${s.product.id}`, body)).status, 200)
-  const page = await (await visit(s.handle, `/products/${encodeURIComponent(product.handle)}`)).text()
+  assert.doesNotMatch(await (await visit(s.handle, productPath)).text(), /উপহারের পাতা/, 'an unpublished template is not used')
+  await s.call('POST', `${base}/${gift.id}/publish`, { revision: gift.saved.revision })
+  const page = await (await visit(s.handle, productPath)).text()
   assert.match(page, /উপহারের পাতা/)
   assert.match(page, /data-order/, 'the product template still takes orders')
+
+  const header = await make('header', 'Eid header', 'ঈদ মোবারক')
+  assert.equal((await s.call('POST', `${base}/${header.id}/default`)).json.error, 'templateNotPublished')
+  const published = (await s.call('POST', `${base}/${header.id}/publish`, { revision: header.saved.revision })).json
+  assert.doesNotMatch(await (await visit(s.handle, '/')).text(), /ঈদ মোবারক/, 'published but not default: not used site-wide')
+  assert.equal((await s.call('POST', `${base}/${header.id}/default`)).status, 200)
+  assert.match(await (await visit(s.handle, '/')).text(), /ঈদ মোবারক/)
+  assert.equal((await s.call('POST', `${base}/${header.id}/unpublish`)).json.error, 'templateDefault')
+
+  const sale = await make('header', 'Sale header', 'আজ সেল')
+  await s.call('POST', `${base}/${sale.id}/publish`, { revision: sale.saved.revision })
+  const landing = (await s.call('GET', `/stores/${s.handle}/pages/${s.page.id}`)).json
+  const draft = { ...landing.draft, canvas: { header: true, footer: true, headerId: sale.id } }
+  const saved = (await s.call('PUT', `/stores/${s.handle}/pages/${s.page.id}`, { title: landing.title, handle: landing.handle, draft, revision: landing.revision })).json
+  await s.call('POST', `/stores/${s.handle}/pages/${s.page.id}/publish`, { revision: saved.revision })
+  const lp = await (await visit(s.handle, s.url)).text()
+  assert.match(lp, /আজ সেল/, 'the landing page draws the header it picked')
+  assert.doesNotMatch(lp, /ঈদ মোবারক/)
+  assert.equal(published.isPublished, true)
 })
 
 test('the cart: add from the product page, change and remove lines, and check out several products at the database’s price', async () => {

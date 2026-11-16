@@ -12,7 +12,7 @@ import { errorLabel, useLang } from '../i18n'
 import { storeAddress } from '../product-form'
 import { pageState, policyLabels, stateBadge, type PolicyKind } from './StorePages'
 
-type Page = { id: string; title: string; handle: string; body: string; visible: boolean; publishAt: string | null; policy: PolicyKind | null; template: string; seoTitle: string; seoDescription: string; revision: number }
+type Page = { id: string; title: string; handle: string; body: string; visible: boolean; publishAt: string | null; policy: PolicyKind | null; templateId: string | null; seoTitle: string; seoDescription: string; revision: number }
 type Form = Omit<Page, 'id' | 'policy' | 'revision'>
 const maxBody = 100_000
 
@@ -174,7 +174,7 @@ export function StorePageEdit() {
               <Field id="page-publish-at" type="datetime-local" label={t('storePagePublishAt')} help={t('storePagePublishAtHelp')} value={form.publishAt ?? ''} onChange={(e) => change({ publishAt: e.target.value })} />
             )}
           </section>
-          <TemplateCard kind="page" value={form.template} onChange={(template) => change({ template })} />
+          <TemplateCard kind="page" value={form.templateId} onChange={(templateId) => change({ templateId })} />
           {page.policy && (
             <section className="card">
               <h2>{t('storePageKind')}</h2>

@@ -82,8 +82,8 @@ function readProduct(body: any) {
   const shortText = (v: unknown, max = 100) => typeof v === 'string' && v.length <= max
   const seoTitle = body.seoTitle ?? ''
   const seoDescription = body.seoDescription ?? ''
-  const template = body.template ?? ''
-  if (typeof template !== 'string' || !/^[a-z0-9-]{0,30}$/.test(template)) throw fail(400, 'invalidRequest')
+  const templateId = body.templateId ?? null
+  if (!(templateId === null || isId(templateId))) throw fail(400, 'invalidRequest')
   const handle = body.handle ?? ''
   // Left out by callers that are not changing collections.
   const collectionIds = body.collectionIds
@@ -96,11 +96,11 @@ function readProduct(body: any) {
   if (variants.some((v) => v.mediaId && !mediaIds.includes(v.mediaId))) throw fail(400, 'invalidRequest')
   return {
     name: body.name.trim() as string, description: cleanDescription(description), status: status as (typeof productStatuses)[number],
-    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, template, handle: slugify(handle), collectionIds: collectionIds as string[] | undefined, options, variants, mediaIds: mediaIds as string[],
+    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, templateId: templateId as string | null, handle: slugify(handle), collectionIds: collectionIds as string[] | undefined, options, variants, mediaIds: mediaIds as string[],
   }
 }
 
-const productFields = ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, template, options }: ReturnType<typeof readProduct>) => ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, template, options })
+const productFields = ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, templateId, options }: ReturnType<typeof readProduct>) => ({ name, description, status, productType, brand, tags, seoTitle, seoDescription, templateId, options })
 
 export async function firstFreeHandle(base: string, isTaken: (handle: string) => Promise<boolean>) {
   for (let n = 1; ; n++) {
@@ -138,7 +138,7 @@ async function loadProduct(t: Tx, storeId: string, id: string) {
   const images = await t.select({ media }).from(productMedia).innerJoin(media, eq(media.id, productMedia.mediaId)).where(eq(productMedia.productId, id)).orderBy(asc(productMedia.position))
   const inCollections = await t.select({ id: collections.id, name: collections.name }).from(collectionProducts).innerJoin(collections, eq(collections.id, collectionProducts.collectionId)).where(eq(collectionProducts.productId, id)).orderBy(asc(collections.name))
   const stocks = await stockByVariant(t, variants.map((v) => v.id))
-  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, template: product.template, options: product.options, variants: variants.map((v) => ({ ...v, stocks: stocks.get(v.id) ?? {} })), media: images.map((row) => presentMedia(row.media)) }
+  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, templateId: product.templateId, options: product.options, variants: variants.map((v) => ({ ...v, stocks: stocks.get(v.id) ?? {} })), media: images.map((row) => presentMedia(row.media)) }
 }
 
 // Replaces the variants and images with what the seller sent. Variants keep their ids, so later orders can point at them.

@@ -13,10 +13,10 @@ import { ChipsInput } from '../components/ChipsInput'
 import { maxVariants, parseAmount, productStatuses, statusInfo, stockTotal, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
 
 type Saved = {
-  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; template: string; options: Option[]; media: MediaItem[]
+  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; media: MediaItem[]
   variants: { id: string; options: string[]; price: number; comparePrice: number | null; cost: number | null; sku: string; stock: number | null; stocks: Record<string, number>; mediaId: string | null }[]
 }
-type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; template: string; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
+type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
 type CollectionOption = { id: string; name: string }
 type WarehouseOption = { id: string; name: string }
 type Suggestions = { types: string[]; brands: string[]; tags: string[] }
@@ -26,7 +26,7 @@ const maxImages = 20
 const maxDescription = 50_000
 const maxTags = 30
 const text = (n: number | null) => (n === null ? '' : String(n))
-const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], collections: [], handle: '', seoTitle: '', seoDescription: '', template: '', options: [], variants: variantsFor([], []), media: [] })
+const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], collections: [], handle: '', seoTitle: '', seoDescription: '', templateId: null, options: [], variants: variantsFor([], []), media: [] })
 const toForm = (p: Saved): Form => ({
   name: p.name,
   description: p.description,
@@ -38,7 +38,7 @@ const toForm = (p: Saved): Form => ({
   handle: p.handle,
   seoTitle: p.seoTitle,
   seoDescription: p.seoDescription,
-  template: p.template ?? '',
+  templateId: p.templateId ?? null,
   options: p.options,
   media: p.media,
   variants: p.variants.map((v) => ({ id: v.id, options: v.options, price: text(v.price), comparePrice: text(v.comparePrice), cost: text(v.cost), sku: v.sku, stocks: Object.fromEntries(Object.entries(v.stocks).map(([id, n]) => [id, String(n)])), mediaId: v.mediaId })),
@@ -202,7 +202,7 @@ export function ProductEdit() {
         handle: form.handle,
         seoTitle: form.seoTitle,
         seoDescription: form.seoDescription,
-        template: form.template,
+        templateId: form.templateId,
         options: usedOptions,
         mediaIds: form.media.map((m) => m.id),
         variants: form.variants.map((v) => ({
@@ -586,7 +586,7 @@ export function ProductEdit() {
                 </button>
               )
           )}
-          <TemplateCard kind="product" value={form.template} onChange={(template) => change({ template })} />
+          <TemplateCard kind="product" value={form.templateId} onChange={(templateId) => change({ templateId })} />
         </aside>
       </div>
 

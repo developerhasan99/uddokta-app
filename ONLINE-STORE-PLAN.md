@@ -1,4 +1,22 @@
-# Online store plan: Themes, Menus, Pages
+# Online store plan: Templates, Menus, Pages
+
+> **Change of direction (November 16, 2026): themes are replaced by templates, like Elementor Pro's Theme Builder.**
+> The owner chose:
+> - The store-wide look (colours, fonts, corners, width, CSS) lives in one **Site settings** screen.
+> - Each template type has one default, and a product, collection or store page can pick another template of its type.
+> - Each landing page picks its own header and footer template, or none.
+>
+> How it works:
+> - **Template types:** header, footer, home, product, collection, all products, all collections, store page, cart, search, 404.
+> - **Templates are separate documents**, each with a draft, Publish and history, edited in the same page builder, and listed under Online store › Templates.
+> - **Built-in templates** (one per type) live in code and are read-only; Duplicate makes an editable copy.
+> - **Defaults:** "Set as default" works for published templates, one per type; without one, the built-in template is used.
+> - **What the storefront draws:** the item's assigned template if it is published, else the type's default, else the built-in template.
+>
+> The theme library, the theme editor and theme files are removed, and the sections below about themes are superseded.
+
+---
+
 
 Status: in progress (started November 15, 2026). The owner said to build every phase in order; the **Confirm** items were taken at their recommended defaults: Phase 7 (cart) is in, Preferences goes under Online store, and theme imports accept only signed files.
 

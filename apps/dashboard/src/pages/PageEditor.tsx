@@ -20,7 +20,7 @@ import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, walk, defOf, is
 import { css as storefrontCss, PageView, type CollectionCard, type Ctx, type Product, type ProductPage, type ShippingOption, type StoreInfo, type StorePageView } from 'storefront/sections'
 import { catalogCss, type Card } from 'storefront/catalog'
 import type { ResolvedItem } from 'storefront/menus'
-import { themeCss, themeFontsHref, type ThemeSettings } from 'storefront/theme'
+import { siteCss, siteFontsHref, type SiteStyle } from 'storefront/site'
 import { loadRates } from '../shipping'
 import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
 const presetVars = (theme: PresetId) => presets[theme].vars
@@ -1461,22 +1461,31 @@ export function Builder({ host }: { host: BuilderHost }) {
 }
 
 // Data the preview needs to draw the store's header, footer and store blocks as the live store will.
+export type FrameTemplate = { id: string; title: string; isDefault: boolean; sections: Section[] }
 export type PreviewData = {
   store: StoreInfo; menus: Record<string, ResolvedItem[]>; cards: Card[]; collections: CollectionCard[]
   product: ProductPage | null; collection: { name: string; handle: string; description: string } | null; page: StorePageView | null
-  live: { settings: ThemeSettings; header: Section[]; footer: Section[]; css: string }
+  style: SiteStyle
+  // Published header and footer templates (the default first) and the built-in ones, for drawing pages inside them.
+  headers: FrameTemplate[]; footers: FrameTemplate[]
+  builtIn: { header: Section[]; footer: Section[] }
   choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
 }
 export function usePreviewData(storeHandle: string, query = '') {
   const [data, setData] = useState<PreviewData | null>(null)
   useEffect(() => {
     let live = true
-    api<PreviewData>(`/stores/${storeHandle}/theme-preview${query}`).then((d) => { if (live) setData(d) }).catch(() => {})
+    api<PreviewData>(`/stores/${storeHandle}/store-preview${query}`).then((d) => { if (live) setData(d) }).catch(() => {})
     return () => { live = false }
   }, [storeHandle, query])
   return data
 }
-export const lookOf = (settings: ThemeSettings): Look => ({ css: themeCss(settings), fontsHref: themeFontsHref(settings) })
+export const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style) })
+// The header or footer a page shows: the template it picked, else the store's default, else the built-in one.
+export const frameFor = (data: PreviewData, type: 'header' | 'footer', chosen?: string) => {
+  const list = type === 'header' ? data.headers : data.footers
+  return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault))?.sections ?? data.builtIn[type]
+}
 
 // A landing page in the editor: the page API, its Page settings, and the store's live theme around it in the preview.
 export function PageEditor() {
@@ -1499,17 +1508,17 @@ export function PageEditor() {
     publish: async (state) => toLoad(await api<Saved>(`${base}/publish`, { method: 'POST', body: { revision: state.revision } })),
     check: (doc) => (doc.title.trim() ? null : 'nameRequired'),
     settingsLabel: t('pageSettings'),
-    settings: (props) => <LandingSettings {...props} base={base} />,
+    settings: (props) => <LandingSettings {...props} base={base} frames={preview} />,
     history: `${base}/versions`,
-    preview: () => (preview ? {
-      look: lookOf(preview.live.settings), frame: { header: preview.live.header, footer: preview.live.footer }, themeCss: preview.live.css,
+    preview: (doc) => (preview ? {
+      look: lookOf(preview.style), frame: { header: frameFor(preview, 'header', doc.content.canvas?.headerId), footer: frameFor(preview, 'footer', doc.content.canvas?.footerId) }, themeCss: preview.style.css,
       ctx: { store: preview.store, menus: preview.menus, current: { path: '' } },
     } : {}),
   }
   return <Builder host={host} />
 }
 
-function LandingSettings({ doc, edit, error, busy, state, run, setError, setToast, setState, base }: SettingsProps & { base: string }) {
+function LandingSettings({ doc, edit, error, busy, state, run, setError, setToast, setState, base, frames }: SettingsProps & { base: string; frames: PreviewData | null }) {
   const { t, lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const navigate = useNavigate()
@@ -1536,9 +1545,27 @@ function LandingSettings({ doc, edit, error, busy, state, run, setError, setToas
   })
   return <>
             <div className="editor__form">
-              <fieldset className="editor-canvas"><legend>{L(['পেজ ক্যানভাস', 'Page canvas'])}</legend>
-                <p className="muted">{L(['নিজের হেডার ও ফুটার যোগ করতে দোকানের বার বন্ধ রাখুন।', 'Turn off store bars to add your own header and footer sections.'])}</p>
-                {(['header', 'footer'] as const).map((key) => <label key={key}><input type="checkbox" checked={doc.content.canvas?.[key] !== false} onChange={(e) => edit({ ...doc, content: { ...doc.content, canvas: { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, [key]: e.target.checked } } })} />{L(key === 'header' ? ['দোকানের হেডার দেখান', 'Show store header'] : ['দোকানের ফুটার দেখান', 'Show store footer'])}</label>)}
+              {/* Header and footer: the store's default, one of its header or footer templates, or none (for a page that draws its own). */}
+              <fieldset className="editor-canvas"><legend>{L(['হেডার ও ফুটার', 'Header and footer'])}</legend>
+                {(['header', 'footer'] as const).map((key) => {
+                  const canvas = { header: doc.content.canvas?.header !== false, footer: doc.content.canvas?.footer !== false, ...doc.content.canvas }
+                  const value = !canvas[key] ? 'none' : canvas[key === 'header' ? 'headerId' : 'footerId'] ?? ''
+                  const list = (key === 'header' ? frames?.headers : frames?.footers) ?? []
+                  return <div key={key} className="field">
+                    <label htmlFor={`page-${key}`}>{key === 'header' ? L(['হেডার', 'Header']) : L(['ফুটার', 'Footer'])}</label>
+                    <select className="input" id={`page-${key}`} value={value} onChange={(e) => {
+                      const v = e.target.value
+                      const idKey = key === 'header' ? 'headerId' : 'footerId'
+                      const { [idKey]: _, ...rest } = canvas
+                      edit({ ...doc, content: { ...doc.content, canvas: { ...rest, [key]: v !== 'none', ...(v && v !== 'none' ? { [idKey]: v } : {}) } } })
+                    }}>
+                      <option value="">{L(['দোকানের ডিফল্ট', 'Store default'])}</option>
+                      {list.filter((f) => !f.isDefault).map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+                      <option value="none">{L(['কোনোটি নয়', 'None'])}</option>
+                    </select>
+                  </div>
+                })}
+                <p className="muted">{L(['অনলাইন স্টোর › টেমপ্লেট থেকে নতুন হেডার ও ফুটার বানান। "কোনোটি নয়" দিলে পেজে নিজের হেডার সেকশন রাখতে পারেন।', 'Make headers and footers in Online store › Templates. Choose None to put your own header section on the page.'])}</p>
               </fieldset>
               {/* Page fonts: blank keeps the theme's. English text uses the English font; Bangla falls through to the Bangla one. */}
               <fieldset className="editor-canvas"><legend>{L(['ফন্ট', 'Fonts'])}</legend>

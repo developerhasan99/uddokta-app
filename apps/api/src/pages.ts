@@ -7,7 +7,7 @@ import { blankContent, readContent, references, starterContent, type Content } f
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia, saveImage } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
-import { media, pageMedia, pages, products } from './schema.ts'
+import { media, pageMedia, pages, products, templates } from './schema.ts'
 import { getFile } from './storage.ts'
 import { signExport, verifyExport } from './secrets.ts'
 import { recordVersion } from './versions.ts'
@@ -77,6 +77,12 @@ async function checkReferences(t: Tx, storeId: string, content: Content) {
   if (refs.products.length > 0) {
     const found = await t.select({ id: products.id }).from(products).where(and(eq(products.storeId, storeId), inArray(products.id, refs.products)))
     if (found.length !== refs.products.length) throw fail(400, 'invalidRequest')
+  }
+  // The header and footer a page picked must be this store's header and footer templates.
+  for (const [id, type] of [[content.canvas?.headerId, 'header'], [content.canvas?.footerId, 'footer']] as const) {
+    if (!id) continue
+    const [found] = await t.select({ id: templates.id }).from(templates).where(and(eq(templates.storeId, storeId), eq(templates.id, id), eq(templates.type, type)))
+    if (!found) throw fail(400, 'invalidRequest')
   }
 }
 
@@ -249,6 +255,12 @@ export function registerPages(app: Hono<Env>) {
       swap.set(id, copy.id)
     }
     for (const id of ids.products) if (!own.has(id)) swap.set(id, null)
+    // A header or footer chosen in another store is not this store's: the page uses this store's default instead.
+    if (source.canvas && (source.canvas.headerId || source.canvas.footerId)) {
+      const mine = new Set(await tx(userId, async (t) => (await t.select({ id: templates.id }).from(templates).where(and(eq(templates.storeId, storeId), inArray(templates.id, ids.templates)))).map((r) => r.id)))
+      const { headerId, footerId, ...canvas } = source.canvas
+      source.canvas = { ...canvas, ...(headerId && mine.has(headerId) ? { headerId } : {}), ...(footerId && mine.has(footerId) ? { footerId } : {}) }
+    }
     const content = readContent(remap(source, swap))
     if (!content || JSON.stringify(content).length > maxContentBytes) throw fail(400, 'importInvalid')
 

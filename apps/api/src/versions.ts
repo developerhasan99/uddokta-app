@@ -1,20 +1,20 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { readContent, references, type Content } from 'storefront/schema'
-import { readTheme, themeReferences, type ThemeDoc } from 'storefront/theme'
 import { fail, storeByHandle, type Env } from './app.ts'
 import { tx, type Tx } from './db.ts'
 import { remap, syncMedia } from './pages.ts'
 import { isId } from './products.ts'
-import { collections, media, pages, products, themes, versions } from './schema.ts'
-import { syncThemeMedia } from './themes.ts'
+import { collections, media, pages, products, templates, versions } from './schema.ts'
+import { syncTemplateMedia } from './templates.ts'
+import { readTemplateContent } from 'storefront/site'
 
-type Owner = { pageId: string } | { themeId: string }
+type Owner = { pageId: string } | { templateId: string }
 const keepSaves = 20
 const keepDays = 30
 const mergeMinutes = 10
 
-const ownerWhere = (owner: Owner) => ('pageId' in owner ? eq(versions.pageId, owner.pageId) : eq(versions.themeId, owner.themeId))
+const ownerWhere = (owner: Owner) => ('pageId' in owner ? eq(versions.pageId, owner.pageId) : eq(versions.templateId, owner.templateId))
 
 // Keeps a copy of what was just saved or published. A save right after the same person's last save replaces it, so
 // typing all afternoon is one version per ten minutes, not hundreds. Old versions are pruned here.
@@ -45,13 +45,13 @@ async function missing(t: Tx, storeId: string, refs: { media: string[]; products
 const present = (v: typeof versions.$inferSelect) => ({ id: v.id, label: v.label, createdAt: v.createdAt, createdBy: v.createdBy })
 
 export function registerVersions(app: Hono<Env>) {
-  for (const kind of ['pages', 'themes'] as const) {
+  for (const kind of ['pages', 'templates'] as const) {
     app.get(`/stores/:handle/${kind}/:id/versions`, async (c) => {
       const id = c.req.param('id')
       if (!isId(id)) throw fail(404, 'notFound')
       return tx(c.get('userId'), async (t) => {
         const store = await storeByHandle(t, c.req.param('handle'))
-        const owner: Owner = kind === 'pages' ? { pageId: id } : { themeId: id }
+        const owner: Owner = kind === 'pages' ? { pageId: id } : { templateId: id }
         const rows = await t.select().from(versions).where(and(eq(versions.storeId, store.id), ownerWhere(owner))).orderBy(desc(versions.createdAt)).limit(60)
         return c.json(rows.map(present))
       })
@@ -72,7 +72,7 @@ export function registerVersions(app: Hono<Env>) {
       if (version.pageId) {
         const saved = version.content as { title: string; seoTitle: string; seoDescription: string; draft: Content }
         const source = readContent(saved.draft)
-        const draft = source && readContent(remap(source, await missing(t, store.id, { ...references(source), collections: [] })))
+        const draft = source && readContent(remap(source, await missing(t, store.id, references(source))))
         if (!draft) throw fail(400, 'invalidRequest')
         const [row] = await t.update(pages).set({ title: saved.title, seoTitle: saved.seoTitle, seoDescription: saved.seoDescription, draft, revision: sql`${pages.revision} + 1`, updatedAt: sql`now()` })
           .where(and(eq(pages.storeId, store.id), eq(pages.id, version.pageId), eq(pages.revision, body.revision))).returning()
@@ -81,19 +81,19 @@ export function registerVersions(app: Hono<Env>) {
         await recordVersion(t, store.id, { pageId: row.id }, 'restore', saved, userId)
         return c.json({ kind: 'page', id: row.id })
       }
-      const saved = version.content as { name: string; draft: ThemeDoc }
-      const source = readTheme(saved.draft)
-      const draft = source && readTheme(remap(source as unknown as Content, await missing(t, store.id, themeReferences(source))))
-      if (!draft) throw fail(400, 'themeInvalid')
-      const [current] = await t.select({ revision: themes.revision }).from(themes).where(and(eq(themes.storeId, store.id), eq(themes.id, version.themeId!)))
+      const saved = version.content as { title: string; draft: Content }
+      const source = readTemplateContent(saved.draft)
+      const draft = source && readTemplateContent(remap(source, await missing(t, store.id, references(source))))
+      if (!draft) throw fail(400, 'templateInvalid')
+      const [current] = await t.select({ revision: templates.revision }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.id, version.templateId!)))
       if (!current) throw fail(404, 'notFound')
-      if (current.revision !== body.revision) throw fail(409, 'themeChanged')
-      const [row] = await t.update(themes).set({ name: saved.name, draft, revision: sql`${themes.revision} + 1`, updatedAt: sql`now()` })
-        .where(and(eq(themes.storeId, store.id), eq(themes.id, version.themeId!), eq(themes.revision, body.revision))).returning()
+      if (current.revision !== body.revision) throw fail(409, 'templateChanged')
+      const [row] = await t.update(templates).set({ title: saved.title, draft, revision: sql`${templates.revision} + 1`, updatedAt: sql`now()` })
+        .where(and(eq(templates.storeId, store.id), eq(templates.id, version.templateId!), eq(templates.revision, body.revision))).returning()
       if (!row) throw fail(403, 'forbidden')
-      await syncThemeMedia(t, store.id, row.id, draft, row.published as ThemeDoc | null)
-      await recordVersion(t, store.id, { themeId: row.id }, 'restore', saved, userId)
-      return c.json({ kind: 'theme', id: row.id })
+      await syncTemplateMedia(t, store.id, row.id, draft, row.published as Content | null)
+      await recordVersion(t, store.id, { templateId: row.id }, 'restore', saved, userId)
+      return c.json({ kind: 'template', id: row.id })
     })
   })
 }

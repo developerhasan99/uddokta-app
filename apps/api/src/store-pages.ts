@@ -20,16 +20,16 @@ function readPage(body: Record<string, unknown>) {
   const text = typeof body.body === 'string' && body.body.length <= maxBody ? cleanRichText(body.body) : null
   const seoTitle = str(body.seoTitle ?? '', 300)
   const seoDescription = str(body.seoDescription ?? '', 1000)
-  const template = str(body.template ?? '', 60)
   const publishAt = body.publishAt === null || body.publishAt === undefined || body.publishAt === '' ? null : typeof body.publishAt === 'string' && !Number.isNaN(Date.parse(body.publishAt)) ? new Date(body.publishAt) : undefined
+  const templateId = body.templateId ?? null
   if (!title) throw fail(400, 'nameRequired')
-  if (handle === null || text === null || seoTitle === null || seoDescription === null || template === null || !/^[a-z0-9-]*$/.test(template)
+  if (handle === null || text === null || seoTitle === null || seoDescription === null || !(templateId === null || isId(templateId))
     || publishAt === undefined || typeof (body.visible ?? true) !== 'boolean') throw fail(400, 'invalidRequest')
-  return { title, handle: slugify(handle), body: text, seoTitle, seoDescription, template, publishAt, visible: (body.visible ?? true) as boolean }
+  return { title, handle: slugify(handle), body: text, seoTitle, seoDescription, templateId: templateId as string | null, publishAt, visible: (body.visible ?? true) as boolean }
 }
 
 const present = (r: typeof storePages.$inferSelect) => ({
-  id: r.id, title: r.title, handle: r.handle, body: r.body, visible: r.visible, publishAt: r.publishAt, policy: r.policy, template: r.template,
+  id: r.id, title: r.title, handle: r.handle, body: r.body, visible: r.visible, publishAt: r.publishAt, policy: r.policy, templateId: r.templateId,
   seoTitle: r.seoTitle, seoDescription: r.seoDescription, revision: r.revision, updatedAt: r.updatedAt,
 })
 
@@ -44,7 +44,7 @@ export function registerStorePages(app: Hono<Env>) {
     const store = await storeByHandle(t, c.req.param('handle'))
     const q = (c.req.query('q') ?? '').trim().slice(0, 100)
     const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
-    const rows = await t.select({ id: storePages.id, title: storePages.title, handle: storePages.handle, visible: storePages.visible, publishAt: storePages.publishAt, policy: storePages.policy, template: storePages.template, updatedAt: storePages.updatedAt })
+    const rows = await t.select({ id: storePages.id, title: storePages.title, handle: storePages.handle, visible: storePages.visible, publishAt: storePages.publishAt, policy: storePages.policy, templateId: storePages.templateId, updatedAt: storePages.updatedAt })
       .from(storePages).where(and(eq(storePages.storeId, store.id), q ? or(ilike(storePages.title, like), ilike(storePages.handle, like)) : undefined)).orderBy(desc(storePages.updatedAt)).limit(maxPages)
     return c.json(rows)
   }))

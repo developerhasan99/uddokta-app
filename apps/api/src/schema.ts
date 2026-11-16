@@ -53,8 +53,9 @@ export const stores = pgTable('stores', {
   logoMediaId: uuid('logo_media_id'),
   // The browser-tab icon on every sales channel (landing pages now, the online store later). Held like the logo (migration 0073).
   faviconMediaId: uuid('favicon_media_id'),
-  // The theme buyers see (themes); deferred key in migration 0084, set when the store is made.
-  liveThemeId: uuid('live_theme_id'),
+  // Site settings (storefront/src/site.ts): the online store's colours, fonts, corners, width and CSS. Null until the
+  // seller saves them; the storefront then uses the style preset in theme.
+  siteStyle: jsonb('site_style'),
   // Online store › Preferences: the home page's search listing and share image, and an optional password that keeps
   // the store (not its landing pages) closed while it is being prepared. Only the hash of the password is kept.
   homeTitle: text('home_title').notNull().default(''),
@@ -138,8 +139,8 @@ export const products = pgTable('products', {
   handle: text('handle').notNull(),
   seoTitle: text('seo_title').notNull().default(''),
   seoDescription: text('seo_description').notNull().default(''),
-  // An alternate product template of the live theme ("gift" uses product.gift); blank uses the default.
-  template: text('template').notNull().default(''),
+  // A product template (templates) this product uses instead of the store's default; null uses the default.
+  templateId: uuid('template_id'),
   createdAt: createdAt(),
 }, (t) => [
   index('products_store_created').on(t.storeId, t.createdAt),
@@ -205,7 +206,7 @@ export const collections = pgTable('collections', {
   handle: text('handle').notNull(),
   seoTitle: text('seo_title').notNull().default(''),
   seoDescription: text('seo_description').notNull().default(''),
-  template: text('template').notNull().default(''),
+  templateId: uuid('template_id'),
   mediaId: uuid('media_id'),
   createdAt: createdAt(),
 }, (t) => [
@@ -276,55 +277,61 @@ export const pages = pgTable('pages', {
   uniqueIndex('pages_store_published_handle').on(t.storeId, sql`(${t.publishedMeta}->>'handle')`).where(sql`${t.published} is not null`),
 ])
 
-// Online store themes (storefront/src/theme.ts): one JSON document each, with a draft and a published copy like pages.
-// stores.live_theme_id names the one buyers see; the others are a library to edit and preview. theme_media keeps the
+// Online store templates (storefront/src/site.ts), like Elementor Pro's Theme Builder: each one a page-builder document of
+// one type (header, product page, …) with a draft and a published copy. One published template per type can be the
+// store's default; products, collections, store pages and landing pages can pick another. template_media keeps the
 // images both copies use, which blocks deleting them (deferred key to media in the security migration).
-export const themes = pgTable('themes', {
+export const templateTypeValues = ['header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound'] as const
+export const templates = pgTable('templates', {
   id: uuid('id').primaryKey().defaultRandom(),
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
+  type: text('type', { enum: templateTypeValues }).notNull(),
+  title: text('title').notNull(),
   draft: jsonb('draft').notNull(),
   published: jsonb('published'),
+  isDefault: boolean('is_default').notNull().default(false),
   revision: integer('revision').notNull().default(1),
-  starter: text('starter').notNull().default(''),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
-  unique('themes_store_id').on(t.storeId, t.id),
-  index('themes_store_updated').on(t.storeId, t.updatedAt),
-  check('themes_name', sql`char_length(btrim(${t.name})) between 1 and 60`),
+  unique('templates_store_id').on(t.storeId, t.id),
+  uniqueIndex('templates_store_default').on(t.storeId, t.type).where(sql`${t.isDefault}`),
+  index('templates_store_updated').on(t.storeId, t.updatedAt),
+  check('templates_title', sql`char_length(btrim(${t.title})) between 1 and 100`),
+  check('templates_type', sql`${t.type} in ('header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound')`),
+  check('templates_default_published', sql`not ${t.isDefault} or ${t.published} is not null`),
 ])
 
-export const themeMedia = pgTable('theme_media', {
+export const templateMedia = pgTable('template_media', {
   storeId: uuid('store_id').notNull(),
-  themeId: uuid('theme_id').notNull(),
+  templateId: uuid('template_id').notNull(),
   mediaId: uuid('media_id').notNull(),
 }, (t) => [
-  primaryKey({ columns: [t.themeId, t.mediaId] }),
-  foreignKey({ name: 'theme_media_theme', columns: [t.storeId, t.themeId], foreignColumns: [themes.storeId, themes.id] }).onDelete('cascade'),
-  index('theme_media_media').on(t.storeId, t.mediaId),
+  primaryKey({ columns: [t.templateId, t.mediaId] }),
+  foreignKey({ name: 'template_media_template', columns: [t.storeId, t.templateId], foreignColumns: [templates.storeId, templates.id] }).onDelete('cascade'),
+  index('template_media_media').on(t.storeId, t.mediaId),
 ])
 
-// Version history for landing pages and themes: what was saved or published, to restore into the draft. Exactly one of
-// page_id and theme_id is set, so a version goes with its page or theme. Saves by one person within 10 minutes are one
+// Version history for landing pages and templates: what was saved or published, to restore into the draft. Exactly one of
+// page_id and template_id is set, so a version goes with its page or template. Saves by one person within 10 minutes are one
 // version; the last 20 saves and 30 days of publishes are kept (pruned when a version is written, see versions.ts).
 export const versionLabels = ['save', 'publish', 'restore'] as const
 export const versions = pgTable('versions', {
   id: uuid('id').primaryKey().defaultRandom(),
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
   pageId: uuid('page_id'),
-  themeId: uuid('theme_id'),
+  templateId: uuid('template_id'),
   label: text('label', { enum: versionLabels }).notNull(),
   content: jsonb('content').notNull(),
   createdBy: uuid('created_by'),
   createdAt: createdAt(),
 }, (t) => [
   foreignKey({ name: 'versions_page', columns: [t.storeId, t.pageId], foreignColumns: [pages.storeId, pages.id] }).onDelete('cascade'),
-  foreignKey({ name: 'versions_theme', columns: [t.storeId, t.themeId], foreignColumns: [themes.storeId, themes.id] }).onDelete('cascade'),
+  foreignKey({ name: 'versions_template', columns: [t.storeId, t.templateId], foreignColumns: [templates.storeId, templates.id] }).onDelete('cascade'),
   index('versions_page').on(t.pageId, t.createdAt),
-  index('versions_theme').on(t.themeId, t.createdAt),
-  check('versions_owner', sql`(${t.pageId} is null) <> (${t.themeId} is null)`),
+  index('versions_template').on(t.templateId, t.createdAt),
+  check('versions_owner', sql`(${t.pageId} is null) <> (${t.templateId} is null)`),
   check('versions_label', sql`${t.label} in ('save', 'publish', 'restore')`),
 ])
 
@@ -340,7 +347,7 @@ export const storePages = pgTable('store_pages', {
   visible: boolean('visible').notNull().default(true),
   publishAt: timestamp('publish_at', { withTimezone: true }),
   policy: text('policy', { enum: storePagePolicies }),
-  template: text('template').notNull().default(''),
+  templateId: uuid('template_id'),
   seoTitle: text('seo_title').notNull().default(''),
   seoDescription: text('seo_description').notNull().default(''),
   revision: integer('revision').notNull().default(1),
@@ -351,7 +358,7 @@ export const storePages = pgTable('store_pages', {
   unique('store_pages_store_handle').on(t.storeId, t.handle),
   uniqueIndex('store_pages_store_policy').on(t.storeId, t.policy).where(sql`${t.policy} is not null`),
   index('store_pages_store_updated').on(t.storeId, t.updatedAt),
-  check('store_pages_text', sql`char_length(btrim(${t.title})) between 1 and 200 and char_length(${t.handle}) between 1 and 100 and char_length(${t.body}) <= 100000 and char_length(${t.template}) <= 60 and char_length(${t.seoTitle}) <= 300 and char_length(${t.seoDescription}) <= 1000`),
+  check('store_pages_text', sql`char_length(btrim(${t.title})) between 1 and 200 and char_length(${t.handle}) between 1 and 100 and char_length(${t.body}) <= 100000 and char_length(${t.seoTitle}) <= 300 and char_length(${t.seoDescription}) <= 1000`),
   check('store_pages_policy', sql`${t.policy} in ('refund', 'privacy', 'shipping', 'terms', 'contact')`),
 ])
 

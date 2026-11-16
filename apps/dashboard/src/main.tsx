@@ -27,7 +27,7 @@ import { OnlineStore } from './pages/OnlineStore'
 import { Orders } from './pages/Orders'
 import { Protection } from './pages/Protection'
 import { PageEditor } from './pages/PageEditor'
-import { ThemeEditor } from './pages/ThemeEditor'
+import { TemplateEditor } from './pages/TemplateEditor'
 import { Pages } from './pages/Pages'
 import { Warehouses } from './pages/Warehouses'
 import { Placeholder, NotFound } from './pages/Placeholder'
@@ -39,7 +39,8 @@ import { NotificationSettings } from './pages/NotificationSettings'
 import { Delivery } from './pages/Delivery'
 import { Tracking } from './pages/Tracking'
 import { Domains } from './pages/Domains'
-import { Themes } from './pages/Themes'
+import { Templates } from './pages/Templates'
+import { SiteSettings } from './pages/SiteSettings'
 import { Invoices } from './pages/Invoices'
 import { StoreSettings } from './pages/StoreSettings'
 import { Analytics } from './pages/Analytics'
@@ -79,7 +80,7 @@ createRoot(document.getElementById('root')!).render(
               {/* The page editor fills the screen, like Shopify's: no sidebar. */}
               <Route path="store/:handle" element={<Shell bare />}>
                 <Route path="landing-pages/:id" element={<PageEditor />} />
-                <Route path="online-store/themes/:id/editor" element={<ThemeEditor />} />
+                <Route path="online-store/templates/:id" element={<TemplateEditor />} />
               </Route>
               <Route path="store/:handle" element={<Shell />}>
                 <Route index element={<Home />} />
@@ -101,7 +102,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="customers/repeat-sales" element={<RepeatSales />} />
                 <Route path="online-store" element={<OnlineStore />} />
-                <Route path="online-store/themes" element={<Themes />} />
+                <Route path="online-store/templates" element={<Templates />} />
+                <Route path="online-store/site-settings" element={<SiteSettings />} />
                 <Route path="online-store/menus" element={<Menus />} />
                 <Route path="online-store/menus/:id" element={<MenuEdit />} />
                 <Route path="online-store/pages" element={<StorePages />} />

@@ -26,7 +26,9 @@ export type Section = { id: string; type: SectionType; hidden: boolean; settings
 // Version 2: typed sections plus layout sections. Older versions are refused (migration 0076 moved existing pages).
 // css: the seller's own styles for this page only. No '<', so it can never close the <style> tag it is written into.
 // fonts: the page's own Bangla and English fonts, from the list in themes.ts (blank keeps the theme's).
-export type Content = { version: 2; sections: Section[]; canvas?: { header: boolean; footer: boolean }; css?: string; fonts?: PageFonts }
+// canvas: whether a landing page shows a header and footer, and which header and footer template (blank: the store's default).
+export type Canvas = { header: boolean; footer: boolean; headerId?: string; footerId?: string }
+export type Content = { version: 2; sections: Section[]; canvas?: Canvas; css?: string; fonts?: PageFonts }
 export const maxCss = 20000
 
 const heading = (max = 120): Leaf => ({ key: 'heading', kind: 'text', label: ['শিরোনাম', 'Heading'], max })
@@ -474,7 +476,8 @@ function readContentAny(raw: unknown): Content | null {
     } else if (section.children !== undefined) return null
     sections.push({ id: section.id, type: section.type, hidden: section.hidden === true, settings, ...(style && Object.keys(style).length ? { style } : {}), ...(children ? { children } : {}) })
   }
-  if (doc.canvas !== undefined && (!doc.canvas || typeof doc.canvas !== 'object' || typeof doc.canvas.header !== 'boolean' || typeof doc.canvas.footer !== 'boolean')) return null
+  if (doc.canvas !== undefined && (!doc.canvas || typeof doc.canvas !== 'object' || typeof doc.canvas.header !== 'boolean' || typeof doc.canvas.footer !== 'boolean'
+    || (doc.canvas.headerId !== undefined && !isId(doc.canvas.headerId)) || (doc.canvas.footerId !== undefined && !isId(doc.canvas.footerId)))) return null
   if (doc.css !== undefined && (typeof doc.css !== 'string' || doc.css.length > maxCss || doc.css.includes('<'))) return null
   let fonts: PageFonts | undefined
   if (doc.fonts !== undefined) {
@@ -485,7 +488,7 @@ function readContentAny(raw: unknown): Content | null {
       fonts = { ...fonts, [kind]: name }
     }
   }
-  return { version: 2, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}), ...(fonts ? { fonts } : {}) }
+  return { version: 2, sections, ...(doc.canvas ? { canvas: { header: doc.canvas.header, footer: doc.canvas.footer, ...(doc.canvas.headerId ? { headerId: doc.canvas.headerId } : {}), ...(doc.canvas.footerId ? { footerId: doc.canvas.footerId } : {}) } } : {}), ...(doc.css?.trim() ? { css: doc.css } : {}), ...(fonts ? { fonts } : {}) }
 }
 
 export function readSectionStyle(raw: unknown): SectionStyle | null {
@@ -508,6 +511,7 @@ export function references(content: Content) {
   const media = new Set<string>()
   const products = new Set<string>()
   const collections = new Set<string>()
+  const templates = new Set([content.canvas?.headerId, content.canvas?.footerId].filter((id): id is string => Boolean(id)))
   for (const section of content.sections) {
     for (const node of walk(section.children ?? [])) {
       if (node.block) add(node.block.type, node.block.settings)
@@ -519,7 +523,7 @@ export function references(content: Content) {
     add(section.type, section.settings)
     if (typeof section.style?.bgImage === 'string') media.add(section.style.bgImage)
   }
-  return { media: [...media], products: [...products], collections: [...collections] }
+  return { media: [...media], products: [...products], collections: [...collections], templates: [...templates] }
   function add(type: SectionType, settings: Settings) {
     for (const field of defOf(type).fields) {
       const value = settings[field.key]

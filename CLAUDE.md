@@ -80,16 +80,16 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 - **Media**
 - **Analytics**
 - **Landing pages** (first under Sales channels)
-- **Online store:** Themes, Pages, Menus, Preferences
+- **Online store:** Templates, Site settings, Pages, Menus, Preferences
 - **Settings:** Store, Team, Notifications, Payments (coming soon), Warehouses, Delivery, Couriers, Invoices, SMS (coming soon), Domains, Tracking, Billing (coming soon)
 
-Landing-page COD selling and the online store (themes, pages, menus, preferences, cart and search; see `ONLINE-STORE-PLAN.md`) are both built and share one page builder. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
+Landing-page COD selling and the online store (templates, site settings, pages, menus, preferences, cart and search; see `ONLINE-STORE-PLAN.md`) are both built and share one page builder. Keep planned Inbox, AI salesman, Segments, Payments, SMS and Billing visible, with a Coming soon label and a clear planned-feature screen. These remain on the implementation roadmap; do not remove them merely because they are unfinished. Only Marketing, Auto follow-ups and Offers were approved for removal. Add future features as built-in tools, without a separate Apps section.
 
 ## Media gallery
 
 Files live in Cloudflare R2 (`.media/` in development), and the `media` table holds their details. Never store uploads in the repo. The API converts every image to WebP, strips its metadata and makes a thumbnail.
 
-One picker used across products, pages, themes and the logo. It shows where each file is used, blocks deleting a file that is live, compresses images automatically and counts against a per-plan storage limit.
+One picker used across products, pages, templates and the logo. It shows where each file is used, blocks deleting a file that is live, compresses images automatically and counts against a per-plan storage limit.
 
 ## Products
 
@@ -168,21 +168,18 @@ One picker used across products, pages, themes and the logo. It shows where each
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
 
-## Themes
+## Templates (online store)
 
-- A theme is one JSON document (`ThemeDoc` in `apps/storefront/src/theme.ts`): `settings` (5 colours, corner radius, Bangla and English font from `pageFonts`, content width), `header` and `footer` section groups, `templates` (home, product, collection, collections, products, page, notFound, plus alternates like `product.gift`, at most 40) and `css`. Templates are page `Content` v2, validated by `readContent(…, { theme: true })` inside `readTheme`, the trust boundary. No template language and no uploaded code themes.
-- Store blocks (`themeOnlyTypes` in `schema.ts`: storeHeader, storeFooter, productInfo, productGrid, collectionHeader, collectionList, pageContent) read the store, its menus and what the page is about from `ctx` (`store`, `menus`, `current`, `grid`, `collections`). Landing pages refuse them. Field kinds `menu` (a menu handle) and `collection` (an id) exist for them.
-- `themes` (draft, published, revision) with `stores.live_theme_id` (deferred key, so the live theme cannot be deleted) and `theme_media` (blocks deleting images in use). Owners and admins change themes; staff only look. New stores get `starterTheme` (in `createStarterTheme`); `migrate.ts` gives existing stores one. The six style presets are now style variations: `PUT /stores/:handle/theme` restyles the live theme's draft and published copy.
-- The theme editor (`pages/ThemeEditor.tsx`, route `online-store/themes/:id/editor`) is the landing-page editor: `Builder` in `PageEditor.tsx` takes a `BuilderHost` (load, save, publish, settings panel, top-bar slot, preview look and context). Landing pages (`PageEditor`) and themes are its two hosts; never fork the editor for a third use, add a host. The theme host shows the header group, the open template and the footer group as one section list (labelled Header/Footer) and splits them back with `compose`. Its top bar switches templates, makes alternates (+) and picks the product, collection or page to preview with; Theme settings hold name, one-click styles, colours, fonts, corners, width and theme CSS. Previews read `GET /stores/:handle/theme-preview` (buyer-visible data only).
-- Version history (`versions`, `apps/api/src/versions.ts`) covers landing pages and themes: `recordVersion` on every save (one person's saves within 10 minutes merge) and publish, pruned on write to the last 20 saves and 30 days of publishes. Restore (`POST /stores/:handle/versions/:id/restore` with the current revision) puts a version back into the draft only; missing images, products and collections become blank (`remap`). The editor's History panel (host `history` URL) lists and restores.
-- Theme files: `GET …/themes/:id/export` signs the draft with its images' storage details (`signExport`); `POST …/themes/import` accepts only unchanged signed files and makes a new unpublished library theme, copying images in as page import does.
-- Themes page: the live theme card and a library (add from a starter style, duplicate, rename, make live once published, delete any but the live one; up to 10). Products, collections and store pages pick an alternate template in a Template card (shown once the live theme has one; `theme-templates`).
-- The storefront draws every store page through the live theme's published copy (`renderThemed` in `server.tsx`, `storefront_theme`), falling back to the starter theme. Landing pages with "Show store header/footer" on draw the theme's header and footer groups. Theme colours and fonts come only from `themeCss`/`themeFontsHref` over checked values.
+- Like Elementor Pro's Theme Builder: every part of the store is a **template** made in the page builder. Types (`templateTypes` in `apps/storefront/src/site.ts`): header, footer, home, product, collection, products (all), collections (all), page (store pages), cart, search, notFound. Each template is a row in `templates` (draft, published, revision, history like landing pages); `template_media` blocks deleting images in use.
+- Each type has a **built-in template** in code (`builtInTemplates`), read-only; sellers duplicate it. One published template per type can be the store's **default** (`is_default`, unique per type; a default cannot be unpublished). What the storefront draws (`storefront_template`, `templateOf` in `server.tsx`): the item's chosen template if published and of that type, else the default, else the built-in. Products, collections and store pages pick with `template_id` (the Template card; deleting the template sets it back to null). Landing pages pick a header and footer template in Page settings (`canvas.headerId`/`footerId`; blank = store default, None = canvas off; checked to be this store's header/footer templates).
+- Template content is page `Content` validated by `readTemplateContent` (store blocks allowed); new templates start blank, from the built-in, from a ready-made start (`readyMade`) or as a copy. Owners and admins change templates; staff only look.
+- The template editor (`pages/TemplateEditor.tsx`) is a `BuilderHost` of the shared `Builder`: page templates preview inside the store's default header and footer; product, collection and page templates preview with a store item picked in the top bar. Template settings: name, Make default, fonts, the template's CSS.
+- **Site settings** (`stores.site_style`, `readSiteStyle`, screen `pages/SiteSettings.tsx`): colours, fonts, corners, width and site CSS for every store page and landing page; until saved, the style preset in `stores.theme` applies. Never write these values into CSS except through `siteCss`/`siteFontsHref`.
+- Themes (the earlier single-document design) were removed by migrations `0089`/`0090`; each store's live theme look became its Site settings.
 
 ## Online store preferences
 
-- Online store › Preferences (`apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every themed store page shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
-- Two starter designs (`starterDesigns` in `theme.ts`): classic (the old fixed layout) and bazar (announcement, sticky header, hero, collections, new arrivals); Add theme picks a design and a style.
+- Online store › Preferences (`apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every store page (templates) shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
 
 ## Store pages
 
@@ -201,7 +198,7 @@ One picker used across products, pages, themes and the logo. It shows where each
 
 - The cart is a cookie (`cart`, base64url JSON of `[variant id, quantity]`, at most 20 items, as `place_order_lines` caps storefront orders) with no prices in it; every view reads prices through `storefront_cart_lines`. `/cart/add`, `/cart/update` and `POST /cart` are plain forms (no JavaScript needed) and ignore posts from other sites (Origin check).
 - `POST /cart` checks out through `place_cart_checkout` (receipt token, fingerprint, retries return the first receipt, as `place_checkout`), which calls `place_order_lines` with source `website`: the database prices lines, delivery and discount, takes stock and picks the warehouse. The cart empties on success and `/cart/thanks` shows the receipt. The cart page's script only updates the shown total for the chosen delivery option.
-- Themes have optional `cart` and `search` templates (older themes use the starter's until edited) with the `cart` and `search` store blocks; the store header shows Search and Cart (with a count) links, and Product details can offer order now, cart, or both (`buyMode`).
+- The `cart` and `search` templates use the `cart` and `search` store blocks; the store header shows Search and Cart (with a count) links, and Product details can offer order now, cart, or both (`buyMode`).
 - `/search?q=` uses `storefront_search` (active products whose name, type, brand or a tag contain every word; ILIKE, Bangla-safe).
 
 ## Delivery options
