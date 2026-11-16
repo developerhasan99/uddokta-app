@@ -107,61 +107,76 @@ export function OnlineStore() {
     setError(null)
   }
   const copy = () => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }
-  const part = (to: string, Icon: typeof FileText, title: string, count: number | null, badge?: ReactNode) => (
+  const part = (to: string, Icon: typeof FileText, title: string, help: string, count: number | null, badge?: ReactNode) => (
     <Link className="store-part" to={path(to)}>
-      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
-      <strong>{title}</strong>
-      {count !== null && <span className="store-part__count">{num(count)}</span>}
-      {badge}
-      <ChevronRight size={14} aria-hidden="true" />
+      <span className="store-part__icon"><Icon size={16} strokeWidth={1.75} aria-hidden="true" /></span>
+      <span className="store-part__text"><strong>{title}{count !== null && <span className="store-part__count">{num(count)}</span>}{badge}</strong><span className="muted">{help}</span></span>
+      <ChevronRight size={16} aria-hidden="true" />
     </Link>
   )
-  const section = (title: string, help: string, children: ReactNode, aside?: ReactNode) => (
+  const section = (title: string, help: string, children: ReactNode) => (
     <section className="settings-split">
-      <div className="settings-split__head"><h2>{title}</h2><p className="muted">{help}</p>{aside}</div>
+      <div className="settings-split__head"><h2>{title}</h2><p className="muted">{help}</p></div>
       <div className="card card--form settings-split__body">{children}</div>
     </section>
   )
   const font = `${style.latin ? `"${style.latin}", ` : ''}"${style.bangla || 'Hind Siliguri'}", sans-serif`
   const radius = Math.min(style.radius, 16)
-  // A small store page drawn with the chosen look (the store's colours, not the dashboard's), updated as settings change.
+  // A small store home page drawn with the chosen look (the store's colours, not the dashboard's), updated as settings change.
   const sample = (
-    <div className="look-sample" aria-hidden="true" style={{ background: c.paper, color: c.ink, borderColor: c.rule, fontFamily: font }}>
-      <div className="look-sample__bar" style={{ borderColor: c.rule }}><strong>{current.store.name}</strong><span>হোম</span><span>পণ্য</span></div>
-      <div className="look-sample__body">
-        <div className="look-sample__image" style={{ background: c.tint, borderRadius: radius }} />
-        <div className="look-sample__text">
-          <strong>পণ্যের নাম</strong>
-          <span style={{ color: c.accent }}>৳১,২০০</span>
-          <span className="look-sample__button" style={{ background: c.accent, color: c.paper, borderRadius: radius }}>অর্ডার করুন</span>
-        </div>
+    <div className="look-sample" aria-hidden="true" style={{ background: c.paper, color: c.ink, fontFamily: font }}>
+      <div className="look-sample__bar" style={{ borderColor: c.rule }}><strong>{current.store.name}</strong><span>হোম</span><span>পণ্য</span><span>যোগাযোগ</span></div>
+      <div className="look-sample__hero" style={{ background: c.tint, borderRadius: radius }}>
+        <strong>নতুন কালেকশন এসেছে</strong>
+        <span>সারা দেশে ক্যাশ অন ডেলিভারি</span>
+        <span className="look-sample__button" style={{ background: c.accent, color: c.paper, borderRadius: radius }}>এখনই কিনুন</span>
+      </div>
+      <div className="look-sample__grid">
+        {['৳১,২০০', '৳৮৫০', '৳২,৪০০'].map((price) => <div key={price} className="look-sample__card">
+          <div className="look-sample__image" style={{ background: c.tint, borderRadius: radius, borderColor: c.rule }} />
+          <span>পণ্যের নাম</span>
+          <strong style={{ color: c.accent }}>{price}</strong>
+        </div>)}
       </div>
     </div>
   )
+  const group = (title: string, children: ReactNode) => <div className="look-group"><h3>{title}</h3>{children}</div>
 
   return (
     <form className="page page--settings" onSubmit={(e) => void save(e)} noValidate>
-      <PageHeader title={t('onlineStore')} description={t('onlineStore.d')} action={<a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>} />
+      <PageHeader title={t('onlineStore')} description={t('onlineStore.d')} />
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
       {!canEdit && <p className="muted">{L(['এখানের সেটিংস শুধু মালিক ও অ্যাডমিন বদলাতে পারেন।', 'Only owners and admins can change these settings.'])}</p>}
 
-      <section className="card store-strip">
-        <div className="store-strip__address">
-          <Globe size={16} aria-hidden="true" />
-          <a href={url} target="_blank" rel="noopener">{url.replace(/^https?:\/\//, '')}</a>
-          <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
-          {wasLocked && <Badge tone="warning"><Lock size={11} aria-hidden="true" /> {L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected'])}</Badge>}
+      <section className="card store-hero">
+        <div className="store-hero__preview">{sample}</div>
+        <div className="store-hero__info">
+          <div className="store-hero__head">
+            <h2>{current.store.name}</h2>
+            {wasLocked
+              ? <Badge tone="warning"><Lock size={11} aria-hidden="true" /> {L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected'])}</Badge>
+              : <Badge tone="success">{L(['চালু', 'Live'])}</Badge>}
+          </div>
+          <div className="store-hero__address">
+            <Globe size={14} aria-hidden="true" />
+            <a href={url} target="_blank" rel="noopener">{url.replace(/^https?:\/\//, '')}</a>
+            <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
+          </div>
+          <div className="row">
+            <Link className="btn btn--primary" to={path('/online-store/templates')}><LayoutTemplate size={16} aria-hidden="true" />{L(['ডিজাইন করুন', 'Customize'])}</Link>
+            <a className="btn" href={url} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewStore')}</a>
+          </div>
+          <nav className="store-parts" aria-label={t('onlineStore')}>
+            {part('/online-store/templates', LayoutTemplate, t('templates'), L(['হেডার, ফুটার আর প্রতিটি পেজের নকশা', 'Header, footer and each page type']), counts?.templates ?? null)}
+            {part('/online-store/pages', FileText, t('pages'), L(['আমাদের সম্পর্কে, নীতিমালা, যোগাযোগ', 'About, policies and contact']), counts?.pages ?? null)}
+            {part('/online-store/menus', ListTree, t('menus'), L(['হেডার ও ফুটারের লিংক', 'Links in the header and footer']), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
+          </nav>
         </div>
-        <nav className="store-strip__parts" aria-label={t('onlineStore')}>
-          {part('/online-store/templates', LayoutTemplate, t('templates'), counts?.templates ?? null)}
-          {part('/online-store/pages', FileText, t('pages'), counts?.pages ?? null)}
-          {part('/online-store/menus', ListTree, t('menus'), counts?.menus ?? null, counts && counts.broken > 0 ? <Badge tone="warning">{t('menuBrokenCount', { n: num(counts.broken) })}</Badge> : undefined)}
-        </nav>
       </section>
 
       <fieldset className="settings-stack" disabled={!canEdit}>
         {section(L(['চেহারা', 'Look']), L(['পুরো দোকান আর সব ল্যান্ডিং পেজের রং, ফন্ট ও আকার।', 'Colours, fonts and sizes for the whole store and every landing page.']), <>
-          <div className="look-presets" role="group" aria-label={L(['এক ক্লিকে স্টাইল', 'One-click style'])}>
+          {group(L(['স্টাইল', 'Style']), <div className="look-presets" role="group" aria-label={L(['এক ক্লিকে স্টাইল', 'One-click style'])}>
             {presetIds.map((id) => {
               const v = presets[id].vars
               const on = v.accent === c.accent && v.paper === c.paper
@@ -169,13 +184,13 @@ export function OnlineStore() {
                 <span className="look-preset__dot" style={{ background: v.paper, borderColor: v.rule }}><i style={{ background: v.accent }} /></span>{presets[id].label[lang === 'bn' ? 0 : 1]}
               </button>
             })}
-          </div>
-          <div className="look-colors">
+          </div>)}
+          {group(L(['রং', 'Colours']), <div className="look-colors">
             {(Object.keys(colorLabels) as (keyof SiteColors)[]).map((key) => (
               <ColorControl key={key} id={`site-color-${key}`} label={L(colorLabels[key])} value={c[key]} inherited="" onChange={(value) => { if (/^#[0-9a-f]{6}$/i.test(value)) setS({ colors: { ...c, [key]: value.toLowerCase() } }) }} />
             ))}
-          </div>
-          <div className="price-grid price-grid--two">
+          </div>)}
+          {group(L(['লেখা ও আকার', 'Type and size']), <><div className="price-grid price-grid--two">
             {(['bangla', 'latin'] as const).map((kind) => <div key={kind} className="field">
               <label htmlFor={`site-font-${kind}`}>{kind === 'bangla' ? L(['বাংলা ফন্ট', 'Bangla font']) : L(['ইংরেজি ফন্ট', 'English font'])}</label>
               <select className="input" id={`site-font-${kind}`} value={style[kind]} onChange={(e) => setS({ [kind]: e.target.value })}>
@@ -193,7 +208,7 @@ export function OnlineStore() {
               <span className="look-range__head"><span>{L(['কন্টেন্টের প্রস্থ', 'Content width'])}</span><output>{num(style.width)}px</output></span>
               <input type="range" min={720} max={1600} step={20} value={style.width} onChange={(e) => setS({ width: Number(e.target.value) })} />
             </label>
-          </div>
+          </div></>)}
           <details className="look-css" open={style.css !== '' || undefined}>
             <summary>{L(['কাস্টম CSS', 'Custom CSS'])}</summary>
             <Suspense fallback={<div className="css-editor css-editor--loading" />}>
@@ -203,7 +218,7 @@ export function OnlineStore() {
               ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
               : <p className="field__help" id="site-css-help">{L(['দোকানের সব পেজ ও ল্যান্ডিং পেজে কাজ করে।', 'Applies to every store page and landing page.'])}</p>}
           </details>
-        </>, sample)}
+        </>)}
 
         {section(t('prefHome'), t('prefHomeHelp'), <>
           <div className="serp" aria-hidden="true">
