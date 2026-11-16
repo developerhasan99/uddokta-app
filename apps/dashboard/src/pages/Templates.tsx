@@ -95,7 +95,7 @@ export function Templates() {
   const name = (r: Row) => (r.builtIn && r.title === templateLabels[r.type][0] ? L(templateLabels[r.type]) : r.title)
   // A built-in template is the default while no other template of its type is.
   const isDefault = (r: Row) => r.isDefault || (r.builtIn && !rows?.some((x) => x.type === r.type && x.isDefault))
-  // One state badge beside the name (Default, else Published or Draft), plus Changed when the draft differs.
+  // One state badge (Default, else Published or Draft), plus Changed when the draft differs.
   const status = (r: Row) => <>
     {isDefault(r) ? <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge> : r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
     {r.hasChanges && <Badge tone="info">{L(['পরিবর্তন আছে', 'Changed'])}</Badge>}
@@ -111,11 +111,12 @@ export function Templates() {
           <Link className="data-table__file" to={path(`/online-store/templates/${r.id}`)} onClick={(e) => e.stopPropagation()}>
             <span className={r.builtIn ? 'data-table__thumb data-table__thumb--icon template-thumb--built-in' : 'data-table__thumb data-table__thumb--icon'}><Icon size={16} aria-hidden="true" /></span>
             <span className="data-table__text">
-              <span className="template-name"><span className="data-table__name" title={name(r)}>{name(r)}</span>{status(r)}</span>
+              <span className="data-table__name" title={name(r)}>{name(r)}</span>
               {detail(r) && <span className="template-detail">{detail(r)}</span>}
             </span>
           </Link>
         </td>
+        <td className="data-table__meta"><span className="row template-status">{status(r)}</span></td>
         <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
         <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
           {canEdit && <Dropdown.Root>
@@ -140,7 +141,7 @@ export function Templates() {
     )
   }
   const groupHead = (title: string, help: string) => (
-    <tr className="template-group"><th colSpan={3} scope="rowgroup"><strong>{title}</strong><span>{help}</span></th></tr>
+    <tr className="template-group"><th colSpan={4} scope="rowgroup"><strong>{title}</strong><span>{help}</span></th></tr>
   )
 
   return (
@@ -171,6 +172,7 @@ export function Templates() {
               <thead>
                 <tr>
                   <th scope="col">{L(['নাম', 'Name'])}</th>
+                  <th scope="col" className="data-table__meta">{L(['অবস্থা', 'Status'])}</th>
                   <th scope="col" className="data-table__meta">{t('pageUpdated')}</th>
                   <th scope="col" className="data-table__meta"><span className="visually-hidden">{L(['কাজ', 'Actions'])}</span></th>
                 </tr>

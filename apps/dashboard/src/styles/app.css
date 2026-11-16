@@ -1065,11 +1065,10 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 @media (prefers-reduced-motion: reduce) { .save-bar { animation: none; } }
 @media (max-width: 900px) { .settings-split { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); } .settings-split__head { position: static; padding-top: 0; } .store-hero { grid-template-columns: minmax(0, 1fr); } .store-preview { min-height: 0; aspect-ratio: 16 / 10; } }
 @media (max-width: 640px) { .save-bar { left: var(--space-sm); right: var(--space-sm); transform: none; justify-content: flex-end; } @keyframes save-bar-in { from { opacity: 0; } } }
-.templates-table th:nth-child(2) { width: 9rem; }
-.templates-table th:nth-child(3) { width: 3.5rem; }
-.template-name { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
-.template-name .data-table__name { flex: 0 1 auto; min-width: 0; }
-.template-name .badge { flex: none; }
+.templates-table th:nth-child(2) { width: 11rem; }
+.templates-table th:nth-child(3) { width: 9rem; }
+.templates-table th:nth-child(4) { width: 3.5rem; }
+.template-status { flex-wrap: nowrap; gap: var(--space-2xs); }
 .data-table tbody .template-group th { height: auto; padding: var(--space-sm) var(--space-sm) var(--space-xs); background: var(--color-paper-2); font-weight: 400; }
 .template-group th > strong { display: block; color: var(--color-ink); font-size: var(--text-sm); font-weight: 600; }
 .template-group th > span { color: var(--color-muted); font-size: 12px; }
