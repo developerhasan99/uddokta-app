@@ -86,9 +86,11 @@ export function Templates() {
     open(made.id)
   })
 
-  // Grouped by type in the tabs' order, the built-in copy first, then the newest change.
+  // Two groups, the seller's own templates then the built-in ones, each in the tabs' type order, newest change first.
   const shown = rows?.filter((r) => tab === 'all' || r.type === tab)
-    .sort((a, b) => templateTypes.indexOf(a.type) - templateTypes.indexOf(b.type) || Number(b.builtIn) - Number(a.builtIn) || b.updatedAt.localeCompare(a.updatedAt)) ?? []
+    .sort((a, b) => templateTypes.indexOf(a.type) - templateTypes.indexOf(b.type) || b.updatedAt.localeCompare(a.updatedAt)) ?? []
+  const own = shown.filter((r) => !r.builtIn)
+  const builtIn = shown.filter((r) => r.builtIn)
   // A built-in copy keeps its type's name in the dashboard's language until the seller renames it.
   const name = (r: Row) => (r.builtIn && r.title === templateLabels[r.type][0] ? L(templateLabels[r.type]) : r.title)
   // A built-in template is the default while no other template of its type is.
@@ -98,8 +100,48 @@ export function Templates() {
     {isDefault(r) ? <Badge tone="success">{L(['ডিফল্ট', 'Default'])}</Badge> : r.isPublished ? <Badge>{L(['প্রকাশিত', 'Published'])}</Badge> : <Badge tone="warning">{L(['খসড়া', 'Draft'])}</Badge>}
     {r.hasChanges && <Badge tone="info">{L(['পরিবর্তন আছে', 'Changed'])}</Badge>}
   </>
-  // Under the name: its type (on the All tab, unless the name already says it) and whether it is the built-in template.
-  const detail = (r: Row) => [tab === 'all' && name(r) !== L(templateLabels[r.type]) ? L(templateLabels[r.type]) : '', r.builtIn ? L(['বিল্ট-ইন টেমপ্লেট', 'Built-in template']) : ''].filter(Boolean).join(' · ')
+  // Under the name: its type, on the All tab, unless the name already says it.
+  const detail = (r: Row) => (tab === 'all' && name(r) !== L(templateLabels[r.type]) ? L(templateLabels[r.type]) : '')
+
+  const rowOf = (r: Row) => {
+    const Icon = typeIcons[r.type]
+    return (
+      <tr key={r.id} className="data-table__row" onClick={() => open(r.id)}>
+        <td>
+          <Link className="data-table__file" to={path(`/online-store/templates/${r.id}`)} onClick={(e) => e.stopPropagation()}>
+            <span className={r.builtIn ? 'data-table__thumb data-table__thumb--icon template-thumb--built-in' : 'data-table__thumb data-table__thumb--icon'}><Icon size={16} aria-hidden="true" /></span>
+            <span className="data-table__text">
+              <span className="template-name"><span className="data-table__name" title={name(r)}>{name(r)}</span>{status(r)}</span>
+              {detail(r) && <span className="template-detail">{detail(r)}</span>}
+            </span>
+          </Link>
+        </td>
+        <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
+        <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
+          {canEdit && <Dropdown.Root>
+            <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['আরও', 'More'])}: ${name(r)}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
+            <Dropdown.Portal>
+              <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
+                <Dropdown.Group className="menu__section">
+                  <Dropdown.Item className="menu__item menu__action" onSelect={() => open(r.id)}><Pencil size={16} aria-hidden="true" />{L(['এডিট করুন', 'Edit'])}</Dropdown.Item>
+                  {r.isDefault && !r.builtIn
+                    ? <Dropdown.Item className="menu__item menu__action" onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'DELETE' }), L(['বিল্ট-ইন টেমপ্লেট আবার ডিফল্ট।', 'The built-in template is the default again.']))}><StarOff size={16} aria-hidden="true" />{L(['ডিফল্ট থেকে সরান', 'Stop being the default'])}</Dropdown.Item>
+                    : !isDefault(r) && <Dropdown.Item className="menu__item menu__action" disabled={!r.isPublished} onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'POST' }), L(['ডিফল্ট করা হয়েছে।', 'Made the default.']))}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['ডিফল্ট করুন', 'Make default'])}</span>{!r.isPublished && <span className="menu__sub">{L(['আগে এডিটরে প্রকাশ করুন।', 'Publish it in the editor first.'])}</span>}</span></Dropdown.Item>}
+                  <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, name(r), r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
+                </Dropdown.Group>
+                {!r.builtIn && <Dropdown.Group className="menu__section menu__section--ruled">
+                  <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setDeleting(r)}><Trash2 size={16} aria-hidden="true" />{L(['মুছুন', 'Delete'])}</Dropdown.Item>
+                </Dropdown.Group>}
+              </Dropdown.Content>
+            </Dropdown.Portal>
+          </Dropdown.Root>}
+        </td>
+      </tr>
+    )
+  }
+  const groupHead = (title: string, help: string) => (
+    <tr className="template-group"><th colSpan={3} scope="rowgroup"><strong>{title}</strong><span>{help}</span></th></tr>
+  )
 
   return (
     <div className="page">
@@ -134,42 +176,12 @@ export function Templates() {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((r) => {
-                  const Icon = typeIcons[r.type]
-                  return (
-                    <tr key={r.id} className="data-table__row" onClick={() => open(r.id)}>
-                      <td>
-                        <Link className="data-table__file" to={path(`/online-store/templates/${r.id}`)} onClick={(e) => e.stopPropagation()}>
-                          <span className="data-table__thumb data-table__thumb--icon"><Icon size={16} aria-hidden="true" /></span>
-                          <span className="data-table__text">
-                            <span className="template-name"><span className="data-table__name" title={name(r)}>{name(r)}</span>{status(r)}</span>
-                            {detail(r) && <span className="template-detail">{detail(r)}</span>}
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
-                      <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
-                        {canEdit && <Dropdown.Root>
-                          <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['আরও', 'More'])}: ${name(r)}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
-                          <Dropdown.Portal>
-                            <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
-                              <Dropdown.Group className="menu__section">
-                                <Dropdown.Item className="menu__item menu__action" onSelect={() => open(r.id)}><Pencil size={16} aria-hidden="true" />{L(['এডিট করুন', 'Edit'])}</Dropdown.Item>
-                                {r.isDefault && !r.builtIn
-                                  ? <Dropdown.Item className="menu__item menu__action" onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'DELETE' }), L(['বিল্ট-ইন টেমপ্লেট আবার ডিফল্ট।', 'The built-in template is the default again.']))}><StarOff size={16} aria-hidden="true" />{L(['ডিফল্ট থেকে সরান', 'Stop being the default'])}</Dropdown.Item>
-                                  : !isDefault(r) && <Dropdown.Item className="menu__item menu__action" disabled={!r.isPublished} onSelect={() => void act(() => api(`${base}/${r.id}/default`, { method: 'POST' }), L(['ডিফল্ট করা হয়েছে।', 'Made the default.']))}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>{L(['ডিফল্ট করুন', 'Make default'])}</span>{!r.isPublished && <span className="menu__sub">{L(['আগে এডিটরে প্রকাশ করুন।', 'Publish it in the editor first.'])}</span>}</span></Dropdown.Item>}
-                                <Dropdown.Item className="menu__item menu__action" onSelect={() => void duplicate(r.type, name(r), r.id)}><Copy size={16} aria-hidden="true" />{L(['কপি বানান', 'Duplicate'])}</Dropdown.Item>
-                              </Dropdown.Group>
-                              {!r.builtIn && <Dropdown.Group className="menu__section menu__section--ruled">
-                                <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setDeleting(r)}><Trash2 size={16} aria-hidden="true" />{L(['মুছুন', 'Delete'])}</Dropdown.Item>
-                              </Dropdown.Group>}
-                            </Dropdown.Content>
-                          </Dropdown.Portal>
-                        </Dropdown.Root>}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {own.length > 0 || tab === 'all' ? groupHead(L(['আপনার টেমপ্লেট', 'Your templates']), own.length
+                  ? L(['আপনার বানানো টেমপ্লেট। ডিফল্ট করলে বিল্ট-ইনের জায়গায় দেখাবে।', 'Templates you made. Make one the default to show it instead of the built-in.'])
+                  : L(['এখনো নেই। নতুন টেমপ্লেট বানান, বা বিল্ট-ইন একটির কপি করুন।', 'None yet. Create a new template, or duplicate a built-in one.'])) : null}
+                {own.map(rowOf)}
+                {groupHead(L(['বিল্ট-ইন টেমপ্লেট', 'Built-in templates']), L(['প্রতিটি ধরনের জন্য একটি করে, দোকানের সাথে আসে। এডিট করা যায়, মোছা যায় না।', 'One for each type, made with your store. Edit them freely; they cannot be deleted.']))}
+                {builtIn.map(rowOf)}
               </tbody>
             </table>
           )}
