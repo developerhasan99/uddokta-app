@@ -1440,7 +1440,7 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
 .order-sum__total { background: var(--color-paper-2); font-size: var(--text-lg); font-weight: 600; }
 .order-sum__total dt { font-weight: 600; }
 .order-sum__note { font-size: var(--text-sm); }
-.segmented { display: inline-flex; padding: 2px; border-radius: var(--radius-control); background: var(--color-paper-3); }
+.segmented { display: inline-flex; width: fit-content; padding: 2px; border-radius: var(--radius-control); background: var(--color-paper-3); }
 .segmented label { position: relative; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
 .segmented label > span { display: block; padding: var(--space-2xs) var(--space-sm); border-radius: calc(var(--radius-control) - 2px); color: var(--color-ink-2); font-size: var(--text-sm); white-space: nowrap; cursor: pointer; }
