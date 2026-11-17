@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { databaseCode, fail, hash, newToken } from '../../api/src/app.ts'
+import { databaseCode, fail, hash, newToken } from '../../api/src/http.ts'
 import { one, tx } from '../../api/src/db.ts'
 import { appUrl, emailReady, readLang, resetEmail, sendEmail } from '../../api/src/email.ts'
 import { consoleCookie, type Env } from './app.ts'

@@ -1,11 +1,12 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { one, tx, type Tx } from './db.ts'
+import { databaseCode, fail, hash, newToken } from './http.ts'
+export { databaseCode, fail, hash, newToken }
 import { isReservedStoreHandle } from 'storefront/paths'
 import { registrationAllowed } from './runtime.ts'
 import { isPreset, type PresetId } from 'storefront/themes'
@@ -42,17 +43,7 @@ const inviteDays = 7
 const maxLoginFailures = 10
 export const cookieName = 'sid'
 
-export const hash = (token: string) => createHash('sha256').update(token).digest('hex')
-export const newToken = () => randomBytes(32).toString('base64url')
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
-
-export const fail = (status: ContentfulStatusCode, error: string) =>
-  new HTTPException(status, { res: Response.json({ error }, { status }) })
-
-export function databaseCode(err: unknown) {
-  const e = err as { code?: string; cause?: { code?: string } }
-  return e.cause?.code ?? e.code
-}
 
 const databaseConstraint = (err: unknown) => {
   const e = err as { constraint?: string; cause?: { constraint?: string } }

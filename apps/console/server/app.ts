@@ -4,8 +4,9 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { databaseCode, fail, hash, newToken } from '../../api/src/app.ts'
+import { databaseCode, fail, hash, newToken } from '../../api/src/http.ts'
 import { one, tx } from '../../api/src/db.ts'
 import { dummyHash, verifyPassword } from '../../api/src/password.ts'
 import { registerConsole } from './routes.ts'
@@ -99,10 +100,11 @@ export function createConsole(options: { production?: boolean } = {}) {
     app.use('/assets/*', async (c, next) => { await next(); if (c.res.status === 200) c.header('Cache-Control', 'public, max-age=31536000, immutable') })
     app.use('*', serveStatic({ root }))
     // Any other path is a screen of the single-page app.
-    app.use('*', async (c, next) => {
+    const page = readFileSync(`${root}index.html`, 'utf8')
+    app.get('*', (c) => {
       if (c.req.path.includes('.')) return c.notFound()
       c.header('Cache-Control', 'no-cache')
-      await serveStatic({ root, path: 'index.html' })(c, next)
+      return c.html(page)
     })
   }
   return app
