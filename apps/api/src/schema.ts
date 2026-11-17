@@ -13,8 +13,10 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   // Set when the owner follows a verification or password-reset link sent to this address.
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  // The dashboard language last chosen, used for this account's emails.
+  language: text('language').notNull().default('bn'),
   createdAt: createdAt(),
-}, (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)])
+}, (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`), check('users_language', sql`${t.language} in ('bn', 'en')`)])
 
 // Single-use links sent by email (password reset, email verification). Only the sha256 of the token is kept.
 // Reached through SECURITY DEFINER functions only, like sessions.
@@ -22,9 +24,11 @@ export const accountTokens = pgTable('account_tokens', {
   tokenHash: text('token_hash').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   purpose: text('purpose').notNull(),
+  // For an email change: the address the link was sent to, which becomes the account's email when used.
+  newEmail: text('new_email'),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: createdAt(),
-}, (t) => [check('account_tokens_purpose', sql`${t.purpose} in ('reset', 'verify')`), index('account_tokens_user').on(t.userId, t.purpose, t.createdAt)])
+}, (t) => [check('account_tokens_purpose', sql`${t.purpose} in ('reset', 'verify', 'email')`), check('account_tokens_new_email', sql`(${t.purpose} = 'email') = (${t.newEmail} is not null)`), index('account_tokens_user').on(t.userId, t.purpose, t.createdAt)])
 
 // Outgoing email, sent by the outbox loop in email.ts. The body is cleared once sent, so old links are not kept.
 export const outboxEmails = pgTable('outbox_emails', {

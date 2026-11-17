@@ -673,6 +673,13 @@
       "when": 1794942985684,
       "tag": "0095_material_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794943949913,
+      "tag": "0096_pink_silk_fever",
+      "breakpoints": true
     }
   ]
 }

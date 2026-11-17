@@ -2,9 +2,12 @@ export type MediaItem = { id: string; name: string; alt: string; width: number; 
 
 export class ApiError extends Error {
   code: string
-  constructor(code: string) {
+  // The whole error answer, for the few that carry details (e.g. soleOwner lists the stores).
+  data: unknown
+  constructor(code: string, data?: unknown) {
     super(code)
     this.code = code
+    this.data = data
   }
 }
 
@@ -20,7 +23,7 @@ export async function api<T = unknown>(path: string, options: { method?: string;
     throw new ApiError('network')
   }
   const data = await res.json().catch(() => null)
-  if (!res.ok) throw new ApiError(data?.error ?? 'server')
+  if (!res.ok) throw new ApiError(data?.error ?? 'server', data)
   return data as T
 }
 

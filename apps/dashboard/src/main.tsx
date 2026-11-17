@@ -8,7 +8,8 @@ import { AccountProvider, lastStoreHandle, RequireAccount, useAccount } from './
 import { LangProvider } from './i18n'
 import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
-import { ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
+import { ChangeEmail, ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
+import { Profile } from './pages/Profile'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Menus } from './pages/Menus'
@@ -72,11 +73,13 @@ createRoot(document.getElementById('root')!).render(
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password/:token" element={<ResetPassword />} />
             <Route path="verify-email/:token" element={<VerifyEmail />} />
+            <Route path="change-email/:token" element={<ChangeEmail />} />
             <Route element={<RequireAccount />}>
               <Route index element={<Start />} />
               <Route element={<AccountLayout />}>
                 <Route path="stores" element={<Stores />} />
                 <Route path="stores/new" element={<NewStore />} />
+                <Route path="account" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
               {/* The page editor fills the screen, like Shopify's: no sidebar. */}

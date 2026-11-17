@@ -25,18 +25,18 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)}
 type Message = { subject: string; text: string; html: string }
 
 // One plain layout for every email: greeting, a line or two, one button, a closing line.
-function layout(lang: Lang, o: { subject: string; name: string; lines: string[]; action: string; link: string; after: string }): Message {
+function layout(lang: Lang, o: { subject: string; name: string; lines: string[]; action?: string; link?: string; after: string }): Message {
   const hello = lang === 'bn' ? `প্রিয় ${o.name},` : `Hello ${o.name},`
   const brand = lang === 'bn' ? 'উদ্যোক্তা' : 'Uddokta'
-  const text = [hello, '', ...o.lines, '', `${o.action}: ${o.link}`, '', o.after, '', `— ${brand}`].join('\n')
+  const text = [hello, '', ...o.lines, ...(o.link ? ['', `${o.action}: ${o.link}`] : []), '', o.after, '', `— ${brand}`].join('\n')
   const p = (s: string) => `<p style="margin:0 0 16px">${escape(s)}</p>`
   const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#f4f4f2;font-family:'Hind Siliguri',Arial,sans-serif;color:#1a1a1a">
 <div style="max-width:520px;margin:0 auto;padding:32px 20px">
 <div style="background:#ffffff;border-radius:12px;padding:28px;font-size:15px;line-height:1.6">
 <p style="margin:0 0 20px;font-weight:700;font-size:17px;color:#15803d">${brand}</p>
 ${p(hello)}${o.lines.map(p).join('')}
-<p style="margin:24px 0"><a href="${escape(o.link)}" style="display:inline-block;background:#15803d;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 22px;border-radius:999px">${escape(o.action)}</a></p>
-<p style="margin:0 0 16px;font-size:13px;color:#666666">${escape(lang === 'bn' ? 'বোতাম কাজ না করলে এই লিংকটি ব্রাউজারে খুলুন:' : 'If the button does not work, open this link in your browser:')}<br><span style="word-break:break-all">${escape(o.link)}</span></p>
+${o.link ? `<p style="margin:24px 0"><a href="${escape(o.link)}" style="display:inline-block;background:#15803d;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 22px;border-radius:999px">${escape(o.action!)}</a></p>
+<p style="margin:0 0 16px;font-size:13px;color:#666666">${escape(lang === 'bn' ? 'বোতাম কাজ না করলে এই লিংকটি ব্রাউজারে খুলুন:' : 'If the button does not work, open this link in your browser:')}<br><span style="word-break:break-all">${escape(o.link)}</span></p>` : ''}
 ${p(o.after)}
 </div></div></body></html>`
   return { subject: o.subject, text, html }
@@ -57,6 +57,22 @@ export const verifyEmail = (lang: Lang, name: string, link: string) => layout(la
   : { subject: 'Confirm your email for Uddokta', name, link, action: 'Confirm email',
     lines: ['Thanks for creating an Uddokta account. Click the button below to confirm that this email address is yours. The link works for 7 days.'],
     after: 'If you did not create an account, you can ignore this email.' })
+
+export const emailChangeEmail = (lang: Lang, name: string, link: string) => layout(lang, lang === 'bn'
+  ? { subject: 'উদ্যোক্তা: নতুন ইমেইল ঠিকানা নিশ্চিত করুন', name, link, action: 'নতুন ইমেইল নিশ্চিত করুন',
+    lines: ['আপনার উদ্যোক্তা অ্যাকাউন্টের ইমেইল এই ঠিকানায় বদলানোর অনুরোধ পেয়েছি। নিচের বোতামে চাপ দিলে বদলটি হবে। লিংকটি একবারই কাজ করবে, ২৪ ঘণ্টা পর্যন্ত।'],
+    after: 'আপনি অনুরোধ না করে থাকলে এই ইমেইলটি এড়িয়ে যান। কিছুই বদলাবে না।' }
+  : { subject: 'Confirm your new email for Uddokta', name, link, action: 'Confirm new email',
+    lines: ['We received a request to change the email of your Uddokta account to this address. Click the button below to make the change. The link works once, for 24 hours.'],
+    after: 'If you did not ask for this, you can ignore this email; nothing will change.' })
+
+export const emailChangedNotice = (lang: Lang, name: string, newEmail: string) => layout(lang, lang === 'bn'
+  ? { subject: 'উদ্যোক্তা: আপনার অ্যাকাউন্টের ইমেইল বদলেছে', name,
+    lines: [`আপনার উদ্যোক্তা অ্যাকাউন্টের ইমেইল এখন ${newEmail}। এই ঠিকানায় আর অ্যাকাউন্টের ইমেইল আসবে না।`],
+    after: 'আপনি এই বদল না করে থাকলে এখনই উদ্যোক্তা সাপোর্টে যোগাযোগ করুন।' }
+  : { subject: 'The email of your Uddokta account was changed', name,
+    lines: [`The email of your Uddokta account is now ${newEmail}. Account emails will no longer come to this address.`],
+    after: 'If you did not make this change, contact Uddokta support right away.' })
 
 // Queues an email and starts sending at once (without waiting, so a request answers in the same time either way).
 export async function sendEmail(to: string, kind: string, message: Message) {

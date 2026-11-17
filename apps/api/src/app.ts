@@ -29,6 +29,7 @@ import { isId, registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
+import { registerEmailChange, registerProfile } from './profile.ts'
 import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
 import { readLocalFile } from './storage.ts'
 import { present } from './media.ts'
@@ -38,10 +39,10 @@ import { defaultRateNames, isPrice, registerShipping } from './shipping.ts'
 const sessionDays = 30
 const inviteDays = 7
 const maxLoginFailures = 10
-const cookieName = 'sid'
+export const cookieName = 'sid'
 
-const hash = (token: string) => createHash('sha256').update(token).digest('hex')
-const newToken = () => randomBytes(32).toString('base64url')
+export const hash = (token: string) => createHash('sha256').update(token).digest('hex')
+export const newToken = () => randomBytes(32).toString('base64url')
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 
 export const fail = (status: ContentfulStatusCode, error: string) =>
@@ -140,6 +141,7 @@ app.post('/auth/signup', async (c) => {
     throw err
   }
   await startSession(c, id)
+  await tx(null, (t) => t.execute(sql`select update_profile(${id}::uuid, null, ${readLang(body.lang)})`))
   await sendVerification(id, email, name, readLang(body.lang))
   return c.json({ ok: true }, 201)
 })
@@ -182,6 +184,8 @@ app.post('/auth/reset', async (c) => {
   await startSession(c, userId)
   return c.json({ ok: true })
 })
+
+registerEmailChange(app)
 
 // Open: the link may be opened in a browser that is not signed in.
 app.post('/auth/verify', async (c) => {
@@ -249,16 +253,18 @@ app.use('*', async (c, next) => {
 app.get('/me', async (c) => {
   const userId = c.get('userId')
   return tx(userId, async (t) => {
-    const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
+    const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, language: users.language, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
     const myStores = await t
       .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role })
       .from(storeMembers)
       .innerJoin(stores, eq(stores.id, storeMembers.storeId))
       .where(eq(storeMembers.userId, userId))
       .orderBy(asc(storeMembers.createdAt))
-    return c.json({ user: { ...user, emailVerified: verifiedAt !== null || !emailReady() }, stores: myStores })
+    return c.json({ user: { ...user, emailVerified: verifiedAt !== null || !emailReady() }, stores: myStores, emailEnabled: emailReady() })
   })
 })
+
+registerProfile(app)
 
 // Sends the verification link again. 429 when three were sent in the last hour (or email is not set up).
 app.post('/me/verify-email', async (c) => {

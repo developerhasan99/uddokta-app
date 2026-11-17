@@ -5,11 +5,11 @@ import { Button, Notice } from './components/ui'
 import { useLang } from './i18n'
 
 export type Role = 'owner' | 'admin' | 'staff'
-export type User = { id: string; name: string; email: string; emailVerified: boolean }
+export type User = { id: string; name: string; email: string; emailVerified: boolean; language: 'bn' | 'en' }
 export type Store = { id: string; handle: string; name: string }
 export type MyStore = { store: Store; role: Role }
 
-type Me = { user: User; stores: (Store & { role: Role })[] }
+type Me = { user: User; stores: (Store & { role: Role })[]; emailEnabled: boolean }
 type State = { status: 'loading' | 'signedOut' | 'failed' } | { status: 'ready'; me: Me }
 
 type Ctx = { state: State; refresh: () => Promise<void>; logout: () => Promise<void> }
@@ -36,6 +36,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
+  // The dashboard language is kept on the account too, so its emails come in the same language.
+  const { lang } = useLang()
+  const savedLang = state.status === 'ready' ? state.me.user.language : null
+  useEffect(() => {
+    if (!savedLang || savedLang === lang) return
+    api('/me', { method: 'PUT', body: { language: lang } }).then(() => {
+      setState((s) => (s.status === 'ready' ? { ...s, me: { ...s.me, user: { ...s.me.user, language: lang } } } : s))
+    }, () => {})
+  }, [savedLang, lang])
+
   const value = useMemo(() => ({ state, refresh, logout }), [state, refresh, logout])
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>
 }
@@ -51,7 +61,7 @@ export function useAccount() {
   const { state, refresh, logout } = useSession()
   if (state.status !== 'ready') throw new Error('useAccount needs RequireAccount')
   const myStores: MyStore[] = state.me.stores.map(({ role, ...store }) => ({ store, role }))
-  return { me: state.me.user, myStores, refresh, logout }
+  return { me: state.me.user, myStores, emailEnabled: state.me.emailEnabled, refresh, logout }
 }
 
 export function RequireAccount() {

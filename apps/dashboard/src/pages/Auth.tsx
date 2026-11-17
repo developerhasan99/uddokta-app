@@ -321,6 +321,28 @@ export function VerifyEmail() {
     : <AuthLayout title={t(errorLabel(result))}><div className="auth__form">{next}</div></AuthLayout>
 }
 
+// Opened from the link sent to a new address; the email changes when it is used.
+export function ChangeEmail() {
+  const { t } = useLang()
+  const { token } = useParams()
+  const { state, refresh } = useSession()
+  const [result, setResult] = useState<{ email: string } | string | null>(null)
+  const started = useRef(false)
+
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+    api<{ email: string }>('/auth/email-change', { method: 'POST', body: { token } })
+      .then((r) => { setResult(r); void refresh() }, (err) => setResult(errorCode(err)))
+  }, [token, refresh])
+
+  if (result === null) return <AuthLayout title={t('changeEmailTitle')}><div role="status" aria-label={t('loading')} /></AuthLayout>
+  const next = <LinkButton to={state.status === 'ready' ? '/account' : '/login'} variant="primary">{state.status === 'ready' ? t('continueAction') : t('loginAction')}</LinkButton>
+  return typeof result === 'string'
+    ? <AuthLayout title={t(errorLabel(result))}><div className="auth__form">{next}</div></AuthLayout>
+    : <AuthLayout title={t('changeEmailDone', { email: result.email })} description={t('changeEmailDoneBody')}><div className="auth__form">{next}</div></AuthLayout>
+}
+
 // Shown above every signed-in screen until the account's email is confirmed.
 export function VerifyEmailBar() {
   const { t, lang } = useLang()

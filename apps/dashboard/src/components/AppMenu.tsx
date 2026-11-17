@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronsUpDown, LayoutGrid, LogOut, Plus } from 'lucide-react'
+import { Check, ChevronsUpDown, LayoutGrid, LogOut, Plus, UserRound } from 'lucide-react'
 import { useAccount, useCurrentStore, type Role } from '../account-context'
 import { useLang, type Key, type Lang } from '../i18n'
 
@@ -88,6 +88,10 @@ export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 
             </span>
           </div>
           <Dropdown.Group className="menu__section menu__section--ruled">
+            <Dropdown.Item className="menu__item menu__action" onSelect={() => navigate('/account')}>
+              <UserRound size={16} aria-hidden="true" />
+              {t('profile')}
+            </Dropdown.Item>
             <Dropdown.Item className="menu__item menu__action" onSelect={() => void logout()}>
               <LogOut size={16} aria-hidden="true" />
               {t('logout')}
