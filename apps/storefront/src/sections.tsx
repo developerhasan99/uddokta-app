@@ -9,6 +9,9 @@ import { pageFontCss } from './themes.ts'
 import { Gallery as ProductImages, MenuTree, Pager, Price, ProductGrid, shown, type Card } from './catalog.tsx'
 import type { ResolvedItem } from './menus.ts'
 import { cleanRichText } from './rich.ts'
+import { num, taka, tr, type Lang, type Pair } from './words.ts'
+
+export { taka }
 
 export type Img = { url: string; alt: string; width: number; height: number }
 export type Variant = { id: string; label: string; price: number; comparePrice: number | null; available: boolean }
@@ -24,14 +27,20 @@ export const deliveryCharge = (o: ShippingOption, productId: string, subtotal: n
   (o.freeOver !== null && subtotal >= o.freeOver) || (o.freeMinQty !== null && qty >= o.freeMinQty) || o.freeProducts.includes(productId) ? 0 : o.price
 
 // "Free on orders of ৳1,000 or more", and so on, so buyers see how to get free delivery.
-function freeHint(o: ShippingOption, productId: string) {
+function freeHint(o: ShippingOption, productId: string, lang?: Lang) {
   if (o.price === 0) return ''
-  if (o.freeProducts.includes(productId)) return 'এই পণ্যে ডেলিভারি ফ্রি'
-  const ways = [o.freeOver !== null && `${taka(o.freeOver)} বা বেশি অর্ডারে`, o.freeMinQty !== null && `${number.format(o.freeMinQty)}টি বা বেশি নিলে`].filter(Boolean)
+  if (o.freeProducts.includes(productId)) return tr(lang, ['এই পণ্যে ডেলিভারি ফ্রি', 'Free delivery on this product'])
+  if (lang === 'en') {
+    const ways = [o.freeOver !== null && `orders of ${taka(o.freeOver, lang)} or more`, o.freeMinQty !== null && `${num(lang, o.freeMinQty)} or more items`].filter(Boolean)
+    return ways.length ? `Free delivery on ${ways.join(' or ')}` : ''
+  }
+  const ways = [o.freeOver !== null && `${taka(o.freeOver, lang)} বা বেশি অর্ডারে`, o.freeMinQty !== null && `${num(lang, o.freeMinQty)}টি বা বেশি নিলে`].filter(Boolean)
   return ways.length ? `${ways.join(' অথবা ')} ডেলিভারি ফ্রি` : ''
 }
 
 export type Ctx = {
+  // The store's language for its own words (words.ts); Bangla when not set.
+  lang?: Lang
   image: (id: string | null) => Img | undefined
   product: (id: string | null) => Product | undefined
   // The editor's preview: forms never submit and empty sections show a hint for the seller.
@@ -74,8 +83,6 @@ export type StorePageView = { title: string; body: string; policy: string | null
 export type GridData = { cards: Card[]; page: number; hasMore: boolean; base: string }
 export type CollectionCard = { id: string; name: string; handle: string; image: Img | null }
 
-const number = new Intl.NumberFormat('bn-BD')
-export const taka = (n: number) => `৳${number.format(n)}`
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const items = (v: unknown) => (Array.isArray(v) ? v as Record<string, string | null>[] : [])
@@ -159,19 +166,19 @@ function Faq({ s }: { s: Section }) {
   )
 }
 
-export const orderErrors: Record<string, string> = {
-  name: 'আপনার নাম লিখুন।',
-  phone: 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।',
-  address: 'পুরো ঠিকানা লিখুন: বাসা, রাস্তা, এলাকা, জেলা।',
-  rate: 'ডেলিভারি কোথায় হবে, বেছে নিন।',
-  noDelivery: 'এই দোকানে এখন ডেলিভারি নেওয়া হচ্ছে না। অর্ডার করতে দোকানে যোগাযোগ করুন।',
-  variant: 'একটি অপশন বেছে নিন।',
-  soldOut: 'দুঃখিত, এটি এখন স্টকে নেই। অন্য অপশন বেছে নিন।',
-  coupon: 'এই কুপন কোডটি চলছে না। কোডটি দেখে আবার লিখুন, অথবা ফাঁকা রাখুন।',
-  tooMany: 'এই নম্বর থেকে অনেকগুলো অর্ডার এসেছে। একটু পরে চেষ্টা করুন, অথবা দোকানে ফোন করুন।',
-  blocked: 'এই নম্বর থেকে অনলাইনে অর্ডার নেওয়া যাচ্ছে না। অর্ডার করতে দোকানে ফোন করুন।',
-  checkout: 'এই অর্ডার ফর্মটি আগে ব্যবহার হয়েছে। আবার অর্ডার করতে পেজটি নতুন করে খুলুন।',
-  server: 'অর্ডারটি নেওয়া যায়নি। একটু পরে আবার চেষ্টা করুন।',
+export const orderErrors: Record<string, Pair> = {
+  name: ['আপনার নাম লিখুন।', 'Enter your name.'],
+  phone: ['সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'Enter a valid mobile number, like 01712345678.'],
+  address: ['পুরো ঠিকানা লিখুন: বাসা, রাস্তা, এলাকা, জেলা।', 'Enter your full address: house, road, area, district.'],
+  rate: ['ডেলিভারি কোথায় হবে, বেছে নিন।', 'Choose where to deliver.'],
+  noDelivery: ['এই দোকানে এখন ডেলিভারি নেওয়া হচ্ছে না। অর্ডার করতে দোকানে যোগাযোগ করুন।', 'This store is not taking deliveries right now. Contact the store to order.'],
+  variant: ['একটি অপশন বেছে নিন।', 'Choose an option.'],
+  soldOut: ['দুঃখিত, এটি এখন স্টকে নেই। অন্য অপশন বেছে নিন।', 'Sorry, this is out of stock. Choose another option.'],
+  coupon: ['এই কুপন কোডটি চলছে না। কোডটি দেখে আবার লিখুন, অথবা ফাঁকা রাখুন।', 'This coupon code does not work. Check it and try again, or leave it blank.'],
+  tooMany: ['এই নম্বর থেকে অনেকগুলো অর্ডার এসেছে। একটু পরে চেষ্টা করুন, অথবা দোকানে ফোন করুন।', 'Too many orders from this number. Try again later, or call the store.'],
+  blocked: ['এই নম্বর থেকে অনলাইনে অর্ডার নেওয়া যাচ্ছে না। অর্ডার করতে দোকানে ফোন করুন।', 'Online orders from this number are not accepted. Call the store to order.'],
+  checkout: ['এই অর্ডার ফর্মটি আগে ব্যবহার হয়েছে। আবার অর্ডার করতে পেজটি নতুন করে খুলুন।', 'This order form was already used. Reload the page to order again.'],
+  server: ['অর্ডারটি নেওয়া যায়নি। একটু পরে আবার চেষ্টা করুন।', 'The order could not be placed. Please try again shortly.'],
 }
 
 // Up to this many options show as buttons; more become a dropdown so the form stays short on a phone.
@@ -209,26 +216,26 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
             <p>{product.name}</p>
           </div>
           {product.offers && product.offers.length > 0 && <ul className="sf-offers">{product.offers.map((o) => <li key={o}>{o}</li>)}</ul>}
-          {available.length === 0 && <p className="sf-error" role="alert">{orderErrors.soldOut}</p>}
+          {available.length === 0 && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors.soldOut)}</p>}
 
           {product.variants.length > 1 && product.variants.length <= maxChoices && (
             <fieldset className="sf-choices">
-              <legend>অপশন</legend>
+              <legend>{tr(ctx.lang, ['অপশন', 'Option'])}</legend>
               {product.variants.map((v) => (
                 <label key={v.id} className="sf-choice">
                   <input type="radio" name="variant" value={v.id} defaultChecked={v.id === chosen?.id} disabled={!v.available} data-price={v.price} />
-                  <span>{v.label}{!v.available && ' (স্টকে নেই)'}</span>
-                  <strong>{taka(v.price)}</strong>
+                  <span>{v.label}{!v.available && tr(ctx.lang, [' (স্টকে নেই)', ' (out of stock)'])}</span>
+                  <strong>{taka(v.price, ctx.lang)}</strong>
                 </label>
               ))}
             </fieldset>
           )}
           {product.variants.length > maxChoices && (
             <label className="sf-field">
-              <span>অপশন</span>
+              <span>{tr(ctx.lang, ['অপশন', 'Option'])}</span>
               <select name="variant" defaultValue={chosen?.id}>
                 {product.variants.map((v) => (
-                  <option key={v.id} value={v.id} disabled={!v.available} data-price={v.price}>{v.label} · {taka(v.price)}{!v.available && ' (স্টকে নেই)'}</option>
+                  <option key={v.id} value={v.id} disabled={!v.available} data-price={v.price}>{v.label} · {taka(v.price, ctx.lang)}{!v.available && tr(ctx.lang, [' (স্টকে নেই)', ' (out of stock)'])}</option>
                 ))}
               </select>
             </label>
@@ -236,26 +243,26 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           {product.variants.length === 1 && chosen && <input type="hidden" name="variant" value={chosen.id} data-price={chosen.price} />}
 
           <label className="sf-field">
-            <span>পরিমাণ</span>
+            <span>{tr(ctx.lang, ['পরিমাণ', 'Quantity'])}</span>
             <input type="number" min={1} max={20} inputMode="numeric" {...field('quantity')} defaultValue={String(quantity)} />
           </label>
           </div><div className="sf-order__customer"><label className="sf-field">
-            <span>আপনার নাম</span>
+            <span>{tr(ctx.lang, ['আপনার নাম', 'Your name'])}</span>
             <input autoComplete="name" maxLength={100} required {...field('name')} />
           </label>
           <label className="sf-field">
-            <span>মোবাইল নম্বর</span>
+            <span>{tr(ctx.lang, ['মোবাইল নম্বর', 'Mobile number'])}</span>
             <input type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="01XXXXXXXXX" required {...field('phone')} />
           </label>
           <label className="sf-field">
-            <span>পুরো ঠিকানা</span>
+            <span>{tr(ctx.lang, ['পুরো ঠিকানা', 'Full address'])}</span>
             <textarea rows={3} autoComplete="street-address" maxLength={500} required {...field('address')} />
           </label>
           {options.length > 0 && (
             <fieldset className="sf-choices">
-              <legend>ডেলিভারি</legend>
+              <legend>{tr(ctx.lang, ['ডেলিভারি', 'Delivery'])}</legend>
               {options.map((o) => {
-                const hint = freeHint(o, product.id)
+                const hint = freeHint(o, product.id, ctx.lang)
                 const charge = deliveryCharge(o, product.id, subtotal, quantity)
                 return (
                   <label key={o.id} className="sf-choice">
@@ -266,22 +273,22 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
                       {o.note && <small>{o.note}</small>}
                       {hint && <small className="sf-choice__free">{hint}</small>}
                     </span>
-                    <strong data-charge>{charge === 0 ? 'ফ্রি' : taka(charge)}</strong>
+                    <strong data-charge>{charge === 0 ? tr(ctx.lang, ['ফ্রি', 'Free']) : taka(charge, ctx.lang)}</strong>
                   </label>
                 )
               })}
             </fieldset>
           )}
-          {options.length === 0 && <p className="sf-error" role="alert">{orderErrors.noDelivery}</p>}
+          {options.length === 0 && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors.noDelivery)}</p>}
 
           <label className="sf-field">
-            <span>কুপন কোড (থাকলে)</span>
+            <span>{tr(ctx.lang, ['কুপন কোড (থাকলে)', 'Coupon code (if any)'])}</span>
             <input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} />
           </label>
-          <p className="sf-total">সর্বমোট <strong data-total>{taka(total)}</strong></p>
-          <p className="sf-note">অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।</p>
-          {mine && <p className="sf-error" role="alert">{orderErrors[mine.error] ?? orderErrors.server}</p>}
-          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || 'অর্ডার করুন'}</button>
+          <p className="sf-total">{tr(ctx.lang, ['সর্বমোট', 'Total'])} <strong data-total>{taka(total, ctx.lang)}</strong></p>
+          <p className="sf-note">{tr(ctx.lang, ['অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।', 'Offer and coupon discounts are added when the order is confirmed. Pay when you receive your order.'])}</p>
+          {mine && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors[mine.error] ?? orderErrors.server)}</p>}
+          <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || tr(ctx.lang, ['অর্ডার করুন', 'Place order'])}</button>
           <PolicyNote ctx={ctx} /></div>
         </form>
       </div>
@@ -302,8 +309,7 @@ function Gallery({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
-const countdownUnits = ['দিন', 'ঘণ্টা', 'মিনিট', 'সেকেন্ড']
-const twoDigits = new Intl.NumberFormat('bn-BD', { minimumIntegerDigits: 2 })
+const countdownUnits: Pair[] = [['দিন', 'Days'], ['ঘণ্টা', 'Hours'], ['মিনিট', 'Minutes'], ['সেকেন্ড', 'Seconds']]
 
 // Drawn with the time left when the page is rendered; the page script keeps it ticking in the buyer's browser.
 function Countdown({ s, ctx }: { s: Section; ctx: Ctx }) {
@@ -316,7 +322,7 @@ function Countdown({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap sf-narrow sf-countdown-wrap">
         <Heading text={str(s.settings.heading)} />
         <div className="sf-countdown" data-countdown={new Date(ends).toISOString()} hidden={left === 0}>
-          {parts.map((n, i) => <div key={i}><strong data-unit>{twoDigits.format(n)}</strong><span>{countdownUnits[i]}</span></div>)}
+          {parts.map((n, i) => <div key={i}><strong data-unit>{num(ctx.lang, n, { minimumIntegerDigits: 2 })}</strong><span>{tr(ctx.lang, countdownUnits[i])}</span></div>)}
         </div>
         <p className="sf-countdown__ended" hidden={left > 0}>{str(s.settings.ended)}</p>
       </div>
@@ -335,8 +341,8 @@ function Contact({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap sf-narrow sf-contact">
         <Heading text={str(s.settings.heading)} />
         <div className="sf-contact__buttons">
-          {phone && <a className="sf-button sf-button--outline" href={`tel:${telHref(phone)}`}>কল করুন {phone}</a>}
-          {whatsapp && <a className="sf-button sf-button--outline" href={`https://wa.me/${telHref(whatsapp).replace(/^\+?(88)?0/, '880')}`} target="_blank" rel="noopener">হোয়াটসঅ্যাপ</a>}
+          {phone && <a className="sf-button sf-button--outline" href={`tel:${telHref(phone)}`}>{tr(ctx.lang, ['কল করুন', 'Call'])} {phone}</a>}
+          {whatsapp && <a className="sf-button sf-button--outline" href={`https://wa.me/${telHref(whatsapp).replace(/^\+?(88)?0/, '880')}`} target="_blank" rel="noopener">{tr(ctx.lang, ['হোয়াটসঅ্যাপ', 'WhatsApp'])}</a>}
         </div>
       </div>
     </section>
@@ -352,15 +358,15 @@ function SectionButton({ s, orderId, ctx }: { s: Section; orderId?: string; ctx?
 function LandingHeader({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId?: string }) {
   return <section className="sf-section sf-custom-header"><div className="sf-wrap sf-header-row">
     <div className="sf-brand"><Picture img={ctx.image(s.settings.image as string | null)} /><strong>{str(s.settings.brand)}</strong></div>
-    <nav className="sf-section-links" aria-label="পেজ নেভিগেশন">{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
+    <nav className="sf-section-links" aria-label={tr(ctx.lang, ['পেজ নেভিগেশন', 'Page navigation'])}>{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
     <SectionButton s={s} orderId={orderId} ctx={ctx} />
   </div></section>
 }
 
-function LandingFooter({ s }: { s: Section }) {
+function LandingFooter({ s, ctx }: { s: Section; ctx: Ctx }) {
   return <section className="sf-section sf-custom-footer"><div className="sf-wrap">
     <Heading text={str(s.settings.heading)} /><Lines text={str(s.settings.text)} className="sf-body" />
-    <nav className="sf-section-links" aria-label="ফুটার লিংক">{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
+    <nav className="sf-section-links" aria-label={tr(ctx.lang, ['ফুটার লিংক', 'Footer links'])}>{items(s.settings.items).filter((i) => i.link && i.title).map((item, i) => <a key={i} href={item.link!}>{item.title}</a>)}</nav>
   </div></section>
 }
 
@@ -370,7 +376,7 @@ function InfoItems({ s, ctx }: { s: Section; ctx: Ctx }) {
     <Heading text={str(s.settings.heading)} />
     <ol className="sf-info-grid">{rows.map((item, i) => <li key={i}>
       {item.icon && <IconBadge name={item.icon} surface={s.style?.iconSurface} image={ctx.image} />}
-      {s.type === 'steps' && !item.icon && <span className="sf-step-number">{number.format(i + 1).padStart(2, '০')}</span>}
+      {s.type === 'steps' && !item.icon && <span className="sf-step-number">{num(ctx.lang, i + 1, { minimumIntegerDigits: 2 })}</span>}
       {s.type === 'cards' && (ctx.image(item.image) ? <Picture img={ctx.image(item.image)} className="sf-card-image" /> : <Hint ctx={ctx}>কার্ডে ছবি দিন</Hint>)}
       <div className="sf-info-copy"><h3>{item.title}</h3>{item.text && <p>{item.text}</p>}</div>
     </li>)}</ol>
@@ -405,9 +411,9 @@ function Specifications({ s }: { s: Section }) {
   </div></section>
 }
 
-function Comparison({ s }: { s: Section }) {
+function Comparison({ s, ctx }: { s: Section; ctx: Ctx }) {
   return <section className="sf-section"><div className="sf-wrap"><Heading text={str(s.settings.heading)} />
-    <div className="sf-table-scroll" role="region" aria-label={str(s.settings.heading) || 'পণ্যের তুলনা'} tabIndex={0}><table className="sf-comparison"><thead><tr><th scope="col">বৈশিষ্ট্য</th><th scope="col">{str(s.settings.left)}</th><th scope="col">{str(s.settings.right)}</th></tr></thead>
+    <div className="sf-table-scroll" role="region" aria-label={str(s.settings.heading) || tr(ctx.lang, ['পণ্যের তুলনা', 'Product comparison'])} tabIndex={0}><table className="sf-comparison"><thead><tr><th scope="col">{tr(ctx.lang, ['বৈশিষ্ট্য', 'Feature'])}</th><th scope="col">{str(s.settings.left)}</th><th scope="col">{str(s.settings.right)}</th></tr></thead>
       <tbody>{items(s.settings.items).map((item, i) => <tr key={i}><th scope="row">{item.title}</th><td>{item.left}</td><td>{item.right}</td></tr>)}</tbody>
     </table></div>
   </div></section>
@@ -524,16 +530,16 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
         </a>
         {menu.length > 0 && (
           <>
-            <nav className="sf-nav" aria-label="মেনু"><MenuTree items={menu} current={current} /></nav>
+            <nav className="sf-nav" aria-label={tr(ctx.lang, ['মেনু', 'Menu'])}><MenuTree items={menu} current={current} /></nav>
             <details className="sf-nav-phone">
-              <summary><span className="sf-burger" aria-hidden="true" />মেনু</summary>
-              <nav aria-label="মেনু"><MenuTree items={menu} current={current} /></nav>
+              <summary><span className="sf-burger" aria-hidden="true" />{tr(ctx.lang, ['মেনু', 'Menu'])}</summary>
+              <nav aria-label={tr(ctx.lang, ['মেনু', 'Menu'])}><MenuTree items={menu} current={current} /></nav>
             </details>
           </>
         )}
         <span className="sf-bar__links">
-          {s.settings.showSearch !== 'no' && <a href="/search">খুঁজুন</a>}
-          {s.settings.showCart !== 'no' && <a href="/cart" aria-current={current === '/cart' ? 'page' : undefined}>কার্ট{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{number.format(ctx.cartCount!)}</span>}</a>}
+          {s.settings.showSearch !== 'no' && <a href="/search">{tr(ctx.lang, ['খুঁজুন', 'Search'])}</a>}
+          {s.settings.showCart !== 'no' && <a href="/cart" aria-current={current === '/cart' ? 'page' : undefined}>{tr(ctx.lang, ['কার্ট', 'Cart'])}{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{num(ctx.lang, ctx.cartCount!)}</span>}</a>}
           {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
         </span>
       </div>
@@ -541,15 +547,15 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
-function ContactList({ store, className }: { store: StoreInfo; className: string }) {
+function ContactList({ store, className, lang }: { store: StoreInfo; className: string; lang?: Lang }) {
   if (!store.phone && !store.whatsapp && !store.email && !store.address && !store.facebook) return null
   return (
     <ul className={className}>
-      {store.phone && <li><span>ফোন</span><a href={`tel:${digitsOnly(store.phone)}`}>{store.phone}</a></li>}
-      {store.whatsapp && <li><span>হোয়াটসঅ্যাপ</span><a href={whatsappHref(store.whatsapp)} rel="noopener">{store.whatsapp}</a></li>}
-      {store.email && <li><span>ইমেইল</span><a href={`mailto:${store.email}`}>{store.email}</a></li>}
-      {store.facebook && /^https:\/\//.test(store.facebook) && <li><span>ফেসবুক</span><a href={store.facebook} rel="noopener">{store.facebook.replace(/^https:\/\/(www\.)?/, '')}</a></li>}
-      {store.address && <li><span>ঠিকানা</span><span>{store.address}</span></li>}
+      {store.phone && <li><span>{tr(lang, ['ফোন', 'Phone'])}</span><a href={`tel:${digitsOnly(store.phone)}`}>{store.phone}</a></li>}
+      {store.whatsapp && <li><span>{tr(lang, ['হোয়াটসঅ্যাপ', 'WhatsApp'])}</span><a href={whatsappHref(store.whatsapp)} rel="noopener">{store.whatsapp}</a></li>}
+      {store.email && <li><span>{tr(lang, ['ইমেইল', 'Email'])}</span><a href={`mailto:${store.email}`}>{store.email}</a></li>}
+      {store.facebook && /^https:\/\//.test(store.facebook) && <li><span>{tr(lang, ['ফেসবুক', 'Facebook'])}</span><a href={store.facebook} rel="noopener">{store.facebook.replace(/^https:\/\/(www\.)?/, '')}</a></li>}
+      {store.address && <li><span>{tr(lang, ['ঠিকানা', 'Address'])}</span><span>{store.address}</span></li>}
     </ul>
   )
 }
@@ -560,9 +566,9 @@ function StoreFooter({ s, ctx }: { s: Section; ctx: Ctx }) {
   return (
     <footer className="sf-foot">
       <div className="sf-wrap">
-        {menu.length > 0 && <nav className="sf-foot__menu" aria-label="ফুটার মেনু"><MenuTree items={menu} current={ctx.current?.path} /></nav>}
+        {menu.length > 0 && <nav className="sf-foot__menu" aria-label={tr(ctx.lang, ['ফুটার মেনু', 'Footer menu'])}><MenuTree items={menu} current={ctx.current?.path} /></nav>}
         {text && <p className="sf-foot__text">{text}</p>}
-        {s.settings.showContact === 'yes' && ctx.store && <ContactList store={ctx.store} className="sf-foot__contact" />}
+        {s.settings.showContact === 'yes' && ctx.store && <ContactList store={ctx.store} className="sf-foot__contact" lang={ctx.lang} />}
         <p>{str(s.settings.copyright) || `© ${ctx.store?.name ?? ''}`}</p>
       </div>
     </footer>
@@ -574,7 +580,7 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
   if (!item) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>পণ্যের পেজে এখানে পণ্যটি, দাম ও অর্ডার ফর্ম দেখাবে</Hint></div></section> : null
   const prices = item.product.variants.map((v) => v.price)
   const compare = Math.max(0, ...item.product.variants.map((v) => v.comparePrice ?? 0))
-  const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || 'অর্ডার করুন', product: item.id, button: str(s.settings.formButton) || 'অর্ডার নিশ্চিত করুন' } }
+  const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || tr(ctx.lang, ['অর্ডার করুন', 'Order now']), product: item.id, button: str(s.settings.formButton) || tr(ctx.lang, ['অর্ডার নিশ্চিত করুন', 'Confirm order']) } }
   const mode = str(s.settings.buyMode) || 'both'
   return (
     <>
@@ -582,17 +588,17 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
         <ProductImages images={item.images} name={item.name} stacked={s.settings.galleryLayout === 'stack'} />
         <div>
           <h1>{item.name}</h1>
-          {prices.length > 0 && <Price price={Math.min(...prices)} comparePrice={compare > 0 ? compare : null} />}
-          {!item.product.variants.some((v) => v.available) && <p className="sf-error">এখন স্টকে নেই</p>}
+          {prices.length > 0 && <Price price={Math.min(...prices)} comparePrice={compare > 0 ? compare : null} lang={ctx.lang} />}
+          {!item.product.variants.some((v) => v.available) && <p className="sf-error">{tr(ctx.lang, ['এখন স্টকে নেই', 'Out of stock'])}</p>}
           {item.product.variants.some((v) => v.available) && <div className="sf-buy">
-            {mode !== 'cart' && <a className="sf-button" href="#buy">{str(s.settings.buyButton) || 'এখনই অর্ডার করুন'}</a>}
+            {mode !== 'cart' && <a className="sf-button" href="#buy">{str(s.settings.buyButton) || tr(ctx.lang, ['এখনই অর্ডার করুন', 'Order now'])}</a>}
             {mode !== 'order' && (
               <form className="sf-add" method="post" action={ctx.preview ? undefined : '/cart/add'}>
                 {item.product.variants.length > 1
-                  ? <label className="sf-field"><span>অপশন</span><select name="variant">{item.product.variants.map((v) => <option key={v.id} value={v.id} disabled={!v.available}>{v.label} · {taka(v.price)}{!v.available && ' (স্টকে নেই)'}</option>)}</select></label>
+                  ? <label className="sf-field"><span>{tr(ctx.lang, ['অপশন', 'Option'])}</span><select name="variant">{item.product.variants.map((v) => <option key={v.id} value={v.id} disabled={!v.available}>{v.label} · {taka(v.price, ctx.lang)}{!v.available && tr(ctx.lang, [' (স্টকে নেই)', ' (out of stock)'])}</option>)}</select></label>
                   : <input type="hidden" name="variant" value={item.product.variants[0].id} />}
-                <label className="sf-field sf-add__qty"><span>পরিমাণ</span><input type="number" name="quantity" min={1} max={20} defaultValue="1" inputMode="numeric" /></label>
-                <button type="submit" className={`sf-button${mode === 'both' ? ' sf-button--outline' : ''}`}>{str(s.settings.cartButton) || 'কার্টে রাখুন'}</button>
+                <label className="sf-field sf-add__qty"><span>{tr(ctx.lang, ['পরিমাণ', 'Quantity'])}</span><input type="number" name="quantity" min={1} max={20} defaultValue="1" inputMode="numeric" /></label>
+                <button type="submit" className={`sf-button${mode === 'both' ? ' sf-button--outline' : ''}`}>{str(s.settings.cartButton) || tr(ctx.lang, ['কার্টে রাখুন', 'Add to cart'])}</button>
               </form>
             )}
           </div>}
@@ -613,9 +619,9 @@ function ProductList({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap">
         {heading && <h2 className="sf-heading">{heading}</h2>}
         {data.cards.length > 0
-          ? <ProductGrid cards={data.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} mobileColumns={typeof s.settings.mobileColumns === 'number' ? s.settings.mobileColumns : undefined} />
-          : <p className="sf-empty">শিগগিরই নতুন পণ্য আসছে।</p>}
-        {shownSetting(s, 'pager') && <Pager page={data.page} hasMore={data.hasMore} base={data.base} />}
+          ? <ProductGrid lang={ctx.lang} cards={data.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} mobileColumns={typeof s.settings.mobileColumns === 'number' ? s.settings.mobileColumns : undefined} />
+          : <p className="sf-empty">{tr(ctx.lang, ['শিগগিরই নতুন পণ্য আসছে।', 'New products are coming soon.'])}</p>}
+        {shownSetting(s, 'pager') && <Pager page={data.page} hasMore={data.hasMore} base={data.base} lang={ctx.lang} />}
       </div>
     </section>
   )
@@ -645,7 +651,7 @@ function CollectionList({ s, ctx }: { s: Section; ctx: Ctx }) {
         {heading && <h1 className="sf-heading">{heading}</h1>}
         {list.length > 0
           ? <ul className="sf-collections" style={{ '--cols': columns } as CSSProperties}>{list.map((x) => <li key={x.id}><a href={`/collections/${encodeURIComponent(x.handle)}`}>{x.image && <img src={x.image.url} alt="" width={x.image.width} height={x.image.height} loading="lazy" />}<span>{x.name}</span></a></li>)}</ul>
-          : <p className="sf-empty">শিগগিরই নতুন কালেকশন আসছে।</p>}
+          : <p className="sf-empty">{tr(ctx.lang, ['শিগগিরই নতুন কালেকশন আসছে।', 'New collections are coming soon.'])}</p>}
       </div>
     </section>
   )
@@ -656,6 +662,7 @@ function PolicyNote({ ctx }: { ctx: Ctx }) {
   const terms = ctx.policies?.terms
   const refund = ctx.policies?.refund
   if (!terms && !refund) return null
+  if (ctx.lang === 'en') return <p className="sf-note">By ordering you accept the store’s {terms && <a href={terms}>terms</a>}{terms && refund && ' and '}{refund && <a href={refund}>return policy</a>}.</p>
   return <p className="sf-note">অর্ডার করে আপনি দোকানের {terms && <a href={terms}>শর্তাবলি</a>}{terms && refund && ' ও '}{refund && <a href={refund}>রিটার্ন নীতি</a>} মেনে নিচ্ছেন।</p>
 }
 
@@ -677,7 +684,7 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap sf-cart">
         {str(s.settings.heading) && <h1 className="sf-heading">{str(s.settings.heading)}</h1>}
         {cart.lines.length === 0
-          ? <div className="sf-empty"><p>{str(s.settings.emptyText) || 'কার্টে এখনো কিছু নেই।'}</p><a className="sf-button sf-button--outline" href="/products">কেনাকাটা করুন</a></div>
+          ? <div className="sf-empty"><p>{str(s.settings.emptyText) || tr(ctx.lang, ['কার্টে এখনো কিছু নেই।', 'Your cart is empty.'])}</p><a className="sf-button sf-button--outline" href="/products">{tr(ctx.lang, ['কেনাকাটা করুন', 'Start shopping'])}</a></div>
           : <div className="sf-cart__layout">
             <div>
               <ul className="sf-cart__lines">
@@ -687,16 +694,16 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
                     <div className="sf-cart__info">
                       <a href={`/products/${encodeURIComponent(l.handle)}`}>{l.name}</a>
                       {l.label && <small>{l.label}</small>}
-                      <span>{taka(l.price)}</span>
-                      {!l.available && <span className="sf-error">এখন স্টকে নেই, অর্ডারের আগে সরিয়ে দিন।</span>}
+                      <span>{taka(l.price, ctx.lang)}</span>
+                      {!l.available && <span className="sf-error">{tr(ctx.lang, ['এখন স্টকে নেই, অর্ডারের আগে সরিয়ে দিন।', 'Out of stock. Remove it before ordering.'])}</span>}
                     </div>
                     <form className="sf-cart__qty" method="post" action={ctx.preview ? undefined : '/cart/update'}>
                       <input type="hidden" name="variant" value={l.variantId} />
-                      <label><span className="sf-trap">পরিমাণ</span><input type="number" name="quantity" min={0} max={20} defaultValue={String(l.qty)} inputMode="numeric" aria-label={`${l.name}: পরিমাণ`} /></label>
-                      <button type="submit" className="sf-link-button">বদলান</button>
-                      <button type="submit" name="quantity" value="0" className="sf-link-button">সরান</button>
+                      <label><span className="sf-trap">{tr(ctx.lang, ['পরিমাণ', 'Quantity'])}</span><input type="number" name="quantity" min={0} max={20} defaultValue={String(l.qty)} inputMode="numeric" aria-label={`${l.name}: ${tr(ctx.lang, ['পরিমাণ', 'Quantity'])}`} /></label>
+                      <button type="submit" className="sf-link-button">{tr(ctx.lang, ['বদলান', 'Update'])}</button>
+                      <button type="submit" name="quantity" value="0" className="sf-link-button">{tr(ctx.lang, ['সরান', 'Remove'])}</button>
                     </form>
-                    <strong className="sf-cart__total">{taka(l.price * l.qty)}</strong>
+                    <strong className="sf-cart__total">{taka(l.price * l.qty, ctx.lang)}</strong>
                   </li>
                 ))}
               </ul>
@@ -704,30 +711,30 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
             <form className="sf-order" method="post" action={ctx.preview ? undefined : '/cart'} data-cart data-subtotal={cart.subtotal} data-qty={cart.qty}>
               {!ctx.preview && <input type="hidden" name="checkout" value={cart.checkoutToken} />}
               <label className="sf-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
-              {cart.error && <p className="sf-error" role="alert">{orderErrors[cart.error] ?? orderErrors.server}</p>}
-              <label className="sf-field"><span>আপনার নাম</span><input autoComplete="name" maxLength={100} required {...field('name')} /></label>
-              <label className="sf-field"><span>মোবাইল নম্বর</span><input type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="01XXXXXXXXX" required {...field('phone')} /></label>
-              <label className="sf-field"><span>পুরো ঠিকানা</span><textarea rows={3} autoComplete="street-address" maxLength={500} required {...field('address')} /></label>
+              {cart.error && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors[cart.error] ?? orderErrors.server)}</p>}
+              <label className="sf-field"><span>{tr(ctx.lang, ['আপনার নাম', 'Your name'])}</span><input autoComplete="name" maxLength={100} required {...field('name')} /></label>
+              <label className="sf-field"><span>{tr(ctx.lang, ['মোবাইল নম্বর', 'Mobile number'])}</span><input type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="01XXXXXXXXX" required {...field('phone')} /></label>
+              <label className="sf-field"><span>{tr(ctx.lang, ['পুরো ঠিকানা', 'Full address'])}</span><textarea rows={3} autoComplete="street-address" maxLength={500} required {...field('address')} /></label>
               {options.length > 0 && (
                 <fieldset className="sf-choices">
-                  <legend>ডেলিভারি</legend>
+                  <legend>{tr(ctx.lang, ['ডেলিভারি', 'Delivery'])}</legend>
                   {options.map((o) => {
                     const c = cartCharge(o, productIds, cart.subtotal, cart.qty)
                     return (
                       <label key={o.id} className="sf-choice">
                         <input type="radio" name="rate" value={o.id} defaultChecked={o.id === rate?.id} data-charge-value={c} />
                         <span className="sf-choice__text"><span>{o.name}</span>{o.note && <small>{o.note}</small>}</span>
-                        <strong>{c === 0 ? 'ফ্রি' : taka(c)}</strong>
+                        <strong>{c === 0 ? tr(ctx.lang, ['ফ্রি', 'Free']) : taka(c, ctx.lang)}</strong>
                       </label>
                     )
                   })}
                 </fieldset>
               )}
-              {options.length === 0 && <p className="sf-error" role="alert">{orderErrors.noDelivery}</p>}
-              <label className="sf-field"><span>কুপন কোড (থাকলে)</span><input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} /></label>
-              <p className="sf-total"><span>পণ্য</span><span>{taka(cart.subtotal)}</span></p>
-              <p className="sf-total"><span>সর্বমোট (ডিসকাউন্টের আগে)</span><strong data-total>{taka(cart.subtotal + charge)}</strong></p>
-              <button type="submit" className="sf-button sf-button--block" disabled={options.length === 0 || cart.lines.some((l) => !l.available)}>{str(s.settings.button) || 'অর্ডার নিশ্চিত করুন'}</button>
+              {options.length === 0 && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors.noDelivery)}</p>}
+              <label className="sf-field"><span>{tr(ctx.lang, ['কুপন কোড (থাকলে)', 'Coupon code (if any)'])}</span><input autoComplete="off" autoCapitalize="characters" maxLength={30} {...field('coupon')} /></label>
+              <p className="sf-total"><span>{tr(ctx.lang, ['পণ্য', 'Products'])}</span><span>{taka(cart.subtotal, ctx.lang)}</span></p>
+              <p className="sf-total"><span>{tr(ctx.lang, ['সর্বমোট (ডিসকাউন্টের আগে)', 'Total (before discounts)'])}</span><strong data-total>{taka(cart.subtotal + charge, ctx.lang)}</strong></p>
+              <button type="submit" className="sf-button sf-button--block" disabled={options.length === 0 || cart.lines.some((l) => !l.available)}>{str(s.settings.button) || tr(ctx.lang, ['অর্ডার নিশ্চিত করুন', 'Confirm order'])}</button>
               {str(s.settings.note) && <p className="sf-note">{str(s.settings.note)}</p>}
               <PolicyNote ctx={ctx} />
             </form>
@@ -745,12 +752,12 @@ function SearchBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap">
         {str(s.settings.heading) && <h1 className="sf-heading">{str(s.settings.heading)}</h1>}
         <form className="sf-search" method="get" action="/search" role="search">
-          <input type="search" name="q" defaultValue={search.query} maxLength={100} placeholder="পণ্যের নাম লিখুন" aria-label="পণ্য খুঁজুন" />
-          <button type="submit" className="sf-button">খুঁজুন</button>
+          <input type="search" name="q" defaultValue={search.query} maxLength={100} placeholder={tr(ctx.lang, ['পণ্যের নাম লিখুন', 'Type a product name'])} aria-label={tr(ctx.lang, ['পণ্য খুঁজুন', 'Search products'])} />
+          <button type="submit" className="sf-button">{tr(ctx.lang, ['খুঁজুন', 'Search'])}</button>
         </form>
         {search.query && (search.cards.length > 0
-          ? <ProductGrid cards={search.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} />
-          : <p className="sf-empty">"{search.query}" দিয়ে কিছু পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।</p>)}
+          ? <ProductGrid lang={ctx.lang} cards={search.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} />
+          : <p className="sf-empty">{ctx.lang === 'en' ? `Nothing found for "${search.query}". Try other words.` : `"${search.query}" দিয়ে কিছু পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।`}</p>)}
       </div>
     </section>
   )
@@ -764,7 +771,7 @@ function PageContent({ s, ctx }: { s: Section; ctx: Ctx }) {
       <div className="sf-wrap sf-narrow sf-store-page">
         {shownSetting(s, 'showTitle') && <h1 className="sf-heading">{page.title}</h1>}
         <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(page.body) }} />
-        {page.policy === 'contact' && ctx.store && <ContactList store={ctx.store} className="sf-contact-list" />}
+        {page.policy === 'contact' && ctx.store && <ContactList store={ctx.store} className="sf-contact-list" lang={ctx.lang} />}
       </div>
     </section>
   )
@@ -777,13 +784,13 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'iconCards': return <InfoItems s={s} ctx={ctx} />
     case 'iconList': return <IconList s={s} ctx={ctx} />
     case 'header': return <LandingHeader s={s} ctx={ctx} orderId={orderId} />
-    case 'footer': return <LandingFooter s={s} />
+    case 'footer': return <LandingFooter s={s} ctx={ctx} />
     case 'announcement': return <CallToAction s={s} orderId={orderId} ctx={ctx} />
     case 'trust':
     case 'steps':
     case 'cards': return <InfoItems s={s} ctx={ctx} />
     case 'specifications': return <Specifications s={s} />
-    case 'comparison': return <Comparison s={s} />
+    case 'comparison': return <Comparison s={s} ctx={ctx} />
     case 'features': return <Features s={s} ctx={ctx} />
     case 'reviews': return <Reviews s={s} ctx={ctx} />
     case 'faq': return <Faq s={s} />
@@ -833,11 +840,11 @@ export function PageView({ content, ctx, storeName, frame, themeCss }: { content
 }
 
 // The cart page's script: keeps the shown total in step with the chosen delivery option. Display only.
-export const cartScript = `document.querySelectorAll('form[data-cart]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var r=f.querySelector('input[name=rate]:checked');var c=r?Number(r.dataset.chargeValue):0;f.querySelector('[data-total]').textContent='৳'+n.format(Number(f.dataset.subtotal)+c)}f.addEventListener('change',u)})`
+export const cartScript = `document.querySelectorAll('form[data-cart]').forEach(function(f){var n=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function u(){var r=f.querySelector('input[name=rate]:checked');var c=r?Number(r.dataset.chargeValue):0;f.querySelector('[data-total]').textContent='৳'+n.format(Number(f.dataset.subtotal)+c)}f.addEventListener('change',u)})`
 
 // The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,
 // saves what the buyer typed so the store can call if they do not finish. Forms work without it.
-export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat('bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var n=new Intl.NumberFormat('bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var sub=(v?Number(v.dataset.price):0)*q;var d=0;f.querySelectorAll('input[name=rate]').forEach(function(r){var o=r.dataset;var c=('freeProduct' in o)||(o.freeOver&&sub>=Number(o.freeOver))||(o.freeQty&&q>=Number(o.freeQty))?0:Number(o.price);r.closest('label').querySelector('[data-charge]').textContent=c?'৳'+n.format(c):'ফ্রি';if(r.checked)d=c});f.querySelector('[data-total]').textContent='৳'+n.format(sub+d)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
+export const pageScript = `document.querySelectorAll('[data-countdown]').forEach(function(el){var end=Date.parse(el.dataset.countdown);var n=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD',{minimumIntegerDigits:2});var h;function t(){var s=Math.max(0,Math.floor((end-Date.now())/1000));var v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];el.querySelectorAll('[data-unit]').forEach(function(u,i){u.textContent=n.format(v[i])});if(s===0){el.hidden=true;el.nextElementSibling.hidden=false;clearInterval(h)}}h=setInterval(t,1000);t()});`+`document.querySelectorAll('form[data-order]').forEach(function(f){var en=document.documentElement.lang==='en',n=new Intl.NumberFormat(en?'en-US':'bn-BD');function u(){var s=f.querySelector('select[name=variant]');var v=s?s.selectedOptions[0]:f.querySelector('input[name=variant]:checked')||f.querySelector('input[type=hidden][name=variant]');var q=Math.min(Math.max(parseInt(f.elements.quantity.value,10)||1,1),20);var sub=(v?Number(v.dataset.price):0)*q;var d=0;f.querySelectorAll('input[name=rate]').forEach(function(r){var o=r.dataset;var c=('freeProduct' in o)||(o.freeOver&&sub>=Number(o.freeOver))||(o.freeQty&&q>=Number(o.freeQty))?0:Number(o.price);r.closest('label').querySelector('[data-charge]').textContent=c?'৳'+n.format(c):en?'Free':'ফ্রি';if(r.checked)d=c});f.querySelector('[data-total]').textContent='৳'+n.format(sub+d)}f.addEventListener('input',u);f.addEventListener('change',u);var tm;f.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){var p=f.elements.phone.value.replace(/[০-৯]/g,function(c){return '০১২৩৪৫৬৭৮৯'.indexOf(c)}).replace(/[\\s-]/g,'');if(!/^(\\+?88)?01[3-9]\\d{8}$/.test(p))return;fetch('/drafts',{method:'POST',keepalive:true,body:new URLSearchParams({phone:p,name:f.elements.name.value,address:f.elements.address.value,product:f.dataset.product||''})}).catch(function(){})},800)})})`
 
 
 export const css = `

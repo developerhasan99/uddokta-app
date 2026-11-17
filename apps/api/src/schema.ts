@@ -63,6 +63,9 @@ export const stores = pgTable('stores', {
   shareMediaId: uuid('share_media_id'),
   storePasswordHash: text('store_password_hash'),
   passwordMessage: text('password_message').notNull().default(''),
+  // The language of the store's own words (buttons, form labels, messages; storefront/src/words.ts) on every store
+  // page and landing page. What the seller writes is shown as written. Later: both, with a switch for buyers.
+  language: text('language', { enum: ['bn', 'en'] }).notNull().default('bn'),
   phone: text('phone').notNull().default(''),
   whatsapp: text('whatsapp').notNull().default(''),
   email: text('email').notNull().default(''),
@@ -74,6 +77,7 @@ export const stores = pgTable('stores', {
   invoiceNote: text('invoice_note').notNull().default(''),
   createdAt: createdAt(),
 }, (t) => [
+  check('stores_language', sql`${t.language} in ('bn', 'en')`),
   check('stores_phones', sql`${t.phone} ~ '^(\\+?[0-9][0-9 -]{5,19})?$' and ${t.whatsapp} ~ '^(\\+?[0-9][0-9 -]{5,19})?$'`),
   check('stores_email', sql`${t.email} ~ '^([^\\s@]+@[^\\s@]+\\.[^\\s@]+)?$' and char_length(${t.email}) <= 200`),
   check('stores_facebook', sql`${t.facebook} ~ '^(https://[^\\s]+)?$' and char_length(${t.facebook}) <= 300`),

@@ -15,7 +15,8 @@ import { isPreset, type PresetId } from './themes.ts'
 import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPreset, type SiteStyle, type TemplateType } from './site.ts'
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
-import { cartScript, css, pageScript, PageView, taka, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
+import { num, taka, tr, type Lang } from './words.ts'
+import { cartScript, css, pageScript, PageView, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -141,13 +142,15 @@ async function loadStore(handle: string) {
     if (!menus['main-menu']?.length) menus['main-menu'] = collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] }))
     const info = (await t.execute<{ logo_key: string | null; logo_width: number; logo_height: number; phone: string; whatsapp: string; email: string; address: string; facebook: string }>(sql`select * from storefront_store_info(${store.id}::uuid)`)).rows[0]
     const storeInfo: StoreInfo = { name: store.name, logo: info ? image(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' }
-    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
+    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string; language: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
     const policyRows = (await t.execute<{ kind: string; handle: string | null }>(sql`select k.kind, storefront_policy(${store.id}::uuid, k.kind) as handle from unnest(array['refund', 'terms', 'privacy', 'shipping', 'contact']) as k(kind)`)).rows
     const policies = Object.fromEntries(policyRows.filter((r) => r.handle).map((r) => [r.kind, pageHref(r.handle!)])) as Ctx['policies']
     return { ...store, collections, style, menus, info: storeInfo, prefs, policies, shipping: await shippingOptions(t, store.id) }
   })
 }
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
+// The store's language for its own words (Online store › Preferences).
+const langOf = (store: LoadedStore | null | undefined): Lang => (store?.prefs?.language === 'en' ? 'en' : 'bn')
 
 async function listing(storeId: string, collectionId: string | null, page: number, size = listPageSize) {
   const listPageSize = size
@@ -177,9 +180,10 @@ type Look = { css: string; fontsHref: string | null; custom: string }
 const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style), custom: style.css })
 const defaultLook = lookOf(styleFromPreset('fresh'))
 
-function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; children: React.ReactNode }) {
+function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, lang = 'bn', children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; lang?: Lang; children: React.ReactNode }) {
+  // lang also tells the page scripts which digits to write.
   return (
-    <html lang="bn">
+    <html lang={lang}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -189,7 +193,7 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
         {(noindex || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
         <meta property="og:title" content={title} />
         <meta property="og:type" content="website" />
-        <meta property="og:locale" content="bn_BD" />
+        <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'bn_BD'} />
         {description && <meta property="og:description" content={description} />}
         {canonical && <meta property="og:url" content={canonical} />}
         {shareImage && <>
@@ -238,6 +242,7 @@ async function templateImages(storeId: string, contents: Content[]) {
 
 // Store context for any page drawn with the store's header and footer: the store, menus, theme images.
 const storeCtx = (store: LoadedStore, path: string) => ({
+  lang: langOf(store),
   store: store.info,
   menus: store.menus,
   current: { path },
@@ -266,7 +271,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   }
   const frame = store ? { header, footer } : undefined
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel}>
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel} lang={langOf(store)}>
       <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.style.css} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
     </Document>
@@ -328,6 +333,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     orderAction: meta.orderAction,
     checkoutToken: meta.order?.values.checkout || randomUUID(),
     order: meta.order,
+    lang: langOf(store),
     store: store.info,
     menus: store.menus,
     current: here,
@@ -339,7 +345,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     search: here.search,
   }
   return html(c, (
-    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel}>
+    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel} lang={langOf(store)}>
       <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: header.sections, footer: footer.sections }} themeCss={store.style.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
       {here.cart && here.cart.lines.length > 0 && <script dangerouslySetInnerHTML={{ __html: cartScript }} />}
@@ -349,7 +355,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
 
 // A missing page inside a known store: the theme's 404 template.
 const storeNotFound = (c: Context, store: LoadedStore) =>
-  renderThemed(c, store, 'notFound', { path: new URL(c.req.url).pathname }, { title: 'পেজটি পাওয়া যায়নি', description: '', noindex: true, status: 404 })
+  renderThemed(c, store, 'notFound', { path: new URL(c.req.url).pathname }, { title: tr(langOf(store), ['পেজটি পাওয়া যায়নি', 'Page not found']), description: '', noindex: true, status: 404 })
 
 async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct, order?: Ctx['order']) {
   // Description HTML was cleaned by cleanDescription when it was saved; the block cleans it again before drawing.
@@ -361,22 +367,23 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   })
 }
 
-async function thanks(c: Context, storeId: string, storeName: string, back: string, look?: Look) {
+async function thanks(c: Context, storeId: string, storeName: string, back: string, shown?: { look: Look; lang: Lang }) {
+  const lang = shown?.lang
   const token = c.req.query('receipt') ?? ''
   const receipt = isCheckoutToken(token) ? (await tx(null, (t) => t.execute<{ number: number; total: number }>(sql`select * from storefront_receipt(${storeId}::uuid, ${token}::uuid)`))).rows[0] : undefined
   const number = receipt?.number ?? 0
   const total = receipt?.total ?? 0
   const pixel = pixelScript(await trackingFor(storeId), receipt ? { total, receipt: token } : undefined)
   return html(c, (
-    <Document title="অর্ডার হয়েছে" description="" look={look} pixel={pixel}>
+    <Document title={tr(lang, ['অর্ডার হয়েছে', 'Order placed'])} description="" look={shown?.look} pixel={pixel} lang={lang}>
       <div className="sf-page">
         <header className="sf-bar"><div className="sf-wrap">{storeName}</div></header>
         <main className="sf-done sf-wrap sf-narrow">
-          <h1>ধন্যবাদ, আপনার অর্ডার হয়েছে</h1>
-          {Number.isInteger(number) && number > 0 && <p>অর্ডার নম্বর #{new Intl.NumberFormat('bn-BD', { useGrouping: false }).format(number)}</p>}
-          {Number.isInteger(total) && total > 0 && <p>পণ্য হাতে পেয়ে দেবেন {taka(total)}</p>}
-          <p>অর্ডার নিশ্চিত করতে আমরা শিগগিরই আপনাকে ফোন করব।</p>
-          <a className="sf-button sf-button--outline" href={back}>ফিরে যান</a>
+          <h1>{tr(lang, ['ধন্যবাদ, আপনার অর্ডার হয়েছে', 'Thank you, your order is placed'])}</h1>
+          {Number.isInteger(number) && number > 0 && <p>{`${tr(lang, ['অর্ডার নম্বর', 'Order number'])} #${num(lang, number, { useGrouping: false })}`}</p>}
+          {Number.isInteger(total) && total > 0 && <p>{`${tr(lang, ['পণ্য হাতে পেয়ে দেবেন', 'Pay on delivery'])} ${taka(total, lang)}`}</p>}
+          <p>{tr(lang, ['অর্ডার নিশ্চিত করতে আমরা শিগগিরই আপনাকে ফোন করব।', 'We will call you shortly to confirm your order.'])}</p>
+          <a className="sf-button sf-button--outline" href={back}>{tr(lang, ['ফিরে যান', 'Go back'])}</a>
         </main>
       </div>
     </Document>
@@ -440,7 +447,7 @@ app.get('/api/media-files/:store/:file', async (c) => {
 
 const storeLook = async (handle: string) => {
   const store = await loadStore(handle)
-  return store ? lookOf(store.style) : undefined
+  return store ? { look: lookOf(store.style), lang: langOf(store) } : undefined
 }
 
 app.get('/', async (c) => {
@@ -468,14 +475,14 @@ app.get('/products', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  return renderThemed(c, store, 'products', { path: '/products' }, { title: `সব পণ্য · ${store.name}`, description: '', canonical: `${c.get('origin')}/products` })
+  return renderThemed(c, store, 'products', { path: '/products' }, { title: `${tr(langOf(store), ['সব পণ্য', 'All products'])} · ${store.name}`, description: '', canonical: `${c.get('origin')}/products` })
 })
 
 app.get('/collections', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
-  return renderThemed(c, store, 'collections', { path: '/collections' }, { title: `সব কালেকশন · ${store.name}`, description: '', canonical: `${c.get('origin')}/collections` })
+  return renderThemed(c, store, 'collections', { path: '/collections' }, { title: `${tr(langOf(store), ['সব কালেকশন', 'All collections'])} · ${store.name}`, description: '', canonical: `${c.get('origin')}/collections` })
 })
 
 app.get('/products/:handle', async (c) => {
@@ -495,15 +502,15 @@ const locked = (c: Context, store: LoadedStore) => Boolean(store.prefs?.password
 
 function passwordPage(c: Context, store: LoadedStore, wrong = false) {
   return html(c, (
-    <Document title={store.name} description="" noindex look={lookOf(store.style)}>
+    <Document title={store.name} description="" noindex look={lookOf(store.style)} lang={langOf(store)}>
       <main className="sf-done sf-wrap sf-narrow sf-password">
         {store.info.logo ? <img className="sf-password__logo" src={store.info.logo.url} alt={store.name} /> : <h1>{store.name}</h1>}
-        <p>{store.prefs?.password_message || 'দোকানটি শিগগিরই খুলছে। পাসওয়ার্ড থাকলে নিচে লিখুন।'}</p>
+        <p>{store.prefs?.password_message || tr(langOf(store), ['দোকানটি শিগগিরই খুলছে। পাসওয়ার্ড থাকলে নিচে লিখুন।', 'The store opens soon. Enter the password if you have it.'])}</p>
         <form method="post" action="/password" className="sf-search">
-          <input type="password" name="password" required maxLength={100} autoComplete="current-password" aria-label="পাসওয়ার্ড" aria-invalid={wrong || undefined} placeholder="পাসওয়ার্ড" />
-          <button type="submit" className="sf-button">ঢুকুন</button>
+          <input type="password" name="password" required maxLength={100} autoComplete="current-password" aria-label={tr(langOf(store), ['পাসওয়ার্ড', 'Password'])} aria-invalid={wrong || undefined} placeholder={tr(langOf(store), ['পাসওয়ার্ড', 'Password'])} />
+          <button type="submit" className="sf-button">{tr(langOf(store), ['ঢুকুন', 'Enter'])}</button>
         </form>
-        {wrong && <p className="sf-error" role="alert">পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।</p>}
+        {wrong && <p className="sf-error" role="alert">{tr(langOf(store), ['পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।', 'Wrong password. Try again.'])}</p>}
       </main>
     </Document>
   ), wrong ? 422 : 200)
@@ -574,7 +581,7 @@ async function cartLines(storeId: string, items: [string, number][]): Promise<Ca
 async function renderCart(c: Context, store: LoadedStore, problem?: { error: string; values: OrderValues }) {
   const lines = await cartLines(store.id, cartItems(c))
   const cart: CartView = { lines, subtotal: lines.reduce((n, l) => n + l.price * l.qty, 0), qty: lines.reduce((n, l) => n + l.qty, 0), error: problem?.error, values: problem?.values, checkoutToken: problem?.values.checkout || randomUUID() }
-  return renderThemed(c, store, 'cart', { path: '/cart', cart }, { title: `কার্ট · ${store.name}`, description: '', noindex: true, status: problem ? 422 : 200 })
+  return renderThemed(c, store, 'cart', { path: '/cart', cart }, { title: `${tr(langOf(store), ['কার্ট', 'Cart'])} · ${store.name}`, description: '', noindex: true, status: problem ? 422 : 200 })
 }
 
 app.get('/cart', async (c) => {
@@ -653,7 +660,7 @@ app.post('/cart', async (c) => {
 app.get('/cart/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  return store ? thanks(c, store.id, store.name, '/', lookOf(store.style)) : notFound(c)
+  return store ? thanks(c, store.id, store.name, '/', { look: lookOf(store.style), lang: langOf(store) }) : notFound(c)
 })
 
 app.get('/search', async (c) => {
@@ -663,7 +670,7 @@ app.get('/search', async (c) => {
   const query = (c.req.query('q') ?? '').trim().slice(0, 100)
   const rows = query ? (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(sql`select * from storefront_search(${store.id}::uuid, ${query}, 48)`))).rows : []
   const cards: Card[] = rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: image(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
-  return renderThemed(c, store, 'search', { path: '/search', search: { query, cards } }, { title: query ? `${query} · ${store.name}` : `খুঁজুন · ${store.name}`, description: '', noindex: true })
+  return renderThemed(c, store, 'search', { path: '/search', search: { query, cards } }, { title: query ? `${query} · ${store.name}` : `${tr(langOf(store), ['খুঁজুন', 'Search'])} · ${store.name}`, description: '', noindex: true })
 })
 
 // Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.
@@ -772,7 +779,7 @@ app.get('/pages/:handle/thanks', async (c) => {
 app.get('/products/:handle/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
-  return store ? thanks(c, store.id, store.name, productPath(c), lookOf(store.style)) : notFound(c)
+  return store ? thanks(c, store.id, store.name, productPath(c), { look: lookOf(store.style), lang: langOf(store) }) : notFound(c)
 })
 
 // Specific catalog, media and system routes above always take precedence.

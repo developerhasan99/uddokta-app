@@ -110,6 +110,7 @@ export function TemplateEditor() {
         storeName: preview.store.name,
         frame: framed ? { header: frameFor(preview, 'header', doc.content.canvas?.headerId), footer: frameFor(preview, 'footer', doc.content.canvas?.footerId) } : undefined,
         ctx: {
+          lang: preview.language,
           store: preview.store, menus: preview.menus, collections: preview.collections,
           grid: (gid) => ({ cards: preview.cards.slice(0, limits.get(gid) ?? 24), page: 1, hasMore: false, base: '' }),
           product: (pid) => (pid && preview.product?.id === pid ? preview.product.product : undefined),

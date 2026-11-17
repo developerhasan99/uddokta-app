@@ -12,7 +12,7 @@ const shell = `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta 
 // The store's real home page (its default home template, else the built-in one, inside the default header and footer),
 // drawn with the shared section components and the given look, so unsaved Site settings show before saving.
 // Scaled down from a desktop width; nothing in it can be clicked or focused.
-export function StorePreview({ handle, style }: { handle: string; style: SiteStyle }) {
+export function StorePreview({ handle, style, lang }: { handle: string; style: SiteStyle; lang?: 'bn' | 'en' }) {
   const host = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.4)
   const [body, setBody] = useState<HTMLElement | null>(null)
@@ -35,7 +35,7 @@ export function StorePreview({ handle, style }: { handle: string; style: SiteSty
     return (list.find((f) => f.id === chosen) ?? list.find((f) => f.isDefault) ?? list.find((f) => f.builtIn))?.sections ?? data?.builtIn[type] ?? []
   }
   const ctx: Ctx | null = data && {
-    preview: true, shipping: [],
+    preview: true, shipping: [], lang: lang ?? data.language,
     image: (id) => (id ? data.images[id] : undefined),
     product: () => undefined,
     store: data.store, menus: data.menus, collections: data.collections,

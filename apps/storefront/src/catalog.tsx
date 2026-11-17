@@ -1,6 +1,7 @@
 // The store's own pages: home, collection and product. A fixed layout for now; themes come in build step 9.
 import type { CSSProperties } from 'react'
-import { taka, type Img } from './sections.tsx'
+import type { Img } from './sections.tsx'
+import { taka, tr, type Lang } from './words.ts'
 import type { ResolvedItem } from './menus.ts'
 
 export type Card = { id: string; name: string; handle: string; price: number; comparePrice: number | null; image: Img | null; inStock: boolean }
@@ -33,16 +34,16 @@ export function MenuTree({ items, current, level = 1 }: { items: ResolvedItem[];
   )
 }
 
-export function Price({ price, comparePrice }: { price: number; comparePrice: number | null }) {
+export function Price({ price, comparePrice, lang }: { price: number; comparePrice: number | null; lang?: Lang }) {
   return (
     <span className="sf-price">
-      <strong>{taka(price)}</strong>
-      {comparePrice !== null && comparePrice > price && <s>{taka(comparePrice)}</s>}
+      <strong>{taka(price, lang)}</strong>
+      {comparePrice !== null && comparePrice > price && <s>{taka(comparePrice, lang)}</s>}
     </span>
   )
 }
 
-export function ProductGrid({ cards, columns, mobileColumns }: { cards: Card[]; columns?: number; mobileColumns?: number }) {
+export function ProductGrid({ cards, columns, mobileColumns, lang }: { cards: Card[]; columns?: number; mobileColumns?: number; lang?: Lang }) {
   return (
     <ul className="sf-grid" style={{ ...(columns ? { '--cols': columns } : {}), ...(mobileColumns ? { '--mcols': mobileColumns } : {}) } as CSSProperties}>
       {cards.map((card) => (
@@ -50,8 +51,8 @@ export function ProductGrid({ cards, columns, mobileColumns }: { cards: Card[]; 
           <a className="sf-card" href={productHref(card.handle)}>
             <span className="sf-card__image">{card.image && <img src={card.image.url} alt={card.image.alt} width={card.image.width} height={card.image.height} loading="lazy" decoding="async" />}</span>
             <span className="sf-card__name">{card.name}</span>
-            <Price price={card.price} comparePrice={card.comparePrice} />
-            {!card.inStock && <span className="sf-card__out">স্টকে নেই</span>}
+            <Price price={card.price} comparePrice={card.comparePrice} lang={lang} />
+            {!card.inStock && <span className="sf-card__out">{tr(lang, ['স্টকে নেই', 'Out of stock'])}</span>}
           </a>
         </li>
       ))}
@@ -59,12 +60,12 @@ export function ProductGrid({ cards, columns, mobileColumns }: { cards: Card[]; 
   )
 }
 
-export function Pager({ page, hasMore, base }: { page: number; hasMore: boolean; base: string }) {
+export function Pager({ page, hasMore, base, lang }: { page: number; hasMore: boolean; base: string; lang?: Lang }) {
   if (page === 1 && !hasMore) return null
   return (
-    <nav className="sf-pager" aria-label="পাতা">
-      {page > 1 && <a className="sf-button sf-button--outline" href={page === 2 ? base : `${base}?page=${page - 1}`}>আগের পাতা</a>}
-      {hasMore && <a className="sf-button sf-button--outline" href={`${base}?page=${page + 1}`}>পরের পাতা</a>}
+    <nav className="sf-pager" aria-label={tr(lang, ['পাতা', 'Pages'])}>
+      {page > 1 && <a className="sf-button sf-button--outline" href={page === 2 ? base : `${base}?page=${page - 1}`}>{tr(lang, ['আগের পাতা', 'Previous page'])}</a>}
+      {hasMore && <a className="sf-button sf-button--outline" href={`${base}?page=${page + 1}`}>{tr(lang, ['পরের পাতা', 'Next page'])}</a>}
     </nav>
   )
 }

@@ -234,7 +234,7 @@ export function registerTemplates(app: Hono<Env>) {
       store: { name: store.name, logo: info ? img(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' },
       menus, cards, product, collection: collection ?? null, page: page ?? null,
       collections: collectionRows.map((x) => ({ id: x.id, name: x.name, handle: x.handle, image: img(x.image_key, x.name, x.image_width, x.image_height) })),
-      style: siteStyleOf(store),
+      style: siteStyleOf(store), language: store.language,
       headers: frame('header'), footers: frame('footer'),
       builtIn: { header: builtInTemplates.header.sections, footer: builtInTemplates.footer.sections },
       home, images,

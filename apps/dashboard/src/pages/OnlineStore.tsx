@@ -13,7 +13,7 @@ import { errorLabel, useLang } from '../i18n'
 
 const CssEditor = lazy(() => import('../components/CssEditor'))
 
-type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string }
+type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en' }
 type Counts = { templates: number; pages: number; menus: number; broken: number }
 
 // Online store: the store's address and parts (templates, pages, menus), its look (Site settings) and its preferences
@@ -84,7 +84,7 @@ export function OnlineStore() {
     setError(null)
     try {
       const nextStyle = styleDirty ? await api<SiteStyle>(`/stores/${handle}/site-style`, { method: 'PUT', body: style }) : style
-      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage } }) : prefs
+      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language } }) : prefs
       setStyle(nextStyle)
       setPrefs(nextPrefs)
       setSaved({ style: JSON.stringify(nextStyle), prefs: JSON.stringify(nextPrefs) })
@@ -130,7 +130,7 @@ export function OnlineStore() {
       {!canEdit && <p className="muted">{L(['এখানের সেটিংস শুধু মালিক ও অ্যাডমিন বদলাতে পারেন।', 'Only owners and admins can change these settings.'])}</p>}
 
       <section className="card store-hero">
-        <StorePreview handle={handle} style={style} />
+        <StorePreview handle={handle} style={style} lang={prefs.language} />
         <div className="store-hero__side">
           <div className="store-hero__info">
             <h2>{current.store.name}
@@ -197,6 +197,18 @@ export function OnlineStore() {
               ? <p className="field__help field__help--error" role="alert">{L(['CSS-এ < চিহ্ন রাখা যাবে না।', 'CSS cannot contain the < character.'])}</p>
               : <p className="field__help" id="site-css-help">{L(['দোকানের সব পেজ ও ল্যান্ডিং পেজে কাজ করে।', 'Applies to every store page and landing page.'])}</p>}
           </details>
+        </>)}
+
+        {/* Bangla or English for the store's own words. Later: both, with a switch for buyers. */}
+        {section(L(['দোকানের ভাষা', 'Store language']), L(['বাটন, অর্ডার ফর্ম আর বার্তা এই ভাষায় দেখাবে। আপনার নিজের লেখা যেমন লিখেছেন তেমনই থাকবে।', 'Buttons, the order form and messages show in this language. What you write yourself stays as you wrote it.']), <>
+          <div className="segmented" role="radiogroup" aria-label={L(['দোকানের ভাষা', 'Store language'])}>
+            {([['bn', 'বাংলা'], ['en', 'English']] as const).map(([value, label]) => (
+              <label key={value}><input type="radio" name="store-language" value={value} checked={prefs.language === value} onChange={() => setP({ language: value })} /><span lang={value}>{label}</span></label>
+            ))}
+          </div>
+          <p className="field__help">{prefs.language === 'en'
+            ? L(['যেমন: "Order now", "Your name", "Free delivery", ৳1,200।', 'For example: "Order now", "Your name", "Free delivery", ৳1,200.'])
+            : L(['যেমন: "অর্ডার করুন", "আপনার নাম", "ডেলিভারি ফ্রি", ৳১,২০০।', 'For example: "অর্ডার করুন", "আপনার নাম", "ডেলিভারি ফ্রি", ৳১,২০০.'])}</p>
         </>)}
 
         {section(t('prefHome'), t('prefHomeHelp'), <>

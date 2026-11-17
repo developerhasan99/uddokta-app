@@ -1466,6 +1466,8 @@ export type PreviewData = {
   store: StoreInfo; menus: Record<string, ResolvedItem[]>; cards: Card[]; collections: CollectionCard[]
   product: ProductPage | null; collection: { name: string; handle: string; description: string } | null; page: StorePageView | null
   style: SiteStyle
+  // The store's language for its own words, so previews read as the live store does.
+  language: 'bn' | 'en'
   // Published header and footer templates (the default first) and the built-in ones, for drawing pages inside them.
   headers: FrameTemplate[]; footers: FrameTemplate[]
   builtIn: { header: Section[]; footer: Section[] }
@@ -1542,7 +1544,7 @@ export function PageEditor() {
     history: `${base}/versions`,
     preview: (doc) => (preview ? {
       look: lookOf(preview.style), frame: { header: frameFor(preview, 'header', doc.content.canvas?.headerId), footer: frameFor(preview, 'footer', doc.content.canvas?.footerId) }, themeCss: preview.style.css,
-      ctx: { store: preview.store, menus: preview.menus, current: { path: '' } },
+      ctx: { lang: preview.language, store: preview.store, menus: preview.menus, current: { path: '' } },
     } : {}),
   }
   return <Builder host={host} />

@@ -9,7 +9,7 @@ import { media, stores } from './schema.ts'
 
 const show = async (t: Tx, store: typeof stores.$inferSelect) => {
   const [image] = store.shareMediaId ? await t.select().from(media).where(and(eq(media.storeId, store.id), eq(media.id, store.shareMediaId))) : []
-  return { homeTitle: store.homeTitle, homeDescription: store.homeDescription, shareImage: image ? present(image) : null, passwordOn: store.storePasswordHash !== null, passwordMessage: store.passwordMessage }
+  return { homeTitle: store.homeTitle, homeDescription: store.homeDescription, shareImage: image ? present(image) : null, passwordOn: store.storePasswordHash !== null, passwordMessage: store.passwordMessage, language: store.language }
 }
 
 // Online store › Preferences. Owners and admins change them, like the other store settings (row-level security on stores).
@@ -25,14 +25,15 @@ export function registerPreferences(app: Hono<Env>) {
     const passwordMessage = str(body?.passwordMessage ?? '', 300)
     const shareImageId = body?.shareImageId ?? null
     const password = body?.password ?? ''
+    const language = body?.language
     if (homeTitle === null || homeDescription === null || passwordMessage === null || !(shareImageId === null || isId(shareImageId))
-      || typeof body?.passwordOn !== 'boolean' || typeof password !== 'string' || password.length > 100) throw fail(400, 'invalidRequest')
+      || typeof body?.passwordOn !== 'boolean' || typeof password !== 'string' || password.length > 100 || !(language === undefined || language === 'bn' || language === 'en')) throw fail(400, 'invalidRequest')
     if (password && password.trim().length < 4) throw fail(400, 'storePasswordShort')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       if (body.passwordOn && !password && store.storePasswordHash === null) throw fail(400, 'storePasswordShort')
       const storePasswordHash = !body.passwordOn ? null : password ? await hashPassword(password.trim()) : store.storePasswordHash
-      const [row] = await t.update(stores).set({ homeTitle, homeDescription, passwordMessage, shareMediaId: shareImageId, storePasswordHash }).where(eq(stores.id, store.id)).returning()
+      const [row] = await t.update(stores).set({ homeTitle, homeDescription, passwordMessage, shareMediaId: shareImageId, storePasswordHash, language: language ?? store.language }).where(eq(stores.id, store.id)).returning()
       if (!row) throw fail(403, 'forbidden')
       return c.json(await show(t, row))
     })

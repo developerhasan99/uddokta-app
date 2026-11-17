@@ -179,6 +179,7 @@ One picker used across products, pages, templates and the logo. It shows where e
 
 ## Online store preferences
 
+- Store language (`stores.language`, bn or en, default bn; Online store page, saved with the preferences): the language of the store's own words (buttons, form labels, messages, digits) on every store page and landing page. Storefront strings are written as `tr(ctx.lang, ['বাংলা', 'English'])` beside each other (`apps/storefront/src/words.ts`, with `num` and `taka`); any new buyer-facing string needs both. `<html lang>` carries it so page scripts pick digits. The seller's own text is never translated; editor-only hints stay Bangla. Both languages with a buyer switch may come later.
 - Online store preferences (on the Online store page; API `apps/api/src/preferences.ts`, owners and admins): home page title, description and share image (deferred key `stores_share_fk`, so it cannot be deleted while set), and an optional store password. Only its hash is kept (`hashPassword`); while set, every store page (templates) shows the password page and cart and product order posts redirect to `/password`; landing pages stay open. The buyer's cookie is a digest of the store and the password hash, so changing the password closes open visits.
 
 ## Store pages
