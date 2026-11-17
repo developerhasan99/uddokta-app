@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/dashboard/package.json apps/dashboard/package.json
 COPY apps/storefront/package.json apps/storefront/package.json
+COPY apps/console/package.json apps/console/package.json
 RUN npm ci
 COPY apps ./apps
 ARG VITE_STOREFRONT_DOMAIN=uddokta.live

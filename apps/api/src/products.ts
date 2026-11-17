@@ -7,6 +7,7 @@ import { collectionProducts, collections, media, productMedia, products, product
 import { productAttributes, readProductAttributes, saveProductAttributes } from './attributes.ts'
 import { checkWarehouses, firstWarehouseId, setStock, stockByVariant } from './stock.ts'
 import { publicUrl } from './storage.ts'
+import { over, storeLimits } from './plans.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 const pageSize = 50
@@ -251,6 +252,12 @@ export function registerProducts(app: Hono<Env>) {
     const input = readProduct(await c.req.json().catch(() => null))
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
+      const limit = (await storeLimits(t, store.id)).maxProducts
+      if (limit !== null) {
+        await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`products:${store.id}`}))`)
+        const [{ n }] = (await t.execute<{ n: number }>(sql`select count(*)::int as n from products where store_id = ${store.id}::uuid`)).rows
+        if (over(n, limit)) throw fail(409, 'productLimit')
+      }
       const [product] = await t.insert(products).values({ storeId: store.id, ...productFields(input), handle: await chooseHandle(t, store.id, input) }).returning({ id: products.id })
       await saveDetails(t, store.id, product.id, input)
       return c.json(await loadProduct(t, store.id, product.id), 201)

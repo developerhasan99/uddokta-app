@@ -1,0 +1,17 @@
+FROM node:26.8.1-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY apps/storefront/package.json apps/storefront/package.json
+COPY apps/console/package.json apps/console/package.json
+RUN npm ci
+COPY apps ./apps
+RUN npm run build -w console && npm prune --omit=dev
+
+FROM node:26.8.1-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build --chown=node:node /app /app
+USER node
+CMD ["node", "apps/console/server/index.ts"]

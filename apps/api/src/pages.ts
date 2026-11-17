@@ -11,10 +11,12 @@ import { media, pageMedia, pages, products, templates } from './schema.ts'
 import { getFile } from './storage.ts'
 import { signExport, verifyExport } from './secrets.ts'
 import { recordVersion } from './versions.ts'
+import { over, storeLimits } from './plans.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // ponytail: one cap for every store; read it from the store's plan once plans exist (Starter allows 3).
-export const maxPages = 50
+// Most pages a store's list shows at once; how many it may have comes from its plan (storeLimits).
+export const maxPages = 500
 const maxContentBytes = 200_000
 
 const sectionId = () => randomUUID().slice(0, 8)
@@ -139,7 +141,7 @@ export function registerPages(app: Hono<Env>) {
       // Serialises page creation per store so two at once cannot pass the limit together.
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${store.id}`}))`)
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
-      if (count >= maxPages) throw fail(409, 'pageLimit')
+      if (over(count, (await storeLimits(t, store.id)).maxLandingPages)) throw fail(409, 'pageLimit')
       const draft = body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId))
       const [row] = await t.insert(pages).values({
         storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft,
@@ -204,7 +206,7 @@ export function registerPages(app: Hono<Env>) {
     const [source] = await t.select().from(pages).where(and(eq(pages.storeId, storeId), eq(pages.id, id)))
     if (!source) throw fail(404, 'notFound')
     const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, storeId))
-    if (count >= maxPages) throw fail(409, 'pageLimit')
+    if (over(count, (await storeLimits(t, storeId)).maxLandingPages)) throw fail(409, 'pageLimit')
     const title = body.title === undefined ? `${source.title} (কপি)`.slice(0, 200) : body.title.trim() as string
     const [row] = await t.insert(pages).values({ storeId, title, handle: await chooseHandle(t, storeId, title, ''), seoTitle: source.seoTitle, seoDescription: source.seoDescription, draft: source.draft }).returning({ id: pages.id })
     await syncMedia(t, storeId, row.id, source.draft as Content, null)
@@ -267,7 +269,7 @@ export function registerPages(app: Hono<Env>) {
     return tx(userId, async (t) => {
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${storeId}`}))`)
       const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, storeId))
-      if (count >= maxPages) throw fail(409, 'pageLimit')
+      if (over(count, (await storeLimits(t, storeId)).maxLandingPages)) throw fail(409, 'pageLimit')
       await checkReferences(t, storeId, content)
       const title = (data.title as string).trim()
       const [row] = await t.insert(pages).values({ storeId, title, handle: await chooseHandle(t, storeId, title, ''), seoTitle: String(data.seoTitle ?? '').slice(0, 300), seoDescription: String(data.seoDescription ?? '').slice(0, 1000), draft: content }).returning({ id: pages.id })

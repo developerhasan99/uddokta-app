@@ -459,6 +459,22 @@ app.use('*', async (c, next) => {
   return next()
 })
 
+// A store suspended in the platform console is closed to buyers: every page and form answers "unavailable".
+app.use('*', async (c, next) => {
+  const handle = c.get('handle')
+  if (handle && !c.req.path.startsWith('/_')) {
+    const closed = (await tx(null, (t) => t.execute<{ s: boolean }>(sql`select storefront_store_suspended(${handle}) as s`))).rows[0]?.s
+    if (closed) {
+      c.header('Cache-Control', 'no-store')
+      return c.html('<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>দোকানটি এখন বন্ধ</title></head>'
+        + '<body style="margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#f6f6f4;color:#1a1a1a;text-align:center;padding:24px">'
+        + '<div><h1 style="font-size:22px;margin:0 0 8px">দোকানটি এখন বন্ধ আছে</h1><p style="margin:0 0 20px;color:#555">পরে আবার দেখুন।</p>'
+        + '<h2 style="font-size:17px;margin:0 0 6px">This store is currently unavailable</h2><p style="margin:0;color:#555">Please check back later.</p></div></body></html>', 503)
+    }
+  }
+  return next()
+})
+
 // Caddy asks before getting a certificate, so only sellers' domains (and their www) get one.
 app.get('/_domains/allowed', async (c) => {
   const asked = (c.req.query('domain') ?? '').toLowerCase().replace(/^www\./, '')

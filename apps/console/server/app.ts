@@ -1,0 +1,109 @@
+import { sql } from 'drizzle-orm'
+import { Hono } from 'hono'
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { csrf } from 'hono/csrf'
+import { HTTPException } from 'hono/http-exception'
+import { serveStatic } from '@hono/node-server/serve-static'
+import { fileURLToPath } from 'node:url'
+import { databaseCode, fail, hash, newToken } from '../../api/src/app.ts'
+import { one, tx } from '../../api/src/db.ts'
+import { dummyHash, verifyPassword } from '../../api/src/password.ts'
+import { registerConsole } from './routes.ts'
+
+// The platform console: its own Railway service and address, separate from the seller dashboard. It shares the
+// database and its functions, never the dashboard's sessions: its cookie has its own name, and a console sign-in lasts
+// 12 hours (console_session) and admits platform administrators only.
+
+export type Env = { Variables: { userId: string } }
+export const consoleCookie = 'console_sid'
+const sessionHours = 12
+const maxLoginFailures = 10
+
+export const api = new Hono<Env>().basePath('/api')
+
+api.use(csrf({
+  origin: (origin, c) => {
+    const host = c.req.header('x-forwarded-host') ?? c.req.header('host')
+    return URL.canParse(origin) && new URL(origin).host === host
+  },
+}))
+
+api.onError((err) => {
+  if (err instanceof HTTPException) return err.getResponse()
+  const code = databaseCode(err)
+  if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
+  if (code === 'UD100') return Response.json({ error: 'notFound' }, { status: 404 })
+  if (code === 'UD101') return Response.json({ error: 'cannotSuspendSelf' }, { status: 409 })
+  if (code === 'UD102') return Response.json({ error: 'planDefaultRequired' }, { status: 409 })
+  if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
+  console.error(err)
+  return Response.json({ error: 'server' }, { status: 500 })
+})
+
+// Same password checks and lockout as the dashboard, but the session is kept only for a platform administrator.
+api.post('/auth/login', async (c) => {
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const password = typeof body?.password === 'string' ? body.password : ''
+  const found = await tx(null, async (t) => {
+    const attempts = await one<{ count: number }>(t, sql`select recent_login_failures(${email}) as count`)
+    if ((attempts?.count ?? 0) >= maxLoginFailures) throw fail(429, 'tooManyAttempts')
+    return one<{ user_id: string; password_hash: string }>(t, sql`select * from login_lookup(${email})`)
+  })
+  const valid = await verifyPassword(password, found?.password_hash ?? dummyHash)
+  if (!found || !valid) {
+    await tx(null, (t) => t.execute(sql`select record_login_failure(${email})`))
+    throw fail(401, 'invalidCredentials')
+  }
+  await tx(null, (t) => t.execute(sql`select clear_login_failures(${email})`))
+  const token = newToken()
+  const expires = new Date(Date.now() + sessionHours * 3_600_000)
+  const admitted = await tx(null, async (t) => {
+    await t.execute(sql`select create_session(${hash(token)}, ${found.user_id}::uuid, ${expires.toISOString()}::timestamptz)`)
+    const ok = (await one<{ id: string | null }>(t, sql`select console_session(${hash(token)}) as id`))?.id
+    if (!ok) await t.execute(sql`select delete_session(${hash(token)})`)
+    return Boolean(ok)
+  })
+  if (!admitted) throw fail(403, 'notAdmin')
+  setCookie(c, consoleCookie, token, { httpOnly: true, sameSite: 'Strict', secure: process.env.NODE_ENV === 'production', path: '/', expires })
+  return c.json({ ok: true })
+})
+
+api.post('/auth/logout', async (c) => {
+  const token = getCookie(c, consoleCookie)
+  if (token) await tx(null, (t) => t.execute(sql`select delete_session(${hash(token)})`))
+  deleteCookie(c, consoleCookie, { path: '/' })
+  return c.json({ ok: true })
+})
+
+registerConsole(api)
+api.all('*', (c) => c.json({ error: 'notFound' }, 404))
+
+const root = fileURLToPath(new URL('../dist/', import.meta.url))
+export function createConsole(options: { production?: boolean } = {}) {
+  const app = new Hono<Env>()
+  app.get('/_health', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    try { await tx(null, (t) => t.execute(sql`select 1`)); return c.json({ status: 'ok' }) }
+    catch { return c.json({ status: 'unavailable' }, 503) }
+  })
+  // Nothing of the console is ever framed or indexed.
+  app.use('*', async (c, next) => {
+    await next()
+    c.header('X-Frame-Options', 'DENY')
+    c.header('X-Robots-Tag', 'noindex, nofollow')
+    c.header('Referrer-Policy', 'no-referrer')
+  })
+  app.route('/', api)
+  if (options.production) {
+    app.use('/assets/*', async (c, next) => { await next(); if (c.res.status === 200) c.header('Cache-Control', 'public, max-age=31536000, immutable') })
+    app.use('*', serveStatic({ root }))
+    // Any other path is a screen of the single-page app.
+    app.use('*', async (c, next) => {
+      if (c.req.path.includes('.')) return c.notFound()
+      c.header('Cache-Control', 'no-cache')
+      await serveStatic({ root, path: 'index.html' })(c, next)
+    })
+  }
+  return app
+}

@@ -1,0 +1,52 @@
+export class ApiError extends Error {
+  constructor(public code: string) { super(code) }
+}
+
+export async function api<T = unknown>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, {
+      method: options.method ?? 'GET',
+      headers: options.body === undefined ? undefined : { 'content-type': 'application/json' },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    })
+  } catch {
+    throw new ApiError('network')
+  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    // An expired console sign-in sends the whole app back to the sign-in screen.
+    if (data?.error === 'consoleSignIn') window.dispatchEvent(new Event('console-signed-out'))
+    throw new ApiError(data?.error ?? 'server')
+  }
+  return data as T
+}
+
+const messages: Record<string, string> = {
+  network: 'Could not reach the server. Check the connection and try again.',
+  invalidCredentials: 'Email or password is not right.',
+  tooManyAttempts: 'Too many wrong attempts. Try again in 15 minutes.',
+  notAdmin: 'This account is not a platform administrator.',
+  reasonRequired: 'Write a reason. It is kept in the audit log.',
+  cannotSuspendSelf: 'You cannot suspend your own account.',
+  planDefaultRequired: 'One plan must stay the default. Make another plan the default first.',
+  planNameTaken: 'A plan with this name already exists.',
+  planInvalid: 'Check the plan: limits must be whole numbers, storage at least 1 MB, and the default plan cannot be archived.',
+  nameRequired: 'Give it a name.',
+  emailUnavailable: 'Email sending is not set up yet (SES keys and APP_URL on the API service).',
+  tooManyEmails: 'Three reset links were already sent in the last hour.',
+  notFound: 'Not found. It may have been deleted.',
+  invalidRequest: 'Some values are not valid.',
+}
+export const errorText = (err: unknown) => messages[err instanceof ApiError ? err.code : 'server'] ?? 'Something went wrong. Try again in a moment.'
+
+export const date = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
+export const dateTime = (v: string) => new Date(v).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+export const count = (n: number) => n.toLocaleString('en-US')
+export const taka = (n: number) => `৳${n.toLocaleString('en-US')}`
+export function bytes(n: number) {
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`
+  return `${(n / 1024 ** 3).toFixed(2)} GB`
+}
+export const limitText = (n: number | null, unit = '') => (n === null ? 'Unlimited' : `${count(n)}${unit}`)

@@ -1018,3 +1018,14 @@ test('attributes and filters: the product page shows its attributes, lists filte
   assert.deepEqual(names(search), ['মধু'])
   assert.deepEqual(names(await (await visit(s.handle, `/search?${new URLSearchParams({ q: 'M' })}`)).text()), ['পাঞ্জাবি'], 'variant option values are searched')
 })
+
+test('a store suspended in the console is unavailable to buyers, pages and order posts alike, until restored', async () => {
+  const s = await publishedPage()
+  await pool.query(`update stores set suspended_at = now() where handle = $1`, [s.handle])
+  const page = await visit(s.handle, s.url)
+  assert.equal(page.status, 503)
+  assert.match(await page.text(), /দোকানটি এখন বন্ধ আছে[\s\S]*This store is currently unavailable/)
+  assert.equal((await order(s.handle, s.url, { section: s.orderSection, name: 'Rahim', phone: '01712345678', address: 'Dhaka', variant: s.product.variants[0].id, shipping: s.inside })).status, 503)
+  await pool.query(`update stores set suspended_at = null where handle = $1`, [s.handle])
+  assert.equal((await visit(s.handle, s.url)).status, 200)
+})

@@ -6,13 +6,14 @@ import sharp from 'sharp'
 import { one, tx } from './db.ts'
 import { collections, media, pageMedia, pages, productMedia, products, stores, templates, templateMedia } from './schema.ts'
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
+import { storeLimits } from './plans.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
 
 const maxUploadBytes = 10 * 1024 * 1024
 const pageSize = 60
 // SVG is rasterised to WebP like everything else, so no SVG (and nothing it could script) is ever served.
 const allowedFormats = ['jpeg', 'png', 'webp', 'avif', 'svg']
-// ponytail: one limit for every store; read it from the store's plan once plans exist.
+// The default plan's storage; each store's real limit comes from its plan (storeLimits).
 export const storeLimitBytes = 1024 * 1024 * 1024
 
 export const present = (row: typeof media.$inferSelect) => ({
@@ -62,7 +63,7 @@ export async function saveImage(userId: string, storeId: string, name: string, i
       // Serialises uploads per store so parallel ones cannot pass the limit together.
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${storeId}))`)
       const used = await one<{ total: string }>(t, sql`select coalesce(sum(size_bytes), 0) as total from media where store_id = ${storeId}::uuid`)
-      if (Number(used?.total ?? 0) + sizeBytes > storeLimitBytes) throw fail(413, 'storageFull')
+      if (Number(used?.total ?? 0) + sizeBytes > (await storeLimits(t, storeId)).storageMb * 1024 * 1024) throw fail(413, 'storageFull')
       const [inserted] = await t.insert(media).values({
         id, storeId, name: name.slice(0, 200) || 'image', key, thumbKey, width: image.width, height: image.height, sizeBytes, sourceFormat: image.sourceFormat,
       }).returning()
@@ -99,7 +100,7 @@ export function registerMedia(app: Hono<Env>) {
         items: rows.slice(0, pageSize).map(present),
         hasMore: rows.length > pageSize,
         usedBytes: Number(used?.total ?? 0),
-        limitBytes: storeLimitBytes,
+        limitBytes: (await storeLimits(t, store.id)).storageMb * 1024 * 1024,
         formats: Object.fromEntries(formats.rows.map((r) => [r.format, r.count])),
       })
     })

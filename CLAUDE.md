@@ -60,9 +60,18 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 - SES reports permanent bounces and complaints to an SNS topic that posts to `/api/ses/events` (registered before the CSRF check). Only messages signed by SNS from `SES_EVENTS_TOPIC_ARN` are accepted; the addresses go into `email_suppressions` and get nothing again. Our SES production-access request promised this, so keep it working.
 - Every email is a Bangla/English pair in `email.ts`, in the language the dashboard was using.
 
+## Platform console (super administrators)
+
+- Its own app and Railway service: `apps/console` (Hono server in `server/`, React screens in `src/`, `deploy/Dockerfile.console`, domain `console.uddokta.co`; development: screens on port 5174, server on 8789). The main API has no console routes. The console reuses the dashboard's styles and `components/ui.tsx`, and is in English (internal tool).
+- Access: platform administrators are rows in `platform_admins`, added only from the server command line (`npm run admin -w console -- add|remove|list <email>`), never from the web. The console signs in on its own (`console_sid` cookie, Strict, 12-hour sessions); `console_session()` admits only an unsuspended administrator signed in within 12 hours.
+- Every read and change goes through the `console_*` definer functions (migration 0097). Each one checks the administrator again (`console_check`) and writes `console_audit` itself; the app role has no grant on `platform_admins`, `plans`, `store_payments` or `console_audit` (a test proves it). Changes that affect people require a reason, kept in the audit log, which cannot be edited from the app.
+- Screens: Overview (real counts, sign-ups chart, stores per plan), Users (search; suspend/restore, sign out everywhere, send the normal reset link: the console never sees or sets passwords), Stores (search; plan, limits and usage, team, payments; change plan, record payment, suspend/restore), Plans, Audit log. No "log in as" in version 1.
+- Plans are per store (`plans`, `stores.plan_id`, `stores.plan_until`). `store_limits()` gives a store's plan now: its own while paid or with no end date, else the default plan (exactly one, never archived; starts as Free with the old fixed limits). A null limit is unlimited. Limits are enforced in the API through `storeLimits` (`apps/api/src/plans.ts`): landing pages (`pageLimit`), products (`productLimit`), team members plus open invites (`memberLimit`), media storage (`storageFull`), own domain (`planNoDomain`). Payments are recorded by hand (bKash, Nagad, bank) with `console_record_payment`, which extends the plan from today or its current end date.
+- Suspension: a suspended user has no live session (`session_owner`) and log in answers `accountSuspended` only after the right password. A suspended store answers 503 "unavailable" on every storefront page and post, and the API refuses its changes (`storeSuspended`, `guardSuspendedStores`) while the team can still read.
+
 ## Development
 
-- `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, storefront on 8788 at `http://{store}.localhost:8788`, Postgres on 5433).
+- `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, storefront on 8788 at `http://{store}.localhost:8788`, console on 5174 with its server on 8789, Postgres on 5433).
 - `npm test` runs API tests against the `uddokta_test` database. `npm run build` type-checks both apps and builds the dashboard.
 - Schema changes: edit `apps/api/src/schema.ts`, then `npm run db:generate -w api`. Row-level security and triggers go in custom migrations.
 - For small UI changes, run the build and check the affected screen. Do not run long full-app browser tests unless the change is broad.

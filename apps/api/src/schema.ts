@@ -11,6 +11,8 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
+  // Set by a platform administrator in the console: the account cannot sign in and its sessions are gone.
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   // Set when the owner follows a verification or password-reset link sent to this address.
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   // The dashboard language last chosen, used for this account's emails.
@@ -63,6 +65,8 @@ export const sessions = pgTable('sessions', {
   tokenHash: text('token_hash').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  // The console only accepts sessions signed in within the last 12 hours.
+  createdAt: createdAt(),
 })
 
 export const loginFailures = pgTable('login_failures', {
@@ -87,6 +91,12 @@ export const stores = pgTable('stores', {
   domainVerifiedAt: timestamp('domain_verified_at', { withTimezone: true }),
   domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
   domainPrimary: boolean('domain_primary').notNull().default(true),
+  // The plan, set in the console. No plan, or a paid-until date in the past, means the default plan (store_limits()).
+  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'set null' }),
+  planUntil: date('plan_until'),
+  // Suspended in the console: the storefront answers "unavailable" and the dashboard can only read.
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+  suspendReason: text('suspend_reason'),
   // Business details from Settings › Store, printed on invoices. Blank means not given. The logo is a gallery image,
   // held by a deferred foreign key to media (migration 0071) so a logo in use cannot be deleted.
   logoMediaId: uuid('logo_media_id'),
@@ -833,3 +843,57 @@ export const shippingRateProducts = pgTable('shipping_rate_products', {
   foreignKey({ name: 'shipping_rate_products_rate', columns: [t.storeId, t.rateId], foreignColumns: [shippingRates.storeId, shippingRates.id] }).onDelete('cascade'),
   foreignKey({ name: 'shipping_rate_products_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
 ])
+
+// ---- Platform console (super administrators) ----
+
+// Who may use the console. Filled only from the server command line (npm run console:admin -w api), never the web.
+export const platformAdmins = pgTable('platform_admins', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: createdAt(),
+})
+
+// Plans and their limits per store. A null limit is unlimited. Exactly one plan is the default (no plan or expired).
+export const plans = pgTable('plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  priceBdt: integer('price_bdt').notNull().default(0),
+  isDefault: boolean('is_default').notNull().default(false),
+  maxLandingPages: integer('max_landing_pages'),
+  storageMb: integer('storage_mb').notNull(),
+  maxMembers: integer('max_members'),
+  maxProducts: integer('max_products'),
+  customDomain: boolean('custom_domain').notNull().default(true),
+  archived: boolean('archived').notNull().default(false),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex('plans_one_default').on(t.isDefault).where(sql`${t.isDefault}`),
+  check('plans_limits', sql`${t.priceBdt} >= 0 and ${t.storageMb} > 0 and coalesce(${t.maxLandingPages}, 0) >= 0 and coalesce(${t.maxMembers}, 1) >= 1 and coalesce(${t.maxProducts}, 0) >= 0`),
+  check('plans_default_live', sql`not (${t.isDefault} and ${t.archived})`),
+])
+
+// Payments recorded by hand in the console (bKash, Nagad, bank). Recording one extends the store's plan.
+export const storePayments = pgTable('store_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'set null' }),
+  amount: integer('amount').notNull(),
+  months: integer('months').notNull(),
+  method: text('method').notNull(),
+  reference: text('reference').notNull().default(''),
+  recordedBy: uuid('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+}, (t) => [check('store_payments_values', sql`${t.amount} >= 0 and ${t.months} between 1 and 36`), index('store_payments_store').on(t.storeId, t.createdAt)])
+
+// Everything done in the console, written by the console functions themselves.
+export const consoleAudit = pgTable('console_audit', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  adminId: uuid('admin_id').references(() => users.id, { onDelete: 'set null' }),
+  adminEmail: text('admin_email').notNull(),
+  action: text('action').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: uuid('target_id'),
+  targetLabel: text('target_label').notNull().default(''),
+  detail: jsonb('detail').notNull().default({}),
+  reason: text('reason').notNull().default(''),
+  createdAt: createdAt(),
+}, (t) => [index('console_audit_time').on(t.createdAt)])

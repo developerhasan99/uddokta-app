@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Hono } from 'hono'
 import { tx } from './db.ts'
 import { stores } from './schema.ts'
+import { storeLimits } from './plans.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
 // Sellers point their domain at the domains proxy (deploy/proxy) with two A records, both to this address.
@@ -58,6 +59,7 @@ export function registerDomains(app: Hono<Env>) {
     if (!domain) throw fail(400, 'domainInvalid')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
+      if (!(await storeLimits(t, store.id)).customDomain) throw fail(403, 'planNoDomain')
       const [row] = await t.update(stores).set({ domain, domainVerifiedAt: null, domainLiveAt: null, domainPrimary: true }).where(eq(stores.id, store.id)).returning(shown)
       if (!row) throw fail(403, 'forbidden')
       return c.json(view(row))

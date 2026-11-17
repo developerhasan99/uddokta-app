@@ -30,6 +30,7 @@ import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { registerEmailChange, registerProfile } from './profile.ts'
+import { guardSuspendedStores, over, registerPlans, storeLimits } from './plans.ts'
 import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
 import { readLocalFile } from './storage.ts'
 import { present } from './media.ts'
@@ -114,6 +115,9 @@ app.onError((err) => {
   if (err instanceof HTTPException) return err.getResponse()
   const code = databaseCode(err)
   if (code === 'UD001') return Response.json({ error: 'lastOwner' }, { status: 409 })
+  if (code === 'UD100') return Response.json({ error: 'notFound' }, { status: 404 })
+  if (code === 'UD101') return Response.json({ error: 'cannotSuspendSelf' }, { status: 409 })
+  if (code === 'UD102') return Response.json({ error: 'planDefaultRequired' }, { status: 409 })
   if (['product_media_media_fk', 'collections_media_fk', 'page_media_media_fk', 'stores_logo_fk', 'stores_favicon_fk', 'stores_share_fk', 'template_media_media_fk'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'mediaInUse' }, { status: 409 })
   // A template from another store (the composite key refuses it) is simply not a valid choice.
   if (['products_template', 'collections_template', 'store_pages_template'].includes(databaseConstraint(err) ?? '')) return Response.json({ error: 'invalidRequest' }, { status: 400 })
@@ -213,6 +217,9 @@ app.post('/auth/login', async (c) => {
     throw fail(401, 'invalidCredentials')
   }
   await tx(null, (t) => t.execute(sql`select clear_login_failures(${email})`))
+  // Said only after the right password, so it never tells a stranger which accounts exist.
+  const suspended = await tx(null, (t) => one<{ s: boolean }>(t, sql`select account_suspended(${found.user_id}::uuid) as s`))
+  if (suspended?.s) throw fail(403, 'accountSuspended')
   await startSession(c, found.user_id)
   return c.json({ ok: true })
 })
@@ -265,6 +272,8 @@ app.get('/me', async (c) => {
 })
 
 registerProfile(app)
+guardSuspendedStores(app)
+registerPlans(app)
 
 // Sends the verification link again. 429 when three were sent in the last hour (or email is not set up).
 app.post('/me/verify-email', async (c) => {
@@ -459,6 +468,13 @@ app.post('/stores/:handle/invites', async (c) => {
   const token = newToken()
   return tx(c.get('userId'), async (t) => {
     const store = await storeByHandle(t, c.req.param('handle'))
+    // Members and open invites together may not pass the plan's team size.
+    const limit = (await storeLimits(t, store.id)).maxMembers
+    if (limit !== null) {
+      await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`members:${store.id}`}))`)
+      const [{ n }] = (await t.execute<{ n: number }>(sql`select (select count(*) from store_members where store_id = ${store.id}::uuid) + (select count(*) from store_invites where store_id = ${store.id}::uuid and expires_at > now())::int as n`)).rows
+      if (over(Number(n), limit)) throw fail(409, 'memberLimit')
+    }
     const [invite] = await t
       .insert(storeInvites)
       .values({ storeId: store.id, tokenHash: hash(token), role, expiresAt: daysFromNow(inviteDays) })
