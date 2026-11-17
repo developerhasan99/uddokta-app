@@ -161,7 +161,7 @@ export const catalogCss = `
 .sf-bar__button{margin:0 0 0 auto}
 .sf-foot__text{max-width:640px;margin:0 auto 12px;white-space:pre-line}
 .sf-foot__contact{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;margin:0 0 12px;padding:0;list-style:none}
-.sf-foot__contact a{color:inherit}
+.sf-foot__contact li{display:flex;gap:6px}.sf-foot__contact li>span:first-child{opacity:.75}.sf-foot__contact a{color:inherit}
 .sf-collection-head{padding-bottom:0}
 .sf-product__image{width:100%;border-radius:var(--sf-radius);background:var(--sf-tint)}
 .sf-product__image--empty{aspect-ratio:1}

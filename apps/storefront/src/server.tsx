@@ -266,7 +266,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     checkoutToken: order?.values.checkout || randomUUID(),
     order,
     ...(store ? storeCtx(store, pagePath(c)) : {}),
-    cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
+    cartCount: store ? await cartCount(c, store.id) : 0,
     policies: store?.policies,
     buyer: (await buyerOf(c, page.store_id)) ?? undefined,
   }
@@ -340,7 +340,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     current: here,
     grid: (id) => grids.get(id),
     collections,
-    cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
+    cartCount: await cartCount(c, store.id),
     policies: store.policies,
     cart: here.cart,
     search: here.search,
@@ -579,6 +579,17 @@ async function cartLines(storeId: string, items: [string, number][]): Promise<Ca
     const r = rows.find((x) => x.variant_id === id)
     return r ? [{ variantId: id, productId: r.product_id, name: r.product_name, handle: r.product_handle, label: r.options.join(' / '), price: r.price, comparePrice: r.compare_price, qty, image: image(r.image_key, r.image_alt || r.product_name, r.image_width, r.image_height), available: r.stock === null || r.stock >= qty }] : []
   })
+}
+
+// The header's item count: only items the store still sells (a product set to draft or deleted drops out), and the
+// cookie is cleaned of the rest so the count and the cart page agree.
+async function cartCount(c: Context, storeId: string) {
+  const items = cartItems(c)
+  if (!items.length) return 0
+  const known = new Set((await cartLines(storeId, items)).map((l) => l.variantId))
+  const kept = items.filter(([id]) => known.has(id))
+  if (kept.length < items.length) saveCart(c, kept)
+  return kept.reduce((n, [, q]) => n + q, 0)
 }
 
 async function renderCart(c: Context, store: LoadedStore, problem?: { error: string; values: OrderValues }) {
