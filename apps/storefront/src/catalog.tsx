@@ -7,7 +7,7 @@ import type { ResolvedItem } from './menus.ts'
 export type Card = { id: string; name: string; handle: string; price: number; comparePrice: number | null; image: Img | null; inStock: boolean }
 export type CollectionLink = { name: string; handle: string }
 
-const productHref = (handle: string) => `/products/${encodeURIComponent(handle)}`
+export const productHref = (handle: string) => `/products/${encodeURIComponent(handle)}`
 export const collectionHref = (handle: string) => `/collections/${encodeURIComponent(handle)}`
 
 // The seller's menus. Addresses come from resolveMenu, and are checked again here as they go into the page.
@@ -129,6 +129,18 @@ export const catalogCss = `
 .sf-cart__total{grid-column:3;grid-row:1}
 .sf-search{display:flex;gap:8px;max-width:560px;margin:0 auto 24px}.sf-search input{flex:1;min-height:48px;padding:10px 12px;border:1px solid var(--sf-rule);border-radius:8px;font:inherit;background:var(--sf-paper);color:inherit}.sf-search .sf-button{margin:0}
 @media (min-width:720px){.sf-cart__layout{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}}
+.sf-drawer{margin:0;inset:0 0 0 auto;width:min(420px,100vw);height:100dvh;max-height:none;max-width:none;padding:0;border:0;background:var(--sf-paper);color:var(--sf-ink);box-shadow:-8px 0 32px rgba(0,0,0,.12)}
+.sf-drawer::backdrop{background:rgba(0,0,0,.4)}.sf-drawer[open]{animation:sf-drawer-in .22s ease-out}@keyframes sf-drawer-in{from{transform:translateX(100%)}}@media (prefers-reduced-motion:reduce){.sf-drawer[open]{animation:none}}
+.sf-drawer__body{display:flex;flex-direction:column;height:100%}.sf-drawer__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--sf-rule)}.sf-drawer__head h2{font-size:18px}.sf-drawer__head h2 span{color:var(--sf-muted);font-weight:400}
+.sf-drawer__close{width:36px;height:36px;border:0;border-radius:50%;background:var(--sf-tint);color:inherit;font-size:22px;line-height:1;cursor:pointer}
+.sf-drawer__empty{display:grid;gap:8px;justify-items:center;margin:auto;padding:24px;text-align:center;color:var(--sf-muted)}
+.sf-drawer__free{padding:12px 20px;background:var(--sf-tint);font-size:14px;font-weight:600}.sf-drawer__bar{display:block;height:6px;margin-top:8px;border-radius:999px;background:var(--sf-rule);overflow:hidden}.sf-drawer__bar span{display:block;height:100%;background:var(--sf-accent)}
+.sf-drawer__lines{flex:1;overflow:auto;list-style:none;margin:0;padding:8px 20px}.sf-drawer__lines li{display:grid;grid-template-columns:64px 1fr auto;gap:12px;padding:12px 0;border-bottom:1px solid var(--sf-rule)}
+.sf-drawer__image{width:64px;height:64px;border-radius:8px;background:var(--sf-tint);overflow:hidden}.sf-drawer__image img{width:100%;height:100%;object-fit:cover}
+.sf-drawer__info{display:grid;gap:2px;min-width:0;font-size:14px}.sf-drawer__info>a{color:inherit;font-weight:600;text-decoration:none}.sf-drawer__label{color:var(--sf-muted)}.sf-drawer__price s{margin-inline-start:6px;color:var(--sf-muted)}
+.sf-drawer__qty{display:flex;align-items:center;gap:8px;margin-top:6px}.sf-drawer__qty button:not(.sf-link-button){width:32px;height:32px;border:1px solid var(--sf-rule);border-radius:8px;background:var(--sf-paper);color:inherit;font:inherit;font-size:18px;cursor:pointer}.sf-drawer__qty button:disabled{opacity:.4;cursor:not-allowed}.sf-drawer__qty>span{min-width:20px;text-align:center;font-weight:600}.sf-drawer__qty .sf-link-button{margin-inline-start:8px}
+.sf-drawer__total{font-size:14px}.sf-drawer__foot{display:grid;gap:8px;padding:16px 20px;border-top:1px solid var(--sf-rule)}.sf-drawer__foot .sf-total{border:0;padding:0}.sf-drawer__foot .sf-button{margin:0}.sf-drawer__keep{justify-self:center}
+[aria-busy=true]{opacity:.6;pointer-events:none}
 .sf-account__head{display:flex;align-items:baseline;justify-content:space-between;gap:16px}.sf-account__head .sf-heading{text-align:start;margin:0}
 .sf-account__switch{margin-top:16px;text-align:center;color:var(--sf-muted)}.sf-account__switch a{color:var(--sf-accent);font-weight:600}
 .sf-account__grid{display:grid;gap:24px;margin-top:24px}@media (min-width:720px){.sf-account__grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:start}}

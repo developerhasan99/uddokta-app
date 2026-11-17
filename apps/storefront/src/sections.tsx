@@ -6,7 +6,7 @@ import { iconCatalog, isIconName, isIconValue } from './icons/catalog.ts'
 import { orderBlocks, videoEmbed, type Content, type Section, type SectionStyle } from './schema.ts'
 import { LayoutSection, layoutBaseCss, layoutCss } from './layout.tsx'
 import { pageFontCss } from './themes.ts'
-import { Gallery as ProductImages, MenuTree, Pager, Price, ProductGrid, shown, type Card } from './catalog.tsx'
+import { Gallery as ProductImages, MenuTree, Pager, Price, ProductGrid, productHref, shown, type Card } from './catalog.tsx'
 import type { ResolvedItem } from './menus.ts'
 import { cleanRichText } from './rich.ts'
 import { num, taka, tr, type Lang, type Pair } from './words.ts'
@@ -552,7 +552,7 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
         <span className="sf-bar__links">
           {s.settings.showSearch !== 'no' && <a href="/search">{tr(ctx.lang, ['খুঁজুন', 'Search'])}</a>}
           {s.settings.showAccount === 'yes' && <a href="/account" aria-current={current === '/account' ? 'page' : undefined}>{ctx.buyer ? tr(ctx.lang, ['অ্যাকাউন্ট', 'Account']) : tr(ctx.lang, ['লগ ইন', 'Sign in'])}</a>}
-          {s.settings.showCart !== 'no' && <a href="/cart" aria-current={current === '/cart' ? 'page' : undefined}>{tr(ctx.lang, ['কার্ট', 'Cart'])}{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{num(ctx.lang, ctx.cartCount!)}</span>}</a>}
+          {s.settings.showCart !== 'no' && <a href="/cart" data-cart-drawer={s.settings.cartStyle === 'page' ? undefined : ''} aria-current={current === '/cart' ? 'page' : undefined}>{tr(ctx.lang, ['কার্ট', 'Cart'])}{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{num(ctx.lang, ctx.cartCount!)}</span>}</a>}
           {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
         </span>
       </div>
@@ -936,6 +936,62 @@ export function PageView({ content, ctx, storeName, frame, themeCss }: { content
 }
 
 // The cart page's script: keeps the shown total in step with the chosen delivery option. Display only.
+// The side cart's contents, drawn by the server (prices from storefront_cart_lines) and swapped into the drawer by
+// drawerScript. Each change is a plain form post, so without the script the same forms work on the cart page.
+export function CartDrawerBody({ lines, shipping, lang }: { lines: CartLine[]; shipping: ShippingOption[]; lang?: Lang }) {
+  const L = (pair: Pair) => tr(lang, pair)
+  const qty = lines.reduce((n, l) => n + l.qty, 0)
+  const subtotal = lines.reduce((n, l) => n + l.price * l.qty, 0)
+  // The nearest free-delivery amount among the delivery options (display only; shipping_charge decides at checkout).
+  const free = shipping.filter((o) => o.freeOver !== null && o.price > 0).sort((a, b) => a.freeOver! - b.freeOver!)[0]
+  const close = <button type="button" className="sf-drawer__close" data-cart-close aria-label={L(['বন্ধ করুন', 'Close'])}><span aria-hidden="true">×</span></button>
+  return <>
+    <div className="sf-drawer__head"><h2>{L(['আপনার কার্ট', 'Your cart'])}{qty > 0 && <span> ({num(lang, qty)})</span>}</h2>{close}</div>
+    {lines.length === 0
+      ? <div className="sf-drawer__empty"><p>{L(['কার্টে এখনো কিছু নেই।', 'Your cart is empty.'])}</p><a className="sf-button" href="/products">{L(['কেনাকাটা করুন', 'Start shopping'])}</a></div>
+      : <>
+        {free && <div className="sf-drawer__free">
+          <p>{subtotal >= free.freeOver!
+            ? (lang === 'en' ? `Free delivery unlocked: ${free.name}` : `${free.name} ডেলিভারি ফ্রি হয়ে গেছে`)
+            : (lang === 'en' ? `Add ${taka(free.freeOver! - subtotal, lang)} more for free delivery (${free.name})` : `আর ${taka(free.freeOver! - subtotal, lang)} কিনলে ${free.name} ডেলিভারি ফ্রি`)}</p>
+          <span className="sf-drawer__bar"><span style={{ width: `${Math.min(100, Math.round((subtotal / free.freeOver!) * 100))}%` }} /></span>
+        </div>}
+        <ul className="sf-drawer__lines">{lines.map((l) => (
+          <li key={l.variantId}>
+            <a className="sf-drawer__image" href={productHref(l.handle)} tabIndex={-1} aria-hidden="true">{l.image && <img src={l.image.url} alt="" width={l.image.width} height={l.image.height} loading="lazy" />}</a>
+            <div className="sf-drawer__info">
+              <a href={productHref(l.handle)}>{l.name}</a>
+              {l.label && <span className="sf-drawer__label">{l.label}</span>}
+              <span className="sf-drawer__price">{taka(l.price, lang)}{l.comparePrice !== null && l.comparePrice > l.price && <s>{taka(l.comparePrice, lang)}</s>}</span>
+              {!l.available && <span className="sf-error">{L(['এখন স্টকে নেই, অর্ডারের আগে সরিয়ে দিন।', 'Out of stock. Remove it before ordering.'])}</span>}
+              <form className="sf-drawer__qty" method="post" action="/cart/update" data-cart-form>
+                <input type="hidden" name="variant" value={l.variantId} />
+                <button type="submit" name="quantity" value={String(l.qty - 1)} aria-label={`${l.name}: ${L(['একটি কমান', 'One less'])}`}>−</button>
+                <span aria-label={L(['পরিমাণ', 'Quantity'])}>{num(lang, l.qty)}</span>
+                <button type="submit" name="quantity" value={String(l.qty + 1)} disabled={l.qty >= 20} aria-label={`${l.name}: ${L(['একটি বাড়ান', 'One more'])}`}>+</button>
+                <button type="submit" name="quantity" value="0" className="sf-link-button">{L(['সরান', 'Remove'])}</button>
+              </form>
+            </div>
+            <strong className="sf-drawer__total">{taka(l.price * l.qty, lang)}</strong>
+          </li>
+        ))}</ul>
+        <div className="sf-drawer__foot">
+          <p className="sf-total"><span>{L(['পণ্যের দাম', 'Subtotal'])}</span><strong>{taka(subtotal, lang)}</strong></p>
+          <p className="sf-note">{L(['ডেলিভারি চার্জ ও ছাড় চেকআউটে যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।', 'Delivery and discounts are added at checkout. Pay when you receive your order.'])}</p>
+          <a className="sf-button sf-button--block" href="/cart">{L(['চেকআউট করুন', 'Checkout'])}</a>
+          <button type="button" className="sf-link-button sf-drawer__keep" data-cart-close>{L(['কেনাকাটা চালিয়ে যান', 'Keep shopping'])}</button>
+        </div>
+      </>}
+  </>
+}
+
+// The empty drawer every store page carries; drawerScript fills and opens it.
+export const CartDrawer = ({ lang }: { lang?: Lang }) => <dialog className="sf-drawer" id="sf-cart" aria-label={tr(lang, ['কার্ট', 'Cart'])}><div className="sf-drawer__body" data-cart-body /></dialog>
+
+// Opens the side cart from the header's Cart link and after Add to cart, and keeps quantity and remove changes in it.
+// Only when the header asks for the drawer (data-cart-drawer); any failure falls back to the plain form or the cart page.
+export const drawerScript = `(function(){var d=document.getElementById('sf-cart');if(!d||!d.showModal||!document.querySelector('[data-cart-drawer]'))return;var b=d.querySelector('[data-cart-body]');var fmt=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function show(html,count){b.innerHTML=html;document.querySelectorAll('[data-cart-drawer]').forEach(function(a){var s=a.querySelector('.sf-bar__count');if(count>0){if(!s){s=document.createElement('span');s.className='sf-bar__count';a.appendChild(s)}s.textContent=fmt.format(count)}else if(s){s.remove()}});if(!d.open)d.showModal()}function load(r){if(!r.ok)throw new Error();var n=Number(r.headers.get('x-cart-count'))||0;return r.text().then(function(h){show(h,n)})}document.addEventListener('click',function(e){var a=e.target.closest('[data-cart-drawer]');if(a){e.preventDefault();fetch('/cart/drawer',{headers:{'x-cart':'drawer'}}).then(load).catch(function(){location.href='/cart'});return}if(e.target===d||e.target.closest('[data-cart-close]'))d.close()});document.addEventListener('submit',function(e){var f=e.target;if(!f.matches('form[action="/cart/add"],form[data-cart-form]'))return;e.preventDefault();var fd=new FormData(f);var s=e.submitter;if(s&&s.name)fd.set(s.name,s.value);f.setAttribute('aria-busy','true');fetch(f.action,{method:'POST',body:fd,headers:{'x-cart':'drawer'}}).then(load).catch(function(){f.submit()}).finally(function(){f.removeAttribute('aria-busy')})})})()`
+
 export const cartScript = `document.querySelectorAll('form[data-cart]').forEach(function(f){var n=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function u(){var r=f.querySelector('input[name=rate]:checked');var c=r?Number(r.dataset.chargeValue):0;f.querySelector('[data-total]').textContent='৳'+n.format(Number(f.dataset.subtotal)+c)}f.addEventListener('change',u)})`
 
 // The only script on a page: keeps order totals and countdowns current, and once the phone number is valid,

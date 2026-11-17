@@ -16,7 +16,7 @@ import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPrese
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
 import { num, taka, tr, type Lang } from './words.ts'
-import { cartScript, css, pageScript, PageView, type AccountView, type Buyer, type BuyerOrder, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
+import { CartDrawer, CartDrawerBody, cartScript, css, drawerScript, pageScript, PageView, type AccountView, type Buyer, type BuyerOrder, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -38,7 +38,7 @@ const openCsp = [
   "style-src 'self' 'unsafe-inline' https:", 'font-src https: data:', 'frame-src https:', "connect-src 'self' https:", "form-action 'self' https:", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
 const cspFor = (pixel: string, custom = false) => custom ? openCsp : [
-  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)} ${hash(drawerScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com', "frame-src 'self' https://www.youtube-nocookie.com https://www.facebook.com",
   `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
@@ -275,6 +275,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel} lang={langOf(store)}>
       <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.style.css} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
+      {store && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
     </Document>
   ), order ? 422 : 200, pixel, hasCustomHtml(page.content) || Boolean(frame && hasCustomHtml({ version: 2, sections: [...frame.header, ...frame.footer] })))
 }
@@ -352,6 +353,8 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
       <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: header.sections, footer: footer.sections }} themeCss={store.style.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
       {here.cart && here.cart.lines.length > 0 && <script dangerouslySetInnerHTML={{ __html: cartScript }} />}
+      {/* The side cart (not on the cart page itself, which already shows the cart). */}
+      {!here.cart && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
     </Document>
   ), meta.status ?? 200, pixel, hasCustomHtml({ version: 2, sections: all }))
 }
@@ -619,7 +622,7 @@ app.post('/cart/add', async (c) => {
   if (at >= 0) items[at] = [variant, Math.min(items[at][1] + quantity, maxCartItems)]
   else items.push([variant, quantity])
   saveCart(c, items)
-  return c.redirect('/cart', 303)
+  return wantsDrawer(c) ? drawerReply(c, store, items) : c.redirect('/cart', 303)
 })
 
 app.post('/cart/update', async (c) => {
@@ -628,8 +631,31 @@ app.post('/cart/update', async (c) => {
   const variant = typeof form.variant === 'string' ? form.variant : ''
   const raw = Array.isArray(form.quantity) ? form.quantity[form.quantity.length - 1] : form.quantity
   const quantity = Math.min(Math.max(Number.parseInt(String(raw ?? ''), 10) || 0, 0), maxCartItems)
-  saveCart(c, cartItems(c).flatMap(([id, q]) => (id === variant ? (quantity > 0 ? [[id, quantity] as [string, number]] : []) : [[id, q] as [string, number]])))
-  return c.redirect('/cart', 303)
+  const items = cartItems(c).flatMap(([id, q]) => (id === variant ? (quantity > 0 ? [[id, quantity] as [string, number]] : []) : [[id, q] as [string, number]]))
+  saveCart(c, items)
+  if (!wantsDrawer(c)) return c.redirect('/cart', 303)
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  return store ? drawerReply(c, store, items) : notFound(c)
+})
+
+// The side cart asks with x-cart: drawer and gets the drawer's contents (HTML drawn here, prices from the database)
+// with the new item count; a plain form post still redirects to the cart page.
+const wantsDrawer = (c: Context) => c.req.header('x-cart') === 'drawer'
+async function drawerReply(c: Context, store: LoadedStore, items: [string, number][]) {
+  const lines = await cartLines(store.id, items)
+  const html = renderToString(<CartDrawerBody lines={lines} shipping={store.shipping} lang={langOf(store)} />)
+  return c.html(html, 200, { 'x-cart-count': String(lines.reduce((n, l) => n + l.qty, 0)), 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' })
+}
+app.get('/cart/drawer', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle && await loadStore(handle)
+  if (!store || !wantsDrawer(c)) return notFound(c)
+  if (locked(c, store)) return c.body(null, 403)
+  const items = cartItems(c)
+  const lines = await cartLines(store.id, items)
+  if (lines.length < items.length) { const known = new Set(lines.map((l) => l.variantId)); saveCart(c, items.filter(([id]) => known.has(id))) }
+  return drawerReply(c, store, items.filter(([id]) => lines.some((l) => l.variantId === id)))
 })
 
 // Checkout: a plain form, so it works without JavaScript. The database prices the lines, delivery and discount, takes

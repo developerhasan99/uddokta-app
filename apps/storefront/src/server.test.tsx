@@ -931,3 +931,51 @@ test('buyer accounts: sign up, saved details fill the order form, only orders pl
     client.release()
   }
 })
+
+test('the side cart: add and change lines through the drawer, prices from the database, plain forms still work, and the seller can switch it off', async () => {
+  const s = await publishedPage()
+  const [m, l] = s.product.variants
+  let cookie = ''
+  const send = async (path: string, form: Record<string, string>, drawer = true) => {
+    const res = await visit(s.handle, path, { method: 'POST', body: new URLSearchParams(form), headers: { 'content-type': 'application/x-www-form-urlencoded', cookie, ...(drawer ? { 'x-cart': 'drawer' } : {}) } })
+    const set = res.headers.get('set-cookie')
+    if (set) cookie = set.split(';')[0]
+    return res
+  }
+  const home = await visit(s.handle, '/')
+  const page = await home.text()
+  assert.match(page, /id="sf-cart"/)
+  assert.match(page, /data-cart-drawer/)
+  const csp = home.headers.get('content-security-policy')!
+  const scriptHash = (body: string) => `'sha256-${createHash('sha256').update(body).digest('base64')}'`
+  const { drawerScript } = await import('./sections.tsx')
+  assert.ok(csp.includes(scriptHash(drawerScript)), 'the drawer script is allowed by hash')
+
+  const added = await send('/cart/add', { variant: m.id, quantity: '2' })
+  assert.equal(added.status, 200)
+  assert.equal(added.headers.get('x-cart-count'), '2')
+  const body = await added.text()
+  assert.match(body, /পাঞ্জাবি/)
+  assert.match(body, /৳২,৪০০/, 'line total worked out by the server')
+  assert.doesNotMatch(body, /<html/, 'just the drawer contents')
+  await send('/cart/add', { variant: l.id, quantity: '1' })
+  const less = await send('/cart/update', { variant: m.id, quantity: '1' })
+  assert.equal(less.headers.get('x-cart-count'), '2')
+  const removed = await send('/cart/update', { variant: l.id, quantity: '0' })
+  assert.equal(removed.headers.get('x-cart-count'), '1')
+  const opened = await visit(s.handle, '/cart/drawer', { headers: { cookie, 'x-cart': 'drawer' } })
+  assert.equal(opened.headers.get('x-cart-count'), '1')
+  assert.match(await opened.text(), /চেকআউট করুন/)
+  assert.equal((await visit(s.handle, '/cart/drawer', { headers: { cookie } })).status, 404, 'only the drawer asks for it')
+  assert.equal((await send('/cart/add', { variant: m.id }, false)).headers.get('location'), '/cart', 'without the script the form goes to the cart page')
+  assert.equal((await send('/cart/add', { variant: m.id }, true)).status, 200)
+
+  // The seller can keep the cart page instead: no drawer link in the header.
+  const base = `/stores/${s.handle}/templates`
+  const header = (await s.call('GET', `${base}?type=header`)).json.find((t: any) => t.builtIn)
+  const full = (await s.call('GET', `${base}/${header.id}`)).json
+  const draft = { ...full.draft, sections: full.draft.sections.map((x: any) => x.type === 'storeHeader' ? { ...x, settings: { ...x.settings, cartStyle: 'page' } } : x) }
+  const saved = (await s.call('PUT', `${base}/${header.id}`, { draft, revision: full.revision })).json
+  await s.call('POST', `${base}/${header.id}/publish`, { revision: saved.revision })
+  assert.doesNotMatch(await (await visit(s.handle, '/')).text(), /<a href="\/cart" data-cart-drawer/)
+})

@@ -269,8 +269,9 @@ export const sectionDefs = {
       select('showCart', ['কার্টের লিংক', 'Cart link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
       select('showSearch', ['খোঁজার লিংক', 'Search link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
       select('showAccount', ['ক্রেতার অ্যাকাউন্টের লিংক', 'Buyer account link'], [['no', ['লুকান', 'Hide']], ['yes', ['দেখান', 'Show']]]),
+      select('cartStyle', ['কার্ট খোলে', 'Cart opens'], [['drawer', ['পাশে ড্রয়ারে', 'In a side drawer']], ['page', ['কার্টের পেজে', 'On the cart page']]]),
     ],
-    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes', showAccount: 'no' },
+    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes', showAccount: 'no', cartStyle: 'drawer' },
   },
   storeFooter: {
     label: ['দোকানের ফুটার', 'Store footer'],
