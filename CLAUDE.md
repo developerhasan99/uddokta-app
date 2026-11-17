@@ -73,7 +73,7 @@ Follow Shopify's approach: a black left sidebar with sub-items that expand under
 
 - **Home**
 - **Orders:** Incomplete orders, Fake-order protection
-- **Products:** Collections, Inventory
+- **Products:** Collections, Inventory, Attributes
 - **Customers:** Segments (coming soon), Repeat sales
 - **Inbox:** AI salesman (both coming soon)
 - **Discounts**
@@ -102,6 +102,12 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Each product has a `handle`, unique in its store and allowed to contain Bangla. Saves keep it when the name changes. A blank search title or description means the storefront uses the name and `searchDescription` from `apps/dashboard/src/product-form.ts`.
 - A variant image must be one of its product's images, enforced by a deferred foreign key to `product_media`.
 - `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.
+
+## Attributes and store filters
+
+- Attributes are facts about a product that are not buyer choices (origin, shelf life, certified). They are defined once per store (`attributes`, Products › Attributes) so every product uses the same names and values; that is what makes filters and search work. Kinds: `choice` (one or more of `attribute_choices`; renaming a choice renames it everywhere), `number` (with a unit, `numeric(12,3)`) and `flag` (yes/no). The kind never changes after creation. Each attribute says whether it shows on product pages and whether it is a store filter. Up to 50 per store, 100 choices each.
+- Values are rows in `product_attribute_values` (one per choice, or one number/flag), saved with the product (`attributes` in the product body; left out keeps them). Composite foreign keys keep a value on its own store's product and a choice on its own attribute; the API checks the kind. Deleting an attribute or a choice removes its values (cascade); the dashboard says how many products it affects first. Staff add and edit; owners and admins delete (row-level security, like collections).
+- Storefront: `storefront_product_attributes` feeds the product page table (Product details block setting, and the Product attributes block). Collection, all-products and search lists filter by price, stock and filterable attributes: `storefront_filter_rows` returns the listed products with their values (up to 2000), `filters.ts` reads the address, filters (any-of within an attribute, all-of across) and counts each attribute without its own filter, `storefront_cards` draws the page. The address is readable and shareable (`?উৎস=সুন্দরবন&min.মেয়াদ=6&max.price=1000&stock=1`), so attribute names may not be `page`, `q`, `stock`, `sort` or start with `min.`, `max.`, `price.` (`isAttributeName`). The panel is a plain GET form; `filterScript` only applies changes at once. Product list and search blocks have a Filters setting. Search (`storefront_matches`) also matches attribute choices and variant option values.
 
 ## Inventory
 

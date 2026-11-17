@@ -10,6 +10,8 @@ import { Gallery as ProductImages, MenuTree, Pager, Price, ProductGrid, productH
 import type { ResolvedItem } from './menus.ts'
 import { cleanRichText } from './rich.ts'
 import { num, taka, tr, type Lang, type Pair } from './words.ts'
+import { ActiveFilters, AttributeTable, FilterPanel, type FilterView, type ProductAttribute } from './filter-view.tsx'
+import { activeFilters } from './filters.ts'
 
 export { taka }
 
@@ -70,7 +72,7 @@ export type Ctx = {
   // Addresses of the store's visible policy pages (refund, terms, …), linked under checkout forms.
   policies?: Partial<Record<'refund' | 'terms' | 'privacy' | 'shipping' | 'contact', string>>
   cart?: CartView
-  search?: { query: string; cards: Card[] }
+  search?: { query: string; cards: Card[]; filters?: FilterView }
   // The signed-in buyer (their saved name, phone and address fill order forms), and what /account shows.
   buyer?: Buyer
   account?: AccountView
@@ -86,10 +88,10 @@ export type CartLine = { variantId: string; productId: string; name: string; han
 export type CartView = { lines: CartLine[]; subtotal: number; qty: number; error?: string; values?: OrderValues; checkoutToken: string }
 
 export type StoreInfo = { name: string; logo: Img | null; phone: string; whatsapp: string; email: string; address: string; facebook: string }
-export type ProductPage = { id: string; name: string; description: string; images: Img[]; product: Product }
+export type ProductPage = { id: string; name: string; description: string; images: Img[]; product: Product; attributes?: ProductAttribute[] }
 export type CollectionView = { name: string; handle: string; description: string }
 export type StorePageView = { title: string; body: string; policy: string | null }
-export type GridData = { cards: Card[]; page: number; hasMore: boolean; base: string }
+export type GridData = { cards: Card[]; page: number; hasMore: boolean; base: string; filters?: FilterView }
 export type CollectionCard = { id: string; name: string; handle: string; image: Img | null }
 
 
@@ -616,6 +618,7 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
             )}
           </div>}
           {shownSetting(s, 'showDescription') && item.description && <div className="sf-description" dangerouslySetInnerHTML={{ __html: cleanRichText(item.description) }} />}
+          {s.settings.showAttributes !== 'no' && item.attributes && <AttributeTable attributes={item.attributes} lang={ctx.lang} />}
         </div>
       </div>
       {mode !== 'cart' && <OrderForm s={order} ctx={ctx} />}
@@ -627,14 +630,21 @@ function ProductList({ s, ctx }: { s: Section; ctx: Ctx }) {
   const data = ctx.grid?.(s.id)
   const heading = str(s.settings.heading)
   if (!data) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>এখানে দোকানের পণ্যগুলো দেখাবে</Hint></div></section> : null
+  const filters = s.settings.filters !== 'no' ? data.filters : undefined
+  const list = <>
+    {filters && <ActiveFilters view={filters} lang={ctx.lang} />}
+    {data.cards.length > 0
+      ? <ProductGrid lang={ctx.lang} cards={data.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} mobileColumns={typeof s.settings.mobileColumns === 'number' ? s.settings.mobileColumns : undefined} />
+      : <p className="sf-empty">{filters && activeFilters(filters.sel) > 0
+        ? tr(ctx.lang, ['এই ফিল্টারে কোনো পণ্য নেই। একটি ফিল্টার সরিয়ে দেখুন।', 'No products match these filters. Try removing one.'])
+        : tr(ctx.lang, ['শিগগিরই নতুন পণ্য আসছে।', 'New products are coming soon.'])}</p>}
+    {shownSetting(s, 'pager') && <Pager page={data.page} hasMore={data.hasMore} base={data.base} lang={ctx.lang} />}
+  </>
   return (
     <section className="sf-section">
       <div className="sf-wrap">
         {heading && <h2 className="sf-heading">{heading}</h2>}
-        {data.cards.length > 0
-          ? <ProductGrid lang={ctx.lang} cards={data.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} mobileColumns={typeof s.settings.mobileColumns === 'number' ? s.settings.mobileColumns : undefined} />
-          : <p className="sf-empty">{tr(ctx.lang, ['শিগগিরই নতুন পণ্য আসছে।', 'New products are coming soon.'])}</p>}
-        {shownSetting(s, 'pager') && <Pager page={data.page} hasMore={data.hasMore} base={data.base} lang={ctx.lang} />}
+        {filters ? <div className="sf-filtered"><FilterPanel view={filters} lang={ctx.lang} /><div>{list}</div></div> : list}
       </div>
     </section>
   )
@@ -839,6 +849,12 @@ function AccountBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
   )
 }
 
+function ProductAttributesBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const item = ctx.current?.product
+  if (!item?.attributes?.length) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>পণ্যের পেজে এখানে পণ্যের বৈশিষ্ট্যের তালিকা দেখাবে (পণ্য › অ্যাট্রিবিউট)</Hint></div></section> : null
+  return <section className="sf-section"><div className="sf-wrap sf-narrow"><AttributeTable attributes={item.attributes} lang={ctx.lang} heading={str(s.settings.heading)} /></div></section>
+}
+
 function SearchBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
   const search = ctx.search
   if (!search) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>খোঁজার পেজে এখানে খোঁজার ঘর ও ফল দেখাবে</Hint></div></section> : null
@@ -850,9 +866,13 @@ function SearchBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
           <input type="search" name="q" defaultValue={search.query} maxLength={100} placeholder={tr(ctx.lang, ['পণ্যের নাম লিখুন', 'Type a product name'])} aria-label={tr(ctx.lang, ['পণ্য খুঁজুন', 'Search products'])} />
           <button type="submit" className="sf-button">{tr(ctx.lang, ['খুঁজুন', 'Search'])}</button>
         </form>
-        {search.query && (search.cards.length > 0
-          ? <ProductGrid lang={ctx.lang} cards={search.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} />
-          : <p className="sf-empty">{ctx.lang === 'en' ? `Nothing found for "${search.query}". Try other words.` : `"${search.query}" দিয়ে কিছু পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।`}</p>)}
+        {search.query && (() => {
+          const filters = s.settings.filters !== 'no' ? search.filters : undefined
+          const results = search.cards.length > 0
+            ? <ProductGrid lang={ctx.lang} cards={search.cards} columns={typeof s.settings.columns === 'number' ? s.settings.columns : undefined} />
+            : <p className="sf-empty">{ctx.lang === 'en' ? `Nothing found for "${search.query}". Try other words.` : `"${search.query}" দিয়ে কিছু পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।`}</p>
+          return filters ? <div className="sf-filtered"><FilterPanel view={filters} lang={ctx.lang} /><div><ActiveFilters view={filters} lang={ctx.lang} />{results}</div></div> : results
+        })()}
       </div>
     </section>
   )
@@ -903,6 +923,7 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'cart': return <CartBlock s={s} ctx={ctx} />
     case 'search': return <SearchBlock s={s} ctx={ctx} />
     case 'account': return <AccountBlock s={s} ctx={ctx} />
+    case 'productAttributes': return <ProductAttributesBlock s={s} ctx={ctx} />
   }
 }
 

@@ -2,6 +2,7 @@
 import type { CSSProperties } from 'react'
 import type { Img } from './sections.tsx'
 import { taka, tr, type Lang } from './words.ts'
+import { filterCss } from './filter-view.tsx'
 import type { ResolvedItem } from './menus.ts'
 
 export type Card = { id: string; name: string; handle: string; price: number; comparePrice: number | null; image: Img | null; inStock: boolean }
@@ -62,10 +63,12 @@ export function ProductGrid({ cards, columns, mobileColumns, lang }: { cards: Ca
 
 export function Pager({ page, hasMore, base, lang }: { page: number; hasMore: boolean; base: string; lang?: Lang }) {
   if (page === 1 && !hasMore) return null
+  // base may carry the filters (?উৎস=…), which the next page keeps.
+  const join = base.includes('?') ? '&' : '?'
   return (
     <nav className="sf-pager" aria-label={tr(lang, ['পাতা', 'Pages'])}>
-      {page > 1 && <a className="sf-button sf-button--outline" href={page === 2 ? base : `${base}?page=${page - 1}`}>{tr(lang, ['আগের পাতা', 'Previous page'])}</a>}
-      {hasMore && <a className="sf-button sf-button--outline" href={`${base}?page=${page + 1}`}>{tr(lang, ['পরের পাতা', 'Next page'])}</a>}
+      {page > 1 && <a className="sf-button sf-button--outline" href={page === 2 ? base : `${base}${join}page=${page - 1}`}>{tr(lang, ['আগের পাতা', 'Previous page'])}</a>}
+      {hasMore && <a className="sf-button sf-button--outline" href={`${base}${join}page=${page + 1}`}>{tr(lang, ['পরের পাতা', 'Next page'])}</a>}
     </nav>
   )
 }
@@ -79,7 +82,7 @@ export function Gallery({ images, name, stacked }: { images: Img[]; name: string
   )
 }
 
-export const catalogCss = `
+export const catalogCss = `${filterCss}
 .sf-bar__row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px}
 .sf-bar__name{color:inherit;text-decoration:none}
 .sf-nav{font-weight:400;font-size:15px}

@@ -16,6 +16,8 @@ import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPrese
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
 import { num, taka, tr, type Lang } from './words.ts'
+import { applyFilters, readSelection, selectionQuery, type FilterAttribute, type FilterRow } from './filters.ts'
+import { filterScript, type FilterView, type ProductAttribute } from './filter-view.tsx'
 import { CartDrawer, CartDrawerBody, cartScript, css, drawerScript, pageScript, PageView, type AccountView, type Buyer, type BuyerOrder, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
@@ -38,7 +40,7 @@ const openCsp = [
   "style-src 'self' 'unsafe-inline' https:", 'font-src https: data:', 'frame-src https:', "connect-src 'self' https:", "form-action 'self' https:", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
 const cspFor = (pixel: string, custom = false) => custom ? openCsp : [
-  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)} ${hash(drawerScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)} ${hash(drawerScript)} ${hash(filterScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com', "frame-src 'self' https://www.youtube-nocookie.com https://www.facebook.com",
   `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
 ].join('; ')
@@ -151,6 +153,31 @@ async function loadStore(handle: string) {
 type LoadedStore = NonNullable<Awaited<ReturnType<typeof loadStore>>>
 // The store's language for its own words (Online store › Preferences).
 const langOf = (store: LoadedStore | null | undefined): Lang => (store?.prefs?.language === 'en' ? 'en' : 'bn')
+
+// A listing with the buyer's filters from the address (filters.ts): the products of a collection, of the store or of a
+// search, filtered and counted here, then this page's cards. The address keeps the filters for the pager.
+async function filteredListing(c: Context, storeId: string, o: { path: string; collectionId: string | null; words: string | null; page: number; size: number }) {
+  const [attrRows, rowRows] = await tx(null, async (t) => [
+    (await t.execute<{ id: string; name: string; kind: FilterAttribute['kind']; unit: string; choices: { id: string; label: string }[] }>(sql`select * from storefront_filter_attributes(${storeId}::uuid)`)).rows,
+    (await t.execute<{ id: string; min_price: number; in_stock: boolean; attrs: FilterRow['attrs'] }>(sql`select * from storefront_filter_rows(${storeId}::uuid, ${o.collectionId}::uuid, ${o.words})`)).rows,
+  ] as const)
+  const attrs: FilterAttribute[] = attrRows
+  const rows: FilterRow[] = rowRows.map((r) => ({ id: r.id, minPrice: r.min_price, inStock: r.in_stock, attrs: r.attrs }))
+  const sel = readSelection(new URL(c.req.url).searchParams, attrs)
+  const filtered = applyFilters(rows, attrs, sel)
+  const ids = filtered.ids.slice((o.page - 1) * o.size, o.page * o.size)
+  const cards = await cardsFor(storeId, ids)
+  const q = o.words ?? ''
+  const query = selectionQuery(sel, attrs, q)
+  const view: FilterView = { path: o.path, q, total: filtered.ids.length, filtered, sel, attrs }
+  return { cards, hasMore: filtered.ids.length > o.page * o.size, base: query ? `${o.path}?${query}` : o.path, view }
+}
+async function cardsFor(storeId: string, ids: string[]): Promise<Card[]> {
+  if (!ids.length) return []
+  const rows = (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(
+    sql`select * from storefront_cards(${storeId}::uuid, ${`{${ids.join(',')}}`}::uuid[])`))).rows
+  return rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: image(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
+}
 
 async function listing(storeId: string, collectionId: string | null, page: number, size = listPageSize) {
   const listPageSize = size
@@ -291,7 +318,7 @@ function gridBlocks(sections: Section[]) {
 }
 const usesBlock = (sections: Section[], type: string) => sections.some((s) => s.type === type || [...walk(s.children ?? [])].some((n) => n.block?.type === type))
 
-type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[] }; account?: AccountView }
+type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[]; filters?: FilterView }; account?: AccountView }
 
 // A store page drawn with templates: the page's own template (the item's choice or the default), inside the header and
 // footer templates, with the data its store blocks need loaded first.
@@ -309,6 +336,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
   const images = await templateImages(store.id, [template, header, footer])
   const page = pageNumber(c)
   const grids = new Map<string, GridData>()
+  let filtersUsed = false
   for (const block of gridBlocks(all)) {
     const limit = typeof block.settings.limit === 'number' ? block.settings.limit : listPageSize
     const source = block.settings.source
@@ -318,6 +346,11 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
       grids.set(block.id, { ...data, page: 1, base: picked ? collectionHref(picked.handle) : '/products' })
     } else if (source === 'all') {
       grids.set(block.id, { ...(await listing(store.id, null, 1, limit)), page: 1, base: '/products' })
+    } else if (block.settings.filters !== 'no' && !filtersUsed && (kind === 'collection' || kind === 'products')) {
+      // The page's own list (a collection's, or all products) gets the filters; one filter panel per page.
+      filtersUsed = true
+      const f = await filteredListing(c, store.id, { path: here.path, collectionId: here.collection?.id ?? null, words: null, page, size: limit })
+      grids.set(block.id, { cards: f.cards, hasMore: f.hasMore, page, base: f.base, filters: f.view })
     } else {
       grids.set(block.id, { ...(await listing(store.id, here.collection?.id ?? null, page, limit)), page, base: here.path })
     }
@@ -352,6 +385,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel} lang={langOf(store)}>
       <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: header.sections, footer: footer.sections }} themeCss={store.style.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
+      {(filtersUsed || here.search?.filters) && <script dangerouslySetInnerHTML={{ __html: filterScript }} />}
       {here.cart && here.cart.lines.length > 0 && <script dangerouslySetInnerHTML={{ __html: cartScript }} />}
       {/* The side cart (not on the cart page itself, which already shows the cart). */}
       {!here.cart && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
@@ -366,7 +400,8 @@ const storeNotFound = (c: Context, store: LoadedStore) =>
 async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct, order?: Ctx['order']) {
   // Description HTML was cleaned by cleanDescription when it was saved; the block cleans it again before drawing.
   const plain = item.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
-  const here: Here = { path: productPath(c), product: { id: item.id, name: item.name, description: item.description, images: item.images, product: item.product } }
+  const attributes = (await tx(null, (t) => t.execute<ProductAttribute>(sql`select * from storefront_product_attributes(${store.id}::uuid, ${item.id}::uuid)`))).rows.map((a) => ({ ...a, number: a.number === null ? null : Number(a.number) }))
+  const here: Here = { path: productPath(c), product: { id: item.id, name: item.name, description: item.description, images: item.images, product: item.product, attributes } }
   return renderThemed(c, store, 'product', here, {
     title: item.seo_title || item.name, description: item.seo_description || plain, canonical: `${c.get('origin')}${productPath(c)}`,
     shareImage: item.images[0], noindex: item.status === 'unlisted', status: order ? 422 : 200, order, orderAction: productPath(c), templateId: item.template_id,
@@ -829,9 +864,9 @@ app.get('/search', async (c) => {
   const store = handle && await loadStore(handle)
   if (!store) return notFound(c)
   const query = (c.req.query('q') ?? '').trim().slice(0, 100)
-  const rows = query ? (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(sql`select * from storefront_search(${store.id}::uuid, ${query}, 48)`))).rows : []
-  const cards: Card[] = rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: image(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
-  return renderThemed(c, store, 'search', { path: '/search', search: { query, cards } }, { title: query ? `${query} · ${store.name}` : `${tr(langOf(store), ['খুঁজুন', 'Search'])} · ${store.name}`, description: '', noindex: true })
+  // Search results are a filtered listing of the matching products (storefront_matches), up to 48.
+  const found = query ? await filteredListing(c, store.id, { path: '/search', collectionId: null, words: query, page: 1, size: 48 }) : null
+  return renderThemed(c, store, 'search', { path: '/search', search: { query, cards: found?.cards ?? [], filters: found?.view } }, { title: query ? `${query} · ${store.name}` : `${tr(langOf(store), ['খুঁজুন', 'Search'])} · ${store.name}`, description: '', noindex: true })
 })
 
 // Keep links shared before the short-URL rollout working. Reserved legacy handles remain accessible here.

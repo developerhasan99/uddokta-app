@@ -1,6 +1,6 @@
 import { orderStatusValues, type OrderFilters } from 'storefront/order-filters'
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -217,6 +217,59 @@ export const collections = pgTable('collections', {
   index('collections_store_created').on(t.storeId, t.createdAt),
   unique('collections_store_id').on(t.storeId, t.id),
   unique('collections_store_handle').on(t.storeId, t.handle),
+])
+
+// Product attributes: facts about a product that are not choices a buyer makes (origin, weight, shelf life, certified).
+// Defined once per store so every product uses the same names and values, which is what makes filters and search work.
+// choice: one or more of the attribute's choices; number: a number in the attribute's unit; flag: yes or no.
+export const attributeKinds = ['choice', 'number', 'flag'] as const
+export const attributes = pgTable('attributes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  kind: text('kind', { enum: attributeKinds }).notNull(),
+  unit: text('unit').notNull().default(''),
+  // Shown in the attributes table on product pages; offered as a filter on collection, all-products and search pages.
+  showOnProduct: boolean('show_on_product').notNull().default(true),
+  filterable: boolean('filterable').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('attributes_store_id').on(t.storeId, t.id),
+  uniqueIndex('attributes_store_name').on(t.storeId, sql`lower(${t.name})`),
+  check('attributes_kind', sql`${t.kind} in ('choice', 'number', 'flag')`),
+  check('attributes_text', sql`char_length(btrim(${t.name})) between 1 and 60 and char_length(${t.unit}) <= 20 and (${t.kind} = 'number' or ${t.unit} = '')`),
+])
+
+export const attributeChoices = pgTable('attribute_choices', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull(),
+  attributeId: uuid('attribute_id').notNull(),
+  label: text('label').notNull(),
+  position: integer('position').notNull().default(0),
+}, (t) => [
+  foreignKey({ name: 'attribute_choices_attribute', columns: [t.storeId, t.attributeId], foreignColumns: [attributes.storeId, attributes.id] }).onDelete('cascade'),
+  unique('attribute_choices_attribute_id').on(t.attributeId, t.id),
+  uniqueIndex('attribute_choices_label').on(t.attributeId, sql`lower(${t.label})`),
+  check('attribute_choices_label_length', sql`char_length(btrim(${t.label})) between 1 and 60`),
+])
+
+// One row per value: a choice attribute may hold several choices; number and flag attributes hold one row.
+export const productAttributeValues = pgTable('product_attribute_values', {
+  storeId: uuid('store_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  attributeId: uuid('attribute_id').notNull(),
+  choiceId: uuid('choice_id'),
+  number: numeric('number', { precision: 12, scale: 3, mode: 'number' }),
+  flag: boolean('flag'),
+}, (t) => [
+  foreignKey({ name: 'product_attribute_values_product', columns: [t.storeId, t.productId], foreignColumns: [products.storeId, products.id] }).onDelete('cascade'),
+  foreignKey({ name: 'product_attribute_values_attribute', columns: [t.storeId, t.attributeId], foreignColumns: [attributes.storeId, attributes.id] }).onDelete('cascade'),
+  foreignKey({ name: 'product_attribute_values_choice', columns: [t.attributeId, t.choiceId], foreignColumns: [attributeChoices.attributeId, attributeChoices.id] }).onDelete('cascade'),
+  uniqueIndex('product_attribute_values_choice_once').on(t.productId, t.attributeId, t.choiceId).where(sql`${t.choiceId} is not null`),
+  uniqueIndex('product_attribute_values_single').on(t.productId, t.attributeId).where(sql`${t.choiceId} is null`),
+  index('product_attribute_values_attribute').on(t.storeId, t.attributeId, t.choiceId),
+  check('product_attribute_values_one', sql`num_nonnulls(${t.choiceId}, ${t.number}, ${t.flag}) = 1`),
 ])
 
 export const collectionProducts = pgTable('collection_products', {

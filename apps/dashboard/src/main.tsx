@@ -18,6 +18,7 @@ import { StorePageEdit } from './pages/StorePageEdit'
 import { Members } from './pages/Members'
 import { CollectionEdit } from './pages/CollectionEdit'
 import { Collections } from './pages/Collections'
+import { Attributes } from './pages/Attributes'
 import { Incomplete } from './pages/Incomplete'
 import { Inventory } from './pages/Inventory'
 import { NewOrder } from './pages/NewOrder'
@@ -88,6 +89,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="products/inventory" element={<Inventory />} />
                 <Route path="products/warehouses" element={<Navigate replace to="../settings/warehouses" />} />
                 <Route path="products/collections" element={<Collections />} />
+                <Route path="products/attributes" element={<Attributes />} />
                 <Route path="products/collections/new" element={<CollectionEdit />} />
                 <Route path="products/collections/:id" element={<CollectionEdit />} />
                 <Route path="products/new" element={<ProductEdit />} />

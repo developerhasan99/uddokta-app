@@ -11,6 +11,7 @@ import { registrationAllowed } from './runtime.ts'
 import { isPreset, type PresetId } from 'storefront/themes'
 import { dummyHash, hashPassword, verifyPassword } from './password.ts'
 import { registerAnalytics } from './analytics.ts'
+import { registerAttributes } from './attributes.ts'
 import { registerCollections } from './collections.ts'
 import { registerCouriers } from './couriers.ts'
 import { registerDiscounts } from './discounts.ts'
@@ -419,6 +420,7 @@ app.post('/invites/:token/accept', async (c) => {
 registerMedia(app)
 registerProducts(app)
 registerCollections(app)
+registerAttributes(app)
 registerInventory(app)
 registerWarehouses(app)
 registerDomains(app)

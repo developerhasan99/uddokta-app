@@ -290,11 +290,12 @@ export const sectionDefs = {
       { key: 'formHeading', kind: 'text', label: ['অর্ডার ফর্মের শিরোনাম', 'Order form heading'], max: 120 },
       { key: 'formButton', kind: 'text', label: ['অর্ডার বাটনের লেখা', 'Order button text'], max: 60 },
       select('showDescription', ['পণ্যের বর্ণনা', 'Product description'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      select('showAttributes', ['পণ্যের বৈশিষ্ট্য (অ্যাট্রিবিউট)', 'Product attributes'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
       select('galleryLayout', ['ছবির সাজ', 'Image layout'], [['grid', ['বড় ছবি, নিচে ছোট', 'Large with thumbnails']], ['stack', ['একটির নিচে আরেকটি', 'Stacked']]]),
       select('buyMode', ['কেনার উপায়', 'How buyers buy'], [['both', ['সরাসরি অর্ডার ও কার্ট', 'Order now and cart']], ['order', ['শুধু সরাসরি অর্ডার', 'Order now only']], ['cart', ['শুধু কার্ট', 'Cart only']]]),
       { key: 'cartButton', kind: 'text', label: ['কার্ট বাটনের লেখা', 'Cart button text'], max: 60 },
     ],
-    defaults: { buyButton: 'এখনই অর্ডার করুন', formHeading: 'অর্ডার করুন', formButton: 'অর্ডার নিশ্চিত করুন', showDescription: 'yes', galleryLayout: 'grid', buyMode: 'both', cartButton: 'কার্টে রাখুন' },
+    defaults: { buyButton: 'এখনই অর্ডার করুন', formHeading: 'অর্ডার করুন', formButton: 'অর্ডার নিশ্চিত করুন', showDescription: 'yes', galleryLayout: 'grid', buyMode: 'both', cartButton: 'কার্টে রাখুন', showAttributes: 'yes' },
   },
   productGrid: {
     label: ['পণ্যের তালিকা', 'Product list'],
@@ -306,8 +307,9 @@ export const sectionDefs = {
       { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' },
       { key: 'mobileColumns', kind: 'number', min: 1, max: 3, label: ['মোবাইল কলাম', 'Mobile columns'], group: 'layout' },
       select('pager', ['পরের পাতার বাটন', 'Next page buttons'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      select('filters', ['ফিল্টার (কালেকশন ও সব পণ্যের পেজে)', 'Filters (on collection and all-products pages)'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
     ],
-    defaults: { heading: '', source: 'auto', collection: null, limit: 24, columns: 4, mobileColumns: 2, pager: 'yes' },
+    defaults: { heading: '', source: 'auto', collection: null, limit: 24, columns: 4, mobileColumns: 2, pager: 'yes', filters: 'yes' },
   },
   collectionHeader: {
     label: ['কালেকশনের নাম ও বর্ণনা', 'Collection title and description'],
@@ -331,8 +333,15 @@ export const sectionDefs = {
   },
   search: {
     label: ['খোঁজার ফল', 'Search results'],
-    fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' }],
-    defaults: { heading: 'খুঁজুন', columns: 4 },
+    fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' },
+      select('filters', ['ফিল্টার', 'Filters'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]])],
+    defaults: { heading: 'খুঁজুন', columns: 4, filters: 'yes' },
+  },
+  // The opened product's attributes as a table (Products › Attributes marked "show on product pages").
+  productAttributes: {
+    label: ['পণ্যের বৈশিষ্ট্য', 'Product attributes'],
+    fields: [heading()],
+    defaults: { heading: 'পণ্যের তথ্য' },
   },
   // Sign in, sign up and the signed-in buyer's orders and details (/account); what it shows depends on the page.
   account: {
@@ -354,7 +363,7 @@ export type SectionType = keyof typeof sectionDefs
 export const sectionTypes = Object.keys(sectionDefs) as SectionType[]
 export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 // Blocks that draw the store itself; only theme documents may hold them (readContent with { theme: true }).
-export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search', 'account']
+export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search', 'account', 'productAttributes']
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)

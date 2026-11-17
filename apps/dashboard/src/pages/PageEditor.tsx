@@ -21,6 +21,7 @@ import { css as storefrontCss, PageView, type CollectionCard, type Ctx, type Pro
 import { catalogCss, type Card } from 'storefront/catalog'
 import type { ResolvedItem } from 'storefront/menus'
 import { siteCss, siteFontsHref, templateLabels, type SiteStyle } from 'storefront/site'
+import type { FilterAttribute, FilterRow } from 'storefront/filters'
 import { loadRates } from '../shipping'
 import { isPreset, pageFonts, presetCss, presetFontsHref, presets, type PresetId } from 'storefront/themes'
 const presetVars = (theme: PresetId) => presets[theme].vars
@@ -84,7 +85,7 @@ type PreviewProduct = Product & { status: ProductStatus }
 type Pick = { kind: 'image' | 'product'; apply: (id: string | null) => void }
 
 // One fitting icon per kind of section/block, used in the section list, the tree and the Add dialogs.
-const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone, storeHeader: PanelTop, storeFooter: PanelBottom, productInfo: ShoppingBag, productGrid: LayoutGrid, collectionHeader: FolderOpen, collectionList: Folders, pageContent: FileText, cart: ShoppingCart, search: SearchIcon, account: CircleUser }
+const sectionIcons = { layout: RectangleHorizontal, header: PanelTop, footer: PanelBottom, announcement: Megaphone, features: BadgeCheck, trust: ShieldCheck, steps: ListOrdered, specifications: ClipboardList, comparison: Table2, cards: GalleryHorizontal, iconCards: Shapes, iconList: List, html: Code, reviews: MessageSquareQuote, faq: CircleHelp, order: ShoppingBag, gallery: Images, countdown: Timer, contact: Phone, storeHeader: PanelTop, storeFooter: PanelBottom, productInfo: ShoppingBag, productGrid: LayoutGrid, collectionHeader: FolderOpen, collectionList: Folders, pageContent: FileText, cart: ShoppingCart, search: SearchIcon, account: CircleUser, productAttributes: ListChecks }
 const nodeIcons: Record<NodeKind, typeof Box> = { box: Rows3, heading: Heading, text: Type, image: Image, button: MousePointerClick, icon: Sparkles, divider: Minus, spacer: MoveVertical, video: Video, block: Shapes }
 // The tree's icon for a section or node; the preview's corner tags use the same ones.
 const sectionIconOf = (s: Section) => {
@@ -1473,6 +1474,7 @@ export type PreviewData = {
   builtIn: { header: Section[]; footer: Section[] }
   // The store's home page (default home template or built-in) and the images it and the frames use.
   home: Content; images: Record<string, { url: string; alt: string; width: number; height: number }>
+  filter: { attrs: FilterAttribute[]; rows: FilterRow[] }
   choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
 }
 export function usePreviewData(storeHandle: string, query = '') {

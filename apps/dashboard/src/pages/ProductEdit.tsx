@@ -10,13 +10,15 @@ import { TemplateCard } from '../components/TemplateCard'
 import { Badge, Button, Field, Notice, PageTitle, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 import { ChipsInput } from '../components/ChipsInput'
+import { AttributeFields, attributesBody, badAttributeNumbers, type AttributeDraft } from '../components/AttributeFields'
+import type { Attribute } from './Attributes'
 import { maxVariants, parseAmount, productStatuses, statusInfo, stockTotal, storeAddress, variantsFor, variantTotal, type Option, type ProductStatus, type VariantDraft } from '../product-form'
 
 type Saved = {
-  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; media: MediaItem[]
+  id: string; name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; media: MediaItem[]; attributes: { attributeId: string; choiceIds?: string[]; number?: number; flag?: boolean }[]
   variants: { id: string; options: string[]; price: number; comparePrice: number | null; cost: number | null; sku: string; stock: number | null; stocks: Record<string, number>; mediaId: string | null }[]
 }
-type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; variants: VariantDraft[]; media: MediaItem[] }
+type Form = { name: string; description: string; status: ProductStatus; productType: string; brand: string; tags: string[]; collections: CollectionOption[]; handle: string; seoTitle: string; seoDescription: string; templateId: string | null; options: Option[]; variants: VariantDraft[]; media: MediaItem[]; attributes: AttributeDraft[] }
 type CollectionOption = { id: string; name: string }
 type WarehouseOption = { id: string; name: string }
 type Suggestions = { types: string[]; brands: string[]; tags: string[] }
@@ -26,7 +28,7 @@ const maxImages = 20
 const maxDescription = 50_000
 const maxTags = 30
 const text = (n: number | null) => (n === null ? '' : String(n))
-const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], collections: [], handle: '', seoTitle: '', seoDescription: '', templateId: null, options: [], variants: variantsFor([], []), media: [] })
+const blank = (): Form => ({ name: '', description: '', status: 'active', productType: '', brand: '', tags: [], collections: [], handle: '', seoTitle: '', seoDescription: '', templateId: null, options: [], variants: variantsFor([], []), media: [], attributes: [] })
 const toForm = (p: Saved): Form => ({
   name: p.name,
   description: p.description,
@@ -41,6 +43,7 @@ const toForm = (p: Saved): Form => ({
   templateId: p.templateId ?? null,
   options: p.options,
   media: p.media,
+  attributes: (p.attributes ?? []).map((a) => ({ attributeId: a.attributeId, ...(a.choiceIds ? { choiceIds: a.choiceIds } : {}), ...(a.number !== undefined ? { number: String(a.number) } : {}), ...(a.flag !== undefined ? { flag: a.flag } : {}) })),
   variants: p.variants.map((v) => ({ id: v.id, options: v.options, price: text(v.price), comparePrice: text(v.comparePrice), cost: text(v.cost), sku: v.sku, stocks: Object.fromEntries(Object.entries(v.stocks).map(([id, n]) => [id, String(n)])), mediaId: v.mediaId })),
 })
 // Blank is fine for everything except the selling price.
@@ -79,6 +82,7 @@ export function ProductEdit() {
   const [seoOpen, setSeoOpen] = useState(false)
   const [collectionOptions, setCollectionOptions] = useState<CollectionOption[] | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestions>({ types: [], brands: [], tags: [] })
+  const [attributeDefs, setAttributeDefs] = useState<Attribute[] | null>(null)
 
   const show = (next: Form) => {
     setForm(next)
@@ -121,6 +125,7 @@ export function ProductEdit() {
   // Only suggestions, so the form works without them.
   useEffect(() => {
     api<Suggestions>(`${base}/suggestions`).then(setSuggestions).catch(() => {})
+    api<Attribute[]>(`/stores/${current.store.handle}/attributes`).then(setAttributeDefs).catch(() => setAttributeDefs([]))
     api<CollectionOption[]>(`/stores/${current.store.handle}/collections/options`).then(setCollectionOptions).catch(() => {})
   }, [base])
 
@@ -180,6 +185,7 @@ export function ProductEdit() {
     || descriptionLong
     || form.options.some(optionNameBad)
     || form.variants.some((v) => badAmount(v.price, true) || badAmount(v.comparePrice) || Object.values(v.stocks).some((n) => badAmount(n)) || (seesCost && badAmount(v.cost)))
+    || badAttributeNumbers(form.attributes).length > 0
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -205,6 +211,7 @@ export function ProductEdit() {
         templateId: form.templateId,
         options: usedOptions,
         mediaIds: form.media.map((m) => m.id),
+        attributes: attributesBody(form.attributes),
         variants: form.variants.map((v) => ({
           id: v.id,
           options: v.options,
@@ -487,6 +494,8 @@ export function ProductEdit() {
               )}
             </div>
           </section>
+
+          <AttributeFields defs={attributeDefs} values={form.attributes} tried={tried} onChange={(attributes) => change({ attributes })} />
 
           <SeoCard
             section="products"

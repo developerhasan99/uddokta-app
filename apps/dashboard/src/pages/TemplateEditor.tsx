@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { toLayout } from 'storefront/convert'
+import { applyFilters, readSelection } from 'storefront/filters'
 import { defOf, maxCss, walk, type Section } from 'storefront/schema'
 import { pageFonts } from 'storefront/themes'
 import type { TemplateType } from 'storefront/site'
@@ -104,6 +105,10 @@ export function TemplateEditor() {
         const settings = 'block' in n && n.block ? n.block.type === 'productGrid' ? n.block.settings : null : (n as Section).type === 'productGrid' ? (n as Section).settings : null
         if (settings) limits.set(n.id, typeof settings.limit === 'number' ? settings.limit : 24)
       }
+      // The filter panel as a buyer first sees it (nothing picked), from the store's real attributes and products.
+      const sel = readSelection(new URLSearchParams(), preview.filter.attrs)
+      const filtered = applyFilters(preview.filter.rows, preview.filter.attrs, sel)
+      const filterView = { path: '', q: '', total: filtered.ids.length, filtered, sel, attrs: preview.filter.attrs }
       return {
         look: lookOf(preview.style),
         themeCss: preview.style.css,
@@ -112,7 +117,7 @@ export function TemplateEditor() {
         ctx: {
           lang: preview.language,
           store: preview.store, menus: preview.menus, collections: preview.collections,
-          grid: (gid) => ({ cards: preview.cards.slice(0, limits.get(gid) ?? 24), page: 1, hasMore: false, base: '' }),
+          grid: (gid) => ({ cards: preview.cards.slice(0, limits.get(gid) ?? 24), page: 1, hasMore: false, base: '', ...(type === 'collection' || type === 'products' ? { filters: filterView } : {}) }),
           product: (pid) => (pid && preview.product?.id === pid ? preview.product.product : undefined),
           current: {
             path: '',
@@ -127,7 +132,7 @@ export function TemplateEditor() {
           } } : {}),
           // The account template previews its sign-in form (the page a signed-out buyer sees first).
           ...(type === 'account' ? { account: { mode: 'login' as const } } : {}),
-          ...(type === 'search' ? { search: { query: preview.cards[0]?.name.split(' ')[0] ?? '', cards: preview.cards.slice(0, 4) } } : {}),
+          ...(type === 'search' ? { search: { query: preview.cards[0]?.name.split(' ')[0] ?? '', cards: preview.cards.slice(0, 4), filters: filterView } } : {}),
         },
       }
     },

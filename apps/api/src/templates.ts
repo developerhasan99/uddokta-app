@@ -209,7 +209,8 @@ export function registerTemplates(app: Hono<Env>) {
       const row = found && (await t.execute<{ id: string; name: string; description: string; images: { key: string; alt: string; width: number; height: number }[]; variants: { id: string; options: string[]; price: number; comparePrice: number | null; stock: number | null }[] }>(sql`select * from storefront_product(${store.id}::uuid, ${found.handle})`)).rows[0]
       if (row) {
         const images = row.images.map((m) => img(m.key, m.alt || row.name, m.width, m.height)!)
-        product = { id: row.id, name: row.name, description: row.description, images, product: { id: row.id, name: row.name, image: images[0] ?? null, variants: (row.variants ?? []).map((v) => ({ id: v.id, label: v.options.join(' / ') || row.name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 })) } }
+        const attributes = (await t.execute<{ name: string; kind: string; unit: string; choices: string[]; number: string | null; flag: boolean | null }>(sql`select * from storefront_product_attributes(${store.id}::uuid, ${row.id}::uuid)`)).rows.map((a) => ({ ...a, number: a.number === null ? null : Number(a.number) }))
+        product = { id: row.id, name: row.name, description: row.description, images, attributes, product: { id: row.id, name: row.name, image: images[0] ?? null, variants: (row.variants ?? []).map((v) => ({ id: v.id, label: v.options.join(' / ') || row.name, price: v.price, comparePrice: v.comparePrice, available: v.stock === null || v.stock > 0 })) } }
       }
     }
     const [collection] = collectionId ? await t.select({ name: collections.name, handle: collections.handle, description: collections.description }).from(collections).where(and(eq(collections.storeId, store.id), eq(collections.id, collectionId))) : []
@@ -238,6 +239,11 @@ export function registerTemplates(app: Hono<Env>) {
       headers: frame('header'), footers: frame('footer'),
       builtIn: { header: builtInTemplates.header.sections, footer: builtInTemplates.footer.sections },
       home, images,
+      // The store's filters with the previewed list's products, so list and search templates preview their filter panel.
+      filter: {
+        attrs: (await t.execute(sql`select * from storefront_filter_attributes(${store.id}::uuid)`)).rows,
+        rows: (await t.execute<{ id: string; min_price: number; in_stock: boolean; attrs: unknown }>(sql`select * from storefront_filter_rows(${store.id}::uuid, ${collectionId}::uuid, null)`)).rows.map((x) => ({ id: x.id, minPrice: x.min_price, inStock: x.in_stock, attrs: x.attrs })),
+      },
       choices,
     })
   }))

@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./order-filters": "./src/order-filters.ts",
+    "./filters": "./src/filters.ts",
     "./convert": "./src/convert.ts",
     "./rich": "./src/rich.ts",
     "./schema": "./src/schema.ts",

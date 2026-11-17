@@ -4,6 +4,7 @@ import type { Hono } from 'hono'
 import { type Tx, tx } from './db.ts'
 import { likePattern, present as presentMedia } from './media.ts'
 import { collectionProducts, collections, media, productMedia, products, productStatuses, productVariantCosts, productVariants, type ProductOption } from './schema.ts'
+import { productAttributes, readProductAttributes, saveProductAttributes } from './attributes.ts'
 import { checkWarehouses, firstWarehouseId, setStock, stockByVariant } from './stock.ts'
 import { publicUrl } from './storage.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
@@ -91,12 +92,13 @@ function readProduct(body: any) {
   if (!shortText(seoTitle, 300) || !shortText(seoDescription, 1000) || !shortText(handle, 200)) throw fail(400, 'invalidRequest')
   if (typeof description !== 'string' || description.length > maxDescription || !productStatuses.includes(status) || !validIds || !shortText(productType) || !shortText(brand)) throw fail(400, 'invalidRequest')
   const options = readOptions(body.options ?? [])
+  const attributeValues = readProductAttributes(body.attributes)
   const variants = readVariants(body.variants, options)
   // A variant's image must be one of the product's images, which also keeps it from being deleted while in use.
   if (variants.some((v) => v.mediaId && !mediaIds.includes(v.mediaId))) throw fail(400, 'invalidRequest')
   return {
     name: body.name.trim() as string, description: cleanDescription(description), status: status as (typeof productStatuses)[number],
-    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, templateId: templateId as string | null, handle: slugify(handle), collectionIds: collectionIds as string[] | undefined, options, variants, mediaIds: mediaIds as string[],
+    productType: productType.trim() as string, brand: brand.trim() as string, tags: readTags(body.tags ?? []), seoTitle: seoTitle.trim() as string, seoDescription: seoDescription.trim() as string, templateId: templateId as string | null, handle: slugify(handle), collectionIds: collectionIds as string[] | undefined, options, variants, mediaIds: mediaIds as string[], attributeValues,
   }
 }
 
@@ -138,7 +140,8 @@ async function loadProduct(t: Tx, storeId: string, id: string) {
   const images = await t.select({ media }).from(productMedia).innerJoin(media, eq(media.id, productMedia.mediaId)).where(eq(productMedia.productId, id)).orderBy(asc(productMedia.position))
   const inCollections = await t.select({ id: collections.id, name: collections.name }).from(collectionProducts).innerJoin(collections, eq(collections.id, collectionProducts.collectionId)).where(eq(collectionProducts.productId, id)).orderBy(asc(collections.name))
   const stocks = await stockByVariant(t, variants.map((v) => v.id))
-  return { id: product.id, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, templateId: product.templateId, options: product.options, variants: variants.map((v) => ({ ...v, stocks: stocks.get(v.id) ?? {} })), media: images.map((row) => presentMedia(row.media)) }
+  const attributeValues = await productAttributes(t, product.id)
+  return { id: product.id, attributes: attributeValues, collections: inCollections, name: product.name, description: product.description, status: product.status, productType: product.productType, brand: product.brand, tags: product.tags, handle: product.handle, seoTitle: product.seoTitle, seoDescription: product.seoDescription, templateId: product.templateId, options: product.options, variants: variants.map((v) => ({ ...v, stocks: stocks.get(v.id) ?? {} })), media: images.map((row) => presentMedia(row.media)) }
 }
 
 // Replaces the variants and images with what the seller sent. Variants keep their ids, so later orders can point at them.
@@ -175,6 +178,8 @@ async function saveDetails(t: Tx, storeId: string, productId: string, input: Ret
   if (input.mediaIds.length > 0) {
     await t.insert(productMedia).values(input.mediaIds.map((mediaId, position) => ({ storeId, productId, mediaId, position })))
   }
+
+  if (input.attributeValues) await saveProductAttributes(t, storeId, productId, input.attributeValues)
 
   if (input.collectionIds) {
     const wanted = input.collectionIds

@@ -979,3 +979,42 @@ test('the side cart: add and change lines through the drawer, prices from the da
   await s.call('POST', `${base}/${header.id}/publish`, { revision: saved.revision })
   assert.doesNotMatch(await (await visit(s.handle, '/')).text(), /<a href="\/cart" data-cart-drawer/)
 })
+
+test('attributes and filters: the product page shows its attributes, lists filter and count by them, search finds choice labels', async () => {
+  const s = await publishedPage()
+  const attr = (body: object) => s.call('POST', `/stores/${s.handle}/attributes`, body).then((r) => r.json)
+  const origin = await attr({ name: 'উৎস', kind: 'choice', choices: [{ label: 'সুন্দরবন' }, { label: 'রাজশাহী' }] })
+  const weight = await attr({ name: 'ওজন', kind: 'number', unit: 'গ্রাম' })
+  const organic = await attr({ name: 'অর্গানিক', kind: 'flag' })
+  const hidden = await attr({ name: 'গুদাম কোড', kind: 'choice', choices: [{ label: 'A1' }], showOnProduct: false, filterable: false })
+  const [sb, rj] = origin.choices
+  const make = (name: string, price: number, attributes: object[]) => s.call('POST', `/stores/${s.handle}/products`, { name, variants: [{ options: [], price, stock: null }], attributes }).then((r) => r.json)
+  const honey = await make('মধু', 650, [{ attributeId: origin.id, choiceIds: [sb.id] }, { attributeId: weight.id, number: 500 }, { attributeId: organic.id, flag: true }, { attributeId: hidden.id, choiceIds: [hidden.choices[0].id] }])
+  await make('আম', 750, [{ attributeId: origin.id, choiceIds: [rj.id] }, { attributeId: weight.id, number: 5000 }])
+  await make('গুড়', 450, [{ attributeId: weight.id, number: 1000 }])
+
+  const productPage = await (await visit(s.handle, `/products/${encodeURIComponent(honey.handle)}`)).text()
+  assert.match(productPage, /<dt>উৎস<\/dt><dd>সুন্দরবন<\/dd>/)
+  assert.match(productPage, /<dt>ওজন<\/dt><dd>৫০০ গ্রাম<\/dd>/)
+  assert.match(productPage, /<dt>অর্গানিক<\/dt><dd>হ্যাঁ<\/dd>/)
+  assert.doesNotMatch(productPage, /গুদাম কোড/, 'not shown on product pages')
+
+  const names = (html: string) => [...html.matchAll(/class="sf-card__name">([^<]+)</g)].map((m) => m[1])
+  const all = await (await visit(s.handle, '/products')).text()
+  assert.match(all, /data-filters/)
+  assert.doesNotMatch(all, /name="গুদাম কোড"/, 'not a filter')
+  assert.deepEqual(names(await (await visit(s.handle, `/products?${new URLSearchParams([['উৎস', 'সুন্দরবন'], ['উৎস', 'রাজশাহী']])}`)).text()).sort(), ['আম', 'মধু'])
+  const heavy = await (await visit(s.handle, `/products?${new URLSearchParams({ 'min.ওজন': '900', 'max.price': '700' })}`)).text()
+  assert.deepEqual(names(heavy), ['গুড়'])
+  assert.match(heavy, /১টি পণ্য/)
+  assert.match(heavy, /href="\/products\?max.price=700"[^>]*>ওজন: ≥ ৯০০ গ্রাম/, 'a chip removes its own filter and keeps the rest')
+  const organicOnly = await (await visit(s.handle, `/products?${new URLSearchParams({ 'অর্গানিক': '1' })}`)).text()
+  assert.deepEqual(names(organicOnly), ['মধু'])
+  assert.match(organicOnly, /name="উৎস" value="সুন্দরবন"/)
+  assert.doesNotMatch(organicOnly, /name="উৎস" value="রাজশাহী"/, 'choices that would find nothing are left out')
+
+  // Search matches attribute choices, and its results can be filtered too.
+  const search = await (await visit(s.handle, `/search?${new URLSearchParams({ q: 'সুন্দরবন' })}`)).text()
+  assert.deepEqual(names(search), ['মধু'])
+  assert.deepEqual(names(await (await visit(s.handle, `/search?${new URLSearchParams({ q: 'M' })}`)).text()), ['পাঞ্জাবি'], 'variant option values are searched')
+})
