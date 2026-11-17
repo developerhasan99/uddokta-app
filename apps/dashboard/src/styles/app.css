@@ -61,6 +61,8 @@ main { outline: 0; }
 .page--narrow { max-width: 52rem; }
 .page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); min-height: 36px; }
 .page-header__text { display: grid; gap: var(--space-2xs); min-width: 0; }
+/* Wider than a phone: the text takes the room and the page's action stays on the right, however long the description. */
+@media (min-width: 40rem) { .page-header { flex-wrap: nowrap; } .page-header__text { flex: 1; } .page-header > :last-child:not(.page-header__text) { flex: none; } }
 
 
 
@@ -344,7 +346,6 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .media-shell { display: flex; height: 100%; }
 .media { position: relative; flex: 1; min-width: 0; height: 100%; align-content: start; overflow-y: auto; }
 .media .btn svg { flex: none; }
-@media (min-width: 40rem) { .media .page-header { flex-wrap: nowrap; } .media .page-header__text { flex: 1; } }
 .media__usage { display: grid; gap: var(--space-2xs); max-width: 20rem; font-size: var(--text-sm); }
 .media__failures { display: grid; gap: var(--space-2xs); }
 .media__failures li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
