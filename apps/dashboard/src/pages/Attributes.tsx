@@ -84,10 +84,10 @@ export function Attributes() {
                 {a.kind === 'choice' && a.choices.length > 0 && <span className="rate-row__free">{a.choices.slice(0, 6).map((c) => c.label).join(', ')}{a.choices.length > 6 ? ' …' : ''}</span>}
               </button>
               <span className="rate-row__move">
-                {list.length > 1 && <>
+                {list.length > 1 && <span className="row-order" role="group">
                   <IconButton label={`${L(['ওপরে', 'Move up'])}: ${a.name}`} disabled={i === 0} onClick={() => void move(i, -1)}><ArrowUp size={14} aria-hidden="true" /></IconButton>
                   <IconButton label={`${L(['নিচে', 'Move down'])}: ${a.name}`} disabled={i === list.length - 1} onClick={() => void move(i, 1)}><ArrowDown size={14} aria-hidden="true" /></IconButton>
-                </>}
+                </span>}
                 <IconButton label={`${L(['এডিট', 'Edit'])}: ${a.name}`} onClick={() => setEditing(a)}><Pencil size={14} aria-hidden="true" /></IconButton>
               </span>
             </li>
