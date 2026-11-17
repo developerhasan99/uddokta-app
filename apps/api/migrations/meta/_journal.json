@@ -652,6 +652,13 @@
       "when": 1794884824161,
       "tag": "0092_marvelous_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1794886615133,
+      "tag": "0093_lovely_magneto",
+      "breakpoints": true
     }
   ]
 }

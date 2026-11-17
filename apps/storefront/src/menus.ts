@@ -3,7 +3,7 @@
 // Plain data, no JSX: the API validates with it and the dashboard reuses the types.
 import { pageHref } from './paths.ts'
 
-export const linkTypes = ['home', 'products', 'collections', 'search', 'cart', 'collection', 'product', 'page', 'storePage', 'url', 'phone', 'whatsapp'] as const
+export const linkTypes = ['home', 'products', 'collections', 'search', 'cart', 'account', 'collection', 'product', 'page', 'storePage', 'url', 'phone', 'whatsapp'] as const
 export type LinkType = typeof linkTypes[number]
 // Links that point at one of the store's records by id.
 export const idLinkTypes = ['collection', 'product', 'page', 'storePage'] as const satisfies readonly LinkType[]
@@ -84,6 +84,7 @@ export function linkHref(link: MenuLinkValue, targets: LinkTargets): string | nu
     case 'collections': return '/collections'
     case 'search': return '/search'
     case 'cart': return '/cart'
+    case 'account': return '/account'
     case 'url': return link.url ?? null
     case 'phone': return `tel:${link.url!.replace(/[ -]/g, '')}`
     case 'whatsapp': {

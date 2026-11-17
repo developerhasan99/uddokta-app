@@ -285,7 +285,7 @@ export const pages = pgTable('pages', {
 // one type (header, product page, …) with a draft and a published copy. One published template per type can be the
 // store's default; products, collections, store pages and landing pages can pick another. template_media keeps the
 // images both copies use, which blocks deleting them (deferred key to media in the security migration).
-export const templateTypeValues = ['header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound'] as const
+export const templateTypeValues = ['header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'account', 'notFound'] as const
 export const templates = pgTable('templates', {
   id: uuid('id').primaryKey().defaultRandom(),
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
@@ -307,7 +307,7 @@ export const templates = pgTable('templates', {
   uniqueIndex('templates_store_built_in').on(t.storeId, t.type).where(sql`${t.builtIn}`),
   index('templates_store_updated').on(t.storeId, t.updatedAt),
   check('templates_title', sql`char_length(btrim(${t.title})) between 1 and 100`),
-  check('templates_type', sql`${t.type} in ('header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'notFound')`),
+  check('templates_type', sql`${t.type} in ('header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'account', 'notFound')`),
   check('templates_default_published', sql`not ${t.isDefault} or ${t.published} is not null`),
   check('templates_built_in_published', sql`not ${t.builtIn} or ${t.published} is not null`),
 ])
@@ -428,10 +428,13 @@ export const orders = pgTable('orders', {
   warehouseId: uuid('warehouse_id'),
   note: text('note').notNull().default(''),
   tags: text('tags').array().notNull().default(sql`'{}'`),
+  // The buyer account that placed it while signed in (null for guests); set only by storefront_link_order.
+  buyerAccountId: uuid('buyer_account_id'),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique('orders_store_number').on(t.storeId, t.number),
+  index('orders_store_buyer').on(t.storeId, t.buyerAccountId),
   unique('orders_store_id').on(t.storeId, t.id),
   index('orders_store_created').on(t.storeId, t.createdAt),
   index('orders_store_phone').on(t.storeId, t.phone),
@@ -439,6 +442,39 @@ export const orders = pgTable('orders', {
   check('orders_tags', sql`cardinality(${t.tags}) <= 10`),
   check('orders_amounts', sql`${t.subtotal} >= 0 and ${t.deliveryCharge} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} + ${t.deliveryCharge} and ${t.total} = ${t.subtotal} + ${t.deliveryCharge} - ${t.discount}`),
 ])
+
+// Buyer accounts on a store (phone + password; the phone is not verified, so an account only ever sees orders placed
+// while signed in to it). The dashboard role has no access: the storefront reaches these only through the
+// storefront_buyer_* functions (migration 0093), which take the store from the server.
+export const buyerAccounts = pgTable('buyer_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  name: text('name').notNull(),
+  address: text('address').notNull().default(''),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique('buyer_accounts_store_phone').on(t.storeId, t.phone),
+  unique('buyer_accounts_store_id').on(t.storeId, t.id),
+  check('buyer_accounts_phone', sql`${t.phone} ~ '^01[3-9][0-9]{8}$'`),
+  check('buyer_accounts_text', sql`char_length(btrim(${t.name})) between 1 and 100 and char_length(${t.address}) <= 500`),
+])
+
+export const buyerSessions = pgTable('buyer_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  storeId: uuid('store_id').notNull(),
+  accountId: uuid('account_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => [
+  foreignKey({ name: 'buyer_sessions_account', columns: [t.storeId, t.accountId], foreignColumns: [buyerAccounts.storeId, buyerAccounts.id] }).onDelete('cascade'),
+])
+
+export const buyerLoginFailures = pgTable('buyer_login_failures', {
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('buyer_login_failures_phone').on(t.storeId, t.phone, t.at)])
 
 // Name, option and price are copied at the time of sale, so editing the product later never changes an old order.
 export const orderItems = pgTable('order_items', {

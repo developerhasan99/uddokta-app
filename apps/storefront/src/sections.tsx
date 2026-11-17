@@ -71,7 +71,16 @@ export type Ctx = {
   policies?: Partial<Record<'refund' | 'terms' | 'privacy' | 'shipping' | 'contact', string>>
   cart?: CartView
   search?: { query: string; cards: Card[] }
+  // The signed-in buyer (their saved name, phone and address fill order forms), and what /account shows.
+  buyer?: Buyer
+  account?: AccountView
 }
+
+export type Buyer = { name: string; phone: string; address: string }
+export type BuyerOrder = { number: number; status: string; total: number; createdAt: string; items: string }
+export type AccountView =
+  | { mode: 'login' | 'register'; error?: string; values?: { name?: string; phone?: string }; next?: string }
+  | { mode: 'view'; buyer: Buyer; orders: BuyerOrder[]; saved?: boolean; error?: string }
 
 export type CartLine = { variantId: string; productId: string; name: string; handle: string; label: string; price: number; comparePrice: number | null; qty: number; image: Img | null; available: boolean }
 export type CartView = { lines: CartLine[]; subtotal: number; qty: number; error?: string; values?: OrderValues; checkoutToken: string }
@@ -166,6 +175,9 @@ function Faq({ s }: { s: Section }) {
   )
 }
 
+// A signed-in buyer's saved name, phone and address start the order form (they can still change them).
+const prefill = (ctx: Ctx, name: keyof OrderValues) => (ctx.buyer && (name === 'name' || name === 'phone' || name === 'address') ? ctx.buyer[name] : '')
+
 export const orderErrors: Record<string, Pair> = {
   name: ['আপনার নাম লিখুন।', 'Enter your name.'],
   phone: ['সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'Enter a valid mobile number, like 01712345678.'],
@@ -200,7 +212,7 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
   const quantity = Math.min(Math.max(Number(values.quantity) || 1, 1), 20)
   const subtotal = chosen ? chosen.price * quantity : 0
   const total = chosen ? subtotal + (rate ? deliveryCharge(rate, product.id, subtotal, quantity) : 0) : 0
-  const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? '', 'aria-invalid': mine?.error === name ? true : undefined })
+  const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? prefill(ctx, name), 'aria-invalid': mine?.error === name ? true : undefined })
 
   return (
     <section className="sf-section sf-section--tint" id={s.id}>
@@ -539,6 +551,7 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
         )}
         <span className="sf-bar__links">
           {s.settings.showSearch !== 'no' && <a href="/search">{tr(ctx.lang, ['খুঁজুন', 'Search'])}</a>}
+          {s.settings.showAccount === 'yes' && <a href="/account" aria-current={current === '/account' ? 'page' : undefined}>{ctx.buyer ? tr(ctx.lang, ['অ্যাকাউন্ট', 'Account']) : tr(ctx.lang, ['লগ ইন', 'Sign in'])}</a>}
           {s.settings.showCart !== 'no' && <a href="/cart" aria-current={current === '/cart' ? 'page' : undefined}>{tr(ctx.lang, ['কার্ট', 'Cart'])}{(ctx.cartCount ?? 0) > 0 && <span className="sf-bar__count">{num(ctx.lang, ctx.cartCount!)}</span>}</a>}
           {button && <a className="sf-button sf-bar__button" href={str(s.settings.link) || '/products'}>{button}</a>}
         </span>
@@ -678,7 +691,7 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
   const rate = options.find((o) => o.id === values.rate) ?? options[0]
   const productIds = [...new Set(cart.lines.map((l) => l.productId))]
   const charge = rate ? cartCharge(rate, productIds, cart.subtotal, cart.qty) : 0
-  const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? '', 'aria-invalid': cart.error === name ? true : undefined })
+  const field = (name: keyof OrderValues) => ({ name, defaultValue: values[name] ?? prefill(ctx, name), 'aria-invalid': cart.error === name ? true : undefined })
   return (
     <section className="sf-section">
       <div className="sf-wrap sf-cart">
@@ -739,6 +752,88 @@ function CartBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
               <PolicyNote ctx={ctx} />
             </form>
           </div>}
+      </div>
+    </section>
+  )
+}
+
+const accountErrors: Record<string, Pair> = {
+  name: ['আপনার নাম লিখুন।', 'Enter your name.'],
+  phone: ['সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'Enter a valid mobile number, like 01712345678.'],
+  password: ['পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে।', 'The password needs at least 6 characters.'],
+  wrong: ['মোবাইল নম্বর বা পাসওয়ার্ড মেলেনি।', 'The mobile number or password is wrong.'],
+  taken: ['এই নম্বরে আগেই অ্যাকাউন্ট আছে। লগ ইন করুন।', 'This number already has an account. Sign in instead.'],
+  tooMany: ['অনেকবার ভুল হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।', 'Too many wrong tries. Try again in 15 minutes.'],
+  address: ['ঠিকানা ৫০০ অক্ষরের মধ্যে লিখুন।', 'Keep the address under 500 characters.'],
+  server: ['এখন করা গেল না। একটু পরে আবার চেষ্টা করুন।', 'That did not work. Please try again shortly.'],
+}
+export const orderStatusLabels: Record<string, Pair> = {
+  new: ['নতুন', 'Placed'], hold: ['অপেক্ষায়', 'On hold'], confirmed: ['নিশ্চিত', 'Confirmed'], packed: ['প্যাক হয়েছে', 'Packed'],
+  courier: ['পথে আছে', 'On the way'], delivered: ['পৌঁছেছে', 'Delivered'], returned: ['ফেরত', 'Returned'], cancelled: ['বাতিল', 'Cancelled'],
+}
+
+// /account, /account/login and /account/register: plain forms, no script. Passwords are never echoed back.
+function AccountBlock({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const account = ctx.account
+  if (!account) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>ক্রেতার অ্যাকাউন্টের পেজে এখানে লগ ইন, নতুন অ্যাকাউন্ট আর অর্ডারের তালিকা দেখাবে</Hint></div></section> : null
+  const L = (pair: Pair) => tr(ctx.lang, pair)
+  const error = account.error && <p className="sf-error" role="alert">{L(accountErrors[account.error] ?? accountErrors.server)}</p>
+  const submit = ctx.preview ? 'button' : 'submit'
+  if (account.mode !== 'view') {
+    const register = account.mode === 'register'
+    const next = account.next ? `?next=${encodeURIComponent(account.next)}` : ''
+    return (
+      <section className="sf-section">
+        <div className="sf-wrap sf-narrow sf-account">
+          <h1 className="sf-heading">{register ? L(['নতুন অ্যাকাউন্ট', 'Create account']) : L(['লগ ইন', 'Sign in'])}</h1>
+          {!register && str(s.settings.intro) && <p className="sf-note">{str(s.settings.intro)}</p>}
+          <form className="sf-order" method="post" action={register ? '/account/register' : '/account/login'}>
+            {account.next && <input type="hidden" name="next" value={account.next} />}
+            {register && <label className="sf-field"><span>{L(['আপনার নাম', 'Your name'])}</span><input name="name" autoComplete="name" maxLength={100} required defaultValue={account.values?.name ?? ''} aria-invalid={account.error === 'name' || undefined} /></label>}
+            <label className="sf-field"><span>{L(['মোবাইল নম্বর', 'Mobile number'])}</span><input name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="01XXXXXXXXX" required defaultValue={account.values?.phone ?? ''} aria-invalid={account.error === 'phone' || account.error === 'taken' || undefined} /></label>
+            <label className="sf-field"><span>{L(['পাসওয়ার্ড', 'Password'])}</span><input name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 6 : undefined} maxLength={100} required aria-invalid={account.error === 'password' || account.error === 'wrong' || undefined} /></label>
+            {error}
+            <button className="sf-button sf-button--block" type={submit}>{register ? L(['অ্যাকাউন্ট খুলুন', 'Create account']) : L(['লগ ইন', 'Sign in'])}</button>
+          </form>
+          <p className="sf-account__switch">{register
+            ? <>{L(['আগে থেকেই অ্যাকাউন্ট আছে?', 'Already have an account?'])} <a href={`/account/login${next}`}>{L(['লগ ইন করুন', 'Sign in'])}</a></>
+            : <>{L(['নতুন ক্রেতা?', 'New here?'])} <a href={`/account/register${next}`}>{L(['অ্যাকাউন্ট খুলুন', 'Create an account'])}</a></>}</p>
+        </div>
+      </section>
+    )
+  }
+  const date = (iso: string) => new Date(iso).toLocaleDateString(ctx.lang === 'en' ? 'en-GB' : 'bn-BD', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dhaka' })
+  return (
+    <section className="sf-section">
+      <div className="sf-wrap sf-account">
+        <div className="sf-account__head">
+          <h1 className="sf-heading">{L(['আমার অ্যাকাউন্ট', 'My account'])}</h1>
+          <form method="post" action="/account/logout"><button className="sf-link-button" type={submit}>{L(['লগ আউট', 'Sign out'])}</button></form>
+        </div>
+        <div className="sf-account__grid">
+          <div>
+            <h2 className="sf-account__title">{L(['আমার অর্ডার', 'My orders'])}</h2>
+            {account.orders.length === 0
+              ? <div className="sf-empty"><p>{L(['এই অ্যাকাউন্ট থেকে এখনো কোনো অর্ডার হয়নি।', 'No orders from this account yet.'])}</p><a className="sf-button sf-button--outline" href="/products">{L(['কেনাকাটা করুন', 'Start shopping'])}</a></div>
+              : <ul className="sf-account__orders">{account.orders.map((o) => (
+                <li key={o.number}>
+                  <div><strong>#{num(ctx.lang, o.number, { useGrouping: false })}</strong><span className="sf-account__status">{L(orderStatusLabels[o.status] ?? [o.status, o.status])}</span></div>
+                  <p>{o.items}</p>
+                  <div className="sf-account__meta"><span>{date(o.createdAt)}</span><strong>{taka(o.total, ctx.lang)}</strong></div>
+                </li>
+              ))}</ul>}
+          </div>
+          <form className="sf-order" method="post" action="/account">
+            <h2 className="sf-account__title">{L(['আমার তথ্য', 'My details'])}</h2>
+            <p className="sf-note">{L(['অর্ডার ফর্মে এগুলো আগে থেকেই বসানো থাকবে।', 'These fill in the order form for you.'])}</p>
+            <label className="sf-field"><span>{L(['মোবাইল নম্বর', 'Mobile number'])}</span><input value={account.buyer.phone} readOnly /></label>
+            <label className="sf-field"><span>{L(['আপনার নাম', 'Your name'])}</span><input name="name" autoComplete="name" maxLength={100} required defaultValue={account.buyer.name} aria-invalid={account.error === 'name' || undefined} /></label>
+            <label className="sf-field"><span>{L(['পুরো ঠিকানা', 'Full address'])}</span><textarea name="address" rows={3} autoComplete="street-address" maxLength={500} defaultValue={account.buyer.address} /></label>
+            {error}
+            {account.saved && <p className="sf-account__saved" role="status">{L(['সেভ হয়েছে।', 'Saved.'])}</p>}
+            <button className="sf-button sf-button--block" type={submit}>{L(['সেভ করুন', 'Save'])}</button>
+          </form>
+        </div>
       </div>
     </section>
   )
@@ -807,6 +902,7 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'pageContent': return <PageContent s={s} ctx={ctx} />
     case 'cart': return <CartBlock s={s} ctx={ctx} />
     case 'search': return <SearchBlock s={s} ctx={ctx} />
+    case 'account': return <AccountBlock s={s} ctx={ctx} />
   }
 }
 

@@ -268,8 +268,9 @@ export const sectionDefs = {
       select('sticky', ['স্ক্রল করলে ওপরে আটকে থাকবে', 'Stays on top when scrolling'], [['no', ['না', 'No']], ['yes', ['হ্যাঁ', 'Yes']]]),
       select('showCart', ['কার্টের লিংক', 'Cart link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
       select('showSearch', ['খোঁজার লিংক', 'Search link'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]]),
+      select('showAccount', ['ক্রেতার অ্যাকাউন্টের লিংক', 'Buyer account link'], [['no', ['লুকান', 'Hide']], ['yes', ['দেখান', 'Show']]]),
     ],
-    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes' },
+    defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes', showAccount: 'no' },
   },
   storeFooter: {
     label: ['দোকানের ফুটার', 'Store footer'],
@@ -332,6 +333,12 @@ export const sectionDefs = {
     fields: [heading(), { key: 'columns', kind: 'number', min: 1, max: 6, label: ['ডেস্কটপ কলাম', 'Desktop columns'], group: 'layout' }],
     defaults: { heading: 'খুঁজুন', columns: 4 },
   },
+  // Sign in, sign up and the signed-in buyer's orders and details (/account); what it shows depends on the page.
+  account: {
+    label: ['ক্রেতার অ্যাকাউন্ট', 'Buyer account'],
+    fields: [{ key: 'intro', kind: 'textarea', label: ['লগ ইনের ফর্মের ওপরে ছোট লেখা', 'Short text above the sign-in form'], max: 300 }],
+    defaults: { intro: '' },
+  },
   pageContent: {
     label: ['পেজের লেখা', 'Page content'],
     fields: [select('showTitle', ['শিরোনাম', 'Title'], [['yes', ['দেখান', 'Show']], ['no', ['লুকান', 'Hide']]])],
@@ -346,7 +353,7 @@ export type SectionType = keyof typeof sectionDefs
 export const sectionTypes = Object.keys(sectionDefs) as SectionType[]
 export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 // Blocks that draw the store itself; only theme documents may hold them (readContent with { theme: true }).
-export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search']
+export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search', 'account']
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)

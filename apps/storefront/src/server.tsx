@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { serve } from '@hono/node-server'
 import { sql } from 'drizzle-orm'
 import { Hono, type Context } from 'hono'
@@ -9,14 +9,14 @@ import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
-import { verifyPassword } from '../../api/src/password.ts'
+import { dummyHash, hashPassword, verifyPassword } from '../../api/src/password.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, walk, type Content, type Section, type Settings } from './schema.ts'
 import { isPreset, type PresetId } from './themes.ts'
 import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPreset, type SiteStyle, type TemplateType } from './site.ts'
 import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
 import { num, taka, tr, type Lang } from './words.ts'
-import { cartScript, css, pageScript, PageView, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
+import { cartScript, css, pageScript, PageView, type AccountView, type Buyer, type BuyerOrder, type CartLine, type CartView, type CollectionCard, type Ctx, type GridData, type Img, type OrderValues, type Product, type ProductPage, type ShippingOption, type StoreInfo } from './sections.tsx'
 
 // Stores live at {handle}.{STOREFRONT_DOMAIN}; in development that is {handle}.localhost:8788.
 // A seller's own domain arrives through the domains proxy (deploy/proxy) as Host domains.{STOREFRONT_DOMAIN}, with the buyer's host in X-Store-Host.
@@ -268,6 +268,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
     ...(store ? storeCtx(store, pagePath(c)) : {}),
     cartCount: cartItems(c).reduce((n, [, q]) => n + q, 0),
     policies: store?.policies,
+    buyer: (await buyerOf(c, page.store_id)) ?? undefined,
   }
   const frame = store ? { header, footer } : undefined
   return html(c, (
@@ -289,7 +290,7 @@ function gridBlocks(sections: Section[]) {
 }
 const usesBlock = (sections: Section[], type: string) => sections.some((s) => s.type === type || [...walk(s.children ?? [])].some((n) => n.block?.type === type))
 
-type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[] } }
+type Here = { path: string; product?: ProductPage; collection?: { id: string; name: string; handle: string; description: string }; page?: { title: string; body: string; policy: string | null }; cart?: CartView; search?: { query: string; cards: Card[] }; account?: AccountView }
 
 // A store page drawn with templates: the page's own template (the item's choice or the default), inside the header and
 // footer templates, with the data its store blocks need loaded first.
@@ -343,6 +344,8 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     policies: store.policies,
     cart: here.cart,
     search: here.search,
+    account: here.account,
+    buyer: (await buyerOf(c, store.id)) ?? undefined,
   }
   return html(c, (
     <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel} lang={langOf(store)}>
@@ -641,7 +644,11 @@ app.post('/cart', async (c) => {
   if (!uuidPattern.test(values.rate ?? '')) return reject('rate')
   if ((values.coupon ?? '').length > 30) return reject('coupon')
   try {
-    await tx(null, (t) => t.execute(sql`select * from place_cart_checkout(${values.checkout}::uuid, ${store.id}::uuid, ${JSON.stringify(lines.map((l) => ({ variant: l.variantId, qty: l.qty })))}::jsonb, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${values.coupon ?? ''})`))
+    const buyer = await buyerOf(c, store.id)
+    await tx(null, async (t) => {
+      await t.execute(sql`select * from place_cart_checkout(${values.checkout}::uuid, ${store.id}::uuid, ${JSON.stringify(lines.map((l) => ({ variant: l.variantId, qty: l.qty })))}::jsonb, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${values.coupon ?? ''})`)
+      if (buyer) await t.execute(sql`select storefront_link_order(${store.id}::uuid, ${values.checkout}::uuid, ${buyer.id}::uuid)`)
+    })
     deleteCookie(c, cartName, { path: '/' })
     return c.redirect(`/cart/thanks?receipt=${values.checkout}`, 303)
   } catch (err) {
@@ -661,6 +668,123 @@ app.get('/cart/thanks', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   return store ? thanks(c, store.id, store.name, '/', { look: lookOf(store.style), lang: langOf(store) }) : notFound(c)
+})
+
+// Buyer accounts (phone + password). The session cookie is host-only and holds a random token; the database keeps
+// only its hash. The phone is not verified, so an account sees only orders placed while signed in to it.
+const buyerCookie = 'buyer'
+const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex')
+async function buyerOf(c: Context, storeId: string): Promise<(Buyer & { id: string }) | null> {
+  const token = getCookie(c, buyerCookie)
+  if (!token || token.length > 100) return null
+  const row = (await tx(null, (t) => t.execute<{ id: string; phone: string; name: string; address: string }>(sql`select * from storefront_buyer_session(${storeId}::uuid, ${tokenHash(token)})`))).rows[0]
+  return row ?? null
+}
+async function startSession(c: Context, storeId: string, accountId: string) {
+  const token = randomBytes(32).toString('base64url')
+  await tx(null, (t) => t.execute(sql`select storefront_buyer_session_start(${storeId}::uuid, ${accountId}::uuid, ${tokenHash(token)})`))
+  setCookie(c, buyerCookie, token, { path: '/', sameSite: 'Lax', httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86_400 })
+}
+// Where to go after signing in: a path on this store only, never another site.
+const nextPath = (raw: unknown) => (typeof raw === 'string' && /^\/(?!\/)[^\s\\]*$/.test(raw) && raw.length <= 300 ? raw : '')
+const maxBuyerFailures = 5
+const accountTitle = (store: LoadedStore, account: AccountView) => tr(langOf(store), account.mode === 'login' ? ['লগ ইন', 'Sign in'] : account.mode === 'register' ? ['নতুন অ্যাকাউন্ট', 'Create account'] : ['আমার অ্যাকাউন্ট', 'My account'])
+const renderAccount = (c: Context, store: LoadedStore, account: AccountView, status: 200 | 422 = 200) =>
+  renderThemed(c, store, 'account', { path: '/account', account }, { title: `${accountTitle(store, account)} · ${store.name}`, description: '', noindex: true, status })
+async function accountStore(c: Context) {
+  const handle = storeHandle(c)
+  const store = handle ? await loadStore(handle) : null
+  return store
+}
+async function accountView(c: Context, store: LoadedStore, buyer: Buyer & { id: string }, extra: { saved?: boolean; error?: string } = {}): Promise<AccountView> {
+  const orders = (await tx(null, (t) => t.execute<{ number: number; status: string; total: number; created_at: string; items: string | null }>(sql`select * from storefront_buyer_orders(${store.id}::uuid, ${buyer.id}::uuid)`))).rows
+  return { mode: 'view', buyer: { name: buyer.name, phone: buyer.phone, address: buyer.address }, orders: orders.map((o): BuyerOrder => ({ number: o.number, status: o.status, total: o.total, createdAt: new Date(o.created_at).toISOString(), items: o.items ?? '' })), ...extra }
+}
+
+app.get('/account', async (c) => {
+  const store = await accountStore(c)
+  if (!store) return notFound(c)
+  if (locked(c, store)) return passwordPage(c, store)
+  const buyer = await buyerOf(c, store.id)
+  if (!buyer) return c.redirect('/account/login', 303)
+  return renderAccount(c, store, await accountView(c, store, buyer, { saved: c.req.query('saved') === '1' }))
+})
+for (const mode of ['login', 'register'] as const) {
+  app.get(`/account/${mode}`, async (c) => {
+    const store = await accountStore(c)
+    if (!store) return notFound(c)
+    if (locked(c, store)) return passwordPage(c, store)
+    const next = nextPath(c.req.query('next'))
+    if (await buyerOf(c, store.id)) return c.redirect(next || '/account', 303)
+    return renderAccount(c, store, { mode, next })
+  })
+}
+app.post('/account/login', async (c) => {
+  const store = await accountStore(c)
+  if (!store) return notFound(c)
+  if (locked(c, store) || !fromThisSite(c)) return c.redirect('/account/login', 303)
+  const form = await c.req.parseBody()
+  const typed = typeof form.phone === 'string' ? form.phone.trim() : ''
+  const password = typeof form.password === 'string' ? form.password : ''
+  const next = nextPath(form.next)
+  const fail = (error: string) => renderAccount(c, store, { mode: 'login', error, values: { phone: typed }, next }, 422)
+  const phone = readPhone(typed)
+  if (!phone) return fail('phone')
+  const failures = (await tx(null, (t) => t.execute<{ n: number }>(sql`select storefront_buyer_failures(${store.id}::uuid, ${phone}) as n`))).rows[0]?.n ?? 0
+  if (failures >= maxBuyerFailures) return fail('tooMany')
+  const account = (await tx(null, (t) => t.execute<{ id: string; password_hash: string }>(sql`select * from storefront_buyer_password(${store.id}::uuid, ${phone})`))).rows[0]
+  // A number with no account is checked against a dummy hash, so the time taken does not reveal which numbers exist.
+  const ok = await verifyPassword(password.slice(0, 100), account?.password_hash ?? dummyHash)
+  if (!account || !ok) {
+    await tx(null, (t) => t.execute(sql`select storefront_buyer_failed(${store.id}::uuid, ${phone})`))
+    return fail('wrong')
+  }
+  await startSession(c, store.id, account.id)
+  return c.redirect(next || '/account', 303)
+})
+app.post('/account/register', async (c) => {
+  const store = await accountStore(c)
+  if (!store) return notFound(c)
+  if (locked(c, store) || !fromThisSite(c)) return c.redirect('/account/register', 303)
+  const form = await c.req.parseBody()
+  const name = typeof form.name === 'string' ? form.name.trim() : ''
+  const typed = typeof form.phone === 'string' ? form.phone.trim() : ''
+  const password = typeof form.password === 'string' ? form.password : ''
+  const next = nextPath(form.next)
+  const fail = (error: string) => renderAccount(c, store, { mode: 'register', error, values: { name, phone: typed }, next }, 422)
+  const phone = readPhone(typed)
+  if (!name || name.length > 100) return fail('name')
+  if (!phone) return fail('phone')
+  if (password.length < 6 || password.length > 100) return fail('password')
+  let id: string
+  try {
+    id = (await tx(null, async (t) => (await t.execute<{ id: string }>(sql`select storefront_buyer_register(${store.id}::uuid, ${phone}, ${name}, ${await hashPassword(password)}) as id`)).rows[0])).id
+  } catch (err) {
+    if (databaseCode(err) === '23505') return fail('taken')
+    throw err
+  }
+  await startSession(c, store.id, id)
+  return c.redirect(next || '/account', 303)
+})
+app.post('/account', async (c) => {
+  const store = await accountStore(c)
+  if (!store) return notFound(c)
+  const buyer = await buyerOf(c, store.id)
+  if (!buyer || locked(c, store) || !fromThisSite(c)) return c.redirect('/account', 303)
+  const form = await c.req.parseBody()
+  const name = typeof form.name === 'string' ? form.name.trim() : ''
+  const address = typeof form.address === 'string' ? form.address.trim() : ''
+  if (!name || name.length > 100) return renderAccount(c, store, await accountView(c, store, { ...buyer, name }, { error: 'name' }), 422)
+  if (address.length > 500) return renderAccount(c, store, await accountView(c, store, { ...buyer, address }, { error: 'address' }), 422)
+  await tx(null, (t) => t.execute(sql`select storefront_buyer_update(${store.id}::uuid, ${buyer.id}::uuid, ${name}, ${address})`))
+  return c.redirect('/account?saved=1', 303)
+})
+app.post('/account/logout', async (c) => {
+  const store = await accountStore(c)
+  const token = getCookie(c, buyerCookie)
+  if (store && token && fromThisSite(c)) await tx(null, (t) => t.execute(sql`select storefront_buyer_session_end(${store.id}::uuid, ${tokenHash(token)})`))
+  deleteCookie(c, buyerCookie, { path: '/' })
+  return c.redirect('/', 303)
 })
 
 app.get('/search', async (c) => {
@@ -712,8 +836,13 @@ async function takeOrder(c: Context, o: { storeId: string; pageId: string | null
   if ((values.coupon ?? '').length > 30) return reject('coupon')
 
   try {
-    await tx(null, async (t) => (await t.execute<{ number: number; total: number }>(sql`
-      select * from place_checkout(${values.checkout}::uuid, ${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${o.source}, ${values.coupon ?? ''})`)).rows[0])
+    const buyer = await buyerOf(c, o.storeId)
+    await tx(null, async (t) => {
+      await t.execute(sql`
+      select * from place_checkout(${values.checkout}::uuid, ${o.storeId}::uuid, ${o.pageId}::uuid, ${variant.id}::uuid, ${quantity}, ${values.name}, ${phone}, ${values.address}, ${values.rate}::uuid, ${o.source}, ${values.coupon ?? ''})`)
+      // Signed in: the order shows in their account (a retry with the same token links the same order, once).
+      if (buyer) await t.execute(sql`select storefront_link_order(${o.storeId}::uuid, ${values.checkout}::uuid, ${buyer.id}::uuid)`)
+    })
     return c.redirect(`${o.back}/thanks?receipt=${values.checkout}`, 303)
   } catch (err) {
     if (databaseCode(err) === 'UD017') return reject('checkout')

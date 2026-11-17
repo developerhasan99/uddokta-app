@@ -16,11 +16,11 @@ type Form = Pick<Menu, 'title' | 'handle' | 'items'>
 export type Target = { type: LinkType; id: string; title: string; handle: string; visible: boolean }
 
 const linkLabels: Record<LinkType, Key> = {
-  home: 'menuLinkHome', products: 'menuLinkProducts', collections: 'menuLinkCollections', search: 'menuLinkSearchPage', cart: 'menuLinkCart', collection: 'menuLinkCollection', product: 'menuLinkProduct',
+  home: 'menuLinkHome', products: 'menuLinkProducts', collections: 'menuLinkCollections', search: 'menuLinkSearchPage', cart: 'menuLinkCart', account: 'menuLinkAccount', collection: 'menuLinkCollection', product: 'menuLinkProduct',
   page: 'menuLinkPage', storePage: 'menuLinkStorePage', url: 'menuLinkUrl', phone: 'menuLinkPhone', whatsapp: 'menuLinkWhatsapp',
 }
 // The kinds offered in the picker.
-const pickable: LinkType[] = ['home', 'products', 'collections', 'collection', 'product', 'storePage', 'page', 'search', 'cart', 'url', 'phone', 'whatsapp']
+const pickable: LinkType[] = ['home', 'products', 'collections', 'collection', 'product', 'storePage', 'page', 'search', 'cart', 'account', 'url', 'phone', 'whatsapp']
 const needsId = (type: LinkType) => (idLinkTypes as readonly string[]).includes(type)
 const needsText = (type: LinkType) => type === 'url' || type === 'phone' || type === 'whatsapp'
 

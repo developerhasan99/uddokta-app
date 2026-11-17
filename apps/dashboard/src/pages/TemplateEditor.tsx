@@ -125,6 +125,8 @@ export function TemplateEditor() {
             lines: preview.cards.slice(0, 2).map((x) => ({ variantId: x.id, productId: x.id, name: x.name, handle: x.handle, label: '', price: x.price, comparePrice: x.comparePrice, qty: 1, image: x.image, available: true })),
             subtotal: preview.cards.slice(0, 2).reduce((n, x) => n + x.price, 0), qty: Math.min(2, preview.cards.length), checkoutToken: '',
           } } : {}),
+          // The account template previews its sign-in form (the page a signed-out buyer sees first).
+          ...(type === 'account' ? { account: { mode: 'login' as const } } : {}),
           ...(type === 'search' ? { search: { query: preview.cards[0]?.name.split(' ')[0] ?? '', cards: preview.cards.slice(0, 4) } } : {}),
         },
       }

@@ -874,3 +874,60 @@ test('the store language sets the store’s own words and digits on landing page
   await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, language: 'bn' })
   assert.match(await (await visit(s.handle, '/')).text(), />খুঁজুন</)
 })
+
+test('buyer accounts: sign up, saved details fill the order form, only orders placed while signed in show, and nothing leaks between buyers or stores', async () => {
+  const s = await publishedPage()
+  const form = (path: string, fields: Record<string, string>, cookie = '', origin?: string) =>
+    visit(s.handle, path, { method: 'POST', body: new URLSearchParams(fields), headers: { 'content-type': 'application/x-www-form-urlencoded', cookie, ...(origin ? { origin } : {}) } })
+  const cookieOf = (res: Response) => res.headers.get('set-cookie')!.split(';')[0]
+
+  assert.equal((await visit(s.handle, '/account')).headers.get('location'), '/account/login', 'signed out goes to sign in')
+  assert.match(await (await visit(s.handle, '/account/login')).text(), /action="\/account\/login"/)
+  assert.equal((await form('/account/register', { name: 'রাফি', phone: '01712345678', password: '123' })).status, 422, 'short password')
+  const made = await form('/account/register', { name: 'রাফি', phone: '০১৭১২-৩৪৫৬৭৮', password: 'secret12', next: '//evil.example' })
+  assert.equal(made.status, 303)
+  assert.equal(made.headers.get('location'), '/account', 'next must be a path on this store')
+  const rafi = cookieOf(made)
+  assert.match(made.headers.get('set-cookie')!, /HttpOnly/)
+  assert.match((await (await form('/account/register', { name: 'আরেকজন', phone: '01712345678', password: 'secret12' })).text()), /আগেই অ্যাকাউন্ট আছে/, 'one account per number')
+
+  // Saved details fill the order form; an order placed while signed in shows in the account.
+  await form('/account', { name: 'রাফি আহমেদ', address: 'বাসা ১২, ধানমন্ডি, ঢাকা' }, rafi)
+  const landing = await (await visit(s.handle, s.url, { headers: { cookie: rafi } })).text()
+  assert.match(landing, /value="রাফি আহমেদ"/)
+  assert.match(landing, /বাসা ১২, ধানমন্ডি, ঢাকা/)
+  const checkout = randomUUID()
+  const fields = { checkout, section: s.orderSection, variant: s.product.variants[0].id, quantity: '1', name: 'রাফি আহমেদ', phone: '01712345678', address: 'বাসা ১২, ধানমন্ডি, ঢাকা', rate: s.inside }
+  assert.equal((await form(s.url, fields, rafi)).status, 303)
+  assert.equal((await form(s.url, fields, rafi)).status, 303, 'a retry links the same order once')
+  await order(s.handle, s.url, { ...fields, name: 'অতিথি' })
+  const account = await (await visit(s.handle, '/account', { headers: { cookie: rafi } })).text()
+  assert.match(account, /পাঞ্জাবি/)
+  assert.equal((account.match(/<li><div><strong>#/g) ?? []).length, 1, 'the guest order with the same number is not shown')
+
+  // Another buyer sees none of it; a wrong password counts and five lock the number for a while.
+  const nusrat = cookieOf(await form('/account/register', { name: 'নুসরাত', phone: '01812345678', password: 'another1' }))
+  assert.match(await (await visit(s.handle, '/account', { headers: { cookie: nusrat } })).text(), /এখনো কোনো অর্ডার হয়নি/)
+  for (let i = 0; i < 5; i++) assert.equal((await form('/account/login', { phone: '01812345678', password: 'nope' })).status, 422)
+  assert.match(await (await form('/account/login', { phone: '01812345678', password: 'another1' })).text(), /১৫ মিনিট পরে/)
+  const back = await form('/account/login', { phone: '01712345678', password: 'secret12', next: '/cart' })
+  assert.equal(back.headers.get('location'), '/cart')
+
+  // Posts from other sites change nothing; signing out ends the session in the database.
+  assert.equal((await form('/account', { name: 'হ্যাকড', address: '' }, rafi, 'https://evil.example')).headers.get('location'), '/account')
+  assert.doesNotMatch(await (await visit(s.handle, '/account', { headers: { cookie: rafi } })).text(), /হ্যাকড/)
+  await form('/account/logout', {}, rafi)
+  assert.equal((await visit(s.handle, '/account', { headers: { cookie: rafi } })).headers.get('location'), '/account/login')
+
+  // The same cookie means nothing on another store, and the app role cannot read accounts directly.
+  const other = await publishedPage()
+  assert.equal((await visit(other.handle, '/account', { headers: { cookie: nusrat } })).headers.get('location'), '/account/login')
+  const client = await pool.connect()
+  try {
+    await client.query('begin; set local role uddokta_app')
+    await assert.rejects(client.query('select * from buyer_accounts'))
+  } finally {
+    await client.query('rollback')
+    client.release()
+  }
+})

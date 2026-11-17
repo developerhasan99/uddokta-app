@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { CircleCheck, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
+import { CircleCheck, CircleUser, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
 import { readyMade, templateLabels, templateTypes, type TemplateType } from 'storefront/site'
 
 export { templateLabels }
@@ -24,12 +24,13 @@ const typeHelp: Record<TemplateType, readonly [string, string]> = {
   collections: ['দোকানের সব কালেকশন।', 'All the store’s collections.'],
   page: ['"আমাদের কথা", নীতি ও অন্য পেজ।', 'About, policies and other pages.'],
   cart: ['কার্ট ও চেকআউট।', 'Cart and checkout.'],
+  account: ['ক্রেতার লগ ইন, নতুন অ্যাকাউন্ট ও তার অর্ডার।', 'Buyer sign-in, sign-up and their orders.'],
   search: ['খোঁজার পেজ ও ফল।', 'The search page and results.'],
   notFound: ['ভুল লিংকে যা দেখায়।', 'What a wrong link shows.'],
 }
 const typeIcons: Record<TemplateType, typeof Home> = {
   header: PanelTop, footer: PanelBottom, home: Home, product: Package, collection: Folder, products: LayoutGrid, collections: Folders,
-  page: FileText, cart: ShoppingCart, search: Search, notFound: TriangleAlert,
+  page: FileText, cart: ShoppingCart, search: Search, account: CircleUser, notFound: TriangleAlert,
 }
 
 // Online store › Templates (like Elementor Pro's Theme Builder): every part of the store is a template made in the page
