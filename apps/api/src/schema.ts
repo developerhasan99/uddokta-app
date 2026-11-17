@@ -11,8 +11,43 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
+  // Set when the owner follows a verification or password-reset link sent to this address.
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)])
+
+// Single-use links sent by email (password reset, email verification). Only the sha256 of the token is kept.
+// Reached through SECURITY DEFINER functions only, like sessions.
+export const accountTokens = pgTable('account_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purpose: text('purpose').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [check('account_tokens_purpose', sql`${t.purpose} in ('reset', 'verify')`), index('account_tokens_user').on(t.userId, t.purpose, t.createdAt)])
+
+// Outgoing email, sent by the outbox loop in email.ts. The body is cleared once sent, so old links are not kept.
+export const outboxEmails = pgTable('outbox_emails', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  toEmail: text('to_email').notNull(),
+  kind: text('kind').notNull(),
+  subject: text('subject').notNull(),
+  textBody: text('text_body'),
+  htmlBody: text('html_body'),
+  status: text('status').notNull().default('queued'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+  lastError: text('last_error'),
+  createdAt: createdAt(),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+}, (t) => [check('outbox_emails_status', sql`${t.status} in ('queued', 'sent', 'failed', 'suppressed')`), index('outbox_emails_due').on(t.status, t.nextAttemptAt)])
+
+// Addresses that hard-bounced or complained (reported by SES through SNS). Nothing is sent to them again.
+export const emailSuppressions = pgTable('email_suppressions', {
+  email: text('email').primaryKey(),
+  reason: text('reason').notNull(),
+  createdAt: createdAt(),
+}, (t) => [check('email_suppressions_reason', sql`${t.reason} in ('bounce', 'complaint')`)])
 
 // Kept apart from users so a user query can never select a password hash.
 export const userCredentials = pgTable('user_credentials', {

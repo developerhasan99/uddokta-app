@@ -7,6 +7,7 @@ import { channels, nav, settingsItem, type NavItem } from '../nav'
 import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
 import { animateOut, backdropProps } from './dialog'
+import { VerifyEmailBar } from '../pages/Auth'
 import { NotificationBell, useNotificationFeed, type NotificationFeed } from './Notifications'
 
 function NavRow({ item }: { item: NavItem }) {
@@ -132,6 +133,7 @@ function StoreShell() {
         <span className="mobilebar__end"><NotificationBell feed={feed} handle={handle} align="end" /></span>
       </header>
       <main id="main" className="shell__main" tabIndex={-1}>
+        <VerifyEmailBar />
         <Outlet />
       </main>
     </div>
@@ -174,6 +176,7 @@ export function AccountLayout({ children }: { children?: React.ReactNode }) {
         <AppMenu />
       </header>
       <main id="main" className="account__panel" tabIndex={-1}>
+        <VerifyEmailBar />
         {children ?? <Outlet />}
       </main>
     </div>

@@ -51,6 +51,14 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 - UI permission checks are only for display. The database and API are the real enforcement.
 - Settings › Team shows what each role can do from `apps/dashboard/src/permissions.ts`. That list only explains the rules: when a role rule changes in the database or API, update it in the same change.
 
+## Account email
+
+- Password reset, email verification (and later other account email) go through `apps/api/src/email.ts`: `sendEmail` queues a row with `queue_email` inside the request and starts `drainOutbox`, which sends through Amazon SES (API v2 over HTTPS with `aws4fetch`, no SMTP) when `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` are set (`AWS_REGION`, default `ap-southeast-1`; `EMAIL_FROM`, default `Uddokta <no-reply@uddokta.co>`; optional `SES_CONFIGURATION_SET`). Without keys, development writes each email to `.emails/` (tests use `EMAIL_DIR`) and production sends nothing. Failures retry (1, 2, 4, 8 minutes, 5 tries) from a one-minute timer in `index.ts`; unsent emails are dropped after an hour (their links have expired). Sent bodies are cleared.
+- Links point at `APP_URL` (the dashboard origin; `http://localhost:5173` in development), never at the request's host. Until both `APP_URL` and the SES keys are set in production (`emailReady`), nothing is sent: the verification bar is hidden (`/me` reports verified) and `/auth/forgot` answers 503 `emailUnavailable` instead of promising a link.
+- `account_tokens`, `outbox_emails` and `email_suppressions` have no grants: only the definer functions in migration 0095 reach them (a test proves it). Tokens are random, stored as sha256, single use. Reset: 30 minutes, 3 an hour per account, `/auth/forgot` answers the same whether or not the email has an account, using the link sets the password, ends every session and marks the email verified. Verification: 7 days, sent at sign-up, resent from the dashboard bar (`VerifyEmailBar`), 3 an hour. Nothing is blocked for unverified accounts yet.
+- SES reports permanent bounces and complaints to an SNS topic that posts to `/api/ses/events` (registered before the CSRF check). Only messages signed by SNS from `SES_EVENTS_TOPIC_ARN` are accepted; the addresses go into `email_suppressions` and get nothing again. Our SES production-access request promised this, so keep it working.
+- Every email is a Bangla/English pair in `email.ts`, in the language the dashboard was using.
+
 ## Development
 
 - `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, storefront on 8788 at `http://{store}.localhost:8788`, Postgres on 5433).

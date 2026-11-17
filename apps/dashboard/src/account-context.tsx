@@ -5,7 +5,7 @@ import { Button, Notice } from './components/ui'
 import { useLang } from './i18n'
 
 export type Role = 'owner' | 'admin' | 'staff'
-export type User = { id: string; name: string; email: string }
+export type User = { id: string; name: string; email: string; emailVerified: boolean }
 export type Store = { id: string; handle: string; name: string }
 export type MyStore = { store: Store; role: Role }
 

@@ -29,6 +29,7 @@ import { isId, registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
+import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
 import { readLocalFile } from './storage.ts'
 import { present } from './media.ts'
 import { media, roles, shippingRates, storeInvites, storeMembers, stores, templates, users, type Role, warehouses } from './schema.ts'
@@ -97,6 +98,9 @@ export async function storeByHandle(t: Tx, handle: string) {
 
 export const app = new Hono<Env>().basePath('/api')
 
+// SES bounce and complaint reports: signed by SNS, so they skip the browser-only CSRF check below.
+registerEmailEvents(app)
+
 // Compares hosts, not full origins: behind Railway's proxy the app sees http while browsers send https.
 app.use(csrf({
   origin: (origin, c) => {
@@ -136,7 +140,56 @@ app.post('/auth/signup', async (c) => {
     throw err
   }
   await startSession(c, id)
+  await sendVerification(id, email, name, readLang(body.lang))
   return c.json({ ok: true }, 201)
+})
+
+const resetMinutes = 30
+const verifyDays = 7
+
+// A verification link for an unverified account (at most 3 an hour; false when nothing was sent).
+async function sendVerification(userId: string, email: string, name: string, lang: Lang) {
+  const base = appUrl()
+  if (!base || !emailReady()) return false
+  const token = newToken()
+  const started = await tx(null, (t) => one<{ ok: boolean }>(t, sql`select start_email_verification(${userId}::uuid, ${hash(token)}, ${`${verifyDays} days`}::interval) as ok`))
+  if (!started?.ok) return false
+  await sendEmail(email, 'verify', verifyEmail(lang, name, `${base}/verify-email/${token}`))
+  return true
+}
+
+// Always the same answer, whether or not the email has an account (and whatever the hourly limit did).
+app.post('/auth/forgot', async (c) => {
+  const body = await readBody(c)
+  const email = text(body, 'email').toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, 'emailInvalid')
+  const base = appUrl()
+  if (!emailReady() || !base) throw fail(503, 'emailUnavailable')
+  const token = newToken()
+  const found = await tx(null, (t) => one<{ name: string }>(t, sql`select * from start_password_reset(${email}, ${hash(token)}, ${`${resetMinutes} minutes`}::interval)`))
+  if (found) await sendEmail(email, 'reset', resetEmail(readLang(body.lang), found.name, `${base}/reset-password/${token}`))
+  return c.json({ ok: true })
+})
+
+// Uses the link once, sets the password, signs out everywhere else and signs in here.
+app.post('/auth/reset', async (c) => {
+  const body = await readBody(c)
+  const token = text(body, 'token')
+  const password = typeof body.password === 'string' ? body.password : ''
+  if (password.length < 8) throw fail(400, 'weakPassword')
+  const userId = token && await tx(null, async (t) => (await one<{ id: string | null }>(t, sql`select finish_password_reset(${hash(token)}, ${await hashPassword(password)}) as id`))?.id)
+  if (!userId) throw fail(400, 'linkInvalid')
+  await startSession(c, userId)
+  return c.json({ ok: true })
+})
+
+// Open: the link may be opened in a browser that is not signed in.
+app.post('/auth/verify', async (c) => {
+  const body = await readBody(c)
+  const token = text(body, 'token')
+  const userId = token && await tx(null, async (t) => (await one<{ id: string | null }>(t, sql`select finish_email_verification(${hash(token)}) as id`))?.id)
+  if (!userId) throw fail(400, 'linkInvalid')
+  return c.json({ ok: true })
 })
 
 app.post('/auth/login', async (c) => {
@@ -196,15 +249,25 @@ app.use('*', async (c, next) => {
 app.get('/me', async (c) => {
   const userId = c.get('userId')
   return tx(userId, async (t) => {
-    const [user] = await t.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, userId))
+    const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
     const myStores = await t
       .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role })
       .from(storeMembers)
       .innerJoin(stores, eq(stores.id, storeMembers.storeId))
       .where(eq(storeMembers.userId, userId))
       .orderBy(asc(storeMembers.createdAt))
-    return c.json({ user, stores: myStores })
+    return c.json({ user: { ...user, emailVerified: verifiedAt !== null || !emailReady() }, stores: myStores })
   })
+})
+
+// Sends the verification link again. 429 when three were sent in the last hour (or email is not set up).
+app.post('/me/verify-email', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({}))
+  const [user] = await tx(userId, (t) => t.select({ name: users.name, email: users.email, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId)))
+  if (user.verifiedAt) return c.json({ ok: true })
+  if (!(await sendVerification(userId, user.email, user.name, readLang(body?.lang)))) throw fail(429, 'tooManyEmails')
+  return c.json({ ok: true })
 })
 
 app.post('/stores', async (c) => {

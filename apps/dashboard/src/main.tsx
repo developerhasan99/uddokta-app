@@ -8,7 +8,7 @@ import { AccountProvider, lastStoreHandle, RequireAccount, useAccount } from './
 import { LangProvider } from './i18n'
 import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
-import { Invite, Login, Signup } from './pages/Auth'
+import { ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Menus } from './pages/Menus'
@@ -69,6 +69,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
             <Route path="invite/:token" element={<Invite />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password/:token" element={<ResetPassword />} />
+            <Route path="verify-email/:token" element={<VerifyEmail />} />
             <Route element={<RequireAccount />}>
               <Route index element={<Start />} />
               <Route element={<AccountLayout />}>

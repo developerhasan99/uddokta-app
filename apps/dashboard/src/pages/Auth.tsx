@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Check, Eye, EyeOff } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Check, Eye, EyeOff, MailCheck } from 'lucide-react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession, type Role } from '../account-context'
 import { api, errorCode } from '../api'
@@ -104,6 +104,7 @@ export function Login() {
         {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         <Field id="login-email" name="email" type="email" label={t('emailLabel')} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <PasswordField id="login-password" autoComplete="current-password" value={password} onChange={setPassword} />
+        <Link className="auth__link auth__forgot" to={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}>{t('forgotLink')}</Link>
         <Button type="submit" variant="primary" aria-busy={busy}>{t('loginAction')}</Button>
       </form>
       <p className="muted auth__switch">
@@ -114,7 +115,7 @@ export function Login() {
 }
 
 export function Signup() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const { state, refresh } = useSession()
   const next = useNext()
   const [name, setName] = useState('')
@@ -131,7 +132,7 @@ export function Signup() {
     setBusy(true)
     setError(null)
     try {
-      await api('/auth/signup', { method: 'POST', body: { name, email, password } })
+      await api('/auth/signup', { method: 'POST', body: { name, email, password, lang } })
       await refresh()
     } catch (err) {
       setError(errorCode(err))
@@ -212,5 +213,133 @@ export function Invite() {
           </div>
         )}
     </AuthLayout>
+  )
+}
+
+export function ForgotPassword() {
+  const { t, lang } = useLang()
+  const [params] = useSearchParams()
+  const [email, setEmail] = useState(params.get('email') ?? '')
+  const [sent, setSent] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api('/auth/forgot', { method: 'POST', body: { email, lang } })
+      setSent(email.trim())
+    } catch (err) {
+      setError(errorCode(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AuthLayout title={t('forgotTitle')} description={sent ? undefined : t('forgotD')}>
+      {sent
+        ? <p className="auth__sent" role="status"><MailCheck size={18} aria-hidden="true" />{t('forgotSent', { email: sent })}</p>
+        : (
+          <form className="auth__form" onSubmit={submit} noValidate>
+            <Field id="forgot-email" name="email" type="email" label={t('emailLabel')} autoComplete="email" value={email} error={error ? t(errorLabel(error)) : undefined} onChange={(e) => setEmail(e.target.value)} />
+            <Button type="submit" variant="primary" aria-busy={busy}>{t('forgotAction')}</Button>
+          </form>
+        )}
+      <p className="muted auth__switch"><Link className="auth__link" to="/login">{t('backToLogin')}</Link></p>
+    </AuthLayout>
+  )
+}
+
+export function ResetPassword() {
+  const { t } = useLang()
+  const { token } = useParams()
+  const { refresh } = useSession()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api('/auth/reset', { method: 'POST', body: { token, password } })
+      await refresh()
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(errorCode(err))
+      setBusy(false)
+    }
+  }
+
+  if (error === 'linkInvalid') {
+    return (
+      <AuthLayout title={t('errLinkInvalid')}>
+        <div className="auth__form">
+          <LinkButton to="/forgot-password" variant="primary">{t('resetAgain')}</LinkButton>
+          <LinkButton to="/login">{t('backToLogin')}</LinkButton>
+        </div>
+      </AuthLayout>
+    )
+  }
+  return (
+    <AuthLayout title={t('resetTitle')} description={t('resetD')}>
+      <form className="auth__form" onSubmit={submit} noValidate>
+        {error && error !== 'weakPassword' && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+        <PasswordField id="reset-password" autoComplete="new-password" help={t('passwordHelp')} value={password} error={error === 'weakPassword' ? t(errorLabel(error)) : undefined} onChange={setPassword} />
+        <Button type="submit" variant="primary" aria-busy={busy}>{t('resetAction')}</Button>
+      </form>
+    </AuthLayout>
+  )
+}
+
+// Opened from the verification email; the link works whether or not this browser is signed in.
+export function VerifyEmail() {
+  const { t } = useLang()
+  const { token } = useParams()
+  const { state, refresh } = useSession()
+  const [result, setResult] = useState<'done' | string | null>(null)
+  const started = useRef(false)
+
+  useEffect(() => {
+    if (started.current) return // the link works once; development renders effects twice
+    started.current = true
+    api('/auth/verify', { method: 'POST', body: { token } })
+      .then(() => { setResult('done'); void refresh() }, (err) => setResult(errorCode(err)))
+  }, [token, refresh])
+
+  if (result === null) return <AuthLayout title={t('verifyTitle')}><div role="status" aria-label={t('loading')} /></AuthLayout>
+  const next = <LinkButton to={state.status === 'ready' ? '/' : '/login'} variant="primary">{state.status === 'ready' ? t('continueAction') : t('loginAction')}</LinkButton>
+  return result === 'done'
+    ? <AuthLayout title={t('verifyDone')} description={t('verifyDoneBody')}><div className="auth__form">{next}</div></AuthLayout>
+    : <AuthLayout title={t(errorLabel(result))}><div className="auth__form">{next}</div></AuthLayout>
+}
+
+// Shown above every signed-in screen until the account's email is confirmed.
+export function VerifyEmailBar() {
+  const { t, lang } = useLang()
+  const { state } = useSession()
+  const [sent, setSent] = useState<'sent' | string | null>(null)
+  if (state.status !== 'ready' || state.me.user.emailVerified) return null
+  const resend = async () => {
+    try {
+      await api('/me/verify-email', { method: 'POST', body: { lang } })
+      setSent('sent')
+    } catch (err) {
+      setSent(errorCode(err))
+    }
+  }
+  return (
+    <div className="verify-bar" role="status">
+      <MailCheck size={16} aria-hidden="true" />
+      <span>{sent && sent !== 'sent' ? t(errorLabel(sent)) : t('verifyBar', { email: state.me.user.email })}</span>
+      {sent === 'sent' ? <span className="verify-bar__done">{t('verifyResent')}</span> : sent === null && <button type="button" className="verify-bar__action" onClick={() => void resend()}>{t('verifyResend')}</button>}
+    </div>
   )
 }
