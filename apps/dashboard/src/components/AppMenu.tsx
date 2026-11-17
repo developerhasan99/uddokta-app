@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronsUpDown, LayoutGrid, LogOut, Plus, UserRound } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, LayoutGrid, LogOut, Plus } from 'lucide-react'
 import { useAccount, useCurrentStore, type Role } from '../account-context'
 import { useLang, type Key, type Lang } from '../i18n'
 
@@ -80,18 +80,16 @@ export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 
             </Dropdown.RadioGroup>
           </Dropdown.Group>
 
-          <div className="menu__account">
+          {/* The person's name and email open their Profile. */}
+          <Dropdown.Item className="menu__account" aria-label={`${t('profile')}: ${me.name}`} onSelect={() => navigate('/account')}>
             <StoreMark name={me.name} round />
             <span className="menu__text">
               <span className="menu__title">{me.name}</span>
               <span className="menu__sub">{me.email}</span>
             </span>
-          </div>
+            <ChevronRight className="menu__account-go" size={16} aria-hidden="true" />
+          </Dropdown.Item>
           <Dropdown.Group className="menu__section menu__section--ruled">
-            <Dropdown.Item className="menu__item menu__action" onSelect={() => navigate('/account')}>
-              <UserRound size={16} aria-hidden="true" />
-              {t('profile')}
-            </Dropdown.Item>
             <Dropdown.Item className="menu__item menu__action" onSelect={() => void logout()}>
               <LogOut size={16} aria-hidden="true" />
               {t('logout')}
