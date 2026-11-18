@@ -59,15 +59,12 @@ api.post('/auth/login', async (c) => {
     return fail(401, 'invalidCredentials')
   }
   if (!found || !valid) throw await refuse()
+  // Not an active administrator: no session is ever made (console_check raises for anyone else).
+  const admin = await tx(null, (t) => t.execute(sql`select console_check(${found.user_id}::uuid)`)).then(() => true, () => false)
+  if (!admin) throw await refuse()
   const token = newToken()
   const expires = new Date(Date.now() + sessionHours * 3_600_000)
-  const admitted = await tx(null, async (t) => {
-    await t.execute(sql`select create_session(${hash(token)}, ${found.user_id}::uuid, ${expires.toISOString()}::timestamptz)`)
-    const ok = (await one<{ id: string | null }>(t, sql`select console_session(${hash(token)}) as id`))?.id
-    if (!ok) await t.execute(sql`select delete_session(${hash(token)})`)
-    return Boolean(ok)
-  })
-  if (!admitted) throw await refuse()
+  await tx(null, (t) => t.execute(sql`select create_session(${hash(token)}, ${found.user_id}::uuid, ${expires.toISOString()}::timestamptz)`))
   await tx(null, (t) => t.execute(sql`select clear_login_failures(${email})`))
   setCookie(c, consoleCookie, token, { httpOnly: true, sameSite: 'Strict', secure: process.env.NODE_ENV === 'production', path: '/', expires })
   return c.json({ ok: true })

@@ -49,6 +49,8 @@ test('only platform administrators, with a console sign-in less than 12 hours ol
   assert.equal((await client('console')('POST', '/auth/login', { email: seller.email, password: 'wrong' })).json.error, 'invalidCredentials')
   const { rows: [{ n }] } = await pool.query('select count(*)::int as n from login_failures where email = $1', [seller.email])
   assert.equal(n, 2, 'both attempts count towards the lockout')
+  const { rows: [{ s: sessions }] } = await pool.query('select count(*)::int as s from sessions where user_id = $1', [seller.id])
+  assert.equal(sessions, 1, 'only their dashboard session: the console never made one')
   const admin = await administrator()
   assert.equal((await admin.call('GET', '/console/me')).json.email, admin.email)
   assert.equal((await client('console')('GET', '/console/me')).json.error, 'consoleSignIn', 'the dashboard session is not a console session')
