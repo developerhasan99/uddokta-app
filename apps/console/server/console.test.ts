@@ -44,9 +44,11 @@ async function administrator() {
 test('only platform administrators, with a console sign-in less than 12 hours old', async () => {
   const seller = await person()
   const asSeller = client('console')
-  assert.equal((await asSeller('POST', '/auth/login', { email: seller.email, password: 'correct horse' })).json.error, 'notAdmin', 'a seller cannot sign in')
+  assert.equal((await asSeller('POST', '/auth/login', { email: seller.email, password: 'correct horse' })).json.error, 'invalidCredentials', 'a seller cannot sign in, and is not told their password was right')
   assert.equal((await asSeller('GET', '/console/overview')).json.error, 'consoleSignIn')
   assert.equal((await client('console')('POST', '/auth/login', { email: seller.email, password: 'wrong' })).json.error, 'invalidCredentials')
+  const { rows: [{ n }] } = await pool.query('select count(*)::int as n from login_failures where email = $1', [seller.email])
+  assert.equal(n, 2, 'both attempts count towards the lockout')
   const admin = await administrator()
   assert.equal((await admin.call('GET', '/console/me')).json.email, admin.email)
   assert.equal((await client('console')('GET', '/console/me')).json.error, 'consoleSignIn', 'the dashboard session is not a console session')

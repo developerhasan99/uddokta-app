@@ -52,11 +52,13 @@ api.post('/auth/login', async (c) => {
     return one<{ user_id: string; password_hash: string }>(t, sql`select * from login_lookup(${email})`)
   })
   const valid = await verifyPassword(password, found?.password_hash ?? dummyHash)
-  if (!found || !valid) {
+  // A seller's right password gets the same answer as a wrong one, and counts towards the lockout: the console never
+  // confirms a password or that an account exists, and only platform administrators get past this point.
+  const refuse = async () => {
     await tx(null, (t) => t.execute(sql`select record_login_failure(${email})`))
-    throw fail(401, 'invalidCredentials')
+    return fail(401, 'invalidCredentials')
   }
-  await tx(null, (t) => t.execute(sql`select clear_login_failures(${email})`))
+  if (!found || !valid) throw await refuse()
   const token = newToken()
   const expires = new Date(Date.now() + sessionHours * 3_600_000)
   const admitted = await tx(null, async (t) => {
@@ -65,7 +67,8 @@ api.post('/auth/login', async (c) => {
     if (!ok) await t.execute(sql`select delete_session(${hash(token)})`)
     return Boolean(ok)
   })
-  if (!admitted) throw fail(403, 'notAdmin')
+  if (!admitted) throw await refuse()
+  await tx(null, (t) => t.execute(sql`select clear_login_failures(${email})`))
   setCookie(c, consoleCookie, token, { httpOnly: true, sameSite: 'Strict', secure: process.env.NODE_ENV === 'production', path: '/', expires })
   return c.json({ ok: true })
 })

@@ -26,7 +26,6 @@ const messages: Record<string, string> = {
   network: 'Could not reach the server. Check the connection and try again.',
   invalidCredentials: 'Email or password is not right.',
   tooManyAttempts: 'Too many wrong attempts. Try again in 15 minutes.',
-  notAdmin: 'This account is not a platform administrator.',
   reasonRequired: 'Write a reason. It is kept in the audit log.',
   cannotSuspendSelf: 'You cannot suspend your own account.',
   planDefaultRequired: 'One plan must stay the default. Make another plan the default first.',
