@@ -72,19 +72,20 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
 
 
 // The checklist of seller tools a plan includes.
-export function FeatureChecklist({ value, onChange }: { value: PlanFeature[]; onChange: (next: PlanFeature[]) => void }) {
+// `required` tools stay ticked and cannot be cleared (a paid plan always includes the own domain).
+export function FeatureChecklist({ value, onChange, required = [] }: { value: PlanFeature[]; onChange: (next: PlanFeature[]) => void; required?: PlanFeature[] }) {
   return (
     <fieldset className="console-features">
       <legend>Included tools <span className="muted">(landing pages, orders, products and media are always included)</span></legend>
       {planFeatures.map((f) => (
         <label key={f} className="console-check">
-          <input type="checkbox" checked={value.includes(f)} onChange={(e) => onChange(e.target.checked ? [...value, f] : value.filter((x) => x !== f))} />
-          {planFeatureLabels[f][1]}
+          <input type="checkbox" checked={value.includes(f) || required.includes(f)} disabled={required.includes(f)} onChange={(e) => onChange(e.target.checked ? [...value, f] : value.filter((x) => x !== f))} />
+          {planFeatureLabels[f][1]}{required.includes(f) && <span className="muted"> (every paid plan)</span>}
         </label>
       ))}
       <div className="console-features__all">
         <button type="button" className="console-link" onClick={() => onChange([...planFeatures])}>Select all</button>
-        <button type="button" className="console-link" onClick={() => onChange([])}>Clear</button>
+        <button type="button" className="console-link" onClick={() => onChange(required)}>Clear</button>
       </div>
     </fieldset>
   )
@@ -96,7 +97,8 @@ const field = (n: number | null) => (n === null ? '' : String(n))
 export const toLimitForm = (p: { priceBdt: number; storageMb: number; maxLandingPages: number | null; maxMembers: number | null; maxProducts: number | null; features: PlanFeature[]; billingNote?: string }): LimitForm =>
   ({ priceBdt: String(p.priceBdt), storageMb: String(p.storageMb), maxLandingPages: field(p.maxLandingPages), maxMembers: field(p.maxMembers), maxProducts: field(p.maxProducts), features: p.features, billingNote: p.billingNote ?? '' })
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
-export const fromLimitForm = (f: LimitForm) => ({ ...f, priceBdt: Number(f.priceBdt || 0), storageMb: Number(f.storageMb || 0), maxLandingPages: num(f.maxLandingPages), maxMembers: num(f.maxMembers), maxProducts: num(f.maxProducts) })
+export const paidTools = (price: string): PlanFeature[] => (Number(price || 0) > 0 ? ['customDomain'] : [])
+export const fromLimitForm = (f: LimitForm) => ({ ...f, features: [...new Set([...f.features, ...paidTools(f.priceBdt)])], priceBdt: Number(f.priceBdt || 0), storageMb: Number(f.storageMb || 0), maxLandingPages: num(f.maxLandingPages), maxMembers: num(f.maxMembers), maxProducts: num(f.maxProducts) })
 
 // Price, the four limits, the tools and the billing note: the same form for public and custom plans.
 export function LimitFields({ form, set, priceLabel = 'Price per month (৳)' }: { form: LimitForm; set: (patch: Partial<LimitForm>) => void; priceLabel?: string }) {
@@ -111,7 +113,7 @@ export function LimitFields({ form, set, priceLabel = 'Price per month (৳)' }:
     <div className="console-row">{input('priceBdt', priceLabel)}{input('storageMb', 'Media storage (MB)')}</div>
     <div className="console-row">{input('maxProducts', 'Products', 'Blank: unlimited')}{input('maxLandingPages', 'Landing pages', 'Blank: unlimited')}</div>
     <div className="console-row">{input('maxMembers', 'Team members', 'Including the owner. Blank: unlimited')}<div /></div>
-    <FeatureChecklist value={form.features} onChange={(features) => set({ features })} />
+    <FeatureChecklist value={form.features} onChange={(features) => set({ features })} required={paidTools(form.priceBdt)} />
     <div className="field"><label htmlFor="limit-note">Billing note <span className="muted">(shown to the store, e.g. “Paid yearly by bank transfer”)</span></label>
       <input id="limit-note" className="input" maxLength={300} value={form.billingNote} onChange={(e) => set({ billingNote: e.target.value })} />
     </div>

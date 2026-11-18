@@ -873,6 +873,8 @@ export const plans = pgTable('plans', {
 }, (t) => [
   uniqueIndex('plans_one_default').on(t.isDefault).where(sql`${t.isDefault}`),
   uniqueIndex('plans_one_custom_per_store').on(t.storeId).where(sql`${t.storeId} is not null`),
+  // Every paid plan includes the seller's own domain; only free plans may leave it out.
+  check('plans_paid_domain', sql`${t.priceBdt} = 0 or 'customDomain' = any(${t.features})`),
   check('plans_custom_not_default', sql`not (${t.isDefault} and ${t.storeId} is not null)`),
   check('plans_limits', sql`${t.priceBdt} >= 0 and ${t.storageMb} > 0 and coalesce(${t.maxLandingPages}, 0) >= 0 and coalesce(${t.maxMembers}, 1) >= 1 and coalesce(${t.maxProducts}, 0) >= 0`),
   check('plans_default_live', sql`not (${t.isDefault} and ${t.archived})`),

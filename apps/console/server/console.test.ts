@@ -98,7 +98,7 @@ test('stores and plans: limits come from the plan, payments extend it, expiry fa
   assert.equal((await owner.call('POST', `/stores/${handle}/products`, product)).status, 201)
   assert.equal((await owner.call('POST', `/stores/${handle}/products`, product)).json.error, 'productLimit')
   assert.equal((await owner.call('POST', `/stores/${handle}/invites`, { role: 'staff' })).json.error, 'memberLimit', 'the owner already fills the one seat')
-  assert.equal((await owner.call('PUT', `/stores/${handle}/domain`, { domain: 'example-shop.com' })).json.error, 'planNoDomain')
+  assert.notEqual((await owner.call('PUT', `/stores/${handle}/domain`, { domain: 'example-shop.com' })).json?.error, 'planNoDomain', 'a paid plan always includes the own domain')
 
   // A payment on a plan with an end date in the past restarts from today; another payment adds to it.
   await pool.query(`update stores set plan_until = current_date - 1 where id = $1`, [storeId])
@@ -128,8 +128,15 @@ test('features and custom plans: a tool left out is closed, a custom plan sets e
   await staff.call('POST', `/invites/${(await owner.call('POST', `/stores/${handle}/invites`, { role: 'staff' })).json.token}/accept`)
 
   assert.equal((await admin.call('POST', '/console/plans', { name: 'Odd', priceBdt: 1, storageMb: 1, features: ['teleport'] })).json.error, 'planInvalid', 'unknown tools are refused')
+  // A paid plan always gets the own domain, even when it is left out; a free one may go without.
+  await admin.call('POST', '/console/plans', { name: 'Paid no domain', priceBdt: 100, storageMb: 10, features: ['discounts'] })
+  await admin.call('POST', '/console/plans', { name: 'Free no domain', priceBdt: 0, storageMb: 10, features: [] })
+  const saved = (await admin.call('GET', '/console/plans')).json
+  assert.deepEqual(saved.find((p: any) => p.name === 'Paid no domain').features, ['discounts', 'customDomain'])
+  assert.deepEqual(saved.find((p: any) => p.name === 'Free no domain').features, [])
+  await assert.rejects(pool.query(`insert into plans (name, price_bdt, storage_mb, features) values ('Sneaky', 50, 10, '{}')`), (err: any) => err.constraint === 'plans_paid_domain', 'the database refuses it too')
   // A custom plan with only landing pages and fake-order protection, 2 GB, 5 products, no end date.
-  const custom = { priceBdt: 750, storageMb: 2048, maxProducts: 5, maxMembers: null, maxLandingPages: null, features: ['fakeOrderProtection'], billingNote: 'Yearly by bank transfer' }
+  const custom = { priceBdt: 0, storageMb: 2048, maxProducts: 5, maxMembers: null, maxLandingPages: null, features: ['fakeOrderProtection'], billingNote: 'Yearly by bank transfer' }
   assert.equal((await admin.call('PUT', `/console/stores/${storeId}/custom-plan`, { ...custom })).json.error, 'reasonRequired')
   assert.equal((await admin.call('PUT', `/console/stores/${storeId}/custom-plan`, { ...custom, reason: 'Agreed on a call' })).status, 200)
   const plan = (await owner.call('GET', `/stores/${handle}/plan`)).json

@@ -34,6 +34,8 @@ function readLimits(b: Record<string, unknown>) {
     priceBdt: Number(b.priceBdt), storageMb: Number(b.storageMb), billingNote: text(b.billingNote, 300),
     maxLandingPages: limit(b.maxLandingPages), maxMembers: limit(b.maxMembers), maxProducts: limit(b.maxProducts), features: features ?? [],
   }
+  // Every paid plan includes the seller's own domain (the database refuses one without it, plans_paid_domain).
+  if (plan.priceBdt > 0 && !plan.features.includes('customDomain')) plan.features = [...plan.features, 'customDomain']
   const bad = [plan.maxLandingPages, plan.maxMembers, plan.maxProducts].some((n) => Number.isNaN(n))
   if (bad || !features || !features.every(isPlanFeature) || !Number.isInteger(plan.priceBdt) || plan.priceBdt < 0 || plan.priceBdt > 1_000_000
     || !Number.isInteger(plan.storageMb) || plan.storageMb < 1 || plan.storageMb > 10_000_000 || plan.maxMembers === 0) throw fail(400, 'planInvalid')
