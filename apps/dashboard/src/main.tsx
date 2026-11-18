@@ -10,6 +10,8 @@ import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
 import { ChangeEmail, ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
 import { Profile } from './pages/Profile'
+import { Billing } from './pages/Billing'
+import { PlanGate } from './components/Plan'
 import { Home } from './pages/Home'
 import { Media } from './pages/Media'
 import { Menus } from './pages/Menus'
@@ -102,22 +104,22 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="products/:id" element={<ProductEdit />} />
                 <Route path="landing-pages" element={<Pages />} />
                 <Route path="customers" element={<Customers />} />
-                <Route path="discounts" element={<Discounts />} />
-                <Route path="discounts/new" element={<DiscountEdit key="discount" />} />
-                <Route path="discounts/:id" element={<DiscountEdit key="discount" />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="customers/repeat-sales" element={<RepeatSales />} />
+                <Route path="discounts" element={<PlanGate feature="discounts"><Discounts /></PlanGate>} />
+                <Route path="discounts/new" element={<PlanGate feature="discounts"><DiscountEdit key="discount" /></PlanGate>} />
+                <Route path="discounts/:id" element={<PlanGate feature="discounts"><DiscountEdit key="discount" /></PlanGate>} />
+                <Route path="analytics" element={<PlanGate feature="analytics"><Analytics /></PlanGate>} />
+                <Route path="customers/repeat-sales" element={<PlanGate feature="repeatSales"><RepeatSales /></PlanGate>} />
                 <Route path="online-store" element={<OnlineStore />} />
                 <Route path="online-store/templates" element={<Templates />} />
                 <Route path="online-store/site-settings" element={<Navigate to=".." relative="path" replace />} />
-                <Route path="online-store/menus" element={<Menus />} />
-                <Route path="online-store/menus/:id" element={<MenuEdit />} />
-                <Route path="online-store/pages" element={<StorePages />} />
-                <Route path="online-store/pages/:id" element={<StorePageEdit />} />
+                <Route path="online-store/menus" element={<PlanGate feature="onlineStore"><Menus /></PlanGate>} />
+                <Route path="online-store/menus/:id" element={<PlanGate feature="onlineStore"><MenuEdit /></PlanGate>} />
+                <Route path="online-store/pages" element={<PlanGate feature="onlineStore"><StorePages /></PlanGate>} />
+                <Route path="online-store/pages/:id" element={<PlanGate feature="onlineStore"><StorePageEdit /></PlanGate>} />
                 <Route path="online-store/preferences" element={<Navigate to=".." relative="path" replace />} />
                 <Route path="orders/new" element={<NewOrder />} />
-                <Route path="orders/protection" element={<Protection />} />
-                <Route path="orders/incomplete" element={<Incomplete />} />
+                <Route path="orders/protection" element={<PlanGate feature="fakeOrderProtection"><Protection /></PlanGate>} />
+                <Route path="orders/incomplete" element={<PlanGate feature="incompleteOrders"><Incomplete /></PlanGate>} />
                 <Route path="orders/:id" element={<OrderDetail />} />
                 {plannedPages.map((item) => <Route key={item.path} path={item.path.slice(1)} element={<Placeholder item={item.key} />} />)}
                 <Route path="settings" element={<SettingsLayout />}>
@@ -126,10 +128,11 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="delivery" element={<Delivery />} />
                   <Route path="couriers" element={<Couriers />} />
                   <Route path="invoices" element={<Invoices />} />
-                  <Route path="tracking" element={<Tracking />} />
-                  <Route path="domains" element={<Domains />} />
+                  <Route path="tracking" element={<PlanGate feature="adTracking"><Tracking /></PlanGate>} />
+                  <Route path="domains" element={<PlanGate feature="customDomain"><Domains /></PlanGate>} />
                   <Route path="members" element={<Members />} />
                   <Route path="notifications" element={<NotificationSettings />} />
+                  <Route path="billing" element={<Billing />} />
                   {settingsNav.filter((item) => item.planned).map((item) => <Route key={item.path} path={item.path.slice('/settings/'.length)} element={<Placeholder item={item.key} />} />)}
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />

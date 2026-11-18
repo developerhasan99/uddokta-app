@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { Check, Minus } from 'lucide-react'
 import { Badge, Button, PageHeader, SearchInput } from '../../../dashboard/src/components/ui'
 import { api, bytes, count, date, dateTime, errorText, limitText, taka } from '../api'
-import { LoadError, Loading, Modal, ReasonDialog, useLoad } from '../ui'
-import type { Plan } from './Plans'
+import { fromLimitForm, LimitFields, LoadError, Loading, Modal, ReasonDialog, toLimitForm, useLoad, type LimitForm } from '../ui'
+import { planFeatureLabels, planFeatures, type PlanFeature } from '../../../storefront/src/plans'
+import { storage, type Plan } from './Plans'
 
 type Row = { id: string; name: string; handle: string; owner_email: string | null; plan_name: string; plan_until: string | null; suspended_at: string | null; created_at: string; products: number; orders: number; storage_bytes: number }
-type Limits = { plan_name: string; plan_until: string | null; max_landing_pages: number | null; storage_mb: number; max_members: number | null; max_products: number | null; custom_domain: boolean }
+type Limits = { plan_name: string; plan_until: string | null; price_bdt: number; is_custom: boolean; billing_note: string; max_landing_pages: number | null; storage_mb: number; max_members: number | null; max_products: number | null; features: PlanFeature[] }
+type CustomPlan = { id: string; priceBdt: number; maxLandingPages: number | null; storageMb: number; maxMembers: number | null; maxProducts: number | null; features: PlanFeature[]; billingNote: string }
 type Store = {
   id: string; name: string; handle: string; domain: string | null; createdAt: string; suspendedAt: string | null; suspendReason: string
-  planId: string | null; planUntil: string | null; limits: Limits
+  planId: string | null; planUntil: string | null; limits: Limits; customPlan: CustomPlan | null
   counts: { products: number; orders: number; orders30: number; landingPages: number; storageBytes: number }
   members: { id: string; name: string; email: string; role: string }[]
   payments: { id: string; amount: number; months: number; method: string; reference: string; plan: string | null; by: string | null; at: string }[]
@@ -93,7 +96,8 @@ function PlanDialog({ store, plans, onClose, onDone }: { store: Store; plans: Pl
 const methods = ['bKash', 'Nagad', 'Rocket', 'Bank transfer', 'Cash']
 
 function PaymentDialog({ store, plans, onClose, onDone }: { store: Store; plans: Plan[]; onClose: () => void; onDone: (until: string) => void }) {
-  const paid = plans.filter((p) => !p.archived && p.priceBdt > 0)
+  const own = store.customPlan ? [{ id: store.customPlan.id, name: `Custom · ${store.handle}`, priceBdt: store.customPlan.priceBdt }] : []
+  const paid = [...own, ...plans.filter((p) => !p.archived && p.priceBdt > 0)]
   const [planId, setPlanId] = useState(store.planId && paid.some((p) => p.id === store.planId) ? store.planId : paid[0]?.id ?? '')
   const [months, setMonths] = useState(1)
   const plan = paid.find((p) => p.id === planId)
@@ -115,7 +119,7 @@ function PaymentDialog({ store, plans, onClose, onDone }: { store: Store; plans:
         } catch (err) { setError(errorText(err)); setBusy(false) }
       }}>Record payment</Button>
     </>}>
-      {paid.length === 0 ? <p className="muted">There is no paid plan yet. Create one on the Plans page first.</p> : <>
+      {paid.length === 0 ? <p className="muted">There is no paid plan yet. Create one on the Plans page, or give this store a custom plan.</p> : <>
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="console-row">
           <div className="field"><label htmlFor="pay-plan">Plan</label>
@@ -138,7 +142,35 @@ function PaymentDialog({ store, plans, onClose, onDone }: { store: Store; plans:
   )
 }
 
-type Action = 'plan' | 'payment' | 'suspend' | 'restore'
+// A plan made for this store alone: its price, limits, tools and how it is billed. Starts from what it has now.
+function CustomPlanDialog({ store, onClose, onDone }: { store: Store; onClose: () => void; onDone: () => void }) {
+  const l = store.limits
+  const start = store.customPlan ?? { priceBdt: l.price_bdt, storageMb: l.storage_mb, maxLandingPages: l.max_landing_pages, maxMembers: l.max_members, maxProducts: l.max_products, features: l.features, billingNote: '' }
+  const [form, setForm] = useState<LimitForm>(toLimitForm(start))
+  const [until, setUntil] = useState(store.customPlan ? store.planUntil ?? '' : '')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <Modal title={store.customPlan ? 'Edit custom plan' : 'Give this store a custom plan'} sub="Only this store gets it. Choose exactly what it includes; it applies as soon as you save." onClose={onClose} foot={(close) => <>
+      <Button onClick={() => close()}>Cancel</Button>
+      <Button variant="primary" aria-busy={busy} disabled={!reason.trim()} onClick={async () => {
+        setBusy(true); setError(null)
+        try { await api(`/console/stores/${store.id}/custom-plan`, { method: 'PUT', body: { ...fromLimitForm(form), until: until || null, reason } }); close(onDone) } catch (err) { setError(errorText(err)); setBusy(false) }
+      }}>Save custom plan</Button>
+    </>}>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <LimitFields form={form} set={(patch) => setForm({ ...form, ...patch })} priceLabel="Agreed price per month (৳)" />
+      <div className="field"><label htmlFor="custom-until">Runs until</label>
+        <input id="custom-until" type="date" className="input" value={until} onChange={(e) => setUntil(e.target.value)} />
+        <p className="field__help">Blank: no end date. Recording a payment extends it. After the end date the store goes back to the default plan.</p>
+      </div>
+      <div className="field"><label htmlFor="custom-reason">Reason</label><textarea id="custom-reason" className="input console-textarea" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Kept in the audit log" /></div>
+    </Modal>
+  )
+}
+
+type Action = 'plan' | 'payment' | 'suspend' | 'restore' | 'custom' | 'endCustom'
 
 export function StoreDetail() {
   const { id } = useParams()
@@ -155,6 +187,7 @@ export function StoreDetail() {
       <PageHeader title={store.name} description={`${store.handle}${store.domain ? ` · ${store.domain}` : ''} · created ${date(store.createdAt)}`} action={<div className="console-actions">
         <Button onClick={() => setAction('payment')}>Record payment</Button>
         <Button onClick={() => setAction('plan')}>Change plan</Button>
+        <Button onClick={() => setAction('custom')}>{store.customPlan ? 'Edit custom plan' : 'Custom plan'}</Button>
         {store.suspendedAt ? <Button variant="primary" onClick={() => setAction('restore')}>Restore</Button> : <Button variant="danger" onClick={() => setAction('suspend')}>Suspend</Button>}
       </div>} />
       {done && <p className="console-done" role="status">{done}</p>}
@@ -165,13 +198,21 @@ export function StoreDetail() {
         <div className="stat"><span className="stat__label">Products</span><span className="stat__value">{count(store.counts.products)}</span><span className="console-stat__sub">Limit {limitText(l.max_products)}</span></div>
         <div className="stat"><span className="stat__label">Media</span><span className="stat__value">{bytes(store.counts.storageBytes)}</span><span className="console-stat__sub">of {limitText(l.storage_mb, ' MB')}</span></div>
       </div>
-      <section className="card">
-        <h2 className="console-h2">What the plan allows</h2>
+      <section className="card console-plan">
+        <div className="console-plan__head">
+          <h2 className="console-h2">What {l.plan_name} includes {l.is_custom && <Badge tone="info">Custom</Badge>}</h2>
+          {store.customPlan && <Button onClick={() => setAction('endCustom')}>End custom plan</Button>}
+        </div>
+        {l.billing_note && <p className="muted">Billing: {l.billing_note}</p>}
         <dl className="console-facts">
+          <div><dt>Price</dt><dd>{l.price_bdt ? `${taka(l.price_bdt)} / month` : 'Free'}</dd></div>
           <div><dt>Landing pages</dt><dd>{count(store.counts.landingPages)} of {limitText(l.max_landing_pages)}</dd></div>
           <div><dt>Team members</dt><dd>{store.members.length} of {limitText(l.max_members)}</dd></div>
-          <div><dt>Own domain</dt><dd>{l.custom_domain ? 'Allowed' : 'Not on this plan'}</dd></div>
+          <div><dt>Media storage</dt><dd>{bytes(store.counts.storageBytes)} of {storage(l.storage_mb)}</dd></div>
         </dl>
+        <ul className="console-tools">
+          {planFeatures.map((f) => <li key={f} data-on={l.features.includes(f) || undefined}>{l.features.includes(f) ? <Check size={14} aria-hidden="true" /> : <Minus size={14} aria-hidden="true" />}{planFeatureLabels[f][1]}<span className="visually-hidden">{l.features.includes(f) ? ': included' : ': not included'}</span></li>)}
+        </ul>
       </section>
       <section className="data-list">
         <div className="filter-bar"><h2 className="console-h2">Team</h2></div>
@@ -187,6 +228,9 @@ export function StoreDetail() {
           </table>
         )}
       </section>
+      {action === 'custom' && <CustomPlanDialog store={store} onClose={() => setAction(null)} onDone={() => finish('Custom plan saved.')} />}
+      {action === 'endCustom' && <ReasonDialog title="End the custom plan?" sub="The store goes back to the default plan straight away. Payments already recorded stay in its history." action="End custom plan" danger
+        onConfirm={(reason) => api(`/console/stores/${store.id}/custom-plan`, { method: 'DELETE', body: { reason } })} onClose={() => setAction(null)} onDone={() => finish('Custom plan ended; the store is on the default plan.')} />}
       {action === 'plan' && <PlanDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={() => finish('Plan saved.')} />}
       {action === 'payment' && <PaymentDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={(until) => finish(`Payment recorded. The plan now runs until ${date(until)}.`)} />}
       {action === 'suspend' && <ReasonDialog title={`Suspend ${store.name}?`} sub="Buyers see “unavailable” on every page and cannot order. The team can still sign in and look, but cannot change anything." action="Suspend store" danger

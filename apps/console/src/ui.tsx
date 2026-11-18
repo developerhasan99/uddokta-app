@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useDialog } from '../../dashboard/src/components/dialog'
 import { Button } from '../../dashboard/src/components/ui'
 import { errorText } from './api'
+import { planFeatureLabels, planFeatures, type PlanFeature } from '../../storefront/src/plans'
 
 // A modal from the shared dialog helper (animated in and out, closes on Esc and backdrop).
 export function Modal({ title, sub, onClose, children, foot }: { title: string; sub?: string; onClose: () => void; children: ReactNode; foot: (close: (then?: () => void) => void) => ReactNode }) {
@@ -67,4 +68,52 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
   return { ...state, reload: () => setTick((n) => n + 1) }
+}
+
+
+// The checklist of seller tools a plan includes.
+export function FeatureChecklist({ value, onChange }: { value: PlanFeature[]; onChange: (next: PlanFeature[]) => void }) {
+  return (
+    <fieldset className="console-features">
+      <legend>Included tools <span className="muted">(landing pages, orders, products and media are always included)</span></legend>
+      {planFeatures.map((f) => (
+        <label key={f} className="console-check">
+          <input type="checkbox" checked={value.includes(f)} onChange={(e) => onChange(e.target.checked ? [...value, f] : value.filter((x) => x !== f))} />
+          {planFeatureLabels[f][1]}
+        </label>
+      ))}
+      <div className="console-features__all">
+        <button type="button" className="console-link" onClick={() => onChange([...planFeatures])}>Select all</button>
+        <button type="button" className="console-link" onClick={() => onChange([])}>Clear</button>
+      </div>
+    </fieldset>
+  )
+}
+
+// Limits typed as text: blank means unlimited.
+export type LimitForm = { priceBdt: string; storageMb: string; maxLandingPages: string; maxMembers: string; maxProducts: string; features: PlanFeature[]; billingNote: string }
+const field = (n: number | null) => (n === null ? '' : String(n))
+export const toLimitForm = (p: { priceBdt: number; storageMb: number; maxLandingPages: number | null; maxMembers: number | null; maxProducts: number | null; features: PlanFeature[]; billingNote?: string }): LimitForm =>
+  ({ priceBdt: String(p.priceBdt), storageMb: String(p.storageMb), maxLandingPages: field(p.maxLandingPages), maxMembers: field(p.maxMembers), maxProducts: field(p.maxProducts), features: p.features, billingNote: p.billingNote ?? '' })
+const num = (v: string) => (v.trim() === '' ? null : Number(v))
+export const fromLimitForm = (f: LimitForm) => ({ ...f, priceBdt: Number(f.priceBdt || 0), storageMb: Number(f.storageMb || 0), maxLandingPages: num(f.maxLandingPages), maxMembers: num(f.maxMembers), maxProducts: num(f.maxProducts) })
+
+// Price, the four limits, the tools and the billing note: the same form for public and custom plans.
+export function LimitFields({ form, set, priceLabel = 'Price per month (৳)' }: { form: LimitForm; set: (patch: Partial<LimitForm>) => void; priceLabel?: string }) {
+  const digits = (v: string) => v.replace(/\D/g, '').slice(0, 7)
+  const input = (key: 'priceBdt' | 'storageMb' | 'maxLandingPages' | 'maxMembers' | 'maxProducts', label: string, help?: string) => (
+    <div className="field"><label htmlFor={`limit-${key}`}>{label}</label>
+      <input id={`limit-${key}`} className="input" inputMode="numeric" value={form[key]} placeholder={help ? 'Unlimited' : undefined} onChange={(e) => set({ [key]: digits(e.target.value) })} />
+      {help && <p className="field__help">{help}</p>}
+    </div>
+  )
+  return <>
+    <div className="console-row">{input('priceBdt', priceLabel)}{input('storageMb', 'Media storage (MB)')}</div>
+    <div className="console-row">{input('maxProducts', 'Products', 'Blank: unlimited')}{input('maxLandingPages', 'Landing pages', 'Blank: unlimited')}</div>
+    <div className="console-row">{input('maxMembers', 'Team members', 'Including the owner. Blank: unlimited')}<div /></div>
+    <FeatureChecklist value={form.features} onChange={(features) => set({ features })} />
+    <div className="field"><label htmlFor="limit-note">Billing note <span className="muted">(shown to the store, e.g. “Paid yearly by bank transfer”)</span></label>
+      <input id="limit-note" className="input" maxLength={300} value={form.billingNote} onChange={(e) => set({ billingNote: e.target.value })} />
+    </div>
+  </>
 }

@@ -1,6 +1,6 @@
 import { orderStatusValues, type OrderFilters } from 'storefront/order-filters'
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { type AnyPgColumn, bigint, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const roles = ['owner', 'admin', 'staff'] as const
 export type Role = (typeof roles)[number]
@@ -92,7 +92,7 @@ export const stores = pgTable('stores', {
   domainLiveAt: timestamp('domain_live_at', { withTimezone: true }),
   domainPrimary: boolean('domain_primary').notNull().default(true),
   // The plan, set in the console. No plan, or a paid-until date in the past, means the default plan (store_limits()).
-  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'set null' }),
+  planId: uuid('plan_id').references((): AnyPgColumn => plans.id, { onDelete: 'set null' }),
   planUntil: date('plan_until'),
   // Suspended in the console: the storefront answers "unavailable" and the dashboard can only read.
   suspendedAt: timestamp('suspended_at', { withTimezone: true }),
@@ -862,11 +862,18 @@ export const plans = pgTable('plans', {
   storageMb: integer('storage_mb').notNull(),
   maxMembers: integer('max_members'),
   maxProducts: integer('max_products'),
-  customDomain: boolean('custom_domain').notNull().default(true),
+  // Seller tools this plan includes: keys of planFeatures in storefront/src/plans.ts.
+  features: text('features').array().notNull().default(sql`'{}'::text[]`),
+  // A custom plan made for one store in the console (its own limits, tools and price). Never offered to others.
+  storeId: uuid('store_id').references((): AnyPgColumn => stores.id, { onDelete: 'cascade' }),
+  // How this plan is billed, for custom deals ("yearly by bank transfer"). Shown to the store on its Billing page.
+  billingNote: text('billing_note').notNull().default(''),
   archived: boolean('archived').notNull().default(false),
   createdAt: createdAt(),
 }, (t) => [
   uniqueIndex('plans_one_default').on(t.isDefault).where(sql`${t.isDefault}`),
+  uniqueIndex('plans_one_custom_per_store').on(t.storeId).where(sql`${t.storeId} is not null`),
+  check('plans_custom_not_default', sql`not (${t.isDefault} and ${t.storeId} is not null)`),
   check('plans_limits', sql`${t.priceBdt} >= 0 and ${t.storageMb} > 0 and coalesce(${t.maxLandingPages}, 0) >= 0 and coalesce(${t.maxMembers}, 1) >= 1 and coalesce(${t.maxProducts}, 0) >= 0`),
   check('plans_default_live', sql`not (${t.isDefault} and ${t.archived})`),
 ])
@@ -883,6 +890,17 @@ export const storePayments = pgTable('store_payments', {
   recordedBy: uuid('recorded_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
 }, (t) => [check('store_payments_values', sql`${t.amount} >= 0 and ${t.months} between 1 and 36`), index('store_payments_store').on(t.storeId, t.createdAt)])
+
+// How sellers pay (shown on every store's Billing page), edited in the console. Always exactly one row.
+export const platformSettings = pgTable('platform_settings', {
+  id: integer('id').primaryKey().default(1),
+  billingWhatsapp: text('billing_whatsapp').notNull().default(''),
+  billingBkash: text('billing_bkash').notNull().default(''),
+  billingNagad: text('billing_nagad').notNull().default(''),
+  billingBank: text('billing_bank').notNull().default(''),
+  billingNote: text('billing_note').notNull().default(''),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [check('platform_settings_one_row', sql`${t.id} = 1`)])
 
 // Everything done in the console, written by the console functions themselves.
 export const consoleAudit = pgTable('console_audit', {

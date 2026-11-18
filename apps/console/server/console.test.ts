@@ -85,8 +85,8 @@ test('stores and plans: limits come from the plan, payments extend it, expiry fa
   const storeId = (await owner.call('GET', '/me')).json.stores[0].id as string
   const product = { name: 'চাল', variants: [{ options: [], price: 100 }] }
 
-  assert.equal((await admin.call('POST', '/console/plans', { name: 'Tiny', priceBdt: 300, storageMb: 100, maxProducts: 1, maxMembers: 1, maxLandingPages: 1, customDomain: false })).status, 201)
-  assert.equal((await admin.call('POST', '/console/plans', { name: 'Tiny', priceBdt: 1, storageMb: 1 })).json.error, 'planNameTaken')
+  assert.equal((await admin.call('POST', '/console/plans', { name: 'Tiny', priceBdt: 300, storageMb: 100, maxProducts: 1, maxMembers: 1, maxLandingPages: 1, features: ['onlineStore', 'courierBooking'] })).status, 201)
+  assert.equal((await admin.call('POST', '/console/plans', { name: 'Tiny', priceBdt: 1, storageMb: 1, features: [] })).json.error, 'planNameTaken')
   const plans = (await admin.call('GET', '/console/plans')).json
   const free = plans.find((p: any) => p.isDefault)
   const tiny = plans.find((p: any) => p.name === 'Tiny')
@@ -118,9 +118,46 @@ test('stores and plans: limits come from the plan, payments extend it, expiry fa
   assert.notEqual((await owner.call('POST', `/stores/${handle}/collections`, { name: 'Rice' })).json?.error, 'storeSuspended')
 })
 
+test('features and custom plans: a tool left out is closed, a custom plan sets exactly what a store gets, Billing shows it to owners', async () => {
+  const admin = await administrator()
+  const owner = await person()
+  const handle = `feature-shop-${counter}`
+  await owner.call('POST', '/stores', { name: 'Feature Shop', handle })
+  const storeId = (await owner.call('GET', '/me')).json.stores[0].id as string
+  const staff = await person()
+  await staff.call('POST', `/invites/${(await owner.call('POST', `/stores/${handle}/invites`, { role: 'staff' })).json.token}/accept`)
+
+  assert.equal((await admin.call('POST', '/console/plans', { name: 'Odd', priceBdt: 1, storageMb: 1, features: ['teleport'] })).json.error, 'planInvalid', 'unknown tools are refused')
+  // A custom plan with only landing pages and fake-order protection, 2 GB, 5 products, no end date.
+  const custom = { priceBdt: 750, storageMb: 2048, maxProducts: 5, maxMembers: null, maxLandingPages: null, features: ['fakeOrderProtection'], billingNote: 'Yearly by bank transfer' }
+  assert.equal((await admin.call('PUT', `/console/stores/${storeId}/custom-plan`, { ...custom })).json.error, 'reasonRequired')
+  assert.equal((await admin.call('PUT', `/console/stores/${storeId}/custom-plan`, { ...custom, reason: 'Agreed on a call' })).status, 200)
+  const plan = (await owner.call('GET', `/stores/${handle}/plan`)).json
+  assert.deepEqual([plan.planName, plan.isCustom, plan.storageMb, plan.maxProducts, plan.features], [`Custom · ${handle}`, true, 2048, 5, ['fakeOrderProtection']])
+  assert.equal((await owner.call('GET', `/stores/${handle}/discounts`)).json.error, 'planFeature:discounts', 'reading a closed tool is refused too')
+  assert.equal((await owner.call('GET', `/stores/${handle}/analytics`)).json.error, 'planFeature:analytics')
+  assert.equal((await owner.call('PUT', `/stores/${handle}/couriers/steadfast`, { apiKey: 'k', secretKey: 's' })).json.error, 'planFeature:courierBooking')
+  assert.equal((await owner.call('GET', `/stores/${handle}/blocked`)).status, 200, 'an included tool works')
+  assert.equal((await owner.call('PUT', `/stores/${handle}/domain`, { domain: 'feature-shop.com' })).json.error, 'planNoDomain')
+  assert.ok(!(await admin.call('GET', '/console/plans')).json.some((p: any) => p.name.startsWith('Custom')), 'custom plans are not offered to others')
+
+  await admin.call('PUT', '/console/settings', { whatsapp: '01700000000', bkash: '01800000000', nagad: '', bank: 'City Bank 123', note: 'Send the store address with the payment.' })
+  const billing = (await owner.call('GET', `/stores/${handle}/billing`)).json
+  assert.deepEqual([billing.plan.plan_name, billing.plan.billing_note, billing.pay.bkash, billing.usage.members], [`Custom · ${handle}`, 'Yearly by bank transfer', '01800000000', 2])
+  assert.ok(billing.plans.every((p: any) => !p.name.startsWith('Custom')))
+  assert.equal((await staff.call('GET', `/stores/${handle}/billing`)).status, 403, 'staff do not see billing')
+
+  // Ending the custom plan puts the store back on the default plan, with every tool.
+  await admin.call('DELETE', `/console/stores/${storeId}/custom-plan`, { reason: 'Moved to a public plan' })
+  assert.equal((await owner.call('GET', `/stores/${handle}/plan`)).json.planName, 'Free')
+  assert.equal((await owner.call('GET', `/stores/${handle}/discounts`)).status, 200)
+  const audit = (await admin.call('GET', '/console/audit')).json.items.filter((a: any) => a.target_id === storeId).map((a: any) => a.action)
+  assert.deepEqual(audit, ['store.customPlanEnd', 'store.customPlan'])
+})
+
 test('console tables are out of reach for the app role, and the functions refuse anyone but administrators', async () => {
   const seller = await person()
-  for (const table of ['platform_admins', 'plans', 'store_payments', 'console_audit']) {
+  for (const table of ['platform_admins', 'plans', 'store_payments', 'console_audit', 'platform_settings']) {
     await assert.rejects(tx(null, (t) => t.execute(sql.raw(`select * from ${table}`))), (err: any) => (err.cause?.code ?? err.code) === '42501', table)
   }
   await assert.rejects(tx(seller.id, (t) => t.execute(sql`select console_overview(${seller.id}::uuid)`)), (err: any) => (err.cause?.code ?? err.code) === '42501')

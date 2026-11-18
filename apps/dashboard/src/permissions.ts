@@ -2,7 +2,7 @@ import type { Role } from './account-context'
 import type { Key } from './i18n'
 
 // What each role can do, shown on Settings › Team. This list only explains the rules: they are enforced by
-// row-level security (my_role / can_manage in the migrations) and a few API checks (analytics.ts, couriers.ts).
+// row-level security (my_role / can_manage in the migrations) and a few API checks (analytics.ts, couriers.ts, plans.ts).
 // Change the enforcement first, then this list, so the table never promises what the system refuses.
 const all: Role[] = ['owner', 'admin', 'staff']
 const managers: Role[] = ['owner', 'admin']
@@ -33,6 +33,7 @@ export const permissionGroups: { title: Key; rows: { label: Key; roles: Role[] }
   { title: 'permSettings', rows: [
     { label: 'permSettingsStore', roles: managers },
     { label: 'permSettingsDelivery', roles: managers },
+    { label: 'permBilling', roles: managers },
     { label: 'permWarehouses', roles: all },
     { label: 'permWarehousesDelete', roles: managers },
     { label: 'permNotifications', roles: all },

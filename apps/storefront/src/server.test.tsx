@@ -1029,3 +1029,16 @@ test('a store suspended in the console is unavailable to buyers, pages and order
   await pool.query(`update stores set suspended_at = null where handle = $1`, [s.handle])
   assert.equal((await visit(s.handle, s.url)).status, 200)
 })
+
+test('without the online store in its plan, a store keeps selling on landing pages but its catalog, cart and store pages are not there', async () => {
+  const s = await publishedPage()
+  const { rows: [store] } = await pool.query('select id from stores where handle = $1', [s.handle])
+  const { rows: [plan] } = await pool.query(`insert into plans (name, storage_mb, features, store_id) values ($1, 100, '{}', $2) returning id`, [`Custom · ${s.handle}`, store.id])
+  await pool.query('update stores set plan_id = $1 where id = $2', [plan.id, store.id])
+  for (const path of ['/', '/products', `/products/${encodeURIComponent(s.product.handle)}`, '/collections', '/cart', '/search?q=x', '/account']) {
+    assert.equal((await visit(s.handle, path)).status, 404, path)
+  }
+  assert.equal((await visit(s.handle, s.url)).status, 200, 'the landing page still sells')
+  await pool.query('update stores set plan_id = null where id = $1', [store.id])
+  assert.equal((await visit(s.handle, '/')).status, 200)
+})

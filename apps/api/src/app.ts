@@ -31,7 +31,7 @@ import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { registerEmailChange, registerProfile } from './profile.ts'
-import { guardSuspendedStores, over, registerPlans, storeLimits } from './plans.ts'
+import { guardStores, over, registerPlans, storeLimits } from './plans.ts'
 import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
 import { readLocalFile } from './storage.ts'
 import { present } from './media.ts'
@@ -263,7 +263,7 @@ app.get('/me', async (c) => {
 })
 
 registerProfile(app)
-guardSuspendedStores(app)
+guardStores(app)
 registerPlans(app)
 
 // Sends the verification link again. 429 when three were sent in the last hour (or email is not set up).

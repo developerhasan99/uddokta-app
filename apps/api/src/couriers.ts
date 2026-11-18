@@ -4,6 +4,7 @@ import { type Tx, tx } from './db.ts'
 import { isId } from './products.ts'
 import { courierAccounts, orders, shipments } from './schema.ts'
 import { open, seal } from './secrets.ts'
+import { requireFeature } from './plans.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
 
 type Steadfast = { apiKey: string; secretKey: string }
@@ -117,6 +118,8 @@ export function registerCouriers(app: Hono<Env>) {
         await toCourier()
         return c.json({ consignmentId: '', trackingCode: '' }, 201)
       }
+      // Self delivery is in every plan; booking with Steadfast needs one-click courier booking.
+      await requireFeature(t, store.id, 'courierBooking')
       const data = await steadfast(await account(t, store.id), '/create_order', {
         invoice: `${store.handle}-${order.number}`,
         recipient_name: order.customerName,

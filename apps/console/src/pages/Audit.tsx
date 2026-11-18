@@ -10,10 +10,12 @@ const actions: Record<string, string> = {
   'user.suspend': 'Suspended user', 'user.restore': 'Restored user', 'user.signOut': 'Signed out user', 'user.passwordReset': 'Sent reset link',
   'store.suspend': 'Suspended store', 'store.restore': 'Restored store', 'store.plan': 'Changed plan', 'store.payment': 'Recorded payment',
   'plan.create': 'Created plan', 'plan.update': 'Changed plan settings',
+  'store.customPlan': 'Set custom plan', 'store.customPlanEnd': 'Ended custom plan', 'settings.billing': 'Changed payment details',
 }
 function details(e: Entry) {
   const d = e.detail
   if (e.action === 'store.payment') return `${d.plan}, ৳${d.amount} for ${d.months} mo by ${d.method}${d.reference ? ` (${d.reference})` : ''}, until ${d.until}`
+  if (e.action === 'store.customPlan') return `৳${d.priceBdt}/month, ${(d.features as string[]).length} tools${d.until ? `, until ${d.until}` : ''}${d.billingNote ? ` · ${d.billingNote}` : ''}`
   if (e.action === 'store.plan') return `${d.plan ?? 'Default plan'}${d.until ? ` until ${d.until}` : ''}`
   return ''
 }
@@ -34,7 +36,7 @@ export function Audit() {
                   <td>{dateTime(e.created_at)}</td>
                   <td className="console-ellipsis">{e.admin_email}</td>
                   <td>{actions[e.action] ?? e.action}</td>
-                  <td>{e.target_id && e.target_type !== 'plan' ? <Link to={`/${e.target_type}s/${e.target_id}`}>{e.target_label}</Link> : e.target_label}</td>
+                  <td>{e.target_id && e.target_type !== 'plan' && e.target_type !== 'settings' ? <Link to={`/${e.target_type}s/${e.target_id}`}>{e.target_label}</Link> : e.target_label}</td>
                   <td>{e.reason}{details(e) && <span className="console-sub">{details(e)}</span>}</td>
                 </tr>
               ))}

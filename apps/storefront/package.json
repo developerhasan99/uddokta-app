@@ -15,7 +15,8 @@
     "./paths": "./src/paths.ts",
     "./menus": "./src/menus.ts",
     "./icons": "./src/icons/catalog.ts",
-    "./icon": "./src/icons/Icon.tsx"
+    "./icon": "./src/icons/Icon.tsx",
+    "./plans": "./src/plans.ts"
   },
   "scripts": {
     "dev": "tsx watch --env-file=../api/.env src/server.tsx",

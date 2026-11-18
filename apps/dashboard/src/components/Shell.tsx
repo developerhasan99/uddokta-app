@@ -8,7 +8,13 @@ import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
 import { animateOut, backdropProps } from './dialog'
 import { VerifyEmailBar } from '../pages/Auth'
+import type { PlanFeature } from 'storefront/plans'
+import { LockMark, PlanProvider, useHasFeature } from './Plan'
 import { NotificationBell, useNotificationFeed, type NotificationFeed } from './Notifications'
+
+function ChildLock({ feature }: { feature?: PlanFeature }) {
+  return useHasFeature(feature) ? null : <LockMark />
+}
 
 function NavRow({ item }: { item: NavItem }) {
   const { t } = useLang()
@@ -17,6 +23,7 @@ function NavRow({ item }: { item: NavItem }) {
   const Icon = item.icon
   const to = path(item.path)
   const isOpen = item.path !== '/' && (pathname === to || pathname.startsWith(`${to}/`))
+  const hasItem = useHasFeature(item.feature)
 
   return (
     <li>
@@ -24,12 +31,13 @@ function NavRow({ item }: { item: NavItem }) {
         <Icon size={16} aria-hidden="true" />
         {t(item.key)}
         {item.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}
+        {!hasItem && <LockMark />}
       </NavLink>
       {isOpen && item.children && (
         <ul className="nav-sub">
           {item.children.map((child) => (
             <li key={child.path}>
-              <NavLink to={path(child.path)} className="nav-link nav-link--sub">{t(child.key)}{child.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}</NavLink>
+              <NavLink to={path(child.path)} className="nav-link nav-link--sub">{t(child.key)}{child.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}<ChildLock feature={child.feature} /></NavLink>
             </li>
           ))}
         </ul>
@@ -150,7 +158,7 @@ export function Shell({ bare = false }: { bare?: boolean }) {
     if (handle) rememberStore(handle)
   }, [handle])
 
-  if (current) return bare ? <Outlet /> : <StoreShell />
+  if (current) return bare ? <Outlet /> : <PlanProvider handle={current.store.handle}><StoreShell /></PlanProvider>
   return (
     <AccountLayout>
       <div className="page page--narrow">

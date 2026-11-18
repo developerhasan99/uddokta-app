@@ -27,7 +27,7 @@ const proxyHost = `domains.${domain}`
 
 // Set for every request by the middleware below: the store being shown, and the address its links and canonical URLs use.
 declare module 'hono' {
-  interface ContextVariableMap { handle: string | null; origin: string }
+  interface ContextVariableMap { handle: string | null; origin: string; online: boolean }
 }
 const hash = (script: string) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`
 const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
@@ -459,12 +459,18 @@ app.use('*', async (c, next) => {
   return next()
 })
 
+const onlineStorePath = /^\/($|collections(\/|$)|products(\/|$)|cart(\/|$)|account(\/|$)|search$|policies\/|password$)/
+
 // A store suspended in the platform console is closed to buyers: every page and form answers "unavailable".
 app.use('*', async (c, next) => {
   const handle = c.get('handle')
   if (handle && !c.req.path.startsWith('/_')) {
-    const closed = (await tx(null, (t) => t.execute<{ s: boolean }>(sql`select storefront_store_suspended(${handle}) as s`))).rows[0]?.s
-    if (closed) {
+    const state = (await tx(null, (t) => t.execute<{ suspended: boolean; online_store: boolean }>(sql`select * from storefront_store_state(${handle})`))).rows[0]
+    // Without the online store in its plan, a store has only its landing pages: the catalog, cart, search, buyer
+    // accounts and store pages answer as if they were not there.
+    c.set('online', state?.online_store ?? false)
+    if (!c.get('online') && onlineStorePath.test(c.req.path)) return notFound(c)
+    if (state?.suspended) {
       c.header('Cache-Control', 'no-store')
       return c.html('<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>দোকানটি এখন বন্ধ</title></head>'
         + '<body style="margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#f6f6f4;color:#1a1a1a;text-align:center;padding:24px">'
@@ -1028,7 +1034,7 @@ app.get('/:handle', async (c) => {
   const store = storeHandle(c)
   const page = store && await loadPage(store, handle)
   if (page) return renderPage(c, page)
-  return store ? renderStorePage(c, store, handle) : notFound(c)
+  return store && c.get('online') ? renderStorePage(c, store, handle) : notFound(c)
 })
 app.post('/:handle', async (c) => isReservedPageHandle(c.req.param('handle')) ? notFound(c) : submitLandingPage(c))
 app.get('/:handle/thanks', async (c) => {

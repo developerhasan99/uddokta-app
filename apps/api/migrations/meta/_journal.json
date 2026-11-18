@@ -687,6 +687,20 @@
       "when": 1794944849841,
       "tag": "0097_brainy_sally_floyd",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794973864752,
+      "tag": "0098_quick_dreadnoughts",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1794973868344,
+      "tag": "0099_worthless_stone_men",
+      "breakpoints": true
     }
   ]
 }
