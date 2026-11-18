@@ -1,13 +1,14 @@
-import { Check, Minus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowUpRight, Check, Copy, Lock, MessageCircle } from 'lucide-react'
 import { planFeatureLabels, planFeatures, type PlanFeature } from 'storefront/plans'
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
-import { Badge, Notice, PageHeader, Skeleton } from '../components/ui'
+import { Badge, Button, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
-import { useEffect, useState } from 'react'
 
-// Settings › Billing (owners and admins): the store's plan and what it includes, what it uses against the limits,
-// the plans on offer, how to pay, and the payments recorded. Plans change when Uddokta records a payment.
+// Settings › Billing (owners and admins): the store's plan, what it uses and includes, the plans it can move to,
+// how to pay (amount worked out from the plan's price for display, with the details to send on WhatsApp), and the
+// payments Uddokta has recorded. Plans change only when Uddokta records a payment in the console.
 
 type Plan = { plan_name: string; plan_until: string | null; price_bdt: number; is_custom: boolean; billing_note: string; max_landing_pages: number | null; storage_mb: number; max_members: number | null; max_products: number | null; features: PlanFeature[] }
 type Offer = { id: string; name: string; priceBdt: number; isDefault: boolean; maxLandingPages: number | null; storageMb: number; maxMembers: number | null; maxProducts: number | null; features: PlanFeature[] }
@@ -19,118 +20,201 @@ type Data = {
   pay: { whatsapp: string; bkash: string; nagad: string; bank: string; note: string }
 }
 
+// The full comparison lives on the marketing site, in the dashboard's language.
+const pricingUrl = (lang: string) => (lang === 'en' ? 'https://uddokta.co/en/pricing' : 'https://uddokta.co/pricing')
+const monthChoices = [1, 3, 6, 12]
+
+function CopyValue({ value, label }: { value: string; label: string }) {
+  const { t } = useLang()
+  const [copied, setCopied] = useState(false)
+  return (
+    <button type="button" className="billing-copy" aria-label={`${t('billingCopy')}: ${label}`} onClick={async () => {
+      try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* the value stays visible to copy by hand */ }
+    }}>
+      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      <span>{copied ? t('copied') : t('billingCopy')}</span>
+    </button>
+  )
+}
+
 export function Billing() {
   const { t, lang, num } = useLang()
   const current = useCurrentStore()!
+  const handle = current.store.handle
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [choice, setChoice] = useState<string | null>(null)
+  const [months, setMonths] = useState(1)
   useEffect(() => {
-    api<Data>(`/stores/${current.store.handle}/billing`).then(setData, (err) => setError(errorCode(err)))
-  }, [current.store.handle])
+    api<Data>(`/stores/${handle}/billing`).then(setData, (err) => setError(errorCode(err)))
+  }, [handle])
 
   const L = (pair: readonly [string, string]) => pair[lang === 'bn' ? 0 : 1]
   const taka = (n: number) => `৳${num(n)}`
   const date = (v: string) => new Date(v).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const mb = (n: number) => (n >= 1024 ? `${num(Math.round((n / 1024) * 10) / 10)} GB` : `${num(n)} MB`)
   const limit = (n: number | null) => (n === null ? t('billingUnlimited') : num(n))
+  const header = <PageHeader title={t('billing')} description={t('billing.d')} action={<a className="btn btn--default" href={pricingUrl(lang)} target="_blank" rel="noopener">{t('billingCompare')}<ArrowUpRight size={14} aria-hidden="true" /></a>} />
 
-  if (error) {
-    return (
-      <div className="page page--narrow">
-        <PageHeader title={t('billing')} description={t('billing.d')} />
-        <section className="card card--flush"><Notice title={t(error === 'forbidden' ? 'billingOwnersOnly' : errorLabel(error))} /></section>
-      </div>
-    )
-  }
-  if (!data) return <div className="page page--narrow"><PageHeader title={t('billing')} description={t('billing.d')} /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
+  if (error) return <div className="page page--narrow">{header}<section className="card card--flush"><Notice title={t(error === 'forbidden' ? 'billingOwnersOnly' : errorLabel(error))} /></section></div>
+  if (!data) return <div className="page page--narrow">{header}<section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
 
   const { plan, usage } = data
+  const paidOffers = data.plans.filter((p) => p.priceBdt > 0)
+  // The plan to pay for: the one picked below, else the store's own paid plan, else the cheapest paid plan.
+  const ownPaid = plan.price_bdt > 0 ? { name: plan.plan_name, priceBdt: plan.price_bdt } : null
+  const picked = paidOffers.find((p) => p.id === choice) ?? (ownPaid && !choice ? ownPaid : paidOffers[0] ?? ownPaid)
+  const total = picked ? picked.priceBdt * months : 0
+  const status = data.paidPlanEnded ? { tone: 'warning' as const, text: t('billingStatusEnded') }
+    : plan.plan_until ? { tone: 'success' as const, text: t('billingStatusUntil', { date: date(plan.plan_until) }) }
+    : plan.price_bdt ? { tone: 'success' as const, text: t('billingStatusActive') }
+    : { tone: 'neutral' as const, text: t('billingStatusFree') }
   const meters: { key: Key; used: number; max: number | null; show: (n: number) => string }[] = [
-    { key: 'billingProducts', used: usage.products, max: plan.max_products, show: num },
-    { key: 'billingLandingPages', used: usage.landingPages, max: plan.max_landing_pages, show: num },
-    { key: 'billingTeam', used: usage.members, max: plan.max_members, show: num },
+    { key: 'billingProducts', used: usage.products, max: plan.max_products, show: (n) => num(n) },
+    { key: 'billingLandingPages', used: usage.landingPages, max: plan.max_landing_pages, show: (n) => num(n) },
+    { key: 'billingTeam', used: usage.members, max: plan.max_members, show: (n) => num(n) },
     { key: 'billingStorage', used: usage.storageBytes / 1024 / 1024, max: plan.storage_mb, show: (n) => mb(Math.round(n)) },
   ]
-  const ways = [
-    data.pay.bkash && [t('billingBkash'), data.pay.bkash],
-    data.pay.nagad && [t('billingNagad'), data.pay.nagad],
-    data.pay.whatsapp && ['WhatsApp', data.pay.whatsapp],
-  ].filter(Boolean) as [string, string][]
+  const ways = ([['billingBkash', data.pay.bkash], ['billingNagad', data.pay.nagad]] as [Key, string][]).filter(([, v]) => v)
+  const waNumber = data.pay.whatsapp.replace(/\D/g, '').replace(/^0/, '880')
+  const waText = picked
+    ? t('billingWaText', { store: handle, plan: picked.name, months: num(months), amount: taka(total) })
+    : t('billingWaAsk', { store: handle })
+  const choose = (id: string) => { setChoice(id); document.getElementById('billing-pay')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
 
   return (
     <div className="page page--narrow billing">
-      <PageHeader title={t('billing')} description={t('billing.d')} />
+      {header}
 
-      <section className="card billing-plan">
+      <section className="card billing-plan" aria-labelledby="billing-plan-name">
         <div className="billing-plan__head">
-          <div>
+          <div className="billing-plan__title">
             <p className="muted">{t('billingCurrent')}</p>
-            <h2>{plan.plan_name} {plan.is_custom && <Badge tone="info">{t('billingCustom')}</Badge>}</h2>
+            <h2 id="billing-plan-name">{plan.plan_name}{plan.is_custom && <Badge tone="info">{t('billingCustom')}</Badge>}</h2>
+            <p><Badge tone={status.tone}>{status.text}</Badge></p>
           </div>
-          <p className="billing-plan__price">{plan.price_bdt ? <>{taka(plan.price_bdt)}<span className="muted"> / {t('billingMonth')}</span></> : t('billingFree')}</p>
+          <div className="billing-plan__price">
+            <strong>{plan.price_bdt ? taka(plan.price_bdt) : t('billingFree')}</strong>
+            {plan.price_bdt > 0 && <span className="muted">/ {t('billingMonth')}</span>}
+          </div>
         </div>
-        <p className="muted">{plan.plan_until ? t('billingPaidUntil', { date: date(plan.plan_until) }) : plan.price_bdt ? t('billingNoEnd') : t('billingFreeD')}</p>
         {plan.billing_note && <p className="muted">{plan.billing_note}</p>}
         {data.paidPlanEnded && <p className="notice-line notice-line--warning">{t('billingEnded')}</p>}
-        <div className="billing-meters">
+
+        <div className="billing-usage">
           {meters.map((m) => {
             const share = m.max === null ? 0 : Math.min(m.used / Math.max(m.max, 1), 1)
             return (
-              <div key={m.key} className="bars__row">
-                <span>{t(m.key)}</span>
-                <span className="bars__value">{m.show(m.used)} / {m.max === null ? t('billingUnlimited') : m.key === 'billingStorage' ? mb(m.max) : num(m.max)}</span>
-                <span className="bars__track"><span className="bars__fill" data-full={share >= 0.9 || undefined} style={{ width: `${m.max === null ? 0 : share * 100}%` }} /></span>
+              <div key={m.key} className="billing-usage__item" data-full={share >= 0.9 || undefined}>
+                <span className="muted">{t(m.key)}</span>
+                <strong>{m.show(m.used)} <span className="muted">/ {m.max === null ? t('billingUnlimited') : m.key === 'billingStorage' ? mb(m.max) : num(m.max)}</span></strong>
+                <span className="bars__track" aria-hidden="true"><span className="bars__fill" style={{ width: `${share * 100}%` }} /></span>
               </div>
             )
           })}
         </div>
-        <ul className="billing-tools" aria-label={t('billingTools')}>
-          {planFeatures.map((f) => {
-            const on = plan.features.includes(f)
-            return <li key={f} data-on={on || undefined}>{on ? <Check size={14} aria-hidden="true" /> : <Minus size={14} aria-hidden="true" />}{L(planFeatureLabels[f])}<span className="visually-hidden">: {t(on ? 'billingIncluded' : 'billingNotIncluded')}</span></li>
-          })}
-        </ul>
+
+        <div className="billing-tools-wrap">
+          <p className="billing-label">{t('billingTools')}</p>
+          <ul className="billing-tools">
+            {planFeatures.map((f) => {
+              const on = plan.features.includes(f)
+              return <li key={f} data-on={on || undefined}>{on ? <Check size={14} aria-hidden="true" /> : <Lock size={13} aria-hidden="true" />}{L(planFeatureLabels[f])}<span className="visually-hidden">: {t(on ? 'billingIncluded' : 'billingNotIncluded')}</span></li>
+            })}
+          </ul>
+        </div>
       </section>
 
       {data.plans.length > 0 && (
-        <section className="data-list">
-          <div className="filter-bar"><h2 className="billing-h2">{t('billingPlans')}</h2></div>
-          <div className="billing-compare">
-            <table className="data-table">
-              <thead>
-                <tr><th>{t('billingPlan')}</th><th className="end">{t('billingPrice')}</th><th className="end">{t('billingProducts')}</th><th className="end">{t('billingLandingPages')}</th><th className="end">{t('billingTeam')}</th><th className="end">{t('billingStorage')}</th></tr>
-              </thead>
-              <tbody>
-                {data.plans.map((p) => (
-                  <tr key={p.id}>
-                    <th scope="row">{p.name}{p.name === plan.plan_name && <> <Badge tone="success">{t('billingYours')}</Badge></>}<span className="billing-sub">{t('billingToolsCount', { n: num(p.features.length), all: num(planFeatures.length) })}</span></th>
-                    <td className="num end">{p.priceBdt ? taka(p.priceBdt) : t('billingFree')}</td>
-                    <td className="num end">{limit(p.maxProducts)}</td>
-                    <td className="num end">{limit(p.maxLandingPages)}</td>
-                    <td className="num end">{limit(p.maxMembers)}</td>
-                    <td className="num end">{mb(p.storageMb)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section aria-labelledby="billing-plans">
+          <div className="billing-section-head">
+            <div><h2 id="billing-plans" className="billing-h2">{t('billingPlans')}</h2><p className="muted">{t('billingPlansD')}</p></div>
+            <a className="billing-link" href={pricingUrl(lang)} target="_blank" rel="noopener">{t('billingCompareAll')}<ArrowUpRight size={14} aria-hidden="true" /></a>
+          </div>
+          <div className="billing-offers">
+            {data.plans.map((p) => {
+              const yours = p.name === plan.plan_name
+              return (
+                <article key={p.id} className="card billing-offer" data-current={yours || undefined}>
+                  <div className="billing-offer__top">
+                    <h3>{p.name}</h3>
+                    {yours && <Badge tone="success">{t('billingYours')}</Badge>}
+                  </div>
+                  <p className="billing-offer__price"><strong>{p.priceBdt ? taka(p.priceBdt) : t('billingFree')}</strong>{p.priceBdt > 0 && <span className="muted"> / {t('billingMonth')}</span>}</p>
+                  <dl className="billing-offer__limits">
+                    <div><dt>{t('billingProducts')}</dt><dd>{limit(p.maxProducts)}</dd></div>
+                    <div><dt>{t('billingLandingPages')}</dt><dd>{limit(p.maxLandingPages)}</dd></div>
+                    <div><dt>{t('billingTeam')}</dt><dd>{limit(p.maxMembers)}</dd></div>
+                    <div><dt>{t('billingStorage')}</dt><dd>{mb(p.storageMb)}</dd></div>
+                  </dl>
+                  <p className="muted billing-offer__tools">{p.features.length === planFeatures.length ? t('billingAllTools') : t('billingToolsCount', { n: num(p.features.length), all: num(planFeatures.length) })}</p>
+                  {p.priceBdt > 0 && <Button variant={yours ? 'default' : 'primary'} onClick={() => choose(p.id)}>{yours ? t('billingRenew') : t('billingChoose')}</Button>}
+                </article>
+              )
+            })}
           </div>
         </section>
       )}
 
-      <section className="card billing-pay">
-        <h2 className="billing-h2">{t('billingHowToPay')}</h2>
-        <p className="muted">{t('billingHowToPayD', { store: current.store.handle })}</p>
-        {ways.length === 0 && !data.pay.bank && !data.pay.note
+      <section id="billing-pay" className="card billing-pay" aria-labelledby="billing-pay-title">
+        <div>
+          <h2 id="billing-pay-title" className="billing-h2">{t('billingHowToPay')}</h2>
+          <p className="muted">{t('billingHowToPayD')}</p>
+        </div>
+        {!picked && !ways.length && !data.pay.bank
           ? <p>{t('billingPayContact')}</p>
-          : <>
-            {ways.length > 0 && <dl className="billing-ways">{ways.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
-            {data.pay.bank && <div><p className="billing-label">{t('billingBank')}</p><p className="billing-pre">{data.pay.bank}</p></div>}
-            {data.pay.note && <p className="billing-pre">{data.pay.note}</p>}
-          </>}
+          : (
+            <ol className="billing-steps">
+              {picked && (
+                <li>
+                  <span className="billing-steps__n" aria-hidden="true">{num(1)}</span>
+                  <div className="billing-steps__body">
+                    <h3>{t('billingStepPlan')}</h3>
+                    <div className="billing-pick">
+                      <label className="field"><span>{t('billingPlan')}</span>
+                        <select className="input" value={paidOffers.find((p) => p.name === picked.name)?.id ?? ''} onChange={(e) => setChoice(e.target.value)} disabled={!paidOffers.length}>
+                          {!paidOffers.some((p) => p.name === picked.name) && <option value="">{picked.name}</option>}
+                          {paidOffers.map((p) => <option key={p.id} value={p.id}>{p.name} · {taka(p.priceBdt)}</option>)}
+                        </select>
+                      </label>
+                      <div className="field"><span id="billing-months">{t('billingMonths')}</span>
+                        <div className="segmented" role="radiogroup" aria-labelledby="billing-months">
+                          {monthChoices.map((m) => <label key={m}><input type="radio" name="billing-months" checked={months === m} onChange={() => setMonths(m)} /><span>{num(m)}</span></label>)}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="billing-total">{t('billingTotal')} <strong>{taka(total)}</strong> <span className="muted">({taka(picked.priceBdt)} × {num(months)})</span></p>
+                  </div>
+                </li>
+              )}
+              <li>
+                <span className="billing-steps__n" aria-hidden="true">{num(picked ? 2 : 1)}</span>
+                <div className="billing-steps__body">
+                  <h3>{t('billingStepSend')}</h3>
+                  {ways.length > 0 && (
+                    <dl className="billing-ways">
+                      {ways.map(([label, value]) => <div key={label}><dt>{t(label)}</dt><dd><span>{value}</span><CopyValue value={value} label={t(label)} /></dd></div>)}
+                    </dl>
+                  )}
+                  {data.pay.bank && <div className="billing-bank"><p className="billing-label">{t('billingBank')}</p><p className="billing-pre">{data.pay.bank}</p></div>}
+                  <p className="billing-ref">{t('billingReference')} <strong>{handle}</strong> <CopyValue value={handle} label={t('billingReferenceLabel')} /></p>
+                  {data.pay.note && <p className="billing-pre muted">{data.pay.note}</p>}
+                </div>
+              </li>
+              <li>
+                <span className="billing-steps__n" aria-hidden="true">{num(picked ? 3 : 2)}</span>
+                <div className="billing-steps__body">
+                  <h3>{t('billingStepConfirm')}</h3>
+                  <p className="muted">{t('billingStepConfirmD')}</p>
+                  {waNumber && <a className="btn btn--primary billing-wa" href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noopener"><MessageCircle size={16} aria-hidden="true" />{t('billingSendWa')}</a>}
+                </div>
+              </li>
+            </ol>
+          )}
       </section>
 
-      <section className="data-list">
-        <div className="filter-bar"><h2 className="billing-h2">{t('billingPayments')}</h2></div>
+      <section className="data-list" aria-labelledby="billing-history">
+        <div className="filter-bar"><h2 id="billing-history" className="billing-h2">{t('billingPayments')}</h2></div>
         {data.payments.length === 0
           ? <Notice title={t('billingNoPayments')} body={t('billingNoPaymentsD')} />
           : (
