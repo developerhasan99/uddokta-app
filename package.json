@@ -11,7 +11,8 @@
     "db:studio": "npm run db:studio -w api",
     "dev": "npm run dev -w api & npm run dev -w storefront & npm run dev -w dashboard & npm run dev -w console & wait",
     "build": "npm run typecheck -w api && npm run typecheck -w storefront && npm run build -w dashboard && npm run build -w console",
-    "test": "npm test -w api && npm test -w storefront && npm test -w dashboard && npm test -w console"
+    "test": "npm test -w api && npm test -w storefront && npm test -w dashboard && npm test -w console",
+    "db:pull-live": "sh scripts/pull-live.sh"
   },
   "engines": {
     "node": ">=26.8.1 <27"
