@@ -24,9 +24,9 @@ type Sources = {
 }
 
 const kinds: { key: Kind; label: string; one: string; help: string }[] = [
+  { key: 'section', label: 'Sections', one: 'section', help: 'One section of a landing page or template, offered in the editor’s Add section. Store-only blocks are not allowed.' },
   { key: 'landing', label: 'Landing pages', one: 'landing page', help: 'A whole landing page. Sellers pick one of their products and it replaces the demo’s product.' },
   { key: 'template', label: 'Templates', one: 'template', help: 'A store template (header, footer, home, product page, …). Offered when a seller makes a template of that type.' },
-  { key: 'section', label: 'Sections', one: 'section', help: 'One section of a landing page or template, offered in the editor’s Add section. Store-only blocks are not allowed.' },
 ]
 const storeKey = 'console.demoStore'
 const remembered = () => { try { return localStorage.getItem(storeKey) ?? '' } catch { return '' } }
@@ -190,7 +190,7 @@ function DemoDialog({ demo, categories, onClose, onDone }: { demo: Demo | null; 
 
 export function Demos() {
   const { data, error, reload } = useLoad(() => api<Demo[]>('/console/demos'), [])
-  const [kind, setKind] = useState<Kind>('landing')
+  const [kind, setKind] = useState<Kind>('section')
   const [editing, setEditing] = useState<Demo | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Demo | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -223,7 +223,7 @@ export function Demos() {
 
   return (
     <div className="page">
-      <PageHeader title="Demos" description="Landing pages, templates and sections sellers can start from. Design them in the demo store with the page builder, then add them here." action={<Button variant="primary" onClick={() => setEditing('new')}>New demo</Button>} />
+      <PageHeader title="Demos" description="Sections, landing pages and templates sellers can start from. Design them in the demo store with the page builder, then add them here." action={<Button variant="primary" onClick={() => setEditing('new')}>New demo</Button>} />
       {note && <p className="console-done" role="status">{note}</p>}
       {kind === 'template' && data && <section className="card console-defaults" aria-labelledby="defaults-title">
         <div className="console-defaults__head">
