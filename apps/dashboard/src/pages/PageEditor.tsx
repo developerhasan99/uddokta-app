@@ -10,7 +10,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import DOMPurify from 'dompurify'
 import {
   Sparkles, LayoutGrid, Box, RotateCcw, ClipboardCopy, ClipboardPaste, PenLine, SlidersHorizontal, Palette, RectangleHorizontal, PanelTop, PanelBottom, Megaphone, BadgeCheck, ShieldCheck, ListOrdered, ClipboardList, Table2, GalleryHorizontal, Shapes, List, PanelLeft, MessageSquareQuote, Columns3, Rows3, Heading, MousePointerClick, Minus, MoveVertical, CornerLeftUp, ArrowDown, ArrowLeft, ArrowUp, ChevronDown, LayoutTemplate, Type, Image, Video, ListChecks, MessageSquare, CircleHelp, ShoppingBag, Images, Timer, Phone, CircleCheck, Copy, ExternalLink, Eye, EyeOff, GripVertical, ImagePlus, Link2, Plus, Redo2, Settings, Settings2, Smartphone, Trash2, Undo2, X,
-  Code, Paintbrush,
+  Code, Paintbrush, TriangleAlert,
   FolderOpen, Folders, FileText, History, ShoppingCart, Search as SearchIcon, CircleUser,
 } from 'lucide-react'
 import { pageHref } from 'storefront/paths'
@@ -1258,8 +1258,10 @@ export function Builder({ host }: { host: BuilderHost }) {
 
       {error && (
         <div className="editor__error" role="alert">
-          <p className="form-error">{t(errorLabel(error))}</p>
+          <TriangleAlert size={16} aria-hidden="true" />
+          <p>{t(errorLabel(error))}</p>
           {error === 'pageChanged' && <Button onClick={() => void load()}>{t('pageReload')}</Button>}
+          <button type="button" className="icon-button" aria-label={t('mediaClose')} onClick={() => setError(null)}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
 
