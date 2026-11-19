@@ -5,6 +5,7 @@ import sharp from 'sharp'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { builtInTemplates } from '../../storefront/src/site.ts'
+import { sweepDeletedStores } from '../../api/src/store-deletion.ts'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app } from '../../api/src/app.ts'
@@ -337,4 +338,67 @@ test('default templates: one per type, locked while default, copied into every n
   assert.deepEqual([list.find((d: any) => d.id === first).isDefault, list.find((d: any) => d.id === second).isDefault], [false, true])
   assert.equal((await admin.call('PUT', `/console/demos/${first}`, asDraft)).status, 200)
   assert.equal((await admin.call('DELETE', `/console/demos/${first}`, { reason: 'Replaced' })).status, 200)
+})
+
+test('store deletion: the owner asks (address + password), 30 days offline and read-only, restore, console export and delete now, hourly sweep', async () => {
+  const admin = await administrator()
+  const owner = await person()
+  const handle = `bye-${counter}`
+  await owner.call('POST', '/stores', { name: 'Bye shop', handle })
+  const storeId = (await owner.call('GET', '/me')).json.stores.find((s: any) => s.handle === handle).id as string
+  const form = new FormData()
+  form.set('file', new File([await sharp({ create: { width: 20, height: 20, channels: 3, background: '#a33' } }).png().toBuffer() as BlobPart], 'a.png', { type: 'image/png' }))
+  const image = (await owner.call('POST', `/stores/${handle}/media`, form)).json
+  await owner.call('POST', `/stores/${handle}/products`, { name: 'চা', variants: [{ options: [], price: 100 }] })
+  await owner.call('PUT', `/stores/${handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: true, password: 'secret-pass' })
+
+  assert.equal((await owner.call('POST', `/stores/${handle}/deletion`, { confirm: 'wrong', password: 'correct horse' })).json.error, 'deleteConfirmMismatch')
+  assert.equal((await owner.call('POST', `/stores/${handle}/deletion`, { confirm: handle, password: 'nope' })).json.error, 'wrongPassword')
+  const stranger = await person()
+  assert.equal((await stranger.call('POST', `/stores/${handle}/deletion`, { confirm: handle, password: 'correct horse' })).status, 404)
+  assert.equal((await admin.call('POST', `/console/stores/${storeId}/delete`, { reason: 'x' })).json.error, 'storeNotScheduled', 'the owner has not asked')
+
+  const asked = await owner.call('POST', `/stores/${handle}/deletion`, { confirm: handle, password: 'correct horse' })
+  assert.equal(asked.status, 200)
+  const days = (new Date(asked.json.deletionDueAt).getTime() - Date.now()) / 86_400_000
+  assert.ok(days > 29.9 && days <= 30)
+  assert.ok((await owner.call('GET', '/me')).json.stores.find((s: any) => s.handle === handle).deletionDueAt)
+  assert.equal((await owner.call('POST', `/stores/${handle}/products`, { name: 'x', variants: [{ options: [], price: 1 }] })).json.error, 'storeDeleting', 'read-only')
+  assert.equal((await tx(null, (t) => t.execute(sql`select * from storefront_store_state(${handle})`))).rows[0].suspended, true, 'buyers see it closed')
+  // Only the definer functions change these columns, never app code.
+  await assert.rejects(tx(owner.id, (t) => t.execute(sql`update stores set deletion_due_at = null where handle = ${handle}`)), (e: any) => e.cause?.code === '42501')
+  await assert.rejects(tx(owner.id, (t) => t.execute(sql`update stores set suspended_at = now() where handle = ${handle}`)), (e: any) => e.cause?.code === '42501')
+
+  // The console sees it and can export everything (no secrets).
+  assert.ok((await admin.call('GET', `/console/stores/${storeId}`)).json.deletionDueAt)
+  assert.ok((await admin.call('GET', `/console/stores?q=${handle}`)).json.items[0].deletion_due_at)
+  assert.equal((await admin.call('POST', `/console/stores/${storeId}/export`, {})).json.error, 'reasonRequired')
+  const exported = await admin.call('POST', `/console/stores/${storeId}/export`, { reason: 'Owner asked for a copy' })
+  assert.equal(exported.json.tables.products[0].name, 'চা')
+  assert.equal(exported.json.members[0].email, owner.email)
+  assert.ok(exported.json.tables.media.some((m: any) => m.id === image.id), 'its images (the default footer from the test above adds one more)')
+  assert.deepEqual(exported.json.tables.orders, [])
+  assert.doesNotMatch(JSON.stringify(exported.json), /password_hash|credentials|token_hash/)
+
+  // Restored by the owner: open again.
+  assert.equal((await owner.call('DELETE', `/stores/${handle}/deletion`)).status, 200)
+  assert.equal((await owner.call('POST', `/stores/${handle}/products`, { name: 'দুধ', variants: [{ options: [], price: 50 }] })).status, 201)
+
+  // Asked again, then removed at once from the console, files included.
+  await owner.call('POST', `/stores/${handle}/deletion`, { confirm: handle, password: 'correct horse' })
+  const file = join(process.env.MEDIA_DIR!, image.key ?? `${storeId}/${image.id}.webp`)
+  assert.ok(existsSync(file))
+  assert.equal((await admin.call('POST', `/console/stores/${storeId}/delete`, { reason: 'Owner asked by phone' })).status, 200)
+  assert.equal((await owner.call('GET', `/stores/${handle}/products`)).status, 404)
+  assert.ok(!existsSync(file), 'its images are gone too')
+  assert.equal((await owner.call('GET', '/me')).json.stores.some((s: any) => s.handle === handle), false)
+  assert.ok((await admin.call('GET', '/console/audit')).json.items.some((a: any) => a.action === 'store.delete' && a.target_id === storeId))
+
+  // The hourly sweep removes stores whose 30 days are over.
+  const late = `late-${counter}`
+  await owner.call('POST', '/stores', { name: 'Late', handle: late })
+  await owner.call('POST', `/stores/${late}/deletion`, { confirm: late, password: 'correct horse' })
+  await pool.query(`update stores set deletion_due_at = now() - interval '1 minute' where handle = $1`, [late])
+  assert.equal(await sweepDeletedStores(), 1)
+  assert.equal((await pool.query('select 1 from stores where handle = $1', [late])).rowCount, 0)
 })

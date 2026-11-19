@@ -7,6 +7,7 @@ import { appUrl, emailReady, readLang, resetEmail, sendEmail } from '../../api/s
 import { isPlanFeature } from '../../storefront/src/plans.ts'
 import { consoleCookie, type Env } from './app.ts'
 import { registerDemos } from './demos.ts'
+import { deleteFile } from '../../api/src/storage.ts'
 
 // The console's API. Every request needs a console session (console_session: signed in to the console within 12
 // hours by a platform administrator). Every read and change goes through the console_* functions in migration 0097,
@@ -122,6 +123,26 @@ export function registerConsole(app: Hono<Env>) {
     const b = await body(c)
     if (!isId(c.req.param('id'))) throw fail(404, 'notFound')
     await run((t) => t.execute(sql`select console_suspend_store(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${b.suspend === true}, ${reason(b)})`))
+    return c.json({ ok: true })
+  })
+  // Everything the store holds, as a JSON file (no passwords, keys or tokens). Exporting people's data needs a reason.
+  app.post('/console/stores/:id/export', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id'))) throw fail(404, 'notFound')
+    const data = (await run((t) => one<{ d: { store: { handle: string } } | null }>(t, sql`select console_export_store(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${reason(b)}) as d`)))?.d
+    if (!data) throw fail(404, 'notFound')
+    c.header('Content-Disposition', `attachment; filename="${data.store.handle}-export-${new Date().toISOString().slice(0, 10)}.json"`)
+    c.header('Cache-Control', 'no-store')
+    return c.json(data)
+  })
+  // Removes a store at once, but only one whose owner asked to delete it (it is in its 30 days). Cannot be undone.
+  app.post('/console/stores/:id/delete', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id'))) throw fail(404, 'notFound')
+    const keys = (await run((t) => one<{ k: string[] | null }>(t, sql`select console_delete_store_now(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${reason(b)}) as k`))
+      .catch((err) => { throw databaseCode(err) === '22023' ? fail(409, 'storeNotScheduled') : err }))?.k
+    if (!keys) throw fail(404, 'notFound')
+    await Promise.allSettled(keys.map((key) => deleteFile(key)))
     return c.json({ ok: true })
   })
   app.put('/console/stores/:id/plan', async (c) => {

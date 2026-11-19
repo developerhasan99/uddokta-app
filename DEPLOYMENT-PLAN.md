@@ -595,3 +595,10 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Demo files never pile up in R2: each save deletes the demo's files it no longer uses (replaced/removed thumbnail, images a new snapshot dropped), via console_save_demo's before/after report (migration 0102). Tested against storage.
 - Demos list: each row has Publish / Make draft (drafts are hidden from sellers at once) and a More menu (Edit, Open preview, Update from source, Delete); names left-aligned, actions no longer squeeze the Updated column.
 - Default templates for new stores come from the console: one published template demo per type marked Default (locked: stays published, cannot be deleted until another takes over); new stores get them as their built-in templates with their own image copies; types without one keep the code built-in. Migration 0103.
+
+## Store deletion (November 19, 2026)
+
+- Owners delete a store from Settings › Store (address + password). It closes to buyers at once, becomes read-only, shows a bar to the whole team with the date and (for the owner) Restore; after 30 days the API's hourly sweep removes it with its images. Migration 0104.
+- Console: "Deleting" badge on Stores, a notice on the store page, Export data (JSON of every store table, secrets left out, reason logged) and Delete now (only while the owner's request stands, reason logged).
+- New database rule: suspension, plan and deletion columns of stores change only through their definer functions (trigger), closing a gap where app code could have written them.
+- Browser-checked: dashboard delete + restore (Bangla), console badge, notice and Delete now, on a throwaway store of the QA account.

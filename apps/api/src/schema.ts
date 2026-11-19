@@ -97,6 +97,10 @@ export const stores = pgTable('stores', {
   // Suspended in the console: the storefront answers "unavailable" and the dashboard can only read.
   suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   suspendReason: text('suspend_reason'),
+  // The owner asked to delete the store: it is offline and read-only until this time, then removed for good (the API's
+  // hourly sweep, or Delete now in the console). The owner can restore it before then. Set only by store_request_deletion.
+  deletionDueAt: timestamp('deletion_due_at', { withTimezone: true }),
+  deletionRequestedBy: uuid('deletion_requested_by').references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
   // Business details from Settings › Store, printed on invoices. Blank means not given. The logo is a gallery image,
   // held by a deferred foreign key to media (migration 0071) so a logo in use cannot be deleted.
   logoMediaId: uuid('logo_media_id'),

@@ -729,6 +729,13 @@
       "when": 1795081380473,
       "tag": "0103_demo_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1795082500719,
+      "tag": "0104_store_deletion",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,8 @@ import { useLang } from './i18n'
 
 export type Role = 'owner' | 'admin' | 'staff'
 export type User = { id: string; name: string; email: string; emailVerified: boolean; language: 'bn' | 'en' }
-export type Store = { id: string; handle: string; name: string }
+// deletionDueAt: the owner asked to delete the store; it is offline and read-only until then (store-deletion.ts).
+export type Store = { id: string; handle: string; name: string; deletionDueAt?: string | null }
 export type MyStore = { store: Store; role: Role }
 
 type Me = { user: User; stores: (Store & { role: Role })[]; emailEnabled: boolean }

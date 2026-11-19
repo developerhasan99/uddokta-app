@@ -27,6 +27,7 @@ import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
 import { registerDemos } from './demos.ts'
+import { registerStoreDeletion } from './store-deletion.ts'
 import { isId, registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
@@ -255,7 +256,7 @@ app.get('/me', async (c) => {
   return tx(userId, async (t) => {
     const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, language: users.language, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
     const myStores = await t
-      .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role })
+      .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role, deletionDueAt: stores.deletionDueAt })
       .from(storeMembers)
       .innerJoin(stores, eq(stores.id, storeMembers.storeId))
       .where(eq(storeMembers.userId, userId))
@@ -505,6 +506,7 @@ registerWarehouses(app)
 registerDomains(app)
 registerPages(app)
 registerDemos(app)
+registerStoreDeletion(app)
 registerMenus(app)
 registerStorePages(app)
 registerTemplates(app)

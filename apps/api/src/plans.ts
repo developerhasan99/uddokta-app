@@ -50,9 +50,11 @@ export function guardStores(app: Hono<Env>) {
     const feature = featureRoutes.find(([pattern]) => pattern.test(rest))?.[1]
     const writes = c.req.method !== 'GET' && c.req.method !== 'HEAD'
     if (feature || writes) {
-      const row = await tx(c.get('userId'), (t) => one<{ suspended: boolean; features: string[] }>(t, sql`
-        select l.suspended, l.features from stores s, store_limits(s.id) l where s.handle = ${c.req.param('handle')}`))
+      const row = await tx(c.get('userId'), (t) => one<{ suspended: boolean; deleting: boolean; features: string[] }>(t, sql`
+        select l.suspended, s.deletion_due_at is not null as deleting, l.features from stores s, store_limits(s.id) l where s.handle = ${c.req.param('handle')}`))
       if (row && writes && row.suspended) throw fail(423, 'storeSuspended')
+      // Waiting to be deleted: read-only too, except restoring it (DELETE /stores/:handle/deletion).
+      if (row && writes && row.deleting && rest !== 'deletion') throw fail(423, 'storeDeleting')
       if (row && feature && !row.features.includes(feature)) throw fail(403, `planFeature:${feature}`)
     }
     await next()

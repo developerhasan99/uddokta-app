@@ -36,6 +36,7 @@ const messages: Record<string, string> = {
   tooManyEmails: 'Three reset links were already sent in the last hour.',
   notFound: 'Not found. It may have been deleted.',
   invalidRequest: 'Some values are not valid.',
+  storeNotScheduled: 'The owner has not asked to delete this store. Only stores in their 30 days can be deleted from here.',
   storeNotFound: 'No store has that address. Use the part before .uddokta.live.',
   demoPreviewUrl: 'The preview link must start with https://',
   demoInvalid: 'That draft cannot be used: open it in the page builder, fix any warnings and save it again.',

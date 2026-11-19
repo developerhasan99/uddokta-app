@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { CircleCheck, ImagePlus } from 'lucide-react'
 import { useAccount, useCurrentStore } from '../account-context'
+import { DeleteStoreSection } from '../components/StoreDeletion'
 import { api, errorCode, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
@@ -149,6 +150,8 @@ export function StoreSettings() {
           {text('bin', 'storeBin', 50)}
         </div>
       </section>
+
+      <DeleteStoreSection />
 
       {picking && (
         <MediaPicker

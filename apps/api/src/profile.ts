@@ -20,7 +20,7 @@ async function body(c: Context) {
 }
 
 // Checks the current password, counting wrong ones like log in does (10 in 15 minutes locks for a while).
-async function confirmPassword(userId: string, password: unknown) {
+export async function confirmPassword(userId: string, password: unknown) {
   const { email, stored, failures } = await tx(userId, async (t) => {
     const [row] = (await t.execute<{ email: string }>(sql`select email from users where id = ${userId}::uuid`)).rows
     const failed = await one<{ n: number }>(t, sql`select recent_login_failures(${row.email}) as n`)

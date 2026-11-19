@@ -7,11 +7,12 @@ import { fromLimitForm, LimitFields, LoadError, Loading, Modal, ReasonDialog, to
 import { planFeatureLabels, planFeatures, type PlanFeature } from '../../../storefront/src/plans'
 import { storage, type Plan } from './Plans'
 
-type Row = { id: string; name: string; handle: string; owner_email: string | null; plan_name: string; plan_until: string | null; suspended_at: string | null; created_at: string; products: number; orders: number; storage_bytes: number }
+type Row = { id: string; name: string; handle: string; owner_email: string | null; plan_name: string; plan_until: string | null; suspended_at: string | null; deletion_due_at: string | null; created_at: string; products: number; orders: number; storage_bytes: number }
 type Limits = { plan_name: string; plan_until: string | null; price_bdt: number; is_custom: boolean; billing_note: string; max_landing_pages: number | null; storage_mb: number; max_members: number | null; max_products: number | null; features: PlanFeature[] }
 type CustomPlan = { id: string; priceBdt: number; maxLandingPages: number | null; storageMb: number; maxMembers: number | null; maxProducts: number | null; features: PlanFeature[]; billingNote: string }
 type Store = {
   id: string; name: string; handle: string; domain: string | null; createdAt: string; suspendedAt: string | null; suspendReason: string
+  deletionDueAt: string | null; deletionRequestedBy: string | null
   planId: string | null; planUntil: string | null; limits: Limits; customPlan: CustomPlan | null
   counts: { products: number; orders: number; orders30: number; landingPages: number; storageBytes: number }
   members: { id: string; name: string; email: string; role: string }[]
@@ -40,7 +41,7 @@ export function StoreList() {
             <tbody>
               {data.items.map((s) => (
                 <tr key={s.id} className="data-table__row" onClick={() => navigate(`/stores/${s.id}`)}>
-                  <th scope="row"><Link to={`/stores/${s.id}`} onClick={(e) => e.stopPropagation()}>{s.name}</Link> {s.suspended_at && <Badge tone="danger">Suspended</Badge>}<span className="console-sub">{s.handle}</span></th>
+                  <th scope="row"><Link to={`/stores/${s.id}`} onClick={(e) => e.stopPropagation()}>{s.name}</Link> {s.suspended_at && <Badge tone="danger">Suspended</Badge>}{s.deletion_due_at && <> <Badge tone="warning">Deleting {date(s.deletion_due_at)}</Badge></>}<span className="console-sub">{s.handle}</span></th>
                   <td className="console-ellipsis">{s.owner_email ?? '—'}</td>
                   <td>{planLine(s.plan_name, s.plan_until)}</td>
                   <td className="num end">{count(s.products)}</td>
@@ -170,7 +171,7 @@ function CustomPlanDialog({ store, onClose, onDone }: { store: Store; onClose: (
   )
 }
 
-type Action = 'plan' | 'payment' | 'suspend' | 'restore' | 'custom' | 'endCustom'
+type Action = 'plan' | 'payment' | 'suspend' | 'restore' | 'custom' | 'endCustom' | 'export' | 'deleteNow'
 
 export function StoreDetail() {
   const { id } = useParams()
@@ -178,6 +179,7 @@ export function StoreDetail() {
   const { data: plans } = useLoad(() => api<Plan[]>('/console/plans'), [])
   const [action, setAction] = useState<Action | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const navigate = useNavigate()
   if (error) return <div className="page"><LoadError error={error} retry={reload} /></div>
   if (!store || !plans) return <div className="page"><Loading /></div>
   const l = store.limits
@@ -185,12 +187,17 @@ export function StoreDetail() {
   return (
     <div className="page page--detail">
       <PageHeader title={store.name} description={`${store.handle}${store.domain ? ` · ${store.domain}` : ''} · created ${date(store.createdAt)}`} action={<div className="console-actions">
+        <Button onClick={() => setAction('export')}>Export data</Button>
         <Button onClick={() => setAction('payment')}>Record payment</Button>
         <Button onClick={() => setAction('plan')}>Change plan</Button>
         <Button onClick={() => setAction('custom')}>{store.customPlan ? 'Edit custom plan' : 'Custom plan'}</Button>
         {store.suspendedAt ? <Button variant="primary" onClick={() => setAction('restore')}>Restore</Button> : <Button variant="danger" onClick={() => setAction('suspend')}>Suspend</Button>}
       </div>} />
       {done && <p className="console-done" role="status">{done}</p>}
+      {store.deletionDueAt && <div className="notice-line notice-line--danger console-deleting">
+        <span><strong>The owner asked to delete this store.</strong> It is offline and read-only, and will be deleted for good on {date(store.deletionDueAt)}{store.deletionRequestedBy && ` (asked by ${store.deletionRequestedBy})`}. The owner can restore it until then. Export its data first if anyone needs a copy.</span>
+        <Button variant="danger" onClick={() => setAction('deleteNow')}>Delete now</Button>
+      </div>}
       {store.suspendedAt && <p className="notice-line notice-line--danger">Suspended since {date(store.suspendedAt)}{store.suspendReason && `: ${store.suspendReason}`}. Buyers see “unavailable”; the team can look but not change anything.</p>}
       <div className="stats">
         <div className="stat"><span className="stat__label">Plan</span><span className="stat__value console-stat__text">{l.plan_name}</span><span className="console-stat__sub">{l.plan_until ? `Paid until ${date(l.plan_until)}` : 'No end date'}</span></div>
@@ -233,6 +240,17 @@ export function StoreDetail() {
         onConfirm={(reason) => api(`/console/stores/${store.id}/custom-plan`, { method: 'DELETE', body: { reason } })} onClose={() => setAction(null)} onDone={() => finish('Custom plan ended; the store is on the default plan.')} />}
       {action === 'plan' && <PlanDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={() => finish('Plan saved.')} />}
       {action === 'payment' && <PaymentDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={(until) => finish(`Payment recorded. The plan now runs until ${date(until)}.`)} />}
+      {action === 'export' && <ReasonDialog title={`Export ${store.name}’s data?`} sub="Downloads everything the store holds as a JSON file: products, orders, customers, pages, settings and team. Passwords, keys and tokens are left out. Keep the file safe; it holds buyers’ personal details." action="Export data"
+        onConfirm={async (reason) => {
+          const data = await api(`/console/stores/${store.id}/export`, { method: 'POST', body: { reason } })
+          const link = document.createElement('a')
+          link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+          link.download = `${store.handle}-export-${new Date().toISOString().slice(0, 10)}.json`
+          link.click()
+          setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+        }} onClose={() => setAction(null)} onDone={() => finish('Export downloaded. The audit log records it.')} />}
+      {action === 'deleteNow' && <ReasonDialog title={`Delete ${store.name} now?`} sub={`Everything in the store, its products, orders, pages, team and images, is deleted at once instead of on ${date(store.deletionDueAt!)}. This cannot be undone.`} action="Delete store for good" danger
+        onConfirm={(reason) => api(`/console/stores/${store.id}/delete`, { method: 'POST', body: { reason } })} onClose={() => setAction(null)} onDone={() => navigate('/stores')} />}
       {action === 'suspend' && <ReasonDialog title={`Suspend ${store.name}?`} sub="Buyers see “unavailable” on every page and cannot order. The team can still sign in and look, but cannot change anything." action="Suspend store" danger
         onConfirm={(reason) => api(`/console/stores/${store.id}/suspend`, { method: 'POST', body: { suspend: true, reason } })} onClose={() => setAction(null)} onDone={() => finish('Store suspended.')} />}
       {action === 'restore' && <ReasonDialog title={`Restore ${store.name}?`} sub="The store opens to buyers again and the team can make changes." action="Restore store"

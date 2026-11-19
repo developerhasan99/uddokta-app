@@ -127,3 +127,5 @@ span.console-demo-thumb { display: grid; place-items: center; aspect-ratio: auto
 .console-star:disabled { cursor: default; opacity: .5; }
 @media (hover: hover) { button.console-star:not(:disabled):hover { background: var(--color-paper-2); color: var(--color-primary); } }
 button.console-star:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.console-deleting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.console-deleting > span { flex: 1; min-width: 16rem; }
