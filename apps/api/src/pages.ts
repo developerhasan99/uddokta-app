@@ -7,10 +7,11 @@ import { blankContent, readContent, references, starterContent, type Content } f
 import { type Tx, tx } from './db.ts'
 import { present as presentMedia, saveImage } from './media.ts'
 import { firstFreeHandle, isId, isName, slugify } from './products.ts'
-import { media, pageMedia, pages, products, templates } from './schema.ts'
+import { collections, media, pageMedia, pages, products, templates } from './schema.ts'
 import { getFile } from './storage.ts'
 import { signExport, verifyExport } from './secrets.ts'
 import { recordVersion } from './versions.ts'
+import { takeDemo } from './demos.ts'
 import { over, storeLimits } from './plans.ts'
 import { databaseCode, fail, storeByHandle, type Env } from './app.ts'
 
@@ -37,6 +38,45 @@ export function remap(content: Content, swap: Map<string, string | null>): unkno
     return v
   }
   return walk(content)
+}
+
+export type FileRef = { id: string; key: string; thumbKey: string; name?: string; alt?: string; width: number; height: number; sourceFormat?: string }
+
+// Brings content made in another store (an export file or a demo) into this one. Images the store already has are
+// kept; others are copied in from `files` through saveImage (counting against storage); missing ones become blank.
+// Products and collections the store lacks are blanked, or products all become `product` when one is given (a demo
+// landing page selling the seller's own product). Another store's header or footer gives way to this store's defaults.
+// Returns the remapped content (still to be checked with readContent/readTemplateContent) and the images added.
+export async function bringIn(userId: string, storeId: string, source: Content, files: FileRef[], product: string | null = null) {
+  const ids = references(source)
+  const own = new Set(await tx(userId, async (t) => [
+    ...(ids.media.length ? (await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, storeId), inArray(media.id, ids.media)))).map((r) => r.id) : []),
+    ...(ids.products.length || product ? (await t.select({ id: products.id }).from(products).where(and(eq(products.storeId, storeId), inArray(products.id, [...ids.products, ...(product ? [product] : [])])))).map((r) => r.id) : []),
+    ...(ids.collections.length ? (await t.select({ id: collections.id }).from(collections).where(and(eq(collections.storeId, storeId), inArray(collections.id, ids.collections)))).map((r) => r.id) : []),
+    ...(ids.templates.length ? (await t.select({ id: templates.id }).from(templates).where(and(eq(templates.storeId, storeId), inArray(templates.id, ids.templates)))).map((r) => r.id) : []),
+  ]))
+  if (product && !own.has(product)) throw fail(400, 'invalidRequest')
+  const swap = new Map<string, string | null>()
+  const added: Record<string, ReturnType<typeof presentMedia>> = {}
+  const byId = new Map(files.filter((f) => f && typeof f === 'object').map((f) => [f.id, f]))
+  for (const id of ids.media) {
+    if (own.has(id)) continue
+    const file = byId.get(id)
+    const [full, thumb] = file ? await Promise.all([getFile(file.key), getFile(file.thumbKey)]).catch(() => [null, null]) : [null, null]
+    if (!file || !full || !thumb) { swap.set(id, null); continue }
+    let copy = await saveImage(userId, storeId, String(file.name ?? 'image'), { full, thumb, width: file.width, height: file.height, sourceFormat: String(file.sourceFormat ?? 'webp') })
+    if (file.alt) [copy] = await tx(userId, (t) => t.update(media).set({ alt: String(file.alt).slice(0, 500) }).where(and(eq(media.storeId, storeId), eq(media.id, copy.id))).returning())
+    swap.set(id, copy.id)
+    added[copy.id] = presentMedia(copy)
+  }
+  for (const id of ids.products) if (!own.has(id)) swap.set(id, product)
+  for (const id of ids.collections) if (!own.has(id)) swap.set(id, null)
+  const content = structuredClone(source)
+  if (content.canvas && (content.canvas.headerId || content.canvas.footerId)) {
+    const { headerId, footerId, ...canvas } = content.canvas
+    content.canvas = { ...canvas, ...(headerId && own.has(headerId) ? { headerId } : {}), ...(footerId && own.has(footerId) ? { footerId } : {}) }
+  }
+  return { content: remap(content, swap), media: added }
 }
 
 function readSettings(body: any) {
@@ -133,16 +173,32 @@ export function registerPages(app: Hono<Env>) {
     const body = await c.req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw fail(400, 'invalidRequest')
     if (body.blank !== undefined && typeof body.blank !== 'boolean') throw fail(400, 'invalidRequest')
-    // Pages start blank (the dashboard) or from the starter layout; ready-made templates were retired.
-    if (body.template !== undefined || body.productId !== undefined) throw fail(400, 'invalidRequest')
+    // Pages start blank (the dashboard), from a demo (demo: its id, optionally productId: the seller's product every
+    // product in the demo becomes) or from the starter layout. The old ready-made templates were retired.
+    if (body.template !== undefined) throw fail(400, 'invalidRequest')
+    if (body.demo !== undefined && !isId(body.demo)) throw fail(400, 'invalidRequest')
+    if (body.productId !== undefined && (body.demo === undefined || !(body.productId === null || isId(body.productId)))) throw fail(400, 'invalidRequest')
     const settings = readSettings(body)
-    return tx(c.get('userId'), async (t) => {
-      const store = await storeByHandle(t, c.req.param('handle'))
+    const userId = c.get('userId')
+    const handle = c.req.param('handle')
+    const full = async (t: Tx, storeId: string) => {
+      const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, storeId))
+      if (over(count, (await storeLimits(t, storeId)).maxLandingPages)) throw fail(409, 'pageLimit')
+    }
+    let fromDemo: Content | null = null
+    if (body.demo) {
+      // Checked before copying the demo's images, so a store at its limit gets no stray files.
+      const storeId = await tx(userId, async (t) => { const store = await storeByHandle(t, handle); await full(t, store.id); return store.id })
+      const demo = await takeDemo(userId, body.demo, 'landing')
+      fromDemo = readContent((await bringIn(userId, storeId, demo.content, demo.media, body.productId ?? null)).content)
+      if (!fromDemo) throw fail(400, 'invalidRequest')
+    }
+    return tx(userId, async (t) => {
+      const store = await storeByHandle(t, handle)
       // Serialises page creation per store so two at once cannot pass the limit together.
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`pages:${store.id}`}))`)
-      const [{ count }] = await t.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.storeId, store.id))
-      if (over(count, (await storeLimits(t, store.id)).maxLandingPages)) throw fail(409, 'pageLimit')
-      const draft = body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId))
+      await full(t, store.id)
+      const draft = fromDemo ?? (body.blank === true ? blankContent() : (({ sections, ...rest }) => ({ ...rest, sections: sections.map((s) => toLayout(s, sectionId)) }))(starterContent(sectionId)))
       const [row] = await t.insert(pages).values({
         storeId: store.id, ...settings, handle: await chooseHandle(t, store.id, settings.title, settings.handle), draft,
       }).returning({ id: pages.id })
@@ -241,30 +297,7 @@ export function registerPages(app: Hono<Env>) {
     const source = readContent(retireOldBlocks(data.content, sectionId))
     if (!source || !isName(data.title, 200)) throw fail(400, 'importInvalid')
 
-    const swap = new Map<string, string | null>()
-    const ids = references(source)
-    const own = new Set(await tx(userId, async (t) => [
-      ...(ids.media.length ? (await t.select({ id: media.id }).from(media).where(and(eq(media.storeId, storeId), inArray(media.id, ids.media)))).map((r) => r.id) : []),
-      ...(ids.products.length ? (await t.select({ id: products.id }).from(products).where(and(eq(products.storeId, storeId), inArray(products.id, ids.products)))).map((r) => r.id) : []),
-    ]))
-    const files = new Map<string, any>((Array.isArray(data.media) ? data.media : []).map((m: any) => [m.id, m]))
-    for (const id of ids.media) {
-      if (own.has(id)) continue
-      const file = files.get(id)
-      const [full, thumb] = file ? await Promise.all([getFile(file.key), getFile(file.thumbKey)]).catch(() => [null, null]) : [null, null]
-      if (!full || !thumb) { swap.set(id, null); continue }
-      const copy = await saveImage(userId, storeId, String(file.name ?? 'image'), { full, thumb, width: file.width, height: file.height, sourceFormat: String(file.sourceFormat ?? 'webp') })
-      if (file.alt) await tx(userId, (t) => t.update(media).set({ alt: String(file.alt).slice(0, 500) }).where(and(eq(media.storeId, storeId), eq(media.id, copy.id))))
-      swap.set(id, copy.id)
-    }
-    for (const id of ids.products) if (!own.has(id)) swap.set(id, null)
-    // A header or footer chosen in another store is not this store's: the page uses this store's default instead.
-    if (source.canvas && (source.canvas.headerId || source.canvas.footerId)) {
-      const mine = new Set(await tx(userId, async (t) => (await t.select({ id: templates.id }).from(templates).where(and(eq(templates.storeId, storeId), inArray(templates.id, ids.templates)))).map((r) => r.id)))
-      const { headerId, footerId, ...canvas } = source.canvas
-      source.canvas = { ...canvas, ...(headerId && mine.has(headerId) ? { headerId } : {}), ...(footerId && mine.has(footerId) ? { footerId } : {}) }
-    }
-    const content = readContent(remap(source, swap))
+    const content = readContent((await bringIn(userId, storeId, source, Array.isArray(data.media) ? data.media : [])).content)
     if (!content || JSON.stringify(content).length > maxContentBytes) throw fail(400, 'importInvalid')
 
     return tx(userId, async (t) => {

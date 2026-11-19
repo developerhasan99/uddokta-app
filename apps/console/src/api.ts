@@ -36,6 +36,12 @@ const messages: Record<string, string> = {
   tooManyEmails: 'Three reset links were already sent in the last hour.',
   notFound: 'Not found. It may have been deleted.',
   invalidRequest: 'Some values are not valid.',
+  storeNotFound: 'No store has that address. Use the part before .uddokta.live.',
+  demoPreviewUrl: 'The preview link must start with https://',
+  demoInvalid: 'That draft cannot be used: open it in the page builder, fix any warnings and save it again.',
+  demoEmpty: 'That draft has no sections yet. Design it first, then save.',
+  demoStoreBlocks: 'This section uses store-only blocks (product grid, cart, …), so it would not work on landing pages. Pick another section.',
+  demoSourceGone: 'The source page, template or store was deleted. Make a new demo instead.',
 }
 export const errorText = (err: unknown) => messages[err instanceof ApiError ? err.code : 'server'] ?? 'Something went wrong. Try again in a moment.'
 

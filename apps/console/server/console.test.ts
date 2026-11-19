@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { sql } from 'drizzle-orm'
+import sharp from 'sharp'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app } from '../../api/src/app.ts'
@@ -18,7 +19,8 @@ function client(service: 'dashboard' | 'console' = 'dashboard') {
   let cookie = ''
   const server = service === 'console' ? api : app
   return async (method: string, path: string, body?: unknown) => {
-    const response = await server.request(`/api${path}`, { method, headers: { 'content-type': 'application/json', cookie }, body: body === undefined ? undefined : JSON.stringify(body) })
+    const form = body instanceof FormData
+    const response = await server.request(`/api${path}`, { method, headers: form ? { cookie, host: 'shop.test', origin: 'https://shop.test' } : { 'content-type': 'application/json', cookie }, body: body === undefined ? undefined : form ? body : JSON.stringify(body) })
     if (response.headers.get('set-cookie')) cookie = response.headers.get('set-cookie')!.split(';')[0]
     const text = await response.text()
     return { status: response.status, json: text ? JSON.parse(text) : null }
@@ -169,4 +171,94 @@ test('console tables are out of reach for the app role, and the functions refuse
   }
   await assert.rejects(tx(seller.id, (t) => t.execute(sql`select console_overview(${seller.id}::uuid)`)), (err: any) => (err.cause?.code ?? err.code) === '42501')
   await assert.rejects(tx(seller.id, (t) => t.execute(sql`select console_suspend_user(${seller.id}::uuid, ${seller.id}::uuid, true, 'x')`)), (err: any) => (err.cause?.code ?? err.code) === '42501')
+})
+
+test('demos: the team designs in a store, the console snapshots it, sellers start from published demos in their own store', async () => {
+  const admin = await administrator()
+  // The demo store, built by the team with the normal dashboard.
+  const team = await person()
+  const demoHandle = `demo-store-${counter}`
+  await team.call('POST', '/stores', { name: 'Demo store', handle: demoHandle })
+  const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#2a7' } }).png().toBuffer()
+  const upload = async (call: typeof team.call, handle: string) => {
+    const form = new FormData()
+    form.set('file', new File([png as BlobPart], 'shot.png', { type: 'image/png' }))
+    return (await call('POST', `/stores/${handle}/media`, form)).json
+  }
+  const image = await upload(team.call, demoHandle)
+  const shot = await upload(team.call, demoHandle)
+  const teamProduct = (await team.call('POST', `/stores/${demoHandle}/products`, { name: 'নমুনা পণ্য', variants: [{ options: [], price: 500 }] })).json
+  const page = (await team.call('POST', `/stores/${demoHandle}/pages`, { title: 'Demo page', blank: true })).json
+  const hero = { id: 'hero', type: 'layout', hidden: false, settings: { name: 'Hero' }, children: [
+    { id: 'hh', kind: 'heading', props: { text: 'অফার', level: 'h1' } }, { id: 'hi', kind: 'image', props: { image: image.id, link: '' } },
+    { id: 'ord', kind: 'block', props: {}, block: { type: 'order', settings: { product: teamProduct.id } } },
+  ] }
+  const draft = { version: 2, sections: [hero, { id: 'faq', type: 'layout', hidden: false, settings: { name: 'Questions' }, children: [{ id: 'q', kind: 'heading', props: { text: 'প্রশ্ন', level: 'h2' } }] }] }
+  const saved = await team.call('PUT', `/stores/${demoHandle}/pages/${page.id}`, { title: 'Demo page', handle: page.handle, seoTitle: '', seoDescription: '', draft, revision: page.revision })
+  assert.equal(saved.status, 200, JSON.stringify(saved.json))
+  const header = (await team.call('POST', `/stores/${demoHandle}/templates`, { type: 'header', title: 'Bold header', from: 'builtin' })).json
+
+  // A seller cannot reach the console's demo tools, nor the table itself.
+  const seller = await person()
+  const sellerHandle = `seller-${counter}`
+  await seller.call('POST', '/stores', { name: 'Seller', handle: sellerHandle })
+  const asSeller = client('console')
+  await asSeller('POST', '/auth/login', { email: seller.email, password: 'correct horse' })
+  assert.equal((await asSeller('GET', '/console/demos')).status, 401)
+  await assert.rejects(tx(seller.id, (t) => t.execute(sql`select * from demo_items`)), (e: any) => /permission denied/.test(e.cause?.message))
+  await assert.rejects(tx(seller.id, (t) => t.execute(sql`select console_save_demo(${seller.id}::uuid, gen_random_uuid(), '{}'::jsonb)`)), (e: any) => /not a platform administrator/.test(e.cause?.message))
+
+  const sources = (await admin.call('GET', `/console/demos/sources?store=${demoHandle}`)).json
+  assert.deepEqual(sources.pages[0].sections.map((s: any) => s.name), ['Hero', 'Questions'])
+  assert.ok(sources.templates.some((t: any) => t.id === header.id))
+  assert.equal((await admin.call('GET', '/console/demos/sources?store=nope')).json.error, 'storeNotFound')
+
+  const base = { sourceStoreId: sources.store.id, category: 'Fashion', status: 'published' }
+  const landing = await admin.call('POST', '/console/demos', { ...base, kind: 'landing', sourceId: page.id, nameBn: 'ঈদ অফার', nameEn: 'Eid offer', thumbImageId: shot.id })
+  assert.equal(landing.status, 201, JSON.stringify(landing.json))
+  const section = (await admin.call('POST', '/console/demos', { ...base, kind: 'section', sourceId: page.id, sourceSection: 'hero', nameBn: 'হিরো', nameEn: 'Hero' })).json
+  const template = (await admin.call('POST', '/console/demos', { ...base, kind: 'template', sourceId: header.id, nameBn: 'হেডার', nameEn: 'Header' })).json
+  const hidden = (await admin.call('POST', '/console/demos', { ...base, status: 'draft', kind: 'landing', sourceId: page.id, nameBn: 'খসড়া', nameEn: 'Draft one' })).json
+  assert.equal((await admin.call('POST', '/console/demos', { ...base, kind: 'landing', sourceId: page.id, nameBn: '', nameEn: 'X' })).json.error, 'nameRequired')
+  const list = (await admin.call('GET', '/console/demos')).json
+  assert.equal(list.length, 4)
+  assert.ok(list.find((d: any) => d.id === landing.json.id).thumb)
+
+  // The team deletes the image from the source: published demos keep their own copies.
+  await team.call('PUT', `/stores/${demoHandle}/pages/${page.id}`, { title: 'Demo page', handle: page.handle, seoTitle: '', seoDescription: '', draft: { version: 2, sections: [] }, revision: saved.json.revision })
+  assert.equal((await team.call('DELETE', `/stores/${demoHandle}/media/${image.id}`)).status, 200)
+
+  // Sellers see published demos only, and start from them in their own store.
+  const gallery = (await seller.call('GET', '/demos?kind=landing')).json
+  assert.deepEqual(gallery.map((d: any) => d.name), [['ঈদ অফার', 'Eid offer']])
+  assert.equal((await seller.call('POST', `/stores/${sellerHandle}/pages`, { title: 'X', demo: hidden.id })).status, 404, 'a draft demo cannot be used')
+  const mine = (await seller.call('POST', `/stores/${sellerHandle}/products`, { name: 'আমার পণ্য', variants: [{ options: [], price: 900 }] })).json
+  const made = await seller.call('POST', `/stores/${sellerHandle}/pages`, { title: 'আমার অফার', demo: landing.json.id, productId: mine.id })
+  assert.equal(made.status, 201, JSON.stringify(made.json))
+  const [madeHero] = made.json.draft.sections
+  const madeImage = madeHero.children.find((n: any) => n.kind === 'image').props.image
+  assert.ok(madeImage && madeImage !== image.id, 'the image was copied into the seller\'s store')
+  assert.equal((await seller.call('GET', `/stores/${sellerHandle}/media`)).json.items?.length ?? (await seller.call('GET', `/stores/${sellerHandle}/media`)).json.length, 1)
+  assert.equal(madeHero.children.find((n: any) => n.kind === 'block').block.settings.product, mine.id, 'the demo\'s product became the seller\'s')
+  const other = (await seller.call('POST', `/stores/${sellerHandle}/products`, { name: 'x', variants: [{ options: [], price: 1 }] })).json
+  assert.equal((await team.call('POST', `/stores/${demoHandle}/pages`, { title: 'Steal', demo: landing.json.id, productId: other.id })).status, 400, 'another store\'s product is refused')
+
+  const piece = await seller.call('POST', `/stores/${sellerHandle}/demos/${section.id}/section`)
+  assert.equal(piece.status, 200, JSON.stringify(piece.json))
+  assert.equal(piece.json.section.settings.name, 'Hero')
+  assert.equal(Object.keys(piece.json.media).length, 1)
+  assert.equal((await seller.call('POST', `/stores/${sellerHandle}/demos/${landing.json.id}/section`)).status, 404, 'only section demos fit there')
+
+  assert.deepEqual((await seller.call('GET', '/demos?kind=template&type=header')).json.map((d: any) => d.id), [template.id])
+  const madeTemplate = await seller.call('POST', `/stores/${sellerHandle}/templates`, { type: 'header', title: 'From demo', from: `demo:${template.id}` })
+  assert.equal(madeTemplate.status, 201, JSON.stringify(madeTemplate.json))
+  assert.equal((await seller.call('POST', `/stores/${sellerHandle}/templates`, { type: 'footer', title: 'Wrong type', from: `demo:${template.id}` })).status, 400)
+
+  // Unpublishing hides it at once; deleting removes it; pages made from it stay.
+  await admin.call('PUT', `/console/demos/${landing.json.id}`, { nameBn: 'ঈদ অফার', nameEn: 'Eid offer', category: 'Fashion', status: 'draft' })
+  assert.deepEqual((await seller.call('GET', '/demos?kind=landing')).json, [])
+  assert.equal((await admin.call('DELETE', `/console/demos/${landing.json.id}`, { reason: 'Old' })).status, 200)
+  assert.equal((await seller.call('GET', `/stores/${sellerHandle}/pages/${made.json.id}`)).status, 200)
+  const actions = (await admin.call('GET', '/console/audit')).json.items.filter((a: any) => a.target_type === 'demo').map((a: any) => a.action)
+  assert.ok(actions.includes('demo.create') && actions.includes('demo.update') && actions.includes('demo.delete'))
 })

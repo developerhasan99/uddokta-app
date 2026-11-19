@@ -16,7 +16,7 @@ import {
 import { pageHref } from 'storefront/paths'
 import { toLayout } from 'storefront/convert'
 import { toRich } from 'storefront/rich'
-import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
+import { blockTypes, themeOnlyTypes, customHtmlCss, maxBoxDepth, maxNodes, walk, defOf, isSectionLink, maxCss, maxSections, newBlock, newNode, newSection, nodeDefs, nodeKinds, orderBlocks, type NodeKind, type PageNode, sectionTypes, styleFieldsFor, videoEmbed, type Content, type Field as SchemaField, type Leaf, type Label, type Section, type SectionType, type Value } from 'storefront/schema'
 import { css as storefrontCss, PageView, type CollectionCard, type Ctx, type Product, type ProductPage, type ShippingOption, type StoreInfo, type StorePageView } from 'storefront/sections'
 import { catalogCss, type Card } from 'storefront/catalog'
 import type { ResolvedItem } from 'storefront/menus'
@@ -29,6 +29,7 @@ const presetVars = (theme: PresetId) => presets[theme].vars
 const fallbackLook: Look = { css: presetCss('fresh'), fontsHref: presetFontsHref('fresh') }
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
+import { DemoGallery, type DemoCard } from './NewCampaignDialog'
 import { IconField } from '../components/IconField'
 import { ColorControl, Group, NumericInput, SectionDesignControls } from '../components/SectionDesignControls'
 import { MarketingIcon } from 'storefront/icon'
@@ -485,7 +486,7 @@ function BlockStyleForm({ type, settings, theme, state, onChange }: { type: Sect
   })}</>
 }
 
-function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: (typeof sectionPresets)[number]) => void }) {
+function AddSectionDialog({ onClose, onAdd, onAddDemo }: { onClose: () => void; onAdd: (preset: (typeof sectionPresets)[number]) => void; onAddDemo: (id: string) => void }) {
   const { t, lang } = useLang()
   const L = (label: Label) => label[lang === 'bn' ? 0 : 1]
   const { ref: dialog, close, props: dialogProps } = useDialog(onClose)
@@ -496,15 +497,23 @@ function AddSectionDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (pre
     let n = 0
     return Object.fromEntries(sectionPresets.map((preset) => [preset.key, { ...newSection('layout', `thumb-${preset.key}`), children: preset.build(() => `t${n++}`) }]))
   }, [])
-  useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus() }, [])
-  return <dialog {...dialogProps} className="modal editor-add-modal" aria-labelledby={titleId}>
+  // Ready-made sections from the Uddokta team (console Demos); each use copies it, with its images, into this store.
+  const [demos, setDemos] = useState<DemoCard[]>([])
+  useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector('input')?.focus(); api<DemoCard[]>('/demos?kind=section').then(setDemos, () => {}) }, [])
+  const q = search.toLowerCase().trim()
+  const demoMatches = demos.filter((d) => !q || [...d.name, d.category].some((x) => x.toLowerCase().includes(q)))
+  return <dialog {...dialogProps} className={`modal editor-add-modal${demos.length ? ' campaign-dialog--demos' : ''}`} aria-labelledby={titleId}>
     <DialogHead id={titleId} title={t('pageAddSection')} onClose={() => close()} />
     <div className="dialog__body">
       <SearchInput label={t('pageSearchSections')} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
       <ul className="editor-add__choices">
         {matches.map((preset) => <li key={preset.key}><button type="button" title={L(preset.help)} onClick={() => close(() => onAdd(preset))}><SectionThumbnail section={previews[preset.key]} /><span className="editor-section-label"><RectangleHorizontal size={16} aria-hidden="true" />{L(preset.label)}<Plus size={14} aria-hidden="true" /></span></button></li>)}
       </ul>
-      {matches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
+      {demoMatches.length > 0 && <div className="campaign-dialog__start">
+        <span className="field__label">{L(['রেডিমেড সেকশন', 'Ready-made sections'])}</span>
+        <DemoGallery demos={demoMatches} chosen={null} onChoose={(id) => { if (id) close(() => onAddDemo(id)) }} />
+      </div>}
+      {matches.length === 0 && demoMatches.length === 0 && <p className="muted">{t('pageNoMatches')}</p>}
       <p className="muted editor-add__note">{L(['অর্ডার ফর্ম, রিভিউ, প্রশ্নোত্তরের মতো জিনিস সেকশনের ভেতরে "এলিমেন্ট যোগ করুন" থেকে ব্লক হিসেবে বসান।', 'Order forms, reviews, questions and similar pieces go inside a section: use "Add element" and pick a block.'])}</p>
     </div>
   </dialog>
@@ -894,6 +903,28 @@ export function Builder({ host }: { host: BuilderHost }) {
     setSettingsTab('content')
     setAdding(false)
     setPane('edit')
+  }
+  // A demo section: the API copies its images into the store; it gets fresh ids here, like a paste.
+  const addDemo = async (id: string) => {
+    try {
+      const got = await api<{ section: Section; media: Record<string, MediaItem> }>(`/stores/${current.store.handle}/demos/${id}/section`, { method: 'POST' })
+      if (sections.reduce((n, s) => n + [...walk(s.children ?? [])].length, 0) + [...walk(got.section.children ?? [])].length > maxNodes) {
+        setToast(L([`একটি পেজে সর্বোচ্চ ${num(maxNodes)}টি এলিমেন্ট রাখা যায়।`, `A page holds at most ${maxNodes} elements.`]))
+        return
+      }
+      setMedia((m) => ({ ...m, ...got.media }))
+      const section = reIdSection(got.section, newId)
+      setOpen((o) => new Set([...o, section.id]))
+      const at = sections.findIndex((s) => s.id === (findNode(sections, selected)?.section.id ?? selected))
+      const next = [...sections]
+      next.splice(at === -1 ? next.length : at + 1, 0, section)
+      setSections(next)
+      setSelected(section.id)
+      setSettingsTab('content')
+      setPane('edit')
+    } catch (err) {
+      setError(errorCode(err))
+    }
   }
   const duplicate = (s: Section) => {
     const copy = reIdSection(s, newId)
@@ -1430,7 +1461,7 @@ export function Builder({ host }: { host: BuilderHost }) {
         }} />
       </section>
 
-      {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} />}
+      {adding && <AddSectionDialog onClose={() => setAdding(false)} onAdd={add} onAddDemo={(id) => { setAdding(false); void addDemo(id) }} />}
       {addingNode && <AddNodeDialog room={maxBoxDepth - boxesAbove(sections, addingNode.parentId)} storeBlocks={host.storeBlocks} onClose={() => setAddingNode(null)} onAdd={addNode} />}
 
       {leaving && <LeaveDialog onClose={() => setLeaving(false)} onLeave={() => navigate(host.back.to)} onSave={() => void run(async () => { if (await save()) navigate(host.back.to); else setLeaving(false) })} busy={busy} />}

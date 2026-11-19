@@ -917,3 +917,40 @@ export const consoleAudit = pgTable('console_audit', {
   reason: text('reason').notNull().default(''),
   createdAt: createdAt(),
 }, (t) => [index('console_audit_time').on(t.createdAt)])
+
+// Demos: landing pages, templates and sections the Uddokta team designs in an ordinary store with the page builder, then
+// snapshots in the console. Sellers start from them; each use copies the content and images into the seller's store, so
+// a demo never changes a page already made from it. The images live under the demo's own key prefix (`<demo id>/…`),
+// copied at snapshot time, so editing or deleting the source never breaks a published demo. No store_id: platform rows,
+// reached only through the demo_* (sellers: published only) and console_* functions in migration 0101.
+export const demoItems = pgTable('demo_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind').notNull(),
+  templateType: text('template_type'),
+  nameBn: text('name_bn').notNull(),
+  nameEn: text('name_en').notNull(),
+  category: text('category').notNull().default(''),
+  // Page content (version 2). A section demo holds exactly one section.
+  content: jsonb('content').notNull(),
+  // The images the content uses: [{ id, key, thumbKey, name, alt, width, height, sourceFormat }], as in a page export.
+  media: jsonb('media').notNull().default(sql`'[]'::jsonb`),
+  thumbKey: text('thumb_key'),
+  previewUrl: text('preview_url').notNull().default(''),
+  status: text('status').notNull().default('draft'),
+  sort: integer('sort').notNull().default(0),
+  // Where the last snapshot came from, so "Update from source" can take it again.
+  sourceStoreId: uuid('source_store_id').references(() => stores.id, { onDelete: 'set null' }),
+  sourceId: uuid('source_id'),
+  sourceSection: text('source_section'),
+  version: integer('version').notNull().default(1),
+  uses: integer('uses').notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  check('demo_items_kind', sql`${t.kind} in ('landing', 'template', 'section')`),
+  check('demo_items_template_type', sql`(${t.kind} = 'template') = (${t.templateType} is not null)`),
+  check('demo_items_section', sql`(${t.kind} = 'section') = (${t.sourceSection} is not null) or ${t.sourceId} is null`),
+  check('demo_items_status', sql`${t.status} in ('draft', 'published')`),
+  check('demo_items_names', sql`length(btrim(${t.nameBn})) between 1 and 80 and length(btrim(${t.nameEn})) between 1 and 80 and length(${t.category}) <= 40`),
+  index('demo_items_list').on(t.kind, t.status, t.sort),
+])

@@ -582,3 +582,11 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Store password page: 20 wrong tries in 15 minutes per store close the form (429, "try again in 15 minutes"), counted through the buyer-login lockout functions under the key `store-password`. Per store, not per visitor, because the buyer's IP is not trustworthy behind the domains proxy; key it by `CF-Connecting-IP` once Cloudflare is in front. Test in `server.test.tsx`.
 - No captcha: a third-party script and keys for a pre-launch password page is more than the risk needs. Revisit Cloudflare Turnstile for order forms if bot orders get past the honeypot and phone limit.
 - Store passwords need at least 8 characters (was 4) for new or changed passwords; existing ones keep working until changed.
+
+## Demos: landing pages, templates and sections (November 19, 2026)
+
+- Console › Demos: the team designs in a demo store with the page builder; the console snapshots a landing page, a template or one section (saved draft plus copied images, migration 0101 `demo_items`), with Bangla/English names, category, thumbnail (a screenshot from the store's Media, else the first image), optional preview link, published/draft, order. Update from source, delete (with reason), all audited.
+- Sellers: Create landing page shows a demo gallery and an optional product that replaces the demo's; New template shows demos of that type; the editor's Add section lists ready-made sections. Each use copies content and images into the store (`bringIn`, shared with page import, which now also blanks other stores' collections).
+- Security: no grants on `demo_items`; sellers read published demos through definer functions only. Tests in `apps/console/server/console.test.ts` cover the whole flow, permissions and isolation.
+- Browser-checked locally: console create (landing, section, template), seller create from demo with product swap, Add section, New template from demo. Fixed on the way: the product picker inside the create dialog closed it (now rendered beside it).
+- Before deploying: add the R2 variables to the console service (deploy/SERVICES.md), then create the demo store on production and add a platform administrator to it as a member, or use any store.

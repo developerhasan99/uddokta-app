@@ -6,6 +6,7 @@ import { one, tx } from '../../api/src/db.ts'
 import { appUrl, emailReady, readLang, resetEmail, sendEmail } from '../../api/src/email.ts'
 import { isPlanFeature } from '../../storefront/src/plans.ts'
 import { consoleCookie, type Env } from './app.ts'
+import { registerDemos } from './demos.ts'
 
 // The console's API. Every request needs a console session (console_session: signed in to the console within 12
 // hours by a platform administrator). Every read and change goes through the console_* functions in migration 0097,
@@ -181,6 +182,8 @@ export function registerConsole(app: Hono<Env>) {
     await run((t) => t.execute(sql`select console_save_settings(${admin(c)}::uuid, ${JSON.stringify(details)}::jsonb, ${text(b.reason, 500)})`))
     return c.json({ ok: true })
   })
+
+  registerDemos(app)
 
   app.get('/console/audit', async (c) => {
     const { offset } = page(c)

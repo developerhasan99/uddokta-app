@@ -28,6 +28,15 @@ for (const page of rows) {
   console.log(`Page ${page.id}: retired blocks converted to elements`)
 }
 
+// Same for demos (console Demos): their snapshots are page content too, and must stay readable when a block retires.
+const demos = await pool.query<{ id: string; content: unknown }>('select id, content from demo_items where content::text ~ $1', [retiredPattern])
+for (const demo of demos.rows) {
+  const content = retireOldBlocks(demo.content, idsFor(demo.content))
+  if (!readContent(content, { theme: true })) { console.warn(`Demo ${demo.id}: retired blocks could not be converted; left as is`); continue }
+  await pool.query('update demo_items set content = $1 where id = $2', [content, demo.id])
+  console.log(`Demo ${demo.id}: retired blocks converted to elements`)
+}
+
 // Data step: every store gets its own editable copy of each built-in template (stores made before they were editable).
 // Inserts only the types a store lacks, so it does nothing once all stores have them.
 for (const { id } of (await pool.query<{ id: string }>('select id from stores')).rows) {

@@ -26,6 +26,7 @@ import { registerVersions } from './versions.ts'
 import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
 import { registerPages } from './pages.ts'
+import { registerDemos } from './demos.ts'
 import { isId, registerProducts } from './products.ts'
 import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
@@ -501,6 +502,7 @@ registerInventory(app)
 registerWarehouses(app)
 registerDomains(app)
 registerPages(app)
+registerDemos(app)
 registerMenus(app)
 registerStorePages(app)
 registerTemplates(app)

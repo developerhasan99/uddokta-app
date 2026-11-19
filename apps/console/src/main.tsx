@@ -1,7 +1,7 @@
 import { StrictMode, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes } from 'react-router'
-import { Building2, CreditCard, LayoutDashboard, LogOut, ScrollText, Settings as SettingsIcon, Users } from 'lucide-react'
+import { Building2, CreditCard, LayoutDashboard, LayoutTemplate, LogOut, ScrollText, Settings as SettingsIcon, Users } from 'lucide-react'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/noto-sans-bengali'
 import '../../dashboard/src/styles/app.css'
@@ -13,6 +13,7 @@ import { Overview } from './pages/Overview'
 import { UserDetail, UserList } from './pages/Users'
 import { StoreDetail, StoreList } from './pages/Stores'
 import { Plans } from './pages/Plans'
+import { Demos } from './pages/Demos'
 import { Audit } from './pages/Audit'
 import { Settings } from './pages/Settings'
 
@@ -47,6 +48,7 @@ const nav = [
   { to: '/users', label: 'Users', icon: Users },
   { to: '/stores', label: 'Stores', icon: Building2 },
   { to: '/plans', label: 'Plans', icon: CreditCard },
+  { to: '/demos', label: 'Demos', icon: LayoutTemplate },
   { to: '/audit', label: 'Audit log', icon: ScrollText },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
@@ -95,6 +97,7 @@ function App() {
         <Route path="stores" element={<StoreList />} />
         <Route path="stores/:id" element={<StoreDetail />} />
         <Route path="plans" element={<Plans />} />
+        <Route path="demos" element={<Demos />} />
         <Route path="audit" element={<Audit />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate replace to="/" />} />

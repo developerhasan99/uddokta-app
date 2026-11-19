@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
 import { CircleCheck, CircleUser, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
 import { readyMade, templateLabels, templateTypes, type TemplateType } from 'storefront/site'
+import { DemoGallery, type DemoCard } from './NewCampaignDialog'
 
 export { templateLabels }
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -213,6 +214,12 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
   useEffect(() => {
     if (type) setTimeout(() => ref.current?.querySelector<HTMLInputElement>('#template-new-title')?.focus())
   }, [type])
+  // Demos of this type from the Uddokta team; none (or no connection) leaves the usual starts.
+  const [demos, setDemos] = useState<DemoCard[]>([])
+  useEffect(() => {
+    setDemos([])
+    if (type) api<DemoCard[]>(`/demos?kind=template&type=${type}`).then(setDemos, () => {})
+  }, [type])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -228,7 +235,7 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
     }
   }
 
-  return <dialog {...props} className="modal template-new" aria-labelledby="template-new-heading" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
+  return <dialog {...props} className={`modal template-new${type && demos.length ? ' campaign-dialog--demos' : ''}`} aria-labelledby="template-new-heading" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
     <form onSubmit={(e) => void submit(e)} noValidate>
       <DialogHead id="template-new-heading" title={type ? `${L(['নতুন', 'New'])}: ${L(templateLabels[type])}` : L(['কী ধরনের টেমপ্লেট?', 'What kind of template?'])} disabled={busy} onClose={() => close()} />
       <div className="dialog__body">
@@ -247,6 +254,10 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
                 <label key={o.id} className="check-line"><input type="radio" className="check" name="template-from" checked={from === o.id} onChange={() => setFrom(o.id)} />{o.label}</label>
               ))}
             </fieldset>
+            {demos.length > 0 && <div className="campaign-dialog__start">
+              <span className="field__label">{L(['অথবা উদ্যোক্তার ডিজাইন থেকে', 'Or from an Uddokta design'])}</span>
+              <DemoGallery demos={demos} chosen={from.startsWith('demo:') ? from.slice(5) : null} onChoose={(id) => setFrom(id ? `demo:${id}` : 'builtin')} />
+            </div>}
             {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
           </>}
       </div>

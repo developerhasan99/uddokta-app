@@ -10,6 +10,8 @@ import { isId } from './products.ts'
 import { collections, media, products, storePages, stores, templateMedia, templates } from './schema.ts'
 import { publicUrl } from './storage.ts'
 import { recordVersion } from './versions.ts'
+import { takeDemo } from './demos.ts'
+import { bringIn } from './pages.ts'
 
 // The store's Site settings, or its style preset's look until it saves its own.
 export const siteStyleOf = (store: { siteStyle: unknown; theme: string }): SiteStyle =>
@@ -83,13 +85,34 @@ export function registerTemplates(app: Hono<Env>) {
     const type: TemplateType = body.type
     const title = readTitle(body.title)
     const from = body.from ?? 'builtin'
+    // From a demo (from: "demo:<id>"): owners and admins only (checked first, so staff never copy images in), a demo of
+    // this type, its images copied into the store and other stores' products and collections blanked.
+    let fromDemo: Content | null = null
+    if (typeof from === 'string' && from.startsWith('demo:')) {
+      const demoId = from.slice(5)
+      if (!isId(demoId)) throw fail(400, 'invalidRequest')
+      const userId = c.get('userId')
+      const storeId = await tx(userId, async (t) => {
+        const store = await storeByHandle(t, c.req.param('handle'))
+        if ((await t.execute<{ role: string }>(sql`select my_role(${store.id}::uuid) as role`)).rows[0]?.role === 'staff') throw fail(403, 'forbidden')
+        const [{ n }] = await t.select({ n: sql<number>`count(*)::int` }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.builtIn, false)))
+        if (n >= maxTemplates) throw fail(409, 'templateLimit')
+        return store.id
+      })
+      const demo = await takeDemo(userId, demoId, 'template')
+      if (demo.templateType !== type) throw fail(400, 'invalidRequest')
+      fromDemo = readTemplateContent((await bringIn(userId, storeId, demo.content, demo.media)).content)
+      if (!fromDemo) throw fail(400, 'templateInvalid')
+      if (type === 'header' || type === 'footer') delete fromDemo.canvas
+    }
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       await t.execute(sql`select pg_advisory_xact_lock(hashtext(${`templates:${store.id}`}))`)
       const [{ n }] = await t.select({ n: sql<number>`count(*)::int` }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.builtIn, false)))
       if (n >= maxTemplates) throw fail(409, 'templateLimit')
       let draft: Content
-      if (from === 'blank') draft = { version: 2, sections: [] }
+      if (fromDemo) draft = fromDemo
+      else if (from === 'blank') draft = { version: 2, sections: [] }
       else if (from === 'builtin') draft = structuredClone(builtInTemplates[type])
       else if (isId(from)) {
         const [source] = await t.select().from(templates).where(and(eq(templates.storeId, store.id), eq(templates.id, from), eq(templates.type, type)))

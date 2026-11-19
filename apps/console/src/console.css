@@ -52,3 +52,19 @@
 .console-tools li[data-on] { color: var(--color-ink); }
 .console-tools li[data-on] svg { color: var(--color-primary); }
 @media (max-width: 719px) { .console-features { grid-template-columns: 1fr; } }
+
+/* Demos */
+.console-kinds { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; border: 0; }
+.console-inline { display: flex; gap: var(--space-xs); }
+.console-inline .input { flex: 1; min-width: 0; }
+.console-shell button.tab { border: 0; font: inherit; cursor: pointer; }
+.console-shell button.tab:not([aria-current]) { background: none; }
+.console-actions--end { justify-content: flex-end; flex-wrap: nowrap; }
+.console-demo-thumb { display: block; width: 4.5rem; height: 3rem; border-radius: var(--radius-media); object-fit: cover; object-position: top; background: var(--color-paper-3); }
+.console-thumbs { margin: 0; padding: 0; border: 0; }
+.console-thumbs ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr)); gap: var(--space-xs); max-height: 15rem; margin: var(--space-2xs) 0 0; padding: 0; overflow-y: auto; list-style: none; }
+.console-thumbs button { display: grid; gap: var(--space-3xs); width: 100%; padding: var(--space-3xs); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-box); background: var(--color-paper); color: var(--color-muted); font: inherit; font-size: var(--text-sm); cursor: pointer; text-align: start; }
+.console-thumbs button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-thumbs button[aria-pressed="true"] { border-color: var(--color-primary); outline: 2px solid var(--color-primary); outline-offset: -1px; color: var(--color-ink); }
+.console-thumbs img, .console-thumbs__none { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-media); object-fit: cover; object-position: top; background: var(--color-paper-3); color: var(--color-muted); }
+span.console-demo-thumb { display: grid; place-items: center; aspect-ratio: auto; }

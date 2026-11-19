@@ -10,6 +10,7 @@ import { databaseCode, fail, hash, newToken } from '../../api/src/http.ts'
 import { one, tx } from '../../api/src/db.ts'
 import { dummyHash, verifyPassword } from '../../api/src/password.ts'
 import { registerConsole } from './routes.ts'
+import { readLocalFile } from '../../api/src/storage.ts'
 
 // The platform console: its own Railway service and address, separate from the seller dashboard. It shares the
 // database and its functions, never the dashboard's sessions: its cookie has its own name, and a console sign-in lasts
@@ -77,6 +78,12 @@ api.post('/auth/logout', async (c) => {
   return c.json({ ok: true })
 })
 
+// Development stand-in for the public R2 bucket (demo thumbnails and images), as on the seller API.
+api.get('/media-files/:store/:file', async (c) => {
+  const data = await readLocalFile(`${c.req.param('store')}/${c.req.param('file')}`)
+  if (!data) return c.json({ error: 'notFound' }, 404)
+  return c.body(new Uint8Array(data), 200, { 'content-type': 'image/webp', 'x-content-type-options': 'nosniff' })
+})
 registerConsole(api)
 api.all('*', (c) => c.json({ error: 'notFound' }, 404))
 

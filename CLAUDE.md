@@ -163,7 +163,7 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Images a page uses are kept in `page_media` (draft and published), which blocks deleting them.
 - The storefront has no signed-in user and reads only through `storefront_page`, `storefront_media` and `storefront_products`. The order form is a plain HTML form; its small script only updates the shown total.
 
-- New landing pages start as a blank canvas: the Create landing page dialog asks only for the name. The ready-made templates (`campaigns.ts`) were removed; the create API refuses `template`/`productId`. All created/duplicated/imported pages start unpublished.
+- New landing pages start blank or from a published demo (see Demos): the Create landing page dialog asks for the name and offers the demo gallery, plus an optional product that replaces the demo's products (`productId`, only with `demo`). The old ready-made templates (`campaigns.ts`) were removed; the create API refuses `template`. All created/duplicated/imported pages start unpublished.
 - Export/import: the page list exports a page's draft and settings with its images' storage details as a file signed with a key derived from `COURIER_KEY` (`signExport`/`verifyExport` in `secrets.ts`); only unchanged signed files import. Import always creates a new unpublished page (page-limit lock, `readContent` and `checkReferences` as usual): images already in the store are kept, other platform images are copied in through `saveImage` (counting against storage), missing images and products the store lacks are blanked (`remap` in `pages.ts`).
 - The page-list Duplicate action copies the saved draft into a separate page, including media references and SEO fields. Creation and duplication share the store page-limit lock. A copy must never change the source page or its published content.
 
@@ -195,6 +195,15 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Icon fields hold a library icon name or `media:<id>` (the seller's own PNG/JPG/SVG from the media gallery; `mediaIconId`/`isIconValue` in `icons/catalog.ts`). Own icons are page images in `references()` (so they cannot be deleted while used) and are drawn by `MarketingIcon` with the `image` lookup from `ctx`. SVG uploads are rasterised to WebP like every image; no SVG is served.
 - Style presets live in `apps/storefront/src/themes.ts`; the storefront and the editor preview both apply them.
 - Ad pixels are written into page scripts, so their IDs are format-checked in the API, the database and again before rendering. Each response's CSP allows its own inline scripts by hash.
+
+## Demos (console)
+
+- Landing pages, templates and single sections the Uddokta team designs with the normal page builder in an ordinary store (the demo store), then turns into demos on the console's Demos screen (`apps/console/server/demos.ts`, `pages/Demos.tsx`). A demo is a snapshot of the source's saved **draft**: `demo_items` (migration 0101) holds the content, its image details and where it came from. Its images are copied under the demo's own key prefix (`<demo id>/…`) at snapshot time, so the source can change or lose images without breaking a demo. "Update from source" takes a new snapshot (version + 1); stores that used it keep their copies. Without a picked thumbnail, the demo's first image is used.
+- Security: `demo_items` has no grant for the app role. Sellers read only published demos through `demo_list` / `demo_take` (definer functions, no content in the list); the console changes them only through `console_*` functions that check the administrator and write the audit log. A test proves a seller cannot read the table or call the console functions.
+- Using a demo always copies it into the seller's store through `bringIn` in `apps/api/src/pages.ts` (shared with page import): images copied through `saveImage` (counting against storage), other stores' products and collections blanked (or products swapped for the seller's chosen one), another store's header/footer dropped, then `readContent`/`readTemplateContent`. Where sellers see them: Create landing page (`DemoGallery` in `NewCampaignDialog.tsx`), New template (demos of that type; owners and admins, checked before any image is copied), and the editor's Add section ("Ready-made sections", `POST /stores/:handle/demos/:id/section`, given fresh ids like a paste).
+- Section demos must pass `readContent` (no store-only blocks), so they work on landing pages and templates alike.
+- Demos are saved page content: a migration that retires a block must rewrite `demo_items` too (the data step in `migrate.ts` does).
+- The console service needs the R2 variables (it copies demo images).
 
 ## Templates (online store)
 
