@@ -225,19 +225,31 @@ export function Demos() {
     <div className="page">
       <PageHeader title="Demos" description="Landing pages, templates and sections sellers can start from. Design them in the demo store with the page builder, then add them here." action={<Button variant="primary" onClick={() => setEditing('new')}>New demo</Button>} />
       {note && <p className="console-done" role="status">{note}</p>}
+      {kind === 'template' && data && <section className="card console-defaults" aria-labelledby="defaults-title">
+        <div className="console-defaults__head">
+          <div>
+            <h2 id="defaults-title" className="console-defaults__title">Templates for new stores</h2>
+            <p className="console-defaults__lead">Every new store starts with these. Types without a choice use the built-in design.</p>
+          </div>
+          <div className="console-defaults__progress" aria-label={`${defaults.size} of ${templateTypes.length} chosen`}>
+            <span><strong>{defaults.size}</strong> of {templateTypes.length} chosen</span>
+            <span className="console-defaults__bar" aria-hidden="true"><span style={{ width: `${(defaults.size / templateTypes.length) * 100}%` }} /></span>
+          </div>
+        </div>
+        <ul className="console-defaults__grid">{templateTypes.map((type) => {
+          const d = defaults.get(type)
+          return <li key={type} data-on={d ? '' : undefined}>
+            <span className="console-defaults__type">{templateLabels[type][1]}</span>
+            <span className="console-defaults__value">{d ? <><Check size={14} aria-hidden="true" /><span className="console-defaults__name" title={d.nameEn}>{d.nameEn}</span></> : 'Built-in design'}</span>
+          </li>
+        })}</ul>
+      </section>}
       <div className="data-list">
         <div className="filter-bar">
           <nav className="tabs" aria-label="Kind">
             {kinds.map((k) => <button key={k.key} type="button" className="tab" aria-current={kind === k.key ? 'page' : undefined} onClick={() => setKind(k.key)}>{k.label}<span className="tab__count">{(data ?? []).filter((d) => d.kind === k.key).length}</span></button>)}
           </nav>
         </div>
-        {kind === 'template' && data && <div className="console-defaults">
-          <p className="console-defaults__title">Templates new stores start with <span className="muted">· {defaults.size} of {templateTypes.length} chosen; the rest use the built-in design</span></p>
-          <ul>{templateTypes.map((type) => {
-            const d = defaults.get(type)
-            return <li key={type} data-on={d ? '' : undefined}>{d ? <Check size={14} aria-hidden="true" /> : <span className="console-defaults__dot" aria-hidden="true" />}<span><strong>{templateLabels[type][1]}</strong><span className="muted">{d ? d.nameEn : 'Built-in'}</span></span></li>
-          })}</ul>
-        </div>}
         {error ? <LoadError error={error} retry={reload} /> : !data ? <Loading /> : rows.length === 0 ? (
           <div className="notice"><h2>No {kinds.find((k) => k.key === kind)!.one} demos yet</h2><p className="muted">Design one in the demo store, then press New demo.</p><Button onClick={() => setEditing('new')}>New demo</Button></div>
         ) : (
@@ -247,10 +259,13 @@ export function Demos() {
               {rows.map((d) => (
                 <tr key={d.id} className="data-table__row" onClick={() => setEditing(d)}>
                   <td>{d.thumb ? <img className="console-demo-thumb" src={d.thumb} alt="" loading="lazy" /> : <span className="console-demo-thumb console-thumbs__none"><ImageOff size={16} aria-hidden="true" /></span>}</td>
-                  <th scope="row"><button type="button" className="console-link" onClick={(e) => { e.stopPropagation(); setEditing(d) }}>{d.nameEn}</button><span className="console-sub">{d.nameBn}</span></th>
-                  <td>{d.category || '—'}</td>
+                  <th scope="row">
+                    <span className="console-name"><button type="button" className="console-link" onClick={(e) => { e.stopPropagation(); setEditing(d) }}>{d.nameEn}</button>{d.isDefault && <Badge tone="info">Default</Badge>}</span>
+                    <span className="console-sub">{d.nameBn}</span>
+                  </th>
+                  <td>{d.category || <span className="muted">—</span>}</td>
                   {kind === 'template' && <td>{d.templateType ? templateLabels[d.templateType][1] : '—'}</td>}
-                  <td><span className="console-badges">{d.status === 'published' ? <Badge tone="success">Published</Badge> : <Badge>Draft</Badge>}{d.isDefault && <Badge tone="info">Default</Badge>}</span></td>
+                  <td>{d.status === 'published' ? <Badge tone="success">Published</Badge> : <Badge>Draft</Badge>}</td>
                   <td className="num end">{count(d.uses)}</td>
                   <td>{date(d.updatedAt)}<span className="console-sub">Version {d.version}</span></td>
                   <td className="end" onClick={(e) => e.stopPropagation()}>
@@ -261,7 +276,7 @@ export function Demos() {
                       <Dropdown.Root>
                         <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy === d.id} aria-label={`More: ${d.nameEn}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
                         <Dropdown.Portal>
-                          <Dropdown.Content className="menu menu--compact" align="end" sideOffset={6} collisionPadding={8}>
+                          <Dropdown.Content className="menu menu--compact console-menu" align="end" sideOffset={6} collisionPadding={8}>
                             <Dropdown.Group className="menu__section">
                               <Dropdown.Item className="menu__item menu__action" onSelect={() => setEditing(d)}><Pencil size={16} aria-hidden="true" />Edit</Dropdown.Item>
                               {d.previewUrl && <Dropdown.Item className="menu__item menu__action" onSelect={() => window.open(d.previewUrl, '_blank', 'noopener,noreferrer')}><ExternalLink size={16} aria-hidden="true" />Open preview</Dropdown.Item>}
