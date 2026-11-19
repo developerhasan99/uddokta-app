@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import sharp from 'sharp'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { builtInTemplates } from '../../storefront/src/site.ts'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app } from '../../api/src/app.ts'
@@ -284,4 +285,56 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
   assert.equal((await seller.call('GET', `/stores/${sellerHandle}/pages/${made.json.id}`)).status, 200)
   const actions = (await admin.call('GET', '/console/audit')).json.items.filter((a: any) => a.target_type === 'demo').map((a: any) => a.action)
   assert.ok(actions.includes('demo.create') && actions.includes('demo.update') && actions.includes('demo.delete'))
+})
+
+test('default templates: one per type, locked while default, copied into every new store (images too); other types keep the built-in', async () => {
+  const admin = await administrator()
+  const team = await person()
+  const demoHandle = `defaults-${counter}`
+  await team.call('POST', '/stores', { name: 'Demo store', handle: demoHandle })
+  const form = new FormData()
+  form.set('file', new File([await sharp({ create: { width: 40, height: 30, channels: 3, background: '#147' } }).png().toBuffer() as BlobPart], 'logo.png', { type: 'image/png' }))
+  const image = (await team.call('POST', `/stores/${demoHandle}/media`, form)).json
+  const footer = (await team.call('POST', `/stores/${demoHandle}/templates`, { type: 'footer', title: 'Rich footer', from: 'builtin' })).json
+  const draft = { version: 2, sections: [{ id: 'about', type: 'layout', hidden: false, settings: { name: 'About' }, children: [
+    { id: 'logo', kind: 'image', props: { image: image.id, link: '' } }, { id: 'line', kind: 'heading', props: { text: 'সারা দেশে ডেলিভারি', level: 'h3' } },
+  ] }] }
+  assert.equal((await team.call('PUT', `/stores/${demoHandle}/templates/${footer.id}`, { title: 'Rich footer', draft, revision: footer.revision })).status, 200)
+  const sources = (await admin.call('GET', `/console/demos/sources?store=${demoHandle}`)).json
+  const make = async (status: string, nameEn: string) => {
+    const f = new FormData()
+    f.set('data', JSON.stringify({ kind: 'template', sourceStoreId: sources.store.id, sourceId: footer.id, nameBn: 'ফুটার', nameEn, status }))
+    return (await admin.call('POST', '/console/demos', f)).json.id as string
+  }
+  const first = await make('published', 'Footer one')
+  const second = await make('published', 'Footer two')
+  const hidden = await make('draft', 'Footer draft')
+  assert.equal((await admin.call('POST', `/console/demos/${hidden}/default`)).json.error, 'demoDefaultInvalid', 'a draft cannot be the default')
+  assert.equal((await admin.call('POST', `/console/demos/${first}/default`)).status, 200)
+
+  // Locked while it is the default.
+  const asDraft = new FormData()
+  asDraft.set('data', JSON.stringify({ nameBn: 'ফুটার', nameEn: 'Footer one', status: 'draft' }))
+  assert.equal((await admin.call('PUT', `/console/demos/${first}`, asDraft)).json.error, 'demoDefaultLocked')
+  assert.equal((await admin.call('DELETE', `/console/demos/${first}`, { reason: 'x' })).json.error, 'demoDefaultLocked')
+
+  // A new store gets it as its built-in footer, with its own copy of the image; the header stays the code built-in.
+  const seller = await person()
+  const handle = `newshop-${counter}`
+  assert.equal((await seller.call('POST', '/stores', { name: 'New shop', handle })).status, 201)
+  const builtIns = (await seller.call('GET', `/stores/${handle}/templates`)).json.filter((t: any) => t.builtIn)
+  const mineFooter = (await seller.call('GET', `/stores/${handle}/templates/${builtIns.find((t: any) => t.type === 'footer').id}`)).json
+  const copied = mineFooter.draft.sections[0].children.find((n: any) => n.kind === 'image').props.image
+  assert.ok(copied && copied !== image.id, 'the image was copied into the new store')
+  assert.equal((await seller.call('GET', `/stores/${handle}/media`)).json.items.length, 1)
+  assert.equal(mineFooter.isPublished, true)
+  const mineHeader = (await seller.call('GET', `/stores/${handle}/templates/${builtIns.find((t: any) => t.type === 'header').id}`)).json
+  assert.deepEqual(mineHeader.draft, builtInTemplates.header, 'no default header yet: the built-in one')
+
+  // Another default takes over; the old one is an ordinary demo again and can be drafted or deleted.
+  assert.equal((await admin.call('POST', `/console/demos/${second}/default`)).status, 200)
+  const list = (await admin.call('GET', '/console/demos')).json
+  assert.deepEqual([list.find((d: any) => d.id === first).isDefault, list.find((d: any) => d.id === second).isDefault], [false, true])
+  assert.equal((await admin.call('PUT', `/console/demos/${first}`, asDraft)).status, 200)
+  assert.equal((await admin.call('DELETE', `/console/demos/${first}`, { reason: 'Replaced' })).status, 200)
 })

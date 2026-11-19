@@ -21,7 +21,7 @@ import { registerInventory } from './inventory.ts'
 import { registerMedia } from './media.ts'
 import { registerMenus } from './menus.ts'
 import { registerStorePages } from './store-pages.ts'
-import { applyPreset, builtInRows, registerTemplates } from './templates.ts'
+import { applyDefaultTemplates, applyPreset, builtInRows, registerTemplates } from './templates.ts'
 import { registerVersions } from './versions.ts'
 import { registerPreferences } from './preferences.ts'
 import { registerOrders } from './orders.ts'
@@ -308,6 +308,7 @@ app.post('/stores', async (c) => {
     if (databaseCode(err) === '23505') throw fail(409, 'handleTaken')
     throw err
   }
+  await applyDefaultTemplates(userId, id)
   return c.json({ id, handle, name, role: 'owner' }, 201)
 })
 

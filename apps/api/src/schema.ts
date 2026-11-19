@@ -944,6 +944,9 @@ export const demoItems = pgTable('demo_items', {
   sourceSection: text('source_section'),
   version: integer('version').notNull().default(1),
   uses: integer('uses').notNull().default(0),
+  // The template demo new stores get as their built-in template of this type (one per type). It stays published and
+  // cannot be deleted; making another published demo of the type the default is the only way to change it.
+  isDefault: boolean('is_default').notNull().default(false),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -953,4 +956,6 @@ export const demoItems = pgTable('demo_items', {
   check('demo_items_status', sql`${t.status} in ('draft', 'published')`),
   check('demo_items_names', sql`length(btrim(${t.nameBn})) between 1 and 80 and length(btrim(${t.nameEn})) between 1 and 80 and length(${t.category}) <= 40`),
   index('demo_items_list').on(t.kind, t.status, t.sort),
+  uniqueIndex('demo_items_one_default').on(t.templateType).where(sql`${t.isDefault}`),
+  check('demo_items_default_published', sql`not ${t.isDefault} or (${t.kind} = 'template' and ${t.status} = 'published')`),
 ])

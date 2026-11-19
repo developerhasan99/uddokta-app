@@ -43,6 +43,8 @@ const messages: Record<string, string> = {
   demoStoreBlocks: 'This section uses store-only blocks (product grid, cart, …), so it would not work on landing pages. Pick another section.',
   fileNotImage: 'That file is not an image. Use a PNG, JPG or WebP screenshot.',
   fileTooLarge: 'That image is larger than 10 MB.',
+  demoDefaultLocked: 'New stores get this template, so it stays published. Make another published template of this type the default first.',
+  demoDefaultInvalid: 'Only a published template demo can be the default. Publish it first.',
   demoSourceGone: 'The source page, template or store was deleted. Make a new demo instead.',
 }
 export const errorText = (err: unknown) => messages[err instanceof ApiError ? err.code : 'server'] ?? 'Something went wrong. Try again in a moment.'

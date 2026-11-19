@@ -96,3 +96,12 @@ span.console-demo-thumb { display: grid; place-items: center; aspect-ratio: auto
 .console-demos th[scope="row"] .console-link { text-align: start; }
 .console-demos .console-actions--end { flex-wrap: nowrap; }
 .console-demos .btn { white-space: nowrap; }
+.console-badges { display: inline-flex; flex-wrap: wrap; gap: var(--space-3xs); }
+.console-defaults { display: grid; gap: var(--space-xs); padding: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.console-defaults__title { margin: 0; font-size: var(--text-sm); font-weight: 500; }
+.console-defaults ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--space-2xs) var(--space-sm); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.console-defaults li { display: flex; align-items: flex-start; gap: var(--space-2xs); min-width: 0; }
+.console-defaults li > span:last-child { display: grid; min-width: 0; }
+.console-defaults li .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-defaults li svg { flex: none; margin-top: 3px; color: var(--color-primary); }
+.console-defaults__dot { flex: none; width: 8px; height: 8px; margin: 6px 3px 0; border-radius: 50%; background: var(--color-rule-strong); }

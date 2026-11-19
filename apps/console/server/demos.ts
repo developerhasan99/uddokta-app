@@ -29,6 +29,12 @@ async function form(c: Context) {
   return { b: data as Record<string, unknown>, file }
 }
 const maxThumbBytes = 10 * 1024 * 1024
+// The database refuses unpublishing or deleting a default template demo (demo_items_default_published, migration 0103).
+const lockedDefault = (err: unknown) => {
+  const cause = (err as { cause?: { constraint?: string } })?.cause
+  if (cause?.constraint === 'demo_items_default_published') throw fail(409, 'demoDefaultLocked')
+  throw err
+}
 const uploads = bodyLimit({ maxSize: maxThumbBytes + 64 * 1024, onError: () => { throw fail(413, 'fileTooLarge') } })
 
 // Names, category, preview link, status and order: what every save carries.
@@ -95,7 +101,7 @@ export function registerDemos(app: Hono<Env>) {
   type Files = { thumbKey: string | null; media: FileRow[] }
   const keysOf = (f: Files) => new Set([...(f.thumbKey ? [f.thumbKey] : []), ...f.media.flatMap((m) => [m.key, m.thumbKey])])
   async function save(c: Context<Env>, id: string, details: Record<string, unknown>) {
-    const { before, after } = (await run((t) => one<{ r: { before: Files; after: Files } }>(t, sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify(details)}::jsonb) as r`)))!.r
+    const { before, after } = (await run((t) => one<{ r: { before: Files; after: Files } }>(t, sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify(details)}::jsonb) as r`)).catch(lockedDefault))!.r
     const kept = keysOf(after)
     await Promise.allSettled([...keysOf(before)].filter((key) => !kept.has(key) && key.startsWith(`${id}/`)).map((key) => deleteFile(key)))
   }
@@ -149,11 +155,24 @@ export function registerDemos(app: Hono<Env>) {
     return c.json({ ok: true })
   })
 
+  // The template new stores get for this type. The previous default stays as an ordinary demo sellers can pick.
+  app.post('/console/demos/:id/default', async (c) => {
+    const id = c.req.param('id')
+    if (!isId(id)) throw fail(404, 'notFound')
+    await run((t) => t.execute(sql`select console_set_default_demo(${admin(c)}::uuid, ${id}::uuid)`)).catch((err) => {
+      const cause = (err as { cause?: { code?: string; constraint?: string } })?.cause
+      if (cause?.code === 'P0002') throw fail(404, 'notFound')
+      if (cause?.constraint === 'demo_items_default_published') throw fail(400, 'demoDefaultInvalid')
+      throw err
+    })
+    return c.json({ ok: true })
+  })
+
   app.delete('/console/demos/:id', async (c) => {
     const id = c.req.param('id')
     if (!isId(id)) throw fail(404, 'notFound')
     const b = await c.req.json().catch(() => ({}))
-    const gone = (await run((t) => one<{ g: { media: FileRow[]; thumbKey: string | null } | null }>(t, sql`select console_delete_demo(${admin(c)}::uuid, ${id}::uuid, ${text(b?.reason, 500)}) as g`)))?.g
+    const gone = (await run((t) => one<{ g: { media: FileRow[]; thumbKey: string | null } | null }>(t, sql`select console_delete_demo(${admin(c)}::uuid, ${id}::uuid, ${text(b?.reason, 500)}) as g`)).catch(lockedDefault))?.g
     if (!gone) throw fail(404, 'notFound')
     await Promise.allSettled([...gone.media.flatMap((f) => [deleteFile(f.key), deleteFile(f.thumbKey)]), ...(gone.thumbKey ? [deleteFile(gone.thumbKey)] : [])])
     return c.json({ ok: true })

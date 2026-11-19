@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Ellipsis, ExternalLink, Eye, EyeOff, ImageOff, Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { Check, Ellipsis, ExternalLink, Eye, EyeOff, ImageOff, Pencil, RefreshCw, Star, Trash2 } from 'lucide-react'
 import { Badge, Button, PageHeader } from '../../../dashboard/src/components/ui'
-import { templateLabels, type TemplateType } from '../../../storefront/src/site'
+import { templateLabels, templateTypes, type TemplateType } from '../../../storefront/src/site'
 import { api, count, date, errorText } from '../api'
 import { LoadError, Loading, Modal, ReasonDialog, useLoad } from '../ui'
 
@@ -14,7 +14,7 @@ type Kind = 'landing' | 'template' | 'section'
 type Demo = {
   id: string; kind: Kind; templateType: TemplateType | null; nameBn: string; nameEn: string; category: string; thumb: string | null; previewUrl: string
   status: 'draft' | 'published'; sort: number; version: number; uses: number; images: number; sourceStoreId: string | null; sourceStore: string | null
-  sourceId: string | null; sourceSection: string | null; updatedAt: string
+  sourceId: string | null; sourceSection: string | null; isDefault: boolean; updatedAt: string
 }
 type Part = { id: string; name: string }
 type Sources = {
@@ -204,6 +204,13 @@ export function Demos() {
     catch (err) { setNote(errorText(err)) }
     setBusy(null)
   }
+  const makeDefault = async (d: Demo) => {
+    setBusy(d.id); setNote(null)
+    try { await api(`/console/demos/${d.id}/default`, { method: 'POST' }); setNote(`New stores now get “${d.nameEn}” as their ${templateLabels[d.templateType!][1].toLowerCase()} template. Existing stores keep theirs.`); reload() }
+    catch (err) { setNote(errorText(err)) }
+    setBusy(null)
+  }
+  const defaults = new Map((data ?? []).filter((d) => d.isDefault && d.templateType).map((d) => [d.templateType!, d]))
   // Publish or back to draft from the list: drafts are hidden from sellers at once; pages they made stay.
   const setStatus = async (d: Demo, status: Demo['status']) => {
     setBusy(d.id); setNote(null)
@@ -224,6 +231,13 @@ export function Demos() {
             {kinds.map((k) => <button key={k.key} type="button" className="tab" aria-current={kind === k.key ? 'page' : undefined} onClick={() => setKind(k.key)}>{k.label}<span className="tab__count">{(data ?? []).filter((d) => d.kind === k.key).length}</span></button>)}
           </nav>
         </div>
+        {kind === 'template' && data && <div className="console-defaults">
+          <p className="console-defaults__title">Templates new stores start with <span className="muted">· {defaults.size} of {templateTypes.length} chosen; the rest use the built-in design</span></p>
+          <ul>{templateTypes.map((type) => {
+            const d = defaults.get(type)
+            return <li key={type} data-on={d ? '' : undefined}>{d ? <Check size={14} aria-hidden="true" /> : <span className="console-defaults__dot" aria-hidden="true" />}<span><strong>{templateLabels[type][1]}</strong><span className="muted">{d ? d.nameEn : 'Built-in'}</span></span></li>
+          })}</ul>
+        </div>}
         {error ? <LoadError error={error} retry={reload} /> : !data ? <Loading /> : rows.length === 0 ? (
           <div className="notice"><h2>No {kinds.find((k) => k.key === kind)!.one} demos yet</h2><p className="muted">Design one in the demo store, then press New demo.</p><Button onClick={() => setEditing('new')}>New demo</Button></div>
         ) : (
@@ -236,13 +250,13 @@ export function Demos() {
                   <th scope="row"><button type="button" className="console-link" onClick={(e) => { e.stopPropagation(); setEditing(d) }}>{d.nameEn}</button><span className="console-sub">{d.nameBn}</span></th>
                   <td>{d.category || '—'}</td>
                   {kind === 'template' && <td>{d.templateType ? templateLabels[d.templateType][1] : '—'}</td>}
-                  <td>{d.status === 'published' ? <Badge tone="success">Published</Badge> : <Badge>Draft</Badge>}</td>
+                  <td><span className="console-badges">{d.status === 'published' ? <Badge tone="success">Published</Badge> : <Badge>Draft</Badge>}{d.isDefault && <Badge tone="info">Default</Badge>}</span></td>
                   <td className="num end">{count(d.uses)}</td>
                   <td>{date(d.updatedAt)}<span className="console-sub">Version {d.version}</span></td>
                   <td className="end" onClick={(e) => e.stopPropagation()}>
                     <div className="console-actions console-actions--end">
                       {d.status === 'published'
-                        ? <Button disabled={busy === d.id} aria-busy={busy === d.id} onClick={() => void setStatus(d, 'draft')}><EyeOff size={14} aria-hidden="true" />Make draft</Button>
+                        ? <Button disabled={busy === d.id || d.isDefault} aria-busy={busy === d.id} title={d.isDefault ? 'New stores get this template. Make another one the default first.' : undefined} onClick={() => void setStatus(d, 'draft')}><EyeOff size={14} aria-hidden="true" />Make draft</Button>
                         : <Button variant="primary" disabled={busy === d.id} aria-busy={busy === d.id} onClick={() => void setStatus(d, 'published')}><Eye size={14} aria-hidden="true" />Publish</Button>}
                       <Dropdown.Root>
                         <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy === d.id} aria-label={`More: ${d.nameEn}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
@@ -251,10 +265,11 @@ export function Demos() {
                             <Dropdown.Group className="menu__section">
                               <Dropdown.Item className="menu__item menu__action" onSelect={() => setEditing(d)}><Pencil size={16} aria-hidden="true" />Edit</Dropdown.Item>
                               {d.previewUrl && <Dropdown.Item className="menu__item menu__action" onSelect={() => window.open(d.previewUrl, '_blank', 'noopener,noreferrer')}><ExternalLink size={16} aria-hidden="true" />Open preview</Dropdown.Item>}
+                              {d.kind === 'template' && !d.isDefault && <Dropdown.Item className="menu__item menu__action" disabled={d.status !== 'published'} onSelect={() => void makeDefault(d)}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>Make default for new stores</span><span className="menu__sub">{d.status === 'published' ? `Replaces ${defaults.get(d.templateType!)?.nameEn ?? 'the built-in design'}` : 'Publish it first'}</span></span></Dropdown.Item>}
                               <Dropdown.Item className="menu__item menu__action" disabled={!d.sourceId} onSelect={() => void refresh(d)}><RefreshCw size={16} aria-hidden="true" /><span className="menu__text"><span>Update from source</span><span className="menu__sub">{d.sourceStore ? `Copy ${d.sourceStore}’s saved draft again` : 'The source was deleted'}</span></span></Dropdown.Item>
                             </Dropdown.Group>
                             <Dropdown.Group className="menu__section menu__section--ruled">
-                              <Dropdown.Item className="menu__item menu__action menu__action--danger" onSelect={() => setDeleting(d)}><Trash2 size={16} aria-hidden="true" />Delete</Dropdown.Item>
+                              <Dropdown.Item className="menu__item menu__action menu__action--danger" disabled={d.isDefault} onSelect={() => setDeleting(d)}><Trash2 size={16} aria-hidden="true" />{d.isDefault ? <span className="menu__text"><span>Delete</span><span className="menu__sub">Make another one the default first</span></span> : 'Delete'}</Dropdown.Item>
                             </Dropdown.Group>
                           </Dropdown.Content>
                         </Dropdown.Portal>

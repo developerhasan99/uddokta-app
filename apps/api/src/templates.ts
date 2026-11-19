@@ -11,7 +11,7 @@ import { collections, media, products, storePages, stores, templateMedia, templa
 import { publicUrl } from './storage.ts'
 import { recordVersion } from './versions.ts'
 import { takeDemo } from './demos.ts'
-import { bringIn } from './pages.ts'
+import { bringIn, type FileRef } from './pages.ts'
 
 // The store's Site settings, or its style preset's look until it saves its own.
 export const siteStyleOf = (store: { siteStyle: unknown; theme: string }): SiteStyle =>
@@ -44,6 +44,29 @@ export const builtInRows = (storeId: string) => templateTypes.map((type) => {
   const content = builtInTemplates[type]
   return { storeId, type, title: templateLabels[type][0], draft: content, published: content, publishedAt: new Date(), builtIn: true }
 })
+
+// A new store's built-in templates come from the console's default template demos (one per type, chosen by the
+// Uddokta team): each is copied in like any demo (images into the store, other stores' products and collections
+// blanked). Runs after the store is created; a type without a default, or any failure, keeps the code version above.
+export async function applyDefaultTemplates(userId: string, storeId: string) {
+  const defaults = (await tx(userId, (t) => t.execute<{ template_type: string; content: Content; media: FileRef[] }>(sql`select * from demo_defaults()`))).rows
+  for (const d of defaults) {
+    if (!isTemplateType(d.template_type)) continue
+    const type: TemplateType = d.template_type
+    try {
+      const content = readTemplateContent((await bringIn(userId, storeId, d.content, Array.isArray(d.media) ? d.media : [])).content)
+      if (!content) continue
+      if (type === 'header' || type === 'footer') delete content.canvas
+      await tx(userId, async (t) => {
+        const [row] = await t.update(templates).set({ draft: content, published: content, publishedAt: new Date() })
+          .where(and(eq(templates.storeId, storeId), eq(templates.type, type), eq(templates.builtIn, true))).returning({ id: templates.id })
+        if (row) await syncTemplateMedia(t, storeId, row.id, content)
+      })
+    } catch (err) {
+      console.warn(`Store ${storeId}: default ${type} template not applied, the built-in one stays`, err)
+    }
+  }
+}
 
 const present = (row: typeof templates.$inferSelect) => ({
   id: row.id, type: row.type, title: row.title, isDefault: row.isDefault, builtIn: row.builtIn, isPublished: row.published !== null, revision: row.revision,
