@@ -49,6 +49,15 @@ export async function deleteFile(key: string) {
   await rm(join(localDir, key), { force: true })
 }
 
+// Development only: an image the local folder lacks (rows copied from the live database by npm run db:pull-live) is
+// fetched by the browser from the live bucket's public address, LIVE_MEDIA_URL (e.g. https://media.uddokta.live).
+// Read-only and public, so no keys are involved; never used in production or with R2.
+export function liveMediaUrl(key: string) {
+  const base = process.env.LIVE_MEDIA_URL
+  if (usesR2 || process.env.NODE_ENV === 'production' || !base || !/^https:\/\/[^/]+\/?$/.test(base) || !validKey.test(key)) return null
+  return `${base.replace(/\/$/, '')}/${key}`
+}
+
 // Development only. Keys are checked so a crafted URL cannot read outside the media folder.
 export async function readLocalFile(key: string) {
   if (usesR2 || !validKey.test(key)) return null

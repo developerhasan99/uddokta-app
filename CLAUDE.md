@@ -75,7 +75,7 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 ## Development
 
 - `npm run db:start`, then `npm run db:migrate`, then `npm run dev` (dashboard on port 5173, API on 8787, storefront on 8788 at `http://{store}.localhost:8788`, console on 5174 with its server on 8789, Postgres on 5433).
-- `npm run db:pull-live` copies the live database into the local one (`scripts/pull-live.sh`; needs `LIVE_DATABASE_URL` in the git-ignored `apps/api/.env.live` and the live server's Postgres tools from Homebrew). It backs up local data to `~/uddokta-backups` first, deletes the live dump after loading, and clears sessions, email links and the outbox. Never point local development at the live database itself.
+- `npm run db:pull-live` copies the live database into the local one (`scripts/pull-live.sh`; needs `LIVE_DATABASE_URL` in the git-ignored `apps/api/.env.live` and the live server's Postgres tools from Homebrew). It backs up local data to `~/uddokta-backups` first, deletes the live dump after loading, and clears sessions, email links and the outbox. It copies rows, not image files: with `LIVE_MEDIA_URL` set in `apps/api/.env` (development only), images missing from `.media/` redirect to the live bucket's public address (`liveMediaUrl` in `storage.ts`). Never point local development at the live database itself.
 - `npm test` runs API tests against the `uddokta_test` database. `npm run build` type-checks both apps and builds the dashboard.
 - Schema changes: edit `apps/api/src/schema.ts`, then `npm run db:generate -w api`. Row-level security and triggers go in custom migrations.
 - For small UI changes, run the build and check the affected screen. Do not run long full-app browser tests unless the change is broad.

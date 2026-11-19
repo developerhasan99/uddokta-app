@@ -5,7 +5,7 @@ import { Hono, type Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { renderToString } from 'react-dom/server'
 import { tx, type Tx } from '../../api/src/db.ts'
-import { publicUrl, readLocalFile } from '../../api/src/storage.ts'
+import { liveMediaUrl, publicUrl, readLocalFile } from '../../api/src/storage.ts'
 import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
@@ -503,8 +503,9 @@ app.get('/_health', async (c) => {
 
 // Development stand-in for the public R2 bucket, as in the API.
 app.get('/api/media-files/:store/:file', async (c) => {
-  const data = await readLocalFile(`${c.req.param('store')}/${c.req.param('file')}`)
-  if (!data) return c.notFound()
+  const key = `${c.req.param('store')}/${c.req.param('file')}`
+  const data = await readLocalFile(key)
+  if (!data) { const live = liveMediaUrl(key); return live ? c.redirect(live, 302) : c.notFound() }
   return c.body(new Uint8Array(data), 200, { 'content-type': 'image/webp', 'x-content-type-options': 'nosniff', 'cache-control': 'public, max-age=31536000, immutable' })
 })
 

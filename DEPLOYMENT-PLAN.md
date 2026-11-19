@@ -590,3 +590,4 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Security: no grants on `demo_items`; sellers read published demos through definer functions only. Tests in `apps/console/server/console.test.ts` cover the whole flow, permissions and isolation.
 - Browser-checked locally: console create (landing, section, template), seller create from demo with product swap, Add section, New template from demo. Fixed on the way: the product picker inside the create dialog closed it (now rendered beside it).
 - Before deploying: add the R2 variables to the console service (deploy/SERVICES.md), then create the demo store on production and add a platform administrator to it as a member, or use any store.
+- Development: images missing from .media/ (rows copied by db:pull-live) now redirect to the live bucket when LIVE_MEDIA_URL is set in apps/api/.env (liveMediaUrl in storage.ts; never in production or with R2).

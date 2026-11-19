@@ -34,7 +34,7 @@ import { registerDomains } from './domains.ts'
 import { registerEmailChange, registerProfile } from './profile.ts'
 import { guardStores, over, registerPlans, storeLimits } from './plans.ts'
 import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
-import { readLocalFile } from './storage.ts'
+import { liveMediaUrl, readLocalFile } from './storage.ts'
 import { present } from './media.ts'
 import { media, roles, shippingRates, storeInvites, storeMembers, stores, templates, users, type Role, warehouses } from './schema.ts'
 import { defaultRateNames, isPrice, registerShipping } from './shipping.ts'
@@ -233,8 +233,9 @@ app.get('/invites/:token', async (c) => {
 
 // Development stand-in for the public R2 bucket. Keys are unguessable, as they are in production.
 app.get('/media-files/:store/:file', async (c) => {
-  const data = await readLocalFile(`${c.req.param('store')}/${c.req.param('file')}`)
-  if (!data) throw fail(404, 'notFound')
+  const key = `${c.req.param('store')}/${c.req.param('file')}`
+  const data = await readLocalFile(key)
+  if (!data) { const live = liveMediaUrl(key); if (live) return c.redirect(live, 302); throw fail(404, 'notFound') }
   return c.body(new Uint8Array(data), 200, { 'content-type': 'image/webp', 'x-content-type-options': 'nosniff', 'cache-control': 'public, max-age=31536000, immutable' })
 })
 
