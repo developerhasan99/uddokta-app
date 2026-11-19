@@ -1561,8 +1561,8 @@ function LandingSettings({ doc, edit, error, busy, state, run, setError, setToas
   const [confirming, setConfirming] = useState(false)
   const unpublish = () => run(async () => {
     try {
-      await api(`${base}/unpublish`, { method: 'POST' })
-      setState({ ...state, isPublished: false, hasChanges: false })
+      const { revision } = await api<{ revision: number }>(`${base}/unpublish`, { method: 'POST' })
+      setState({ ...state, revision, isPublished: false, hasChanges: false })
       setToast(t('pageUnpublishedToast'))
     } catch (err) {
       setError(errorCode(err))

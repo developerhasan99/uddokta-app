@@ -157,8 +157,8 @@ function TemplateSettings({ doc, edit, busy, state, run, setError, setToast, bas
   // Back to draft: products, collections and pages that picked it show the default again. A default must stop being one first.
   const unpublish = () => run(async () => {
     try {
-      await api(`${base}/unpublish`, { method: 'POST' })
-      setState({ ...state, isPublished: false, hasChanges: false, liveUrl: null })
+      const { revision } = await api<{ revision: number }>(`${base}/unpublish`, { method: 'POST' })
+      setState({ ...state, revision, isPublished: false, hasChanges: false, liveUrl: null })
       setToast(L(['অপ্রকাশিত হয়েছে। দোকানে আর দেখাবে না।', 'Unpublished. Your store no longer shows it.']))
     } catch (err) {
       setError(errorCode(err))

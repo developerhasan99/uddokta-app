@@ -93,6 +93,18 @@ test('a stale save is refused instead of overwriting someone else’s', async ()
   assert.equal(second.json.error, 'pageChanged')
 })
 
+test('an editor opened before someone unpublished cannot publish the page straight back', async () => {
+  const owner = await storeOwner()
+  const page = (await owner.call('POST', owner.base, { title: 'P' })).json
+  const live = (await owner.call('POST', `${owner.base}/${page.id}/publish`, { revision: page.revision })).json
+  const off = await owner.call('POST', `${owner.base}/${page.id}/unpublish`)
+  assert.equal(off.json.revision, live.revision + 1)
+  const stale = await owner.call('POST', `${owner.base}/${page.id}/publish`, { revision: live.revision })
+  assert.equal(stale.status, 409)
+  assert.equal(stale.json.error, 'pageChanged')
+  assert.equal((await save(owner, off.json, { title: 'Again' })).status, 200, 'the editor that unpublished keeps working')
+})
+
 test('content that does not match the section schema is refused', async () => {
   const owner = await storeOwner()
   const page = (await owner.call('POST', owner.base, { title: 'P' })).json

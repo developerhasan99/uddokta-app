@@ -570,3 +570,8 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - November 18, 2026: removed the `design/` folder (Phase 01 HTML landing-page prototypes, their stock photos and fonts, design notes and QA screenshots). Nothing in the apps used it; the page builder is the only source of landing pages and previews now.
 - November 18, 2026: Settings › Billing redesigned (plan status, usage tiles, locked tools, plan cards with Choose/Renew, three payment steps with total, copy buttons and a prefilled WhatsApp message, link to the full comparison). Marketing site (`uddokta-studio`): new Pricing page in Bangla and English (plan cards, full comparison, every-plan list, how paying works, what happens when a plan ends, custom plans, pricing FAQ), linked from the header, footer and the home FAQ. Checked both in the browser (sample payment details, reverted).
 - November 18, 2026: every paid plan includes the own domain. Live Starter updated in the console (now 8 of 9 tools); migration 0100 adds the database rule `plans_paid_domain` (after giving any paid plan without it the domain), the console API adds it to paid plans and locks the checkbox; pricing page Starter column updated in `uddokta-studio`.
+
+## Unpublish and stale editors (November 19, 2026)
+
+- Unpublishing a landing page now bumps its revision, as template unpublish already did, so an editor opened before the unpublish gets 409 `pageChanged` on Publish instead of putting the page back online. Test in `pages.test.ts`.
+- The page and template editors take the new revision from the unpublish response, so their next save is not refused.

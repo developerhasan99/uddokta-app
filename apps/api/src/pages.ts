@@ -193,7 +193,8 @@ export function registerPages(app: Hono<Env>) {
   })
 
   app.post('/stores/:handle/pages/:id/unpublish', pageRoute(async (c, t, storeId, id) => {
-    const [row] = await t.update(pages).set({ published: null, publishedMeta: null, publishedAt: null }).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ draft: pages.draft })
+    // Bumps the revision so an editor opened before this cannot publish the page straight back.
+    const [row] = await t.update(pages).set({ published: null, publishedMeta: null, publishedAt: null, revision: sql`${pages.revision} + 1` }).where(and(eq(pages.storeId, storeId), eq(pages.id, id))).returning({ draft: pages.draft })
     if (!row) throw fail(404, 'notFound')
     await syncMedia(t, storeId, id, row.draft as Content, null)
     return c.json(await loadPage(t, storeId, id))
