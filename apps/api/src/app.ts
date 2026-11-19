@@ -47,6 +47,22 @@ export const cookieName = 'sid'
 
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 
+// Hourly caps that stop a script creating accounts or stores in bulk (429 once `max` is reached in the last hour).
+// Sign-ups count per network address: Railway's proxy sets x-real-ip; without it (local, tests) there is no cap.
+// Mobile networks put many people behind one address, so the cap is loose.
+// ponytail: counts live in this process (reset on deploy, not shared by replicas); move to a table if we run several.
+const recent = new Map<string, number[]>()
+export function overHourlyCap(key: string, max: number, now = Date.now()) {
+  const times = (recent.get(key) ?? []).filter((t) => now - t < 3_600_000)
+  if (times.length >= max) { recent.set(key, times); return true }
+  times.push(now)
+  recent.set(key, times)
+  if (recent.size > 50_000) for (const [k, v] of recent) if (now - v[v.length - 1] >= 3_600_000) recent.delete(k)
+  return false
+}
+const maxSignupsPerAddress = 10
+const maxNewStoresPerAccount = 5
+
 const databaseConstraint = (err: unknown) => {
   const e = err as { constraint?: string; cause?: { constraint?: string } }
   return e.cause?.constraint ?? e.constraint
@@ -128,6 +144,8 @@ app.post('/auth/signup', async (c) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, 'emailInvalid')
   if (!registrationAllowed(email)) throw fail(403, 'signupClosed')
   if (password.length < 8) throw fail(400, 'weakPassword')
+  const address = c.req.header('x-real-ip')
+  if (address && overHourlyCap(`signup:${address}`, maxSignupsPerAddress)) throw fail(429, 'tooManySignups')
 
   const id = randomUUID()
   const passwordHash = await hashPassword(password)
@@ -291,6 +309,7 @@ app.post('/stores', async (c) => {
   const charge = (v: unknown, fallback: number) => (v === undefined ? fallback : v)
   const inside = charge(body.deliveryInside, 70), outside = charge(body.deliveryOutside, 130)
   if (!isPrice(inside) || !isPrice(outside)) throw fail(400, 'invalidRequest')
+  if (overHourlyCap(`store:${c.get('userId')}`, maxNewStoresPerAccount)) throw fail(429, 'tooManyStores')
 
   const id = randomUUID()
   const userId = c.get('userId')

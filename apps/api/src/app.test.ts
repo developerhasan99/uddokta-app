@@ -92,6 +92,21 @@ test('sign-up input is validated and emails are unique', async () => {
   assert.equal((await call('POST', '/auth/signup', { name: 'A', email, password: 'longenough' })).json.error, 'emailTaken')
 })
 
+test('sign-ups are capped per network address, new stores per account', async () => {
+  const signupFrom = (address: string, n: number) => app.request('/api/auth/signup', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': address },
+    body: JSON.stringify({ name: 'Bot', email: `bot-${address}-${n}@example.com`, password: 'longenough' }),
+  })
+  for (let i = 0; i < 10; i++) assert.equal((await signupFrom('203.0.113.7', i)).status, 201)
+  const blocked = await signupFrom('203.0.113.7', 10)
+  assert.deepEqual([blocked.status, (await blocked.json() as any).error], [429, 'tooManySignups'])
+  assert.equal((await signupFrom('203.0.113.8', 0)).status, 201, 'another address is not affected')
+
+  const { call } = await signUp()
+  for (let i = 0; i < 5; i++) assert.equal((await call('POST', '/stores', { name: 'Shop', handle: `capped-${count}-${i}` })).status, 201)
+  assert.equal((await call('POST', '/stores', { name: 'Shop', handle: `capped-${count}-5` })).json.error, 'tooManyStores')
+})
+
 test('creating a store makes the creator its owner', async () => {
   const { owner, handle } = await storeWithOwner()
   const { stores: mine } = (await owner.call('GET', '/me')).json
