@@ -186,7 +186,6 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
     return (await call('POST', `/stores/${handle}/media`, form)).json
   }
   const image = await upload(team.call, demoHandle)
-  const shot = await upload(team.call, demoHandle)
   const teamProduct = (await team.call('POST', `/stores/${demoHandle}/products`, { name: 'নমুনা পণ্য', variants: [{ options: [], price: 500 }] })).json
   const page = (await team.call('POST', `/stores/${demoHandle}/pages`, { title: 'Demo page', blank: true })).json
   const hero = { id: 'hero', type: 'layout', hidden: false, settings: { name: 'Hero' }, children: [
@@ -214,15 +213,25 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
   assert.equal((await admin.call('GET', '/console/demos/sources?store=nope')).json.error, 'storeNotFound')
 
   const base = { sourceStoreId: sources.store.id, category: 'Fashion', status: 'published' }
-  const landing = await admin.call('POST', '/console/demos', { ...base, kind: 'landing', sourceId: page.id, nameBn: 'ঈদ অফার', nameEn: 'Eid offer', thumbImageId: shot.id })
+  // Saves are forms: the details as JSON, plus a thumbnail uploaded from the administrator's computer.
+  const demoForm = (data: unknown, thumbnail?: Buffer) => {
+    const form = new FormData()
+    form.set('data', JSON.stringify(data))
+    if (thumbnail) form.set('thumbnail', new File([thumbnail as BlobPart], 'shot.png', { type: 'image/png' }))
+    return form
+  }
+  const landing = await admin.call('POST', '/console/demos', demoForm({ ...base, kind: 'landing', sourceId: page.id, nameBn: 'ঈদ অফার', nameEn: 'Eid offer' }, png))
   assert.equal(landing.status, 201, JSON.stringify(landing.json))
-  const section = (await admin.call('POST', '/console/demos', { ...base, kind: 'section', sourceId: page.id, sourceSection: 'hero', nameBn: 'হিরো', nameEn: 'Hero' })).json
-  const template = (await admin.call('POST', '/console/demos', { ...base, kind: 'template', sourceId: header.id, nameBn: 'হেডার', nameEn: 'Header' })).json
-  const hidden = (await admin.call('POST', '/console/demos', { ...base, status: 'draft', kind: 'landing', sourceId: page.id, nameBn: 'খসড়া', nameEn: 'Draft one' })).json
-  assert.equal((await admin.call('POST', '/console/demos', { ...base, kind: 'landing', sourceId: page.id, nameBn: '', nameEn: 'X' })).json.error, 'nameRequired')
+  const section = (await admin.call('POST', '/console/demos', demoForm({ ...base, kind: 'section', sourceId: page.id, sourceSection: 'hero', nameBn: 'হিরো', nameEn: 'Hero' }))).json
+  const template = (await admin.call('POST', '/console/demos', demoForm({ ...base, kind: 'template', sourceId: header.id, nameBn: 'হেডার', nameEn: 'Header' }))).json
+  const hidden = (await admin.call('POST', '/console/demos', demoForm({ ...base, status: 'draft', kind: 'landing', sourceId: page.id, nameBn: 'খসড়া', nameEn: 'Draft one' }))).json
+  assert.equal((await admin.call('POST', '/console/demos', demoForm({ ...base, kind: 'landing', sourceId: page.id, nameBn: '', nameEn: 'X' }))).json.error, 'nameRequired')
+  assert.equal((await admin.call('POST', '/console/demos', demoForm({ ...base, kind: 'landing', sourceId: page.id, nameBn: 'ক', nameEn: 'X' }, Buffer.from('not an image')))).json.error, 'fileNotImage')
   const list = (await admin.call('GET', '/console/demos')).json
   assert.equal(list.length, 4)
-  assert.ok(list.find((d: any) => d.id === landing.json.id).thumb)
+  assert.ok(list.find((d: any) => d.id === landing.json.id).thumb, 'the uploaded thumbnail')
+  assert.ok(list.find((d: any) => d.id === section.id).thumb, 'no upload: the first image stands in')
+  assert.equal(list.find((d: any) => d.id === template.id).thumb, null, 'no upload and no images: none')
 
   // The team deletes the image from the source: published demos keep their own copies.
   await team.call('PUT', `/stores/${demoHandle}/pages/${page.id}`, { title: 'Demo page', handle: page.handle, seoTitle: '', seoDescription: '', draft: { version: 2, sections: [] }, revision: saved.json.revision })
@@ -255,7 +264,8 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
   assert.equal((await seller.call('POST', `/stores/${sellerHandle}/templates`, { type: 'footer', title: 'Wrong type', from: `demo:${template.id}` })).status, 400)
 
   // Unpublishing hides it at once; deleting removes it; pages made from it stay.
-  await admin.call('PUT', `/console/demos/${landing.json.id}`, { nameBn: 'ঈদ অফার', nameEn: 'Eid offer', category: 'Fashion', status: 'draft' })
+  await admin.call('PUT', `/console/demos/${landing.json.id}`, demoForm({ nameBn: 'ঈদ অফার', nameEn: 'Eid offer', category: 'Fashion', status: 'draft', removeThumbnail: true }))
+  assert.equal((await admin.call('GET', '/console/demos')).json.find((d: any) => d.id === landing.json.id).thumb, null, 'thumbnail removed')
   assert.deepEqual((await seller.call('GET', '/demos?kind=landing')).json, [])
   assert.equal((await admin.call('DELETE', `/console/demos/${landing.json.id}`, { reason: 'Old' })).status, 200)
   assert.equal((await seller.call('GET', `/stores/${sellerHandle}/pages/${made.json.id}`)).status, 200)

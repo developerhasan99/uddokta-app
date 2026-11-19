@@ -8,11 +8,10 @@ import { collections, media, pageMedia, pages, productMedia, products, stores, t
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
 import { storeLimits } from './plans.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
+import { processImage } from './images.ts'
 
 const maxUploadBytes = 10 * 1024 * 1024
 const pageSize = 60
-// SVG is rasterised to WebP like everything else, so no SVG (and nothing it could script) is ever served.
-const allowedFormats = ['jpeg', 'png', 'webp', 'avif', 'svg']
 // The default plan's storage; each store's real limit comes from its plan (storeLimits).
 export const storeLimitBytes = 1024 * 1024 * 1024
 
@@ -31,24 +30,6 @@ export const present = (row: typeof media.$inferSelect) => ({
 
 // Escaped so % and _ typed by a seller are searched for literally.
 export const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, '\\$&')}%`
-
-// Decoding here rejects anything that is not really an image, whatever its name or type claims.
-// Re-encoding drops metadata such as a phone's GPS location.
-async function processImage(input: Buffer) {
-  try {
-    const image = sharp(input)
-    const { format } = await image.metadata()
-    if (!format || !allowedFormats.includes(format)) throw fail(415, 'fileNotImage')
-    // Vector icons are drawn large enough to stay sharp, then scaled down like any other image.
-    const load = () => (format === 'svg' ? sharp(input, { density: 600 }) : sharp(input))
-    const full = await load().rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true })
-    const thumb = await load().rotate().resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer()
-    return { full: full.data, width: full.info.width, height: full.info.height, thumb, sourceFormat: format }
-  } catch (err) {
-    if (err instanceof Error && err.name === 'HTTPException') throw err
-    throw fail(415, 'fileNotImage')
-  }
-}
 
 // Stores the files, then the row; if the row is refused, the files are removed again.
 export async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }) {

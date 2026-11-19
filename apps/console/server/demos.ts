@@ -3,6 +3,8 @@ import { sql } from 'drizzle-orm'
 import type { Context, Hono } from 'hono'
 import { fail } from '../../api/src/http.ts'
 import { one, tx } from '../../api/src/db.ts'
+import { bodyLimit } from 'hono/body-limit'
+import { processImage } from '../../api/src/images.ts'
 import { deleteFile, getFile, publicUrl, putFile } from '../../api/src/storage.ts'
 import { readContent, references, type Content } from '../../storefront/src/schema.ts'
 import { readTemplateContent } from '../../storefront/src/site.ts'
@@ -14,15 +16,20 @@ import type { Env } from './app.ts'
 // snapshot. Every change goes through console_* functions (migration 0101), which check the administrator and log it.
 
 type Kind = 'landing' | 'template' | 'section'
-type File = { id: string; key: string; thumbKey: string; name: string; alt: string; width: number; height: number; sourceFormat: string }
+type FileRow = { id: string; key: string; thumbKey: string; name: string; alt: string; width: number; height: number; sourceFormat: string }
 const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/.test(v)
 const isKind = (v: unknown): v is Kind => v === 'landing' || v === 'template' || v === 'section'
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
-async function body(c: Context) {
-  const value = await c.req.json().catch(() => null)
-  if (!value || typeof value !== 'object') throw fail(400, 'invalidRequest')
-  return value as Record<string, unknown>
+// Saves come as a form: `data` (the JSON details) and an optional `thumbnail` image from the administrator's computer.
+async function form(c: Context) {
+  const parsed = await c.req.parseBody().catch(() => null)
+  const data = typeof parsed?.data === 'string' ? (() => { try { return JSON.parse(parsed.data as string) } catch { return null } })() : null
+  if (!data || typeof data !== 'object') throw fail(400, 'invalidRequest')
+  const file = parsed?.thumbnail instanceof File && parsed.thumbnail.size > 0 ? parsed.thumbnail : null
+  return { b: data as Record<string, unknown>, file }
 }
+const maxThumbBytes = 10 * 1024 * 1024
+const uploads = bodyLimit({ maxSize: maxThumbBytes + 64 * 1024, onError: () => { throw fail(413, 'fileTooLarge') } })
 
 // Names, category, preview link, status and order: what every save carries.
 function readDetails(b: Record<string, unknown>) {
@@ -40,7 +47,7 @@ export function registerDemos(app: Hono<Env>) {
   const admin = (c: Context<Env>) => c.get('userId')
   const run = <T>(work: Parameters<typeof tx<T>>[1]) => tx(null, work)
   const files = async (c: Context<Env>, store: string, ids: string[]) =>
-    ids.length ? (await run((t) => one<{ f: File[] }>(t, sql`select console_demo_files(${admin(c)}::uuid, ${store}::uuid, ${`{${ids.join(",")}}`}::uuid[]) as f`)))!.f : []
+    ids.length ? (await run((t) => one<{ f: FileRow[] }>(t, sql`select console_demo_files(${admin(c)}::uuid, ${store}::uuid, ${`{${ids.join(",")}}`}::uuid[]) as f`)))!.f : []
 
   // Copies the source's draft (or one section of it) into a snapshot with the images under `<demo>/`.
   async function snapshot(c: Context<Env>, demo: string, kind: Kind, store: string, source: string, section: string | null) {
@@ -70,17 +77,18 @@ export function registerDemos(app: Hono<Env>) {
     return { content, media: media.filter(Boolean), templateType: kind === 'template' ? src.type : null, sourceStoreId: store, sourceId: source, sourceSection: kind === 'section' ? section : null }
   }
 
-  // The chosen thumbnail (an image in the source store's gallery, usually a screenshot) is copied under `<demo>/` too.
-  async function thumbnail(c: Context<Env>, demo: string, store: unknown, image: unknown) {
-    if (image === null) return { thumbKey: null }
-    if (image === undefined || image === '') return {}
-    if (!isId(store) || !isId(image)) throw fail(400, 'invalidRequest')
-    const [file] = await files(c, store, [image])
-    if (!file) throw fail(404, 'notFound')
-    const key = `${demo}/${randomUUID()}.webp`
-    // ponytail: the previous thumbnail file stays in storage when it is replaced; sweep `<demo>/` keys if it adds up.
-    await putFile(key, await getFile(file.key))
-    return { thumbKey: key }
+  // An uploaded thumbnail (usually a screenshot) is checked and converted like every image (processImage: real image,
+  // metadata stripped, WebP) and stored under `<demo>/`. `removeThumbnail` clears it; neither keeps the current one.
+  async function thumbnail(demo: string, file: File | null, remove: unknown) {
+    if (file) {
+      if (file.size > maxThumbBytes) throw fail(413, 'fileTooLarge')
+      const image = await processImage(Buffer.from(await file.arrayBuffer()))
+      const key = `${demo}/${randomUUID()}.webp`
+      // ponytail: the previous thumbnail file stays in storage when it is replaced; sweep `<demo>/` keys if it adds up.
+      await putFile(key, image.thumb)
+      return { thumbKey: key }
+    }
+    return remove === true ? { thumbKey: null } : {}
   }
 
   app.get('/console/demos', async (c) => {
@@ -95,25 +103,25 @@ export function registerDemos(app: Hono<Env>) {
     return c.json({ ...found, images: found.images.map((m) => ({ ...m, url: publicUrl(m.thumbKey) })) })
   })
 
-  app.post('/console/demos', async (c) => {
-    const b = await body(c)
+  app.post('/console/demos', uploads, async (c) => {
+    const { b, file } = await form(c)
     const details = readDetails(b)
     if (!isKind(b.kind) || !isId(b.sourceStoreId) || !isId(b.sourceId) || (b.kind === 'section' && typeof b.sourceSection !== 'string')) throw fail(400, 'invalidRequest')
     const id = randomUUID()
     const taken = await snapshot(c, id, b.kind, b.sourceStoreId, b.sourceId, b.kind === 'section' ? b.sourceSection as string : null)
-    // No thumbnail picked: the demo's first image (already copied under `<demo>/`) stands in.
-    const thumb = b.thumbImageId === undefined || b.thumbImageId === '' ? { thumbKey: taken.media[0]?.key ?? null } : await thumbnail(c, id, b.sourceStoreId, b.thumbImageId)
+    // No thumbnail uploaded: the demo's first image (already copied under `<demo>/`) stands in.
+    const thumb = file ? await thumbnail(id, file, false) : { thumbKey: taken.media[0]?.key ?? null }
     await run((t) => t.execute(sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify({ ...details, kind: b.kind, ...taken, ...thumb })}::jsonb)`))
     return c.json({ id }, 201)
   })
 
   // Names, category, preview, status, order and thumbnail; the content stays as it was.
-  app.put('/console/demos/:id', async (c) => {
+  app.put('/console/demos/:id', uploads, async (c) => {
     const id = c.req.param('id')
     if (!isId(id)) throw fail(404, 'notFound')
-    const b = await body(c)
+    const { b, file } = await form(c)
     const details = readDetails(b)
-    const thumb = await thumbnail(c, id, b.sourceStoreId, b.thumbImageId)
+    const thumb = await thumbnail(id, file, b.removeThumbnail)
     await run((t) => t.execute(sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify({ ...details, ...thumb })}::jsonb)`))
     return c.json({ ok: true })
   })
@@ -136,7 +144,7 @@ export function registerDemos(app: Hono<Env>) {
     const id = c.req.param('id')
     if (!isId(id)) throw fail(404, 'notFound')
     const b = await c.req.json().catch(() => ({}))
-    const gone = (await run((t) => one<{ g: { media: File[]; thumbKey: string | null } | null }>(t, sql`select console_delete_demo(${admin(c)}::uuid, ${id}::uuid, ${text(b?.reason, 500)}) as g`)))?.g
+    const gone = (await run((t) => one<{ g: { media: FileRow[]; thumbKey: string | null } | null }>(t, sql`select console_delete_demo(${admin(c)}::uuid, ${id}::uuid, ${text(b?.reason, 500)}) as g`)))?.g
     if (!gone) throw fail(404, 'notFound')
     await Promise.allSettled([...gone.media.flatMap((f) => [deleteFile(f.key), deleteFile(f.thumbKey)]), ...(gone.thumbKey ? [deleteFile(gone.thumbKey)] : [])])
     return c.json({ ok: true })

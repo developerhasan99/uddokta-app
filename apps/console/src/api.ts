@@ -7,8 +7,8 @@ export async function api<T = unknown>(path: string, options: { method?: string;
   try {
     res = await fetch(`/api${path}`, {
       method: options.method ?? 'GET',
-      headers: options.body === undefined ? undefined : { 'content-type': 'application/json' },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers: options.body === undefined || options.body instanceof FormData ? undefined : { 'content-type': 'application/json' },
+      body: options.body === undefined ? undefined : options.body instanceof FormData ? options.body : JSON.stringify(options.body),
     })
   } catch {
     throw new ApiError('network')
@@ -41,6 +41,8 @@ const messages: Record<string, string> = {
   demoInvalid: 'That draft cannot be used: open it in the page builder, fix any warnings and save it again.',
   demoEmpty: 'That draft has no sections yet. Design it first, then save.',
   demoStoreBlocks: 'This section uses store-only blocks (product grid, cart, …), so it would not work on landing pages. Pick another section.',
+  fileNotImage: 'That file is not an image. Use a PNG, JPG or WebP screenshot.',
+  fileTooLarge: 'That image is larger than 10 MB.',
   demoSourceGone: 'The source page, template or store was deleted. Make a new demo instead.',
 }
 export const errorText = (err: unknown) => messages[err instanceof ApiError ? err.code : 'server'] ?? 'Something went wrong. Try again in a moment.'
