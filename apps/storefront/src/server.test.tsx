@@ -824,8 +824,8 @@ test('search finds active products by name, and never drafts', async () => {
 
 test('a store password closes store pages (not landing pages) until the buyer enters it; home title comes from Preferences', async () => {
   const s = await publishedPage()
-  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'ab' })).json.error, 'storePasswordShort')
-  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'eid2026', passwordMessage: 'ঈদে খুলছি' })).status, 200)
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'eid2026' })).json.error, 'storePasswordShort')
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'eid-2026', passwordMessage: 'ঈদে খুলছি' })).status, 200)
   const closed = await (await visit(s.handle, '/')).text()
   assert.match(closed, /ঈদে খুলছি/)
   assert.match(closed, /name="robots" content="noindex"/)
@@ -835,7 +835,7 @@ test('a store password closes store pages (not landing pages) until the buyer en
   assert.equal(add.headers.get('location'), '/password')
   const wrong = await visit(s.handle, '/password', { method: 'POST', body: new URLSearchParams({ password: 'nope' }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
   assert.equal(wrong.status, 422)
-  const right = await visit(s.handle, '/password', { method: 'POST', body: new URLSearchParams({ password: 'eid2026' }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+  const right = await visit(s.handle, '/password', { method: 'POST', body: new URLSearchParams({ password: 'eid-2026' }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
   const cookie = right.headers.get('set-cookie')!.split(';')[0]
   const open = await (await visit(s.handle, '/', { headers: { cookie } })).text()
   assert.match(open, /<title>রঙিন শপ: হাতের কাজ<\/title>/)
@@ -846,10 +846,10 @@ test('a store password closes store pages (not landing pages) until the buyer en
 
 test('20 wrong store passwords in 15 minutes close the password form, even for the right password', async () => {
   const s = await publishedPage()
-  await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: true, password: 'eid2026' })
+  await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: true, password: 'eid-2026' })
   const enter = (password: string) => visit(s.handle, '/password', { method: 'POST', body: new URLSearchParams({ password }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
   for (let i = 0; i < 20; i++) assert.equal((await enter(`guess${i}`)).status, 422)
-  const blocked = await enter('eid2026')
+  const blocked = await enter('eid-2026')
   assert.equal(blocked.status, 429)
   assert.equal(blocked.headers.get('set-cookie'), null)
   assert.match(await blocked.text(), /১৫ মিনিট/)

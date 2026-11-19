@@ -28,7 +28,7 @@ export function registerPreferences(app: Hono<Env>) {
     const language = body?.language
     if (homeTitle === null || homeDescription === null || passwordMessage === null || !(shareImageId === null || isId(shareImageId))
       || typeof body?.passwordOn !== 'boolean' || typeof password !== 'string' || password.length > 100 || !(language === undefined || language === 'bn' || language === 'en')) throw fail(400, 'invalidRequest')
-    if (password && password.trim().length < 4) throw fail(400, 'storePasswordShort')
+    if (password && password.trim().length < 8) throw fail(400, 'storePasswordShort')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       if (body.passwordOn && !password && store.storePasswordHash === null) throw fail(400, 'storePasswordShort')
