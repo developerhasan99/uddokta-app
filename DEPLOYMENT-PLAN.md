@@ -602,3 +602,9 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Console: "Deleting" badge on Stores, a notice on the store page, Export data (JSON of every store table, secrets left out, reason logged) and Delete now (only while the owner's request stands, reason logged).
 - New database rule: suspension, plan and deletion columns of stores change only through their definer functions (trigger), closing a gap where app code could have written them.
 - Browser-checked: dashboard delete + restore (Bangla), console badge, notice and Delete now, on a throwaway store of the QA account.
+
+## November 19, 2026: suspended-store bar; SES production access
+
+- SES production access granted (Singapore: 50,000 emails a day, 14 a second, account healthy).
+- Suspended stores: `/me` now sends `suspendedAt` with each store, and every store screen shows `SuspendedBar` (`components/StoreDeletion.tsx`): Uddokta suspended the store, buyers can't open it, nothing can be changed, contact support. The console's reason stays internal. Console test checks `/me`. Checked in the browser on a locally suspended store.
+- Email go-live still waits on the owner: create the IAM user, configuration set and SNS topic, then set the Railway variables (steps in the November 18 entry). The IAM user creation was stopped for the owner's approval.
