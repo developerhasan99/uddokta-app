@@ -254,17 +254,23 @@ export function Demos() {
           <div className="notice"><h2>No {kinds.find((k) => k.key === kind)!.one} demos yet</h2><p className="muted">Design one in the demo store, then press New demo.</p><Button onClick={() => setEditing('new')}>New demo</Button></div>
         ) : (
           <table className="data-table console-demos">
-            <thead><tr><th style={{ width: '5.5rem' }}><span className="visually-hidden">Thumbnail</span></th><th>Demo</th><th>Category</th>{kind === 'template' && <th>Type</th>}<th>Status</th><th className="end">Uses</th><th>Updated</th><th className="end" style={{ width: '11rem' }}><span className="visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th style={{ width: '5.5rem' }}><span className="visually-hidden">Thumbnail</span></th><th>Demo</th><th>Category</th>{kind === 'template' && <th>Type</th>}{kind === 'template' && <th className="console-star-col">Default</th>}<th>Status</th><th className="end">Uses</th><th>Updated</th><th className="end" style={{ width: '11rem' }}><span className="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
               {rows.map((d) => (
                 <tr key={d.id} className="data-table__row" onClick={() => setEditing(d)}>
                   <td>{d.thumb ? <img className="console-demo-thumb" src={d.thumb} alt="" loading="lazy" /> : <span className="console-demo-thumb console-thumbs__none"><ImageOff size={16} aria-hidden="true" /></span>}</td>
                   <th scope="row">
-                    <span className="console-name"><button type="button" className="console-link" onClick={(e) => { e.stopPropagation(); setEditing(d) }}>{d.nameEn}</button>{d.isDefault && <Badge tone="info">Default</Badge>}</span>
+                    <span className="console-name"><button type="button" className="console-link" onClick={(e) => { e.stopPropagation(); setEditing(d) }}>{d.nameEn}</button></span>
                     <span className="console-sub">{d.nameBn}</span>
                   </th>
                   <td>{d.category || <span className="muted">—</span>}</td>
                   {kind === 'template' && <td>{d.templateType ? templateLabels[d.templateType][1] : '—'}</td>}
+                  {kind === 'template' && <td className="console-star-col" onClick={(e) => e.stopPropagation()}>
+                    {d.isDefault
+                      ? <span className="console-star console-star--on" role="img" aria-label="Default for new stores" title="Default for new stores"><Star size={18} fill="currentColor" aria-hidden="true" /></span>
+                      : <button type="button" className="console-star" disabled={d.status !== 'published' || busy === d.id} onClick={() => void makeDefault(d)}
+                          aria-label={`Make ${d.nameEn} the default for new stores`} title={d.status === 'published' ? `Make default for new stores (replaces ${defaults.get(d.templateType!)?.nameEn ?? 'the built-in design'})` : 'Publish it first to make it the default'}><Star size={18} aria-hidden="true" /></button>}
+                  </td>}
                   <td>{d.status === 'published' ? <Badge tone="success">Published</Badge> : <Badge>Draft</Badge>}</td>
                   <td className="num end">{count(d.uses)}</td>
                   <td>{date(d.updatedAt)}<span className="console-sub">Version {d.version}</span></td>
@@ -280,7 +286,6 @@ export function Demos() {
                             <Dropdown.Group className="menu__section">
                               <Dropdown.Item className="menu__item menu__action" onSelect={() => setEditing(d)}><Pencil size={16} aria-hidden="true" />Edit</Dropdown.Item>
                               {d.previewUrl && <Dropdown.Item className="menu__item menu__action" onSelect={() => window.open(d.previewUrl, '_blank', 'noopener,noreferrer')}><ExternalLink size={16} aria-hidden="true" />Open preview</Dropdown.Item>}
-                              {d.kind === 'template' && !d.isDefault && <Dropdown.Item className="menu__item menu__action" disabled={d.status !== 'published'} onSelect={() => void makeDefault(d)}><Star size={16} aria-hidden="true" /><span className="menu__text"><span>Make default for new stores</span><span className="menu__sub">{d.status === 'published' ? `Replaces ${defaults.get(d.templateType!)?.nameEn ?? 'the built-in design'}` : 'Publish it first'}</span></span></Dropdown.Item>}
                               <Dropdown.Item className="menu__item menu__action" disabled={!d.sourceId} onSelect={() => void refresh(d)}><RefreshCw size={16} aria-hidden="true" /><span className="menu__text"><span>Update from source</span><span className="menu__sub">{d.sourceStore ? `Copy ${d.sourceStore}’s saved draft again` : 'The source was deleted'}</span></span></Dropdown.Item>
                             </Dropdown.Group>
                             <Dropdown.Group className="menu__section menu__section--ruled">

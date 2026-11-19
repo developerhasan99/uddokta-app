@@ -688,6 +688,8 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .menu__stores { display: grid; gap: var(--space-3xs); max-height: 15rem; overflow-y: auto; }
 .menu__item { display: flex; align-items: center; gap: var(--space-xs); padding-inline: var(--space-xs); border-radius: var(--radius-control); outline: 0; cursor: pointer; }
 .menu__item[data-highlighted] { background: var(--color-paper-2); }
+/* Two-line items (title + explanation) get box corners and room above and below, so the highlight wraps the text. */
+.menu__item:has(.menu__sub) { padding-block: var(--space-2xs); border-radius: var(--radius-box); }
 .menu__store { min-height: 44px; }
 .menu__store--active, .menu__store--active[data-highlighted] { background: var(--color-paper-3); }
 .menu__action { min-height: 36px; color: var(--color-ink-2); text-decoration: none; }

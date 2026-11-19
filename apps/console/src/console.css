@@ -120,3 +120,10 @@ span.console-demo-thumb { display: grid; place-items: center; aspect-ratio: auto
 .console-menu .menu__sub { margin-top: 1px; font-weight: 400; }
 .console-menu .menu__action--danger, .console-menu .menu__action--danger svg { color: var(--color-danger); }
 .console-menu .menu__item[data-disabled] .menu__sub { color: var(--color-muted); }
+.console-star-col { width: 5.5rem; text-align: center; }
+.data-table th.console-star-col, .data-table td.console-star-col { text-align: center; }
+.console-star { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--color-rule-strong); cursor: pointer; transition: color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out); }
+.console-star--on { color: var(--color-primary); cursor: default; }
+.console-star:disabled { cursor: default; opacity: .5; }
+@media (hover: hover) { button.console-star:not(:disabled):hover { background: var(--color-paper-2); color: var(--color-primary); } }
+button.console-star:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
