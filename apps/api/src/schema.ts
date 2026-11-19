@@ -873,6 +873,8 @@ export const plans = pgTable('plans', {
   // How this plan is billed, for custom deals ("yearly by bank transfer"). Shown to the store on its Billing page.
   billingNote: text('billing_note').notNull().default(''),
   archived: boolean('archived').notNull().default(false),
+  // Not offered on sellers' Billing page (an early-access or by-invitation plan); still the default or given from the console.
+  hidden: boolean('hidden').notNull().default(false),
   createdAt: createdAt(),
 }, (t) => [
   uniqueIndex('plans_one_default').on(t.isDefault).where(sql`${t.isDefault}`),

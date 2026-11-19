@@ -33,6 +33,10 @@
 .console-check { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-sm); }
 .console-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 500; cursor: pointer; }
 .console-note { font-size: var(--text-sm); }
+.console-plan-name { display: inline-flex; align-items: center; gap: var(--space-xs); white-space: nowrap; }
+.console-plan-manage { padding: var(--space-sm); border-radius: var(--radius-box); background: var(--color-paper-2); font-size: var(--text-sm); }
+.console-plan-manage p { margin: 0; }
+.console-foot-start { margin-inline-end: auto; }
 @media (max-width: 719px) {
   .console-shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .console-shell .sidebar { min-height: 0; }

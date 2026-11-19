@@ -37,6 +37,8 @@ api.onError((err) => {
   if (code === 'UD100') return Response.json({ error: 'notFound' }, { status: 404 })
   if (code === 'UD101') return Response.json({ error: 'cannotSuspendSelf' }, { status: 409 })
   if (code === 'UD102') return Response.json({ error: 'planDefaultRequired' }, { status: 409 })
+  if (code === 'UD103') return Response.json({ error: 'planHasStores' }, { status: 409 })
+  if (code === 'UD104') return Response.json({ error: 'planHasPayments' }, { status: 409 })
   if (code === '42501') return Response.json({ error: 'forbidden' }, { status: 403 })
   console.error(err)
   return Response.json({ error: 'server' }, { status: 500 })

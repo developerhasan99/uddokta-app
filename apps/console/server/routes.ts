@@ -44,7 +44,7 @@ function readLimits(b: Record<string, unknown>) {
   return plan
 }
 function readPlan(b: Record<string, unknown>) {
-  const plan = { ...readLimits(b), name: text(b.name, 40), isDefault: b.isDefault === true, archived: b.archived === true }
+  const plan = { ...readLimits(b), name: text(b.name, 40), isDefault: b.isDefault === true, archived: b.archived === true, hidden: b.hidden === true }
   if (!plan.name) throw fail(400, 'nameRequired')
   if (plan.isDefault && plan.archived) throw fail(400, 'planInvalid')
   return plan
@@ -175,6 +175,19 @@ export function registerConsole(app: Hono<Env>) {
   app.put('/console/plans/:id', (c) => {
     if (!isId(c.req.param('id'))) throw fail(404, 'notFound')
     return savePlan(c, c.req.param('id'))
+  })
+  // Moves every store set to this plan onto another (null: the default plan), e.g. before archiving or deleting it.
+  app.post('/console/plans/:id/move', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id')) || !(b.planId === null || isId(b.planId))) throw fail(400, 'invalidRequest')
+    const moved = await run((t) => one<{ n: number }>(t, sql`select console_move_plan_stores(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${b.planId as string | null}::uuid, ${reason(b)}) as n`))
+    return c.json({ moved: moved?.n ?? 0 })
+  })
+  app.delete('/console/plans/:id', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id'))) throw fail(404, 'notFound')
+    await run((t) => t.execute(sql`select console_delete_plan(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${text(b.reason, 500)})`))
+    return c.json({ ok: true })
   })
 
   // A store's own plan: its limits, tools, price and billing note, until a date (blank: no end). Ending it puts the

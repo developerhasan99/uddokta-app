@@ -173,6 +173,40 @@ test('features and custom plans: a tool left out is closed, a custom plan sets e
   assert.deepEqual(audit, ['store.customPlanEnd', 'store.customPlan'])
 })
 
+test('hidden plans stay off Billing; moving stores off a plan lets it be deleted, unless payments were recorded on it', async () => {
+  const admin = await administrator()
+  const owner = await person()
+  const handle = `move-shop-${counter}`
+  await owner.call('POST', '/stores', { name: 'Move Shop', handle })
+  const storeId = (await owner.call('GET', '/me')).json.stores[0].id as string
+  await admin.call('POST', '/console/plans', { name: 'Early bird', priceBdt: 0, storageMb: 50, features: [], hidden: true })
+  await admin.call('POST', '/console/plans', { name: 'Later', priceBdt: 200, storageMb: 50, features: [] })
+  const find = async (name: string) => (await admin.call('GET', '/console/plans')).json.find((p: any) => p.name === name)
+  const early = await find('Early bird')
+  const later = await find('Later')
+  assert.equal(early.hidden, true)
+  await admin.call('PUT', `/console/stores/${storeId}/plan`, { planId: early.id, until: null, reason: 'Early access' })
+  const billing = (await owner.call('GET', `/stores/${handle}/billing`)).json
+  assert.equal(billing.plan.plan_name, 'Early bird', 'the store still sees its own hidden plan')
+  assert.ok(!billing.plans.some((p: any) => p.name === 'Early bird'), 'but it is not offered')
+  assert.ok(billing.plans.some((p: any) => p.name === 'Later'))
+
+  assert.equal((await admin.call('DELETE', `/console/plans/${early.id}`, {})).json.error, 'planHasStores')
+  assert.equal((await admin.call('POST', `/console/plans/${early.id}/move`, { planId: later.id })).json.error, 'reasonRequired')
+  assert.equal((await admin.call('POST', `/console/plans/${early.id}/move`, { planId: early.id, reason: 'x' })).status, 404, 'not onto itself')
+  assert.deepEqual((await admin.call('POST', `/console/plans/${early.id}/move`, { planId: later.id, reason: 'Early access over' })).json, { moved: 1 })
+  assert.equal((await owner.call('GET', `/stores/${handle}/plan`)).json.planName, 'Later')
+  assert.equal((await admin.call('DELETE', `/console/plans/${early.id}`, { reason: 'Unused' })).status, 200)
+  assert.equal(await find('Early bird'), undefined)
+
+  await admin.call('POST', `/console/stores/${storeId}/payments`, { planId: later.id, amount: 200, months: 1, method: 'bKash' })
+  await admin.call('POST', `/console/plans/${later.id}/move`, { planId: null, reason: 'Back to default' })
+  assert.equal((await owner.call('GET', `/stores/${handle}/plan`)).json.planName, 'Free')
+  assert.equal((await admin.call('DELETE', `/console/plans/${later.id}`, {})).json.error, 'planHasPayments')
+  const free = (await admin.call('GET', '/console/plans')).json.find((p: any) => p.isDefault)
+  assert.equal((await admin.call('DELETE', `/console/plans/${free.id}`, {})).json.error, 'planDefaultRequired')
+})
+
 test('console tables are out of reach for the app role, and the functions refuse anyone but administrators', async () => {
   const seller = await person()
   for (const table of ['platform_admins', 'plans', 'store_payments', 'console_audit', 'platform_settings']) {

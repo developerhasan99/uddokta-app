@@ -30,6 +30,8 @@ const messages: Record<string, string> = {
   cannotSuspendSelf: 'You cannot suspend your own account.',
   planDefaultRequired: 'One plan must stay the default. Make another plan the default first.',
   planNameTaken: 'A plan with this name already exists.',
+  planHasStores: 'Stores are still set to this plan. Move them to another plan first.',
+  planHasPayments: 'Payments were recorded on this plan, so it stays in their history. Archive it instead.',
   planInvalid: 'Check the plan: limits must be whole numbers, storage at least 1 MB, and the default plan cannot be archived.',
   nameRequired: 'Give it a name.',
   emailUnavailable: 'Email sending is not set up yet (SES keys and APP_URL on the API service).',

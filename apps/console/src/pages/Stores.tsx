@@ -82,7 +82,7 @@ function PlanDialog({ store, plans, onClose, onDone }: { store: Store; plans: Pl
       <div className="field"><label htmlFor="plan-pick">Plan</label>
         <select id="plan-pick" className="input" value={planId} onChange={(e) => setPlanId(e.target.value)}>
           <option value="">Default plan ({plans.find((p) => p.isDefault)?.name})</option>
-          {live.filter((p) => !p.isDefault).map((p) => <option key={p.id} value={p.id}>{p.name} · {taka(p.priceBdt)}/month</option>)}
+          {live.filter((p) => !p.isDefault).map((p) => <option key={p.id} value={p.id}>{p.name} · {taka(p.priceBdt)}/month{p.hidden ? ' · hidden' : ''}</option>)}
         </select>
       </div>
       {planId && <div className="field"><label htmlFor="plan-until">Ends on</label>
