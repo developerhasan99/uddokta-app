@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { sql } from 'drizzle-orm'
 import sharp from 'sharp'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { app } from '../../api/src/app.ts'
@@ -230,6 +232,16 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
   const list = (await admin.call('GET', '/console/demos')).json
   assert.equal(list.length, 4)
   assert.ok(list.find((d: any) => d.id === landing.json.id).thumb, 'the uploaded thumbnail')
+  // Replacing or removing a thumbnail deletes the old file; nothing piles up in storage.
+  const stored = (key: string) => existsSync(join(process.env.MEDIA_DIR!, key))
+  const firstThumb = list.find((d: any) => d.id === landing.json.id).thumbKey
+  assert.ok(stored(firstThumb))
+  await admin.call('PUT', `/console/demos/${landing.json.id}`, demoForm({ nameBn: 'ঈদ অফার', nameEn: 'Eid offer', category: 'Fashion', status: 'published' }, png))
+  const secondThumb = (await admin.call('GET', '/console/demos')).json.find((d: any) => d.id === landing.json.id).thumbKey
+  assert.ok(secondThumb !== firstThumb && stored(secondThumb) && !stored(firstThumb), 'the replaced thumbnail is deleted')
+  const sectionThumb = list.find((d: any) => d.id === section.id).thumbKey
+  await admin.call('PUT', `/console/demos/${section.id}`, demoForm({ nameBn: 'হিরো', nameEn: 'Hero', category: 'Fashion', status: 'published', removeThumbnail: true }))
+  assert.ok(stored(sectionThumb), 'the first image stays: the section still uses it')
   assert.ok(list.find((d: any) => d.id === section.id).thumb, 'no upload: the first image stands in')
   assert.equal(list.find((d: any) => d.id === template.id).thumb, null, 'no upload and no images: none')
 
@@ -266,6 +278,7 @@ test('demos: the team designs in a store, the console snapshots it, sellers star
   // Unpublishing hides it at once; deleting removes it; pages made from it stay.
   await admin.call('PUT', `/console/demos/${landing.json.id}`, demoForm({ nameBn: 'ঈদ অফার', nameEn: 'Eid offer', category: 'Fashion', status: 'draft', removeThumbnail: true }))
   assert.equal((await admin.call('GET', '/console/demos')).json.find((d: any) => d.id === landing.json.id).thumb, null, 'thumbnail removed')
+  assert.ok(!stored(secondThumb), 'and its file deleted')
   assert.deepEqual((await seller.call('GET', '/demos?kind=landing')).json, [])
   assert.equal((await admin.call('DELETE', `/console/demos/${landing.json.id}`, { reason: 'Old' })).status, 200)
   assert.equal((await seller.call('GET', `/stores/${sellerHandle}/pages/${made.json.id}`)).status, 200)

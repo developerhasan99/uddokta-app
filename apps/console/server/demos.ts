@@ -84,11 +84,20 @@ export function registerDemos(app: Hono<Env>) {
       if (file.size > maxThumbBytes) throw fail(413, 'fileTooLarge')
       const image = await processImage(Buffer.from(await file.arrayBuffer()))
       const key = `${demo}/${randomUUID()}.webp`
-      // ponytail: the previous thumbnail file stays in storage when it is replaced; sweep `<demo>/` keys if it adds up.
       await putFile(key, image.thumb)
       return { thumbKey: key }
     }
     return remove === true ? { thumbKey: null } : {}
+  }
+
+  // Saves through console_save_demo, then deletes the files the demo used before and no longer uses (a replaced or
+  // removed thumbnail, images a new snapshot dropped). Only keys under the demo's own `<demo>/` prefix are touched.
+  type Files = { thumbKey: string | null; media: FileRow[] }
+  const keysOf = (f: Files) => new Set([...(f.thumbKey ? [f.thumbKey] : []), ...f.media.flatMap((m) => [m.key, m.thumbKey])])
+  async function save(c: Context<Env>, id: string, details: Record<string, unknown>) {
+    const { before, after } = (await run((t) => one<{ r: { before: Files; after: Files } }>(t, sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify(details)}::jsonb) as r`)))!.r
+    const kept = keysOf(after)
+    await Promise.allSettled([...keysOf(before)].filter((key) => !kept.has(key) && key.startsWith(`${id}/`)).map((key) => deleteFile(key)))
   }
 
   app.get('/console/demos', async (c) => {
@@ -111,7 +120,7 @@ export function registerDemos(app: Hono<Env>) {
     const taken = await snapshot(c, id, b.kind, b.sourceStoreId, b.sourceId, b.kind === 'section' ? b.sourceSection as string : null)
     // No thumbnail uploaded: the demo's first image (already copied under `<demo>/`) stands in.
     const thumb = file ? await thumbnail(id, file, false) : { thumbKey: taken.media[0]?.key ?? null }
-    await run((t) => t.execute(sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify({ ...details, kind: b.kind, ...taken, ...thumb })}::jsonb)`))
+    await save(c, id, { ...details, kind: b.kind, ...taken, ...thumb })
     return c.json({ id }, 201)
   })
 
@@ -122,7 +131,7 @@ export function registerDemos(app: Hono<Env>) {
     const { b, file } = await form(c)
     const details = readDetails(b)
     const thumb = await thumbnail(id, file, b.removeThumbnail)
-    await run((t) => t.execute(sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify({ ...details, ...thumb })}::jsonb)`))
+    await save(c, id, { ...details, ...thumb })
     return c.json({ ok: true })
   })
 
@@ -136,7 +145,7 @@ export function registerDemos(app: Hono<Env>) {
     if (!demo.sourceStoreId || !demo.sourceId) throw fail(409, 'demoSourceGone')
     const taken = await snapshot(c, id, demo.kind, demo.sourceStoreId, demo.sourceId, demo.sourceSection)
     const details = { nameBn: demo.nameBn, nameEn: demo.nameEn, category: demo.category, previewUrl: demo.previewUrl, status: demo.status, sort: demo.sort }
-    await run((t) => t.execute(sql`select console_save_demo(${admin(c)}::uuid, ${id}::uuid, ${JSON.stringify({ ...details, ...taken })}::jsonb)`))
+    await save(c, id, { ...details, ...taken })
     return c.json({ ok: true })
   })
 
