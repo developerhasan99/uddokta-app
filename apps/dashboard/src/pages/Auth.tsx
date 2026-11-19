@@ -3,6 +3,7 @@ import { Check, Eye, EyeOff, MailCheck } from 'lucide-react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession, type Role } from '../account-context'
 import { api, errorCode } from '../api'
+import { SupportLink } from '../components/Support'
 import { roleLabels } from '../components/AppMenu'
 import { Button, Field, LinkButton, Notice, PageTitle } from '../components/ui'
 import { errorLabel, useLang, type Key } from '../i18n'
@@ -102,6 +103,7 @@ export function Login() {
     <AuthLayout title={t('loginTitle')} description={t('loginD')}>
       <form className="auth__form" onSubmit={submit} noValidate>
         {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+        {error === 'accountSuspended' && <SupportLink />}
         <Field id="login-email" name="email" type="email" label={t('emailLabel')} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <PasswordField id="login-password" autoComplete="current-password" value={password} onChange={setPassword} />
         <Link className="auth__link auth__forgot" to={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}>{t('forgotLink')}</Link>
@@ -246,6 +248,7 @@ export function ForgotPassword() {
         : (
           <form className="auth__form" onSubmit={submit} noValidate>
             <Field id="forgot-email" name="email" type="email" label={t('emailLabel')} autoComplete="email" value={email} error={error ? t(errorLabel(error)) : undefined} onChange={(e) => setEmail(e.target.value)} />
+            {error === 'emailUnavailable' && <SupportLink />}
             <Button type="submit" variant="primary" aria-busy={busy}>{t('forgotAction')}</Button>
           </form>
         )}

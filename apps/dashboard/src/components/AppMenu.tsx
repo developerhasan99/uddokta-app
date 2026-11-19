@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronRight, ChevronsUpDown, LayoutGrid, LogOut, Plus } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, LayoutGrid, LogOut, MessageCircle, Plus } from 'lucide-react'
+import { supportHref, supportLabel, useSupportNumber } from './Support'
 import { useAccount, useCurrentStore, type Role } from '../account-context'
 import { useLang, type Key, type Lang } from '../i18n'
 
@@ -16,6 +17,7 @@ export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 
   const { t, lang, setLang } = useLang()
   const { me, myStores, logout } = useAccount()
   const current = useCurrentStore()
+  const support = useSupportNumber()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const label = current?.store.name ?? me.name
@@ -90,6 +92,12 @@ export function AppMenu({ side = 'bottom', align = 'end', container }: { side?: 
             <ChevronRight className="menu__account-go" size={16} aria-hidden="true" />
           </Dropdown.Item>
           <Dropdown.Group className="menu__section menu__section--ruled">
+            {support && (
+              <Dropdown.Item className="menu__item menu__action" onSelect={() => window.open(supportHref(support, lang, current?.store.handle), '_blank', 'noopener')}>
+                <MessageCircle size={16} aria-hidden="true" />
+                {supportLabel(lang)}
+              </Dropdown.Item>
+            )}
             <Dropdown.Item className="menu__item menu__action" onSelect={() => void logout()}>
               <LogOut size={16} aria-hidden="true" />
               {t('logout')}

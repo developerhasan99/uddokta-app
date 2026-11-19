@@ -4,6 +4,7 @@ import { planFeatureLabels, planFeatures, type PlanFeature } from 'storefront/pl
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Badge, Button, Notice, PageHeader, Skeleton } from '../components/ui'
+import { waDigits } from '../components/Support'
 import { errorLabel, useLang, type Key } from '../i18n'
 
 // Settings › Billing (owners and admins): the store's plan, what it uses and includes, the plans it can move to,
@@ -76,7 +77,7 @@ export function Billing() {
     { key: 'billingStorage', used: usage.storageBytes / 1024 / 1024, max: plan.storage_mb, show: (n) => mb(Math.round(n)) },
   ]
   const ways = ([['billingBkash', data.pay.bkash], ['billingNagad', data.pay.nagad]] as [Key, string][]).filter(([, v]) => v)
-  const waNumber = data.pay.whatsapp.replace(/\D/g, '').replace(/^0/, '880')
+  const waNumber = waDigits(data.pay.whatsapp)
   const waText = picked
     ? t('billingWaText', { store: handle, plan: picked.name, months: num(months), amount: taka(total) })
     : t('billingWaAsk', { store: handle })

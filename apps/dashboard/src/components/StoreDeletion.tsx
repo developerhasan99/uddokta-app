@@ -7,6 +7,7 @@ import { errorLabel, useLang } from '../i18n'
 import { DialogHead } from './DialogHead'
 import { useDialog } from './dialog'
 import { Button, Field } from './ui'
+import { SupportLink } from './Support'
 
 // Deleting a store (apps/api/src/store-deletion.ts): the owner asks with the store's address and their password; the
 // store is offline and read-only for 30 days, every member sees the bar below, and the owner can restore it until then.
@@ -55,6 +56,7 @@ export function SuspendedBar() {
         <strong>{L(['উদ্যোক্তা এই দোকানটি সাময়িকভাবে বন্ধ রেখেছে।', 'Uddokta has suspended this store.'])}</strong>{' '}
         {L(['ক্রেতারা এখন দোকান ও ল্যান্ডিং পেজ দেখতে পাচ্ছেন না, আর কিছু বদলানো যাবে না। কারণ জানতে ও দোকান চালু করতে উদ্যোক্তা সাপোর্টে যোগাযোগ করুন।', 'Buyers cannot open the store or its landing pages, and nothing can be changed. Contact Uddokta support to find out why and get it back online.'])}
       </span>
+      <SupportLink />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DialogHead } from '../components/DialogHead'
+import { SupportLink } from '../components/Support'
 import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, StateSwitch, type Device, type State } from '../components/NodeDesignControls'
 import { boxDepth, boxesAbove, columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
@@ -1261,6 +1262,7 @@ export function Builder({ host }: { host: BuilderHost }) {
           <TriangleAlert size={16} aria-hidden="true" />
           <p>{t(errorLabel(error))}</p>
           {error === 'pageChanged' && <Button onClick={() => void load()}>{t('pageReload')}</Button>}
+          {error === 'storeSuspended' && <SupportLink />}
           <button type="button" className="icon-button" aria-label={t('mediaClose')} onClick={() => setError(null)}><X size={16} aria-hidden="true" /></button>
         </div>
       )}

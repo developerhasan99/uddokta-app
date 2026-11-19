@@ -30,7 +30,7 @@ export function Settings() {
           {line('bkash', 'bKash number', 'Merchant or personal number sellers send money to.')}
           {line('nagad', 'Nagad number', 'Leave blank if you do not take Nagad.')}
         </div>
-        {line('whatsapp', 'WhatsApp number', 'Sellers send the transaction ID here, or ask about plans.')}
+        {line('whatsapp', 'WhatsApp number', 'Sellers send payments here, and every "WhatsApp support" link in the dashboard (account menu, log in, suspended store) opens this chat. Blank hides those links.')}
         <div className="field"><label htmlFor="pay-bank">Bank transfer</label><textarea id="pay-bank" className="input console-textarea" rows={3} maxLength={500} value={form.bank} onChange={(e) => set({ bank: e.target.value })} placeholder="Account name, number, bank and branch" /></div>
         <div className="field"><label htmlFor="pay-note">Instructions</label><textarea id="pay-note" className="input console-textarea" rows={3} maxLength={1000} value={form.note} onChange={(e) => set({ note: e.target.value })} placeholder="e.g. Send the payment with your store address as the reference, then message us on WhatsApp." /></div>
         {message && <p className={message.ok ? 'console-done' : 'form-error'} role="status">{message.text}</p>}

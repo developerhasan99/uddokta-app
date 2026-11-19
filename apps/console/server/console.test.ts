@@ -156,7 +156,10 @@ test('features and custom plans: a tool left out is closed, a custom plan sets e
   assert.equal((await owner.call('PUT', `/stores/${handle}/domain`, { domain: 'feature-shop.com' })).json.error, 'planNoDomain')
   assert.ok(!(await admin.call('GET', '/console/plans')).json.some((p: any) => p.name.startsWith('Custom')), 'custom plans are not offered to others')
 
+  const stranger = client()
+  assert.equal((await stranger('GET', '/support')).json.whatsapp, '', 'no number until the console sets one')
   await admin.call('PUT', '/console/settings', { whatsapp: '01700000000', bkash: '01800000000', nagad: '', bank: 'City Bank 123', note: 'Send the store address with the payment.' })
+  assert.deepEqual((await stranger('GET', '/support')).json, { whatsapp: '01700000000' }, 'open to people who are not signed in, and nothing else')
   const billing = (await owner.call('GET', `/stores/${handle}/billing`)).json
   assert.deepEqual([billing.plan.plan_name, billing.plan.billing_note, billing.pay.bkash, billing.usage.members], [`Custom · ${handle}`, 'Yearly by bank transfer', '01800000000', 2])
   assert.ok(billing.plans.every((p: any) => !p.name.startsWith('Custom')))

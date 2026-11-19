@@ -211,6 +211,12 @@ app.post('/auth/verify', async (c) => {
   return c.json({ ok: true })
 })
 
+// Open: "contact support" links appear on the log-in page too. Only the WhatsApp number, blank until the console sets it.
+app.get('/support', async (c) => {
+  const row = await tx(null, (t) => one<{ c: { whatsapp: string } }>(t, sql`select support_contact() as c`))
+  return c.json({ whatsapp: row?.c.whatsapp ?? '' })
+})
+
 app.post('/auth/login', async (c) => {
   const body = await readBody(c)
   const email = text(body, 'email').toLowerCase()
