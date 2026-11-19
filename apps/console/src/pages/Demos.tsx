@@ -119,7 +119,7 @@ function DemoDialog({ demo, kind: startKind, categories, onClose, onDone }: { de
         <div className="field"><label htmlFor="demo-preview">Live preview link <span className="muted">(optional)</span></label><input id="demo-preview" className="input" type="url" maxLength={500} placeholder="https://…" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} /></div>
       </div>
       {sources && <fieldset className="console-thumbs">
-        <legend className="field__label">Thumbnail <span className="muted">(a screenshot from the demo store’s Media; with none, the demo’s first image is used)</span></legend>
+        <legend className="field__label">Thumbnail <span className="muted">({demo ? 'a screenshot from the demo store’s Media; None removes it' : 'a screenshot from the demo store’s Media; with None, the demo’s first image is used'})</span></legend>
         <ul>
           {demo?.thumb && <li><button type="button" aria-pressed={thumb === undefined} onClick={() => setThumb(undefined)}><img src={demo.thumb} alt="" /><span>Current</span></button></li>}
           <li><button type="button" aria-pressed={thumb === null || (!demo?.thumb && thumb === undefined)} onClick={() => setThumb(demo?.thumb ? null : undefined)}><span className="console-thumbs__none"><ImageOff size={18} aria-hidden="true" /></span><span>None</span></button></li>
