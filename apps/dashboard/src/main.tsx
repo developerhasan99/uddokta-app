@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import '@fontsource-variable/inter'
@@ -9,49 +9,55 @@ import { LangProvider } from './i18n'
 import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
 import { ChangeEmail, ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
-import { Profile } from './pages/Profile'
-import { Billing } from './pages/Billing'
 import { PlanGate } from './components/Plan'
-import { Home } from './pages/Home'
-import { Media } from './pages/Media'
-import { Menus } from './pages/Menus'
-import { MenuEdit } from './pages/MenuEdit'
-import { StorePages } from './pages/StorePages'
-import { StorePageEdit } from './pages/StorePageEdit'
-import { Members } from './pages/Members'
-import { CollectionEdit } from './pages/CollectionEdit'
-import { Collections } from './pages/Collections'
-import { Attributes } from './pages/Attributes'
-import { Incomplete } from './pages/Incomplete'
-import { Inventory } from './pages/Inventory'
-import { NewOrder } from './pages/NewOrder'
-import { OrderDetail } from './pages/OrderDetail'
-import { OnlineStore } from './pages/OnlineStore'
-import { Orders } from './pages/Orders'
-import { Protection } from './pages/Protection'
-import { PageEditor } from './pages/PageEditor'
-import { TemplateEditor } from './pages/TemplateEditor'
-import { Pages } from './pages/Pages'
-import { Warehouses } from './pages/Warehouses'
 import { Placeholder, NotFound } from './pages/Placeholder'
-import { ProductEdit } from './pages/ProductEdit'
-import { Products } from './pages/Products'
-import { RepeatSales } from './pages/RepeatSales'
 import { SettingsLayout } from './pages/Settings'
-import { NotificationSettings } from './pages/NotificationSettings'
-import { Delivery } from './pages/Delivery'
-import { Tracking } from './pages/Tracking'
-import { Domains } from './pages/Domains'
-import { Templates } from './pages/Templates'
-import { Invoices } from './pages/Invoices'
-import { StoreSettings } from './pages/StoreSettings'
-import { Analytics } from './pages/Analytics'
-import { Couriers } from './pages/Couriers'
-import { Customers } from './pages/Customers'
-import { DesignSystem } from './pages/DesignSystem'
-import { DiscountEdit } from './pages/DiscountEdit'
-import { Discounts } from './pages/Discounts'
-import { NewStore, Stores } from './pages/Stores'
+
+// Screens load when first opened, so a phone downloads only the shell and the screen it needs. Sign-in screens and the
+// layouts stay in the main bundle. React Router navigates in a transition, so the current screen stays until the next
+// one has loaded; the Suspense boundaries at each Outlet only show on the first visit.
+const screen = <K extends string>(load: () => Promise<Record<K, ComponentType<any>>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })))
+const Profile = screen(() => import('./pages/Profile'), 'Profile')
+const Billing = screen(() => import('./pages/Billing'), 'Billing')
+const Home = screen(() => import('./pages/Home'), 'Home')
+const Media = screen(() => import('./pages/Media'), 'Media')
+const Menus = screen(() => import('./pages/Menus'), 'Menus')
+const MenuEdit = screen(() => import('./pages/MenuEdit'), 'MenuEdit')
+const StorePages = screen(() => import('./pages/StorePages'), 'StorePages')
+const StorePageEdit = screen(() => import('./pages/StorePageEdit'), 'StorePageEdit')
+const Members = screen(() => import('./pages/Members'), 'Members')
+const CollectionEdit = screen(() => import('./pages/CollectionEdit'), 'CollectionEdit')
+const Collections = screen(() => import('./pages/Collections'), 'Collections')
+const Attributes = screen(() => import('./pages/Attributes'), 'Attributes')
+const Incomplete = screen(() => import('./pages/Incomplete'), 'Incomplete')
+const Inventory = screen(() => import('./pages/Inventory'), 'Inventory')
+const NewOrder = screen(() => import('./pages/NewOrder'), 'NewOrder')
+const OrderDetail = screen(() => import('./pages/OrderDetail'), 'OrderDetail')
+const OnlineStore = screen(() => import('./pages/OnlineStore'), 'OnlineStore')
+const Orders = screen(() => import('./pages/Orders'), 'Orders')
+const Protection = screen(() => import('./pages/Protection'), 'Protection')
+const PageEditor = screen(() => import('./pages/PageEditor'), 'PageEditor')
+const TemplateEditor = screen(() => import('./pages/TemplateEditor'), 'TemplateEditor')
+const Pages = screen(() => import('./pages/Pages'), 'Pages')
+const Warehouses = screen(() => import('./pages/Warehouses'), 'Warehouses')
+const ProductEdit = screen(() => import('./pages/ProductEdit'), 'ProductEdit')
+const Products = screen(() => import('./pages/Products'), 'Products')
+const RepeatSales = screen(() => import('./pages/RepeatSales'), 'RepeatSales')
+const NotificationSettings = screen(() => import('./pages/NotificationSettings'), 'NotificationSettings')
+const Delivery = screen(() => import('./pages/Delivery'), 'Delivery')
+const Tracking = screen(() => import('./pages/Tracking'), 'Tracking')
+const Domains = screen(() => import('./pages/Domains'), 'Domains')
+const Templates = screen(() => import('./pages/Templates'), 'Templates')
+const Invoices = screen(() => import('./pages/Invoices'), 'Invoices')
+const StoreSettings = screen(() => import('./pages/StoreSettings'), 'StoreSettings')
+const Analytics = screen(() => import('./pages/Analytics'), 'Analytics')
+const Couriers = screen(() => import('./pages/Couriers'), 'Couriers')
+const Customers = screen(() => import('./pages/Customers'), 'Customers')
+const DesignSystem = screen(() => import('./pages/DesignSystem'), 'DesignSystem')
+const DiscountEdit = screen(() => import('./pages/DiscountEdit'), 'DiscountEdit')
+const Discounts = screen(() => import('./pages/Discounts'), 'Discounts')
+const NewStore = screen(() => import('./pages/Stores'), 'NewStore')
+const Stores = screen(() => import('./pages/Stores'), 'Stores')
 
 // Planned destinations are explicit; working routes below keep their real screens.
 const plannedPages = [...nav, ...channels].flatMap((item) => [item, ...(item.children ?? [])]).filter((item) => item.planned)

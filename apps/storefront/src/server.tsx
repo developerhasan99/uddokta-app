@@ -240,7 +240,7 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
   )
 }
 
-const html = (c: Context, body: React.ReactElement, status: 200 | 404 | 422 = 200, pixel = '', custom = false) =>
+const html = (c: Context, body: React.ReactElement, status: 200 | 404 | 422 | 429 = 200, pixel = '', custom = false) =>
   c.html(`<!doctype html>${renderToString(body)}`, status, { 'content-security-policy': cspFor(pixel, custom), 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache' })
 
 function notFound(c: Context) {
@@ -563,7 +563,8 @@ const passName = 'store_pass'
 const passToken = (store: LoadedStore) => createHash('sha256').update(`${store.id}:${store.prefs?.password_hash}`).digest('base64url')
 const locked = (c: Context, store: LoadedStore) => Boolean(store.prefs?.password_hash) && getCookie(c, passName) !== passToken(store)
 
-function passwordPage(c: Context, store: LoadedStore, wrong = false) {
+function passwordPage(c: Context, store: LoadedStore, error: 'wrong' | 'tooMany' | null = null) {
+  const wrong = error !== null
   return html(c, (
     <Document title={store.name} description="" noindex look={lookOf(store.style)} lang={langOf(store)}>
       <main className="sf-done sf-wrap sf-narrow sf-password">
@@ -573,10 +574,12 @@ function passwordPage(c: Context, store: LoadedStore, wrong = false) {
           <input type="password" name="password" required maxLength={100} autoComplete="current-password" aria-label={tr(langOf(store), ['পাসওয়ার্ড', 'Password'])} aria-invalid={wrong || undefined} placeholder={tr(langOf(store), ['পাসওয়ার্ড', 'Password'])} />
           <button type="submit" className="sf-button">{tr(langOf(store), ['ঢুকুন', 'Enter'])}</button>
         </form>
-        {wrong && <p className="sf-error" role="alert">{tr(langOf(store), ['পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।', 'Wrong password. Try again.'])}</p>}
+        {wrong && <p className="sf-error" role="alert">{error === 'tooMany'
+          ? tr(langOf(store), ['অনেকবার ভুল পাসওয়ার্ড দেওয়া হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।', 'Too many wrong tries. Try again in 15 minutes.'])
+          : tr(langOf(store), ['পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।', 'Wrong password. Try again.'])}</p>}
       </main>
     </Document>
-  ), wrong ? 422 : 200)
+  ), error === 'tooMany' ? 429 : wrong ? 422 : 200)
 }
 
 app.get('/password', async (c) => {
@@ -586,14 +589,24 @@ app.get('/password', async (c) => {
   return locked(c, store) ? passwordPage(c, store) : c.redirect('/', 302)
 })
 
-// ponytail: no attempt limit; each try costs one password hash. Add a per-store limit (or the CDN's) if stores see guessing.
+// Wrong store passwords are counted per store with the buyer-login lockout (storefront_buyer_failures/failed, under a key
+// no phone number can take): 20 in 15 minutes closes the form for everyone until the window passes.
+// ponytail: per store, not per visitor, because the buyer's IP is not trustworthy behind the domains proxy; key it by
+// CF-Connecting-IP once Cloudflare sits in front of the storefront.
+const storePasswordKey = 'store-password'
+const maxStorePasswordFailures = 20
 app.post('/password', async (c) => {
   const handle = storeHandle(c)
   const store = handle && await loadStore(handle)
   if (!store || !store.prefs?.password_hash) return c.redirect('/', 303)
   const form = await c.req.parseBody()
   const typed = typeof form.password === 'string' ? form.password.trim().slice(0, 100) : ''
-  if (!typed || !(await verifyPassword(typed, store.prefs.password_hash))) return passwordPage(c, store, true)
+  const failures = (await tx(null, (t) => t.execute<{ n: number }>(sql`select storefront_buyer_failures(${store.id}::uuid, ${storePasswordKey}) as n`))).rows[0]?.n ?? 0
+  if (failures >= maxStorePasswordFailures) return passwordPage(c, store, 'tooMany')
+  if (!typed || !(await verifyPassword(typed, store.prefs.password_hash))) {
+    if (typed) await tx(null, (t) => t.execute(sql`select storefront_buyer_failed(${store.id}::uuid, ${storePasswordKey})`))
+    return passwordPage(c, store, 'wrong')
+  }
   setCookie(c, passName, passToken(store), { path: '/', sameSite: 'Lax', httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 30 * 86_400 })
   return c.redirect('/', 303)
 })

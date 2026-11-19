@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { Menu, X } from 'lucide-react'
 import { rememberStore, useCurrentStore, useStorePath } from '../account-context'
@@ -142,7 +142,7 @@ function StoreShell() {
       </header>
       <main id="main" className="shell__main" tabIndex={-1}>
         <VerifyEmailBar />
-        <Outlet />
+        <Suspense fallback={null}><Outlet /></Suspense>
       </main>
     </div>
   )
@@ -158,7 +158,7 @@ export function Shell({ bare = false }: { bare?: boolean }) {
     if (handle) rememberStore(handle)
   }, [handle])
 
-  if (current) return bare ? <Outlet /> : <PlanProvider handle={current.store.handle}><StoreShell /></PlanProvider>
+  if (current) return bare ? <Suspense fallback={null}><Outlet /></Suspense> : <PlanProvider handle={current.store.handle}><StoreShell /></PlanProvider>
   return (
     <AccountLayout>
       <div className="page page--narrow">
@@ -185,7 +185,7 @@ export function AccountLayout({ children }: { children?: React.ReactNode }) {
       </header>
       <main id="main" className="account__panel" tabIndex={-1}>
         <VerifyEmailBar />
-        {children ?? <Outlet />}
+        <Suspense fallback={null}>{children ?? <Outlet />}</Suspense>
       </main>
     </div>
   )

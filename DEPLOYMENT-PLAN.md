@@ -575,3 +575,9 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 
 - Unpublishing a landing page now bumps its revision, as template unpublish already did, so an editor opened before the unpublish gets 409 `pageChanged` on Publish instead of putting the page back online. Test in `pages.test.ts`.
 - The page and template editors take the new revision from the unpublish response, so their next save is not refused.
+
+## Screens load on demand; store password attempt limit (November 19, 2026)
+
+- Dashboard screens load the first time they are opened (`screen()` in `main.tsx`, Suspense at each Outlet; sign-in screens and layouts stay in the main bundle). First download: 1.34 MB → 607 KB (367 KB → 180 KB gzipped). Checked Home, Orders, Settings and the page editor in the browser.
+- Store password page: 20 wrong tries in 15 minutes per store close the form (429, "try again in 15 minutes"), counted through the buyer-login lockout functions under the key `store-password`. Per store, not per visitor, because the buyer's IP is not trustworthy behind the domains proxy; key it by `CF-Connecting-IP` once Cloudflare is in front. Test in `server.test.tsx`.
+- No captcha: a third-party script and keys for a pre-launch password page is more than the risk needs. Revisit Cloudflare Turnstile for order forms if bot orders get past the honeypot and phone limit.

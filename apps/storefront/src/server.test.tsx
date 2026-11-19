@@ -844,6 +844,17 @@ test('a store password closes store pages (not landing pages) until the buyer en
   assert.match(await (await visit(s.handle, '/')).text(), /পাঞ্জাবি/, 'turning the password off opens the store')
 })
 
+test('20 wrong store passwords in 15 minutes close the password form, even for the right password', async () => {
+  const s = await publishedPage()
+  await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: true, password: 'eid2026' })
+  const enter = (password: string) => visit(s.handle, '/password', { method: 'POST', body: new URLSearchParams({ password }), headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+  for (let i = 0; i < 20; i++) assert.equal((await enter(`guess${i}`)).status, 422)
+  const blocked = await enter('eid2026')
+  assert.equal(blocked.status, 429)
+  assert.equal(blocked.headers.get('set-cookie'), null)
+  assert.match(await blocked.text(), /১৫ মিনিট/)
+})
+
 test('order forms link the store’s visible return policy, never a hidden one', async () => {
   const s = await publishedPage()
   const refund = (await s.call('POST', `/stores/${s.handle}/store-pages`, { policy: 'refund' })).json
