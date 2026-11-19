@@ -93,3 +93,6 @@ span.console-demo-thumb { display: grid; place-items: center; aspect-ratio: auto
 .console-thumb-field .btn { cursor: pointer; }
 .console-thumb-field .btn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 @media (max-width: 719px) { .console-thumb-field { flex-direction: column; align-items: flex-start; } }
+.console-demos th[scope="row"] .console-link { text-align: start; }
+.console-demos .console-actions--end { flex-wrap: nowrap; }
+.console-demos .btn { white-space: nowrap; }
