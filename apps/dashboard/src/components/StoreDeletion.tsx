@@ -42,6 +42,23 @@ export function DeletionBar() {
   )
 }
 
+// Across the top of every store screen while Uddokta has the store suspended (console). The reason stays internal.
+export function SuspendedBar() {
+  const { lang } = useLang()
+  const L = (label: readonly [string, string]) => label[lang === 'bn' ? 0 : 1]
+  const current = useCurrentStore()
+  if (!current?.store.suspendedAt) return null
+  return (
+    <div className="deletion-bar" role="status">
+      <TriangleAlert size={16} aria-hidden="true" />
+      <span>
+        <strong>{L(['উদ্যোক্তা এই দোকানটি সাময়িকভাবে বন্ধ রেখেছে।', 'Uddokta has suspended this store.'])}</strong>{' '}
+        {L(['ক্রেতারা এখন দোকান ও ল্যান্ডিং পেজ দেখতে পাচ্ছেন না, আর কিছু বদলানো যাবে না। কারণ জানতে ও দোকান চালু করতে উদ্যোক্তা সাপোর্টে যোগাযোগ করুন।', 'Buyers cannot open the store or its landing pages, and nothing can be changed. Contact Uddokta support to find out why and get it back online.'])}
+      </span>
+    </div>
+  )
+}
+
 // Settings › Store, owners only: the last section of the page.
 export function DeleteStoreSection() {
   const { lang } = useLang()

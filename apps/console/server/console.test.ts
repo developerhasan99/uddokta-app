@@ -118,9 +118,11 @@ test('stores and plans: limits come from the plan, payments extend it, expiry fa
 
   assert.equal((await admin.call('POST', `/console/stores/${storeId}/suspend`, { suspend: true, reason: 'Unpaid' })).status, 200)
   assert.equal((await owner.call('GET', `/stores/${handle}/products`)).status, 200, 'the team can still look')
+  assert.ok((await owner.call('GET', '/me')).json.stores[0].suspendedAt, 'the team is told (dashboard bar)')
   assert.equal((await owner.call('PUT', `/stores/${handle}/domain`, { domain: 'x.com' })).json.error, 'storeSuspended')
   assert.equal((await owner.call('POST', `/stores/${handle}/collections`, { name: 'Rice' })).json.error, 'storeSuspended')
   await admin.call('POST', `/console/stores/${storeId}/suspend`, { suspend: false, reason: 'Paid' })
+  assert.equal((await owner.call('GET', '/me')).json.stores[0].suspendedAt, null)
   assert.notEqual((await owner.call('POST', `/stores/${handle}/collections`, { name: 'Rice' })).json?.error, 'storeSuspended')
 })
 

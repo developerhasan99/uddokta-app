@@ -256,7 +256,7 @@ app.get('/me', async (c) => {
   return tx(userId, async (t) => {
     const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, language: users.language, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
     const myStores = await t
-      .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role, deletionDueAt: stores.deletionDueAt })
+      .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role, deletionDueAt: stores.deletionDueAt, suspendedAt: stores.suspendedAt })
       .from(storeMembers)
       .innerJoin(stores, eq(stores.id, storeMembers.storeId))
       .where(eq(storeMembers.userId, userId))

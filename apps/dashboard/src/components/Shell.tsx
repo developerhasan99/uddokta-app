@@ -8,7 +8,7 @@ import { AppMenu } from './AppMenu'
 import { LinkButton, Notice, PageHeader } from './ui'
 import { animateOut, backdropProps } from './dialog'
 import { VerifyEmailBar } from '../pages/Auth'
-import { DeletionBar } from './StoreDeletion'
+import { DeletionBar, SuspendedBar } from './StoreDeletion'
 import type { PlanFeature } from 'storefront/plans'
 import { LockMark, PlanProvider, useHasFeature } from './Plan'
 import { NotificationBell, useNotificationFeed, type NotificationFeed } from './Notifications'
@@ -143,6 +143,7 @@ function StoreShell() {
       </header>
       <main id="main" className="shell__main" tabIndex={-1}>
         <VerifyEmailBar />
+        <SuspendedBar />
         <DeletionBar />
         <Suspense fallback={null}><Outlet /></Suspense>
       </main>
