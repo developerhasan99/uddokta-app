@@ -653,3 +653,7 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Store pages now sit on a cool grey page (`#f6f6f6`, Site settings › Page background) with white header rows and product boxes; dark themes keep their own background.
 - No wishlist icon (we have no wishlist); the mobile bottom tab bar is left for later, as asked.
 - Tests: `sections.test.tsx` renders all three headers live (logo, menu with dropdown and current page, cart count and drawer, search form, menu button, sticky row with bottom line, phone rules) and proves header blocks are refused on landing pages and bad colours refused. Checked in the browser on the local QA store (desktop live page and the editor's phone preview, dropdown, side menu, side cart); the test templates and menu were removed afterwards.
+
+## Content width 1200px (November 20, 2026)
+
+- Every store and landing page container is 1200px of content (padding outside), read from Site settings › Content width (`--sf-width`, which until now was saved but not used). Section "Standard" width is 1200; header rows follow the site width. Migration 0109 moves stores still on the old 1100px default to 1200. Checked on the local QA store: containers 1232px (1200 + 2×16) at a 1440px window, header and products aligned.

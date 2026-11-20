@@ -230,3 +230,11 @@ test('headers: one, two and three rows draw the logo, menu, icons, search box an
   assert.equal(readContent(bad, { theme: true }), null)
   assert.equal(readContent(builtInTemplates.header), null, 'landing pages cannot hold header blocks')
 })
+
+test('content width: 1200px by default on every page, set from Site settings, padding outside it', async () => {
+  const { siteCss, styleFromPreset } = await import('./site.ts')
+  assert.equal(styleFromPreset('fresh').width, 1200)
+  assert.match(siteCss({ ...styleFromPreset('fresh'), width: 1400 }), /--sf-width:1400px/)
+  assert.match(css, /\.sf-wrap\{max-width:calc\(var\(--sf-width,1200px\) \+ 32px\)/)
+  assert.match(css, /\.sf-styled \.sf-wrap\{max-width:calc\(var\(--section-width,var\(--sf-width,1200px\)\)/)
+})

@@ -34,7 +34,7 @@ const colorKeys = ['accent', 'ink', 'paper', 'tint', 'rule'] as const
 // One of the six one-click styles as Site settings (custom CSS left empty).
 export function styleFromPreset(id: PresetId): SiteStyle {
   const v = presets[id].vars
-  return { colors: { accent: v.accent, ink: v.ink, paper: v.paper, tint: v.tint, rule: v.rule }, radius: Number.parseInt(v.radius, 10), bangla: presets[id].font, latin: '', width: 1100, css: '' }
+  return { colors: { accent: v.accent, ink: v.ink, paper: v.paper, tint: v.tint, rule: v.rule }, radius: Number.parseInt(v.radius, 10), bangla: presets[id].font, latin: '', width: 1200, css: '' }
 }
 
 // The trust boundary for Site settings: every value from a fixed format, so siteCss can write them into CSS.
@@ -95,7 +95,7 @@ const row = (id: string, children: PageNode[], style: NodeStyle = {}, mobile: No
 const bar = (id: string, children: PageNode[], style: NodeStyle = {}): PageNode =>
   ({ id, kind: 'box', props: {}, style: { display: 'grid', gridColumns: 3, align: 'center', gap: 16, fontSize: 13, ...style }, children })
 const headerRow = (id: string, name: string, style: SectionStyle, children: PageNode[]): Section =>
-  ({ ...newSection('layout', id), settings: { name }, style: { paddingTop: 0, paddingBottom: 0, maxWidth: 1440, paddingX: 40, mobilePaddingLeft: 16, mobilePaddingRight: 16, ...style }, children })
+  ({ ...newSection('layout', id), settings: { name }, style: { paddingTop: 0, paddingBottom: 0, ...style }, children })
 const text = (id: string, html: string, extra: Partial<PageNode> = {}): PageNode => ({ id, kind: 'text', props: { text: html }, ...extra })
 // Links in a row with thin lines between them (Help | Orders | Returns).
 const links = (id: string, items: [icon: string, text: string, link: string][], settings: Settings = {}, extra: Partial<PageNode> = {}) =>

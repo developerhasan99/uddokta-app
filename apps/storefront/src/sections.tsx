@@ -1122,7 +1122,8 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--sf-page,var(--sf-paper));color:var(--sf-ink);font:16px/1.6 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}
 img{max-width:100%;height:auto;display:block}
 h1,h2,h3,p{margin:0}
-.sf-wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+/* Content width (Site settings, default 1200px) is the content itself; the side padding sits outside it. */
+.sf-wrap{max-width:calc(var(--sf-width,1200px) + 32px);margin:0 auto;padding:0 16px}
 .sf-narrow{max-width:680px}
 .sf-bar{border-bottom:1px solid var(--sf-rule);padding:12px 0;font-weight:700;font-size:18px}
 .sf-foot{border-top:1px solid var(--sf-rule);padding:24px 0;color:var(--sf-muted);font-size:14px;text-align:center}
@@ -1195,7 +1196,7 @@ h1,h2,h3,p{margin:0}
 .sf-styled>.sf-section{padding:var(--section-pt,40px) 0 var(--section-pb,40px);border:var(--section-border-width,0px) var(--section-border-style,solid) var(--section-border,var(--sf-rule));border-radius:var(--section-section-radius,0);box-shadow:var(--section-shadow,none);border-top-width:var(--section-bt,var(--section-border-width,0px));border-bottom-width:var(--section-bb,var(--section-border-width,0px))}
 .sf-section-frame[data-sticky]{position:sticky;top:0;z-index:30}.sf-section-frame[data-sticky]>.sf-section{background:var(--section-background,var(--sf-paper))}
 .sf-section-frame[data-background]>.sf-section{background:var(--section-background)}
-.sf-styled .sf-wrap{max-width:var(--section-width,1080px);padding-left:var(--section-pl,var(--section-px,16px));padding-right:var(--section-pr,var(--section-px,16px))}
+.sf-styled .sf-wrap{max-width:calc(var(--section-width,var(--sf-width,1200px)) + var(--section-pl,var(--section-px,16px)) + var(--section-pr,var(--section-px,16px)));padding-left:var(--section-pl,var(--section-px,16px));padding-right:var(--section-pr,var(--section-px,16px))}
 .sf-styled .sf-narrow{max-width:var(--section-width,680px)}
 .sf-styled .sf-heading{font-size:var(--section-heading,24px);font-weight:var(--section-weight,700)}
 .sf-section-frame[data-align]>.sf-section{text-align:var(--section-align)}
@@ -1215,7 +1216,7 @@ h1,h2,h3,p{margin:0}
 .sf-card-image{width:100%;aspect-ratio:4/3;border-radius:var(--sf-radius);margin-bottom:20px}
 .sf-specifications{margin:0}.sf-specifications>div{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:18px 0;border-bottom:1px solid var(--sf-rule)}.sf-specifications dt{font-weight:600}.sf-specifications dd{margin:0;color:var(--sf-muted);overflow-wrap:anywhere}
 .sf-table-scroll{overflow-x:auto;max-width:100%}.sf-comparison{width:100%;border-collapse:collapse;table-layout:fixed}.sf-comparison :is(th,td){padding:18px;text-align:start;border-bottom:1px solid var(--sf-rule);overflow-wrap:anywhere}.sf-comparison thead th{font-weight:700}.sf-comparison :is(th,td):nth-child(2){background:var(--section-card,var(--sf-tint))}
-.sf-cta{text-align:center}.sf-cta .sf-wrap{max-width:var(--section-width,800px)}.sf-announcement{padding:14px 0}.sf-announcement .sf-wrap{max-width:var(--section-width,1080px);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px}.sf-announcement .sf-body p{margin:0}.sf-announcement .sf-button{margin:0;min-height:36px;font-size:14px}
+.sf-cta{text-align:center}.sf-cta .sf-wrap{max-width:var(--section-width,800px)}.sf-announcement{padding:14px 0}.sf-announcement .sf-wrap{max-width:calc(var(--section-width,var(--sf-width,1200px)) + 32px);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px}.sf-announcement .sf-body p{margin:0}.sf-announcement .sf-button{margin:0;min-height:36px;font-size:14px}
 .sf-order__selection,.sf-order__customer{display:grid;gap:14px;align-content:start;min-width:0}.sf-order[data-choices=cards] .sf-order__selection .sf-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-order[data-choices=cards] .sf-order__selection legend{grid-column:1/-1}.sf-order[data-choices=cards] .sf-order__selection .sf-choice{flex-wrap:wrap;padding:16px}.sf-choice:has(input:checked){border-color:var(--sf-accent);box-shadow:inset 0 0 0 1px var(--sf-accent)}
 .sf-button:focus-visible,.sf-section-links a:focus-visible,.sf-faq summary:focus-visible,.sf-table-scroll:focus-visible{outline:3px solid var(--sf-accent);outline-offset:4px}
 @media(min-width:720px){

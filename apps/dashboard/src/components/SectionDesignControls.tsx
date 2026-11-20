@@ -63,7 +63,7 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
     {tab === 'layout' ? <>
       <Group title={L('মাপ', 'Size')} icon={<SlidersHorizontal size={15} />}>
         <div className="design-grid">{control('maxWidth', L('কন্টেন্টের প্রস্থ', 'Content width'))}{control('minHeight', L('সর্বনিম্ন উচ্চতা', 'Min height'))}</div>
-        <div className="design-segments" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1080, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')], [1600, L('পুরো', 'Full')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}><span>{label}</span></button>)}</div>
+        <div className="design-segments" role="group" aria-label={L('প্রস্থ বাছাই', 'Width presets')}>{[[680, L('সরু', 'Narrow')], [1200, L('স্বাভাবিক', 'Standard')], [1440, L('চওড়া', 'Wide')], [1600, L('পুরো', 'Full')]].map(([width, label]) => <button type="button" key={width} aria-pressed={values.maxWidth === width} onClick={() => onPatch({ maxWidth: Number(width) })}><span>{label}</span></button>)}</div>
       </Group>
       <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>
         <SpacingBox values={values} onPatch={onPatch} />

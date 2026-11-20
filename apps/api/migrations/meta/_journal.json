@@ -764,6 +764,13 @@
       "when": 1795167328781,
       "tag": "0108_console_add_member",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1795181171196,
+      "tag": "0109_content_width_1200",
+      "breakpoints": true
     }
   ]
 }
