@@ -85,6 +85,11 @@ export const styleFields: (Leaf & { group: 'layout' | 'style' })[] = [
   { key: 'headingWeight', kind: 'select', label: ['শিরোনামের ওজন', 'Heading weight'], group: 'style', options: [{ value: '400', label: ['স্বাভাবিক', 'Regular'] }, { value: '600', label: ['সেমিবোল্ড', 'Semibold'] }, { value: '700', label: ['বোল্ড', 'Bold'] }] },
   { key: 'borderWidth', kind: 'number', min: 0, max: 12, label: ['বর্ডারের প্রস্থ (px)', 'Border width (px)'], group: 'style' },
   { key: 'borderStyle', kind: 'select', label: ['বর্ডারের ধরন', 'Border style'], group: 'style', options: [{ value: 'solid', label: ['সলিড', 'Solid'] }, { value: 'dashed', label: ['ড্যাশ', 'Dashed'] }, { value: 'dotted', label: ['বিন্দু', 'Dotted'] }] },
+  // Top and bottom borders on their own (a header row's line under it); they override borderWidth on that side.
+  { key: 'borderTopWidth', kind: 'number', min: 0, max: 40, label: ['উপরের বর্ডার (px)', 'Top border (px)'], group: 'style' },
+  { key: 'borderBottomWidth', kind: 'number', min: 0, max: 40, label: ['নিচের বর্ডার (px)', 'Bottom border (px)'], group: 'style' },
+  // Stays at the top of the screen while the page scrolls (a header row).
+  { key: 'sticky', kind: 'select', label: ['স্ক্রল করলে', 'When scrolling'], group: 'layout', options: [{ value: 'yes', label: ['ওপরে আটকে থাকবে', 'Stays on top'] }] },
   { key: 'radius', kind: 'number', min: 0, max: 120, label: ['কার্ড ও ছবির কোণা (px)', 'Card / media corners (px)'], group: 'style' },
   { key: 'sectionRadius', kind: 'number', min: 0, max: 120, label: ['সেকশনের কোণা (px)', 'Section corners (px)'], group: 'style' },
   { key: 'buttonRadius', kind: 'number', min: 0, max: 80, label: ['বাটনের কোণা (px)', 'Button corners (px)'], group: 'style' },
@@ -273,6 +278,77 @@ export const sectionDefs = {
     ],
     defaults: { logo: null, logoHeight: 40, showName: 'yes', menu: 'main-menu', button: '', link: '', sticky: 'no', showCart: 'yes', showSearch: 'yes', showAccount: 'no', cartStyle: 'drawer' },
   },
+  // Header pieces: placed as blocks in a header template's rows (layout sections), so every row, gap, colour and size
+  // is the seller's to change. Text size, weight and colour come from the element's own Style tab (they inherit).
+  storeLogo: {
+    label: ['লোগো', 'Logo'],
+    fields: [
+      { key: 'logo', kind: 'image', label: ['লোগো (ফাঁকা রাখলে দোকানের লোগো)', 'Logo (blank uses the store logo)'] },
+      { key: 'showName', kind: 'select', label: ['দোকানের নাম', 'Store name'], options: [{ value: 'auto', label: ['লোগো না থাকলে দেখান', 'Only when there is no logo'] }, { value: 'yes', label: ['সবসময় দেখান', 'Always'] }, { value: 'no', label: ['লুকান', 'Hide'] }] },
+      { key: 'logoHeight', kind: 'number', group: 'layout', min: 16, max: 160, label: ['লোগোর উচ্চতা (px)', 'Logo height (px)'] },
+      { key: 'mobileLogoHeight', kind: 'number', group: 'layout', min: 16, max: 120, label: ['মোবাইলে লোগোর উচ্চতা (px)', 'Logo height on phones (px)'] },
+      { key: 'nameGap', kind: 'number', group: 'layout', min: 0, max: 40, label: ['লোগো ও নামের ফাঁক (px)', 'Gap between logo and name (px)'] },
+    ],
+    defaults: { logo: null, showName: 'auto', logoHeight: 40, mobileLogoHeight: 32, nameGap: 10 },
+  },
+  storeMenu: {
+    label: ['মেনু', 'Menu'],
+    fields: [
+      { key: 'menu', kind: 'menu', label: ['মেনু', 'Menu'] },
+      select('align', ['মেনুর অবস্থান', 'Menu position'], [['start', ['শুরুতে', 'Start']], ['center', ['মাঝে', 'Centre']], ['end', ['শেষে', 'End']]]),
+      { key: 'itemGap', kind: 'number', group: 'layout', min: 0, max: 80, label: ['লিংকের মাঝে ফাঁক (px)', 'Space between links (px)'] },
+      { key: 'linkColor', kind: 'color', group: 'layout', label: ['লিংকের রং', 'Link colour'] },
+      { key: 'activeColor', kind: 'color', group: 'layout', label: ['খোলা পেজের লিংকের রং', 'Current page link colour'] },
+      { key: 'lastLinkColor', kind: 'color', group: 'layout', label: ['শেষ লিংকের রং (যেমন অফার)', 'Last link colour (for a Sale link)'] },
+      { key: 'dropdownBackground', kind: 'color', group: 'layout', label: ['ড্রপডাউনের পটভূমি', 'Dropdown background'] },
+      { key: 'dropdownColor', kind: 'color', group: 'layout', label: ['ড্রপডাউনের লেখার রং', 'Dropdown text colour'] },
+      { key: 'linkHoverColor', kind: 'color', group: 'layout', label: ['লিংকের রং', 'Link colour'] },
+    ],
+    defaults: { menu: 'main-menu', align: 'start', itemGap: 28, linkColor: '', activeColor: '', lastLinkColor: '', dropdownBackground: '', dropdownColor: '', linkHoverColor: '' },
+  },
+  storeIcons: {
+    label: ['হেডারের আইকন', 'Header icons'],
+    fields: [
+      { key: 'showSearch', kind: 'select', label: ['খোঁজার আইকন', 'Search icon'], options: [{ value: 'yes', label: ['দেখান', 'Show'] }, { value: 'mobile', label: ['শুধু মোবাইলে', 'Phones only'] }, { value: 'no', label: ['লুকান', 'Hide'] }] },
+      { key: 'showAccount', kind: 'select', label: ['ক্রেতার অ্যাকাউন্ট', 'Buyer account'], options: [{ value: 'yes', label: ['দেখান', 'Show'] }, { value: 'desktop', label: ['শুধু ডেস্কটপে', 'Desktop only'] }, { value: 'no', label: ['লুকান', 'Hide'] }] },
+      { key: 'showCart', kind: 'select', label: ['কার্ট', 'Cart'], options: [{ value: 'yes', label: ['দেখান', 'Show'] }, { value: 'no', label: ['লুকান', 'Hide'] }] },
+      { key: 'cartStyle', kind: 'select', label: ['কার্ট খোলে', 'Cart opens'], options: [{ value: 'drawer', label: ['পাশে ড্রয়ারে', 'In a side drawer'] }, { value: 'page', label: ['কার্টের পেজে', 'On the cart page'] }] },
+      select('labels', ['আইকনের নাম', 'Icon names'], [['none', ['দেখাবে না', 'Hidden']], ['below', ['নিচে', 'Below']], ['beside', ['পাশে, দুই লাইনে', 'Beside, two lines']]]),
+      { key: 'iconSize', kind: 'number', group: 'layout', min: 14, max: 48, label: ['আইকনের মাপ (px)', 'Icon size (px)'] },
+      { key: 'itemGap', kind: 'number', group: 'layout', min: 0, max: 48, label: ['আইকনের মাঝে ফাঁক (px)', 'Space between icons (px)'] },
+      { key: 'linkColor', kind: 'color', group: 'layout', label: ['আইকনের রং', 'Icon colour'] },
+      { key: 'badgeColor', kind: 'color', group: 'layout', label: ['কার্টের সংখ্যার পটভূমি', 'Cart count background'] },
+      { key: 'badgeTextColor', kind: 'color', group: 'layout', label: ['কার্টের সংখ্যার রং', 'Cart count colour'] },
+      { key: 'linkHoverColor', kind: 'color', group: 'layout', label: ['আইকনের রং', 'Icon colour'] },
+    ],
+    defaults: { showSearch: 'yes', showAccount: 'yes', showCart: 'yes', cartStyle: 'drawer', labels: 'none', iconSize: 22, itemGap: 16, linkColor: '', badgeColor: '', badgeTextColor: '', linkHoverColor: '' },
+  },
+  storeSearch: {
+    label: ['খোঁজার বক্স', 'Search box'],
+    fields: [
+      { key: 'placeholder', kind: 'text', label: ['বক্সের ভেতরের লেখা', 'Placeholder text'], max: 80 },
+      select('look', ['ধরন', 'Look'], [['button', ['পাশে বাটন', 'Button beside']], ['icon', ['ভেতরে আইকন', 'Icon inside']]]),
+      { key: 'height', kind: 'number', group: 'layout', min: 28, max: 72, label: ['উচ্চতা (px)', 'Height (px)'] },
+      { key: 'radius', kind: 'number', group: 'layout', min: 0, max: 36, label: ['কোণা (px)', 'Corners (px)'] },
+      { key: 'fieldBackground', kind: 'color', group: 'layout', label: ['বক্সের পটভূমি', 'Box background'] },
+      { key: 'fieldColor', kind: 'color', group: 'layout', label: ['বক্সের লেখার রং', 'Box text colour'] },
+      { key: 'borderColor', kind: 'color', group: 'layout', label: ['বর্ডারের রং', 'Border colour'] },
+      { key: 'buttonColor', kind: 'color', group: 'layout', label: ['বাটনের রং', 'Button colour'] },
+      { key: 'buttonIconColor', kind: 'color', group: 'layout', label: ['বাটনের আইকনের রং', 'Button icon colour'] },
+    ],
+    defaults: { placeholder: 'পণ্য খুঁজুন…', look: 'button', height: 42, radius: 8, fieldBackground: '', fieldColor: '', borderColor: '', buttonColor: '', buttonIconColor: '' },
+  },
+  menuButton: {
+    label: ['মেনু বাটন', 'Menu button'],
+    fields: [
+      { key: 'menu', kind: 'menu', label: ['যে মেনু খুলবে', 'Menu it opens'] },
+      { key: 'label', kind: 'text', label: ['বাটনের লেখা (ঐচ্ছিক)', 'Button text (optional)'], max: 40 },
+      { key: 'iconSize', kind: 'number', group: 'layout', min: 14, max: 40, label: ['আইকনের মাপ (px)', 'Icon size (px)'] },
+      { key: 'drawerBackground', kind: 'color', group: 'layout', label: ['খোলা মেনুর পটভূমি', 'Open menu background'] },
+      { key: 'drawerColor', kind: 'color', group: 'layout', label: ['খোলা মেনুর লেখার রং', 'Open menu text colour'] },
+    ],
+    defaults: { menu: 'main-menu', label: '', iconSize: 24, drawerBackground: '', drawerColor: '' },
+  },
   storeFooter: {
     label: ['দোকানের ফুটার', 'Store footer'],
     fields: [
@@ -363,7 +439,12 @@ export type SectionType = keyof typeof sectionDefs
 export const sectionTypes = Object.keys(sectionDefs) as SectionType[]
 export const defOf = (type: SectionType): SectionDef => sectionDefs[type]
 // Blocks that draw the store itself; only theme documents may hold them (readContent with { theme: true }).
-export const themeOnlyTypes: readonly SectionType[] = ['storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search', 'account', 'productAttributes']
+export const themeOnlyTypes: readonly SectionType[] = ['storeLogo', 'storeMenu', 'storeIcons', 'storeSearch', 'menuButton', 'storeHeader', 'storeFooter', 'productInfo', 'productGrid', 'collectionHeader', 'collectionList', 'pageContent', 'cart', 'search', 'account', 'productAttributes']
+
+// The header pieces: their text takes the element's own size, weight and colour (Style tab), and the menu and search box
+// share a row's free space (layout.tsx).
+export const headerBlockTypes: readonly SectionType[] = ['storeLogo', 'storeMenu', 'storeIcons', 'storeSearch', 'menuButton']
+export const isHeaderBlock = (node: { kind: string; block?: { type: SectionType } }) => node.kind === 'block' && !!node.block && headerBlockTypes.includes(node.block.type)
 
 export function styleFieldsFor(type: SectionType) {
   const grid = (['features', 'reviews', 'gallery', 'trust', 'steps', 'cards', 'iconCards'] as SectionType[]).includes(type)

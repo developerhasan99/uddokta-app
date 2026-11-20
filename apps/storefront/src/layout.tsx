@@ -157,10 +157,12 @@ function itemRules(st: NodeStyle | undefined): string[] {
 
 // How much of its box a node takes. In a row, width is a share of the row (gaps included); in a column it is a plain width.
 const grows = new Set(['box', 'heading', 'text', 'image', 'video', 'divider'])
+// A header's menu and search box take a row's free space (and can shrink, so a long menu never widens the page).
+const growingBlocks = new Set(['storeMenu', 'storeSearch'])
 function sizing(node: PageNode, width: number | undefined, direction: 'row' | 'column', gap: number): string[] {
   if (direction === 'row') {
     if (width !== undefined) return [`flex:0 1 calc(${width}% - ${(gap * (1 - width / 100)).toFixed(2)}px)`, 'width:auto']
-    return grows.has(node.kind) ? ['flex:1 1 0', 'width:auto'] : ['flex:none', 'width:fit-content']
+    return grows.has(node.kind) || growingBlocks.has(node.block?.type ?? '') ? ['flex:1 1 0', 'width:auto'] : ['flex:none', 'width:fit-content']
   }
   // Buttons, icons and spacers keep their own width when none is set.
   return width !== undefined ? ['flex:none', `width:${width}%`] : ['flex:none', grows.has(node.kind) ? 'width:auto' : 'width:fit-content']

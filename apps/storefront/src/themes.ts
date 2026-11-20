@@ -55,5 +55,5 @@ export function presetCss(id: PresetId) {
   const p: Preset = presets[id]
   const v = p.vars
   const dark = v.paper !== '#ffffff' && v.paper !== '#fffdf8'
-  return `:root{--sf-accent:${v.accent};--sf-ink:${v.ink};--sf-paper:${v.paper};--sf-tint:${v.tint};--sf-rule:${v.rule};--sf-radius:${v.radius};--sf-muted:${dark ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${dark ? '#141414' : '#ffffff'}}body{font-family:"${p.font}","Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
+  return `:root{--sf-accent:${v.accent};--sf-ink:${v.ink};--sf-paper:${v.paper};--sf-tint:${v.tint};--sf-rule:${v.rule};--sf-radius:${v.radius};--sf-muted:${dark ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${dark ? '#141414' : '#ffffff'};--sf-page:${dark ? v.paper : '#f6f6f6'}}body{font-family:"${p.font}","Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
 }

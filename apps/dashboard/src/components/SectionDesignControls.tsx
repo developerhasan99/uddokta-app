@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Paintbrush, Video, X, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon } from 'lucide-react'
+import { Paintbrush, Video, X, AlignCenter, AlignLeft, AlignRight, ChevronDown, Link2, Unlink2, Monitor, Smartphone, Layers, RotateCcw, Palette, SlidersHorizontal, Type, Square, Image as ImageIcon, Pin } from 'lucide-react'
 import { styleFieldsFor, type Leaf, type Section, type SectionStyle } from 'storefront/schema'
 import { presets, type PresetId } from 'storefront/themes'
 import { useLang } from '../i18n'
@@ -68,6 +68,11 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
       <Group title={L('ফাঁকা জায়গা', 'Spacing')} icon={<Square size={15} />}>
         <SpacingBox values={values} onPatch={onPatch} />
       </Group>
+      <Group title={L('স্ক্রল করলে', 'When the page scrolls')} icon={<Pin size={15} />} note={L('হেডারের সারির জন্য: পেজ নিচে নামলেও এই সেকশন স্ক্রিনের ওপরে থাকবে।', 'For a header row: this section stays at the top of the screen while the page scrolls.')}>
+        <div className="design-segments" role="group" aria-label={L('স্ক্রল করলে', 'When the page scrolls')}>
+          {([{ value: '', label: L('সাথে সরে যাবে', 'Scrolls away') }, { value: 'yes', label: L('ওপরে আটকে থাকবে', 'Stays on top') }]).map(({ value, label }) => <button key={value || 'none'} type="button" aria-pressed={String(values.sticky ?? '') === value} onClick={() => onPatch({ sticky: value || undefined })}><span>{label}</span></button>)}
+        </div>
+      </Group>
       <Group title={L('ডিভাইসে দেখানো', 'Device visibility')} icon={<Monitor size={15} />}>
         <div className="design-segments" role="group" aria-label={L('ডিভাইসে দেখানো', 'Device visibility')}>
           {([{ value: 'all', label: L('সব', 'All'), Icon: Layers }, { value: 'desktop', label: L('ডেস্কটপ', 'Desktop'), Icon: Monitor }, { value: 'mobile', label: L('মোবাইল', 'Mobile'), Icon: Smartphone }]).map(({ value, label, Icon }) => <button key={value} type="button" aria-pressed={(values.visibility ?? 'all') === value} onClick={() => onPatch({ visibility: value === 'all' ? undefined : value })}><Icon size={14} aria-hidden="true" /><span>{label}</span></button>)}
@@ -93,7 +98,9 @@ export function SectionDesignControls({ section, tab, theme, onPatch, media, onP
         {colorControl('color')}{colorControl('accent')}
       </Group>
       <Group title={L('বর্ডার ও কোণা', 'Border & corners')} icon={<Square size={15} />}>
-        {control('sectionRadius', L('কোণা', 'Corners'))}{control('borderWidth', L('বর্ডার', 'Border'))}{colorControl('borderColor')}{control('shadow')}
+        {control('sectionRadius', L('কোণা', 'Corners'))}{control('borderWidth', L('বর্ডার', 'Border'))}
+        <div className="design-grid">{control('borderTopWidth', L('উপরের বর্ডার', 'Top border'))}{control('borderBottomWidth', L('নিচের বর্ডার', 'Bottom border'))}</div>
+        {colorControl('borderColor')}{control('shadow')}
       </Group>
     </>}
   </div>

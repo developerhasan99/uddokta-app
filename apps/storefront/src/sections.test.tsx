@@ -192,3 +192,41 @@ test('page fonts load from Google Fonts and apply to the whole page', () => {
   assert.match(out, /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Playfair\+Display:wght@400;600;700&amp;family=Noto\+Serif\+Bengali:wght@400;600;700&amp;display=swap"\/>/)
   assert.match(out, /\.sf-page\{font-family:"Playfair Display","Noto Serif Bengali","Hind Siliguri"/)
 })
+
+test('headers: one, two and three rows draw the logo, menu, icons, search box and menu button from the store; rows keep their own look', async () => {
+  const { builtInTemplates, readyMade } = await import('./site.ts')
+  const { layoutCss } = await import('./layout.tsx')
+  const live: Ctx = { ...ctx, preview: false, live: true, lang: 'bn', cartCount: 3, current: { path: '/collections/new' },
+    store: { name: 'রঙিন শপ', logo: null, phone: '', whatsapp: '', email: '', address: '', facebook: '' },
+    menus: { 'main-menu': [{ title: 'নতুন', href: '/collections/new', children: [] }, { title: 'পোশাক', href: '/collections/wear', children: [{ title: 'শাড়ি', href: '/collections/saree', children: [] }] }] } }
+  const draw = (content: Content) => renderToStaticMarkup(<PageView content={{ version: 2, sections: [] }} ctx={live} storeName="x" frame={{ header: content.sections, footer: [] }} />)
+  for (const content of [builtInTemplates.header, ...readyMade.header!.map((r) => r.content)]) {
+    assert.ok(readContent(content, { theme: true }), 'valid template content')
+    const html = draw(content)
+    assert.match(html, /<a class="sf-hlogo" href="\/"[^>]*><span class="sf-hlogo__name">রঙিন শপ<\/span><\/a>/, 'store name stands in for a missing logo')
+    assert.match(html, /<span class="sf-hicons__count">৩<\/span>/, 'cart count in Bangla digits')
+    assert.match(html, /href="\/cart"[^>]*data-cart-drawer=""/, 'the cart opens the side drawer')
+    assert.match(html, /<details class="sf-mbtn"/, 'phones get the menu button')
+    assert.match(html, /href="\/collections\/new" aria-current="page"/, 'the open page is marked in the menu')
+    assert.match(html, /<details class="sf-menu-group"><summary>পোশাক<\/summary>/, 'menu groups drop down')
+  }
+  const three = readyMade.header!.find((r) => r.id === 'three-rows')!.content
+  const html = draw(three)
+  assert.match(html, /<form class="sf-hsearch" data-look="button" role="search"[^>]*action="\/search" method="get"/)
+  assert.match(html, /<small>হ্যালো, লগ ইন করুন<\/small>অ্যাকাউন্ট/, 'two-line account label')
+  assert.match(html, /--section-background:#232f3e/, 'the category bar keeps its own background')
+  assert.match(html, /--section-background:#ececec/, 'the top bar keeps its own background')
+  assert.match(html, /<span>সব<\/span>/)
+  const sticky = { ...three, sections: three.sections.map((s) => s.id === 'header' ? { ...s, style: { ...s.style, sticky: 'yes', borderBottomWidth: 2 } } : s) }
+  assert.match(draw(sticky), /data-section="header"[^>]*--section-bb:2px[^>]*data-sticky="yes"/, 'a row can stay on top and have a line under it only')
+  // The menu and search box share a row's free space; on phones the menu button shows and the desktop menu hides.
+  const rules = layoutCss(builtInTemplates.header, live)
+  assert.match(rules, /\.n-header-menu\{[^}]*flex:1 1 0;width:auto/)
+  assert.match(rules, /@media \(min-width:720px\)\{\.n-header-menu-button\{display:none\}\}/)
+  assert.match(rules, /@media \(max-width:719.98px\)\{.*\.n-header-menu\{[^}]*display:none\}/)
+  // Nothing from settings reaches the page unchecked: an unknown colour is refused.
+  const bad = structuredClone(builtInTemplates.header)
+  bad.sections[0].children![0].children![2].block!.settings.linkColor = 'red;}body{display:none'
+  assert.equal(readContent(bad, { theme: true }), null)
+  assert.equal(readContent(builtInTemplates.header), null, 'landing pages cannot hold header blocks')
+})

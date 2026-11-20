@@ -211,6 +211,9 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { ref.current?.showModal() }, [])
+  // Headers start from one of the ready-made row layouts (one row is the store's default look); other types from the built-in.
+  const firstStart = (k: TemplateType | null) => (k === 'header' ? 'one-row' : 'builtin')
+  useEffect(() => { setFrom(firstStart(type)) }, [type])
   useEffect(() => {
     if (type) setTimeout(() => ref.current?.querySelector<HTMLInputElement>('#template-new-title')?.focus())
   }, [type])
@@ -248,15 +251,34 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
           </ul>
           : <>
             <Field id="template-new-title" label={L(['টেমপ্লেটের নাম', 'Template name'])} maxLength={100} autoComplete="off" placeholder={L(['যেমন: ঈদের হেডার', 'For example: Eid header'])} value={title} onChange={(e) => setTitle(e.target.value)} />
-            <fieldset className="choice-list">
+            {type === 'header' ? <fieldset className="header-starts">
+              <legend className="field__label">{L(['কেমন হেডার', 'Header layout'])}</legend>
+              {[
+                { id: 'blank', rows: 0, label: L(['ফাঁকা', 'Blank']), help: L(['নিজে সারি আর ব্লক যোগ করুন', 'Add your own rows and blocks']) },
+                { id: 'one-row', rows: 1, label: L(['এক সারি', 'One row']), help: L(['লোগো, মেনু আর আইকন এক লাইনে', 'Logo, menu and icons on one line']) },
+                { id: 'two-rows', rows: 2, label: L(['দুই সারি', 'Two rows']), help: L(['ওপরে ঘোষণা বার, নিচে মূল হেডার', 'Announcement bar above the main header']) },
+                { id: 'three-rows', rows: 3, label: L(['তিন সারি', 'Three rows']), help: L(['ওপরের বার, খোঁজার বক্সসহ হেডার, ক্যাটাগরি বার', 'Top bar, header with search, category bar']) },
+              ].map((o) => (
+                <label key={o.id} className="header-start" data-chosen={from === o.id || undefined}>
+                  <input type="radio" className="visually-hidden" name="template-from" checked={from === o.id} onChange={() => setFrom(o.id)} />
+                  <span className="header-start__sketch" data-rows={o.rows} aria-hidden="true">
+                    {o.rows >= 2 && <span className="header-start__bar" />}
+                    {o.rows >= 1 && <span className="header-start__main"><i />{o.rows === 3 ? <em /> : <><b /><b /><b /></>}<u /><u /></span>}
+                    {o.rows === 3 && <span className="header-start__bar header-start__bar--dark" />}
+                  </span>
+                  <strong>{o.label}</strong>
+                  <span className="muted">{o.help}</span>
+                </label>
+              ))}
+            </fieldset> : <fieldset className="choice-list">
               <legend className="field__label">{L(['কোথা থেকে শুরু', 'Start from'])}</legend>
               {[{ id: 'builtin', label: L(['বিল্ট-ইন টেমপ্লেটের কপি', 'A copy of the built-in template']) }, ...(readyMade[type] ?? []).map((r) => ({ id: r.id, label: L(r.label) })), { id: 'blank', label: L(['ফাঁকা', 'Blank']) }].map((o) => (
                 <label key={o.id} className="check-line"><input type="radio" className="check" name="template-from" checked={from === o.id} onChange={() => setFrom(o.id)} />{o.label}</label>
               ))}
-            </fieldset>
+            </fieldset>}
             {demos.length > 0 && <div className="campaign-dialog__start">
               <span className="field__label">{L(['অথবা উদ্যোক্তার ডিজাইন থেকে', 'Or from an Uddokta design'])}</span>
-              <DemoGallery demos={demos} chosen={from.startsWith('demo:') ? from.slice(5) : null} onChoose={(id) => setFrom(id ? `demo:${id}` : 'builtin')} />
+              <DemoGallery demos={demos} chosen={from.startsWith('demo:') ? from.slice(5) : null} onChoose={(id) => setFrom(id ? `demo:${id}` : firstStart(type))} />
             </div>}
             {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
           </>}

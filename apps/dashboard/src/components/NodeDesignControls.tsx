@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalSpaceBetween, AlignHorizontalSpaceAround, AlignHorizontalDistributeCenter, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalSpaceBetween, AlignVerticalSpaceAround, AlignVerticalDistributeCenter, AlignStartVertical, AlignCenterVertical, AlignEndVertical, StretchVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, StretchHorizontal, Crosshair, Image as ImageIcon, Layers, Monitor, Move, MousePointer2, Palette, Sparkles, RotateCcw, Link2, Unlink2, Timer, Smartphone, Square, SlidersHorizontal, Type } from 'lucide-react'
-import { nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
+import { isHeaderBlock, nodeStyleFields, type Leaf, type NodeStyle, type PageNode } from 'storefront/schema'
 import type { MediaItem } from '../api'
 import { useLang } from '../i18n'
 import { BackgroundTypeRow, ColorControl, GradientControls, Group, NumericInput } from './SectionDesignControls'
@@ -100,7 +100,8 @@ export function NodeDesignControls({ node, tab, device, state = 'normal', media,
     </div>
   }
   const isBox = node.kind === 'box'
-  const textual = ['heading', 'text', 'button', 'box'].includes(node.kind)
+  // Header pieces (logo, menu, icons, …) take their text size, weight and colour from here, like text elements.
+  const textual = ['heading', 'text', 'button', 'box'].includes(node.kind) || isHeaderBlock(node)
 
   if (tab === 'layout') return <div className="design-controls">
     {isBox && (() => {

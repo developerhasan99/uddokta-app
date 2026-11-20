@@ -442,7 +442,7 @@ function CallToAction({ s, orderId, ctx }: { s: Section; orderId?: string; ctx?:
 // Only these typed settings become CSS variables; arbitrary CSS is never interpolated.
 export function sectionStyle(style?: SectionStyle): CSSProperties {
   const out: Record<string, string | number> = {}
-  const lengths: Record<string, string> = { iconSize: 'icon-size', iconRadius: 'icon-radius', maxWidth: 'width', headingSize: 'heading', mobileHeadingSize: 'mobile-heading', bodySize: 'body', buttonSize: 'button-size', paddingTop: 'pt', paddingBottom: 'pb', paddingX: 'px', paddingLeft: 'pl', paddingRight: 'pr', marginLeft: 'ml', marginRight: 'mr', mobilePaddingLeft: 'mobile-pl', mobilePaddingRight: 'mobile-pr', mobileMarginTop: 'mobile-mt', mobileMarginRight: 'mobile-mr', mobileMarginBottom: 'mobile-mb', mobileMarginLeft: 'mobile-ml', mobilePaddingTop: 'mobile-pt', mobilePaddingBottom: 'mobile-pb', marginTop: 'mt', marginBottom: 'mb', gap: 'gap', borderWidth: 'border-width', radius: 'radius', sectionRadius: 'section-radius', buttonRadius: 'button-radius' }
+  const lengths: Record<string, string> = { iconSize: 'icon-size', iconRadius: 'icon-radius', maxWidth: 'width', headingSize: 'heading', mobileHeadingSize: 'mobile-heading', bodySize: 'body', buttonSize: 'button-size', paddingTop: 'pt', paddingBottom: 'pb', paddingX: 'px', paddingLeft: 'pl', paddingRight: 'pr', marginLeft: 'ml', marginRight: 'mr', mobilePaddingLeft: 'mobile-pl', mobilePaddingRight: 'mobile-pr', mobileMarginTop: 'mobile-mt', mobileMarginRight: 'mobile-mr', mobileMarginBottom: 'mobile-mb', mobileMarginLeft: 'mobile-ml', mobilePaddingTop: 'mobile-pt', mobilePaddingBottom: 'mobile-pb', marginTop: 'mt', marginBottom: 'mb', gap: 'gap', borderWidth: 'border-width', borderTopWidth: 'bt', borderBottomWidth: 'bb', radius: 'radius', sectionRadius: 'section-radius', buttonRadius: 'button-radius' }
   const colors: Record<string, string[]> = { iconColor: ['--section-icon-color'], iconBackground: ['--section-icon-background'], background: ['--section-background'], color: ['--sf-ink', '--sf-muted'], accent: ['--sf-accent'], buttonText: ['--sf-accent-ink'], cardBackground: ['--section-card'], borderColor: ['--section-border'] }
   for (const [key, value] of Object.entries(style ?? {})) {
     if (lengths[key] && typeof value === 'number') out[`--section-${lengths[key]}`] = `${value}px`
@@ -496,7 +496,7 @@ function backgroundLayer(style: SectionStyle | undefined, ctx?: Ctx) {
 
 export function SectionFrame({ s, children, ctx }: { s: Section; children: ReactNode; ctx?: Ctx }) {
   const layer = backgroundLayer(s.style, ctx)
-  return <div id={s.type === 'order' ? undefined : s.id} data-section={s.id} className={`${s.style ? 'sf-section-frame sf-styled' : 'sf-section-frame'}${layer ? ' sf-has-bg' : ''}`} style={sectionStyle(s.style)} data-visibility={s.style?.visibility} data-align={s.style?.align} data-body-size={s.style?.bodySize} data-image-ratio={s.style?.imageRatio} data-background={s.style?.bgType && s.style.bgType !== 'color' ? undefined : s.style?.background} data-min-height={s.style?.minHeight}>
+  return <div id={s.type === 'order' ? undefined : s.id} data-section={s.id} className={`${s.style ? 'sf-section-frame sf-styled' : 'sf-section-frame'}${layer ? ' sf-has-bg' : ''}`} style={sectionStyle(s.style)} data-visibility={s.style?.visibility} data-sticky={s.style?.sticky} data-align={s.style?.align} data-body-size={s.style?.bodySize} data-image-ratio={s.style?.imageRatio} data-background={s.style?.bgType && s.style.bgType !== 'color' ? undefined : s.style?.background} data-min-height={s.style?.minHeight}>
     {layer}
     {children}
   </div>
@@ -559,6 +559,96 @@ function StoreHeader({ s, ctx }: { s: Section; ctx: Ctx }) {
         </span>
       </div>
     </header>
+  )
+}
+
+// ---- Header pieces (blocks in a header template's rows) ----
+// Their look is CSS variables from the block's own settings (checked colours and numbers), styled in catalogCss.
+const px = (v: unknown) => (typeof v === 'number' ? `${v}px` : undefined)
+const cssVars = (vars: Record<string, string | undefined>) => Object.fromEntries(Object.entries(vars).filter(([, v]) => v)) as CSSProperties
+const flexAlign: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end' }
+
+function StoreLogo({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const name = ctx.store?.name ?? ''
+  const logo = ctx.image(str(s.settings.logo) || null) ?? ctx.store?.logo ?? undefined
+  const mode = str(s.settings.showName) || 'auto'
+  const withName = mode === 'yes' || (mode === 'auto' && !logo)
+  return (
+    <a className="sf-hlogo" href="/" style={cssVars({ '--hl-h': px(s.settings.logoHeight), '--hl-mh': px(s.settings.mobileLogoHeight), '--hl-gap': px(s.settings.nameGap) })}>
+      {logo && <img src={logo.url} alt={withName ? '' : name} width={logo.width} height={logo.height} />}
+      {withName && <span className="sf-hlogo__name">{name || (ctx.preview ? 'দোকানের নাম' : '')}</span>}
+    </a>
+  )
+}
+
+function StoreMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const items = shown(ctx.menus?.[str(s.settings.menu)] ?? [])
+  if (!items.length) return ctx.preview ? <span className="sf-hmenu sf-hmenu--empty">মেনু বেছে নিন বা অনলাইন স্টোর › মেনুতে লিংক যোগ করুন</span> : null
+  return (
+    <nav className="sf-hmenu" aria-label={tr(ctx.lang, ['মেনু', 'Menu'])} style={cssVars({
+      '--hm-align': flexAlign[str(s.settings.align)], '--hm-gap': px(s.settings.itemGap), '--hm-color': str(s.settings.linkColor), '--hm-hover': str(s.settings.linkHoverColor),
+      '--hm-active': str(s.settings.activeColor), '--hm-last': str(s.settings.lastLinkColor), '--hm-drop-bg': str(s.settings.dropdownBackground), '--hm-drop-color': str(s.settings.dropdownColor),
+    })}><MenuTree items={items} current={ctx.current?.path} /></nav>
+  )
+}
+
+function StoreIcons({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const labels = str(s.settings.labels) || 'none'
+  const size = typeof s.settings.iconSize === 'number' ? s.settings.iconSize : 22
+  const current = ctx.current?.path
+  const count = ctx.cartCount ?? 0
+  // Beside: two lines, a small greeting over the name ("Hello, sign in" / "Account"), as big shops do.
+  const item = (href: string, icon: string, label: string, extra: { className?: string; drawer?: boolean; badge?: ReactNode; small?: string } = {}) => (
+    <a className={`sf-hicons__item${extra.className ? ` ${extra.className}` : ''}`} href={href} aria-label={labels === 'none' ? label : undefined} aria-current={current === href ? 'page' : undefined} data-cart-drawer={extra.drawer ? '' : undefined}>
+      <span className="sf-hicons__icon"><MarketingIcon name={icon} size={size} />{extra.badge}</span>
+      {labels !== 'none' && <span className="sf-hicons__label">{labels === 'beside' && extra.small && <small>{extra.small}</small>}{label}</span>}
+    </a>
+  )
+  const search = str(s.settings.showSearch) || 'yes'
+  return (
+    <div className="sf-hicons" data-labels={labels} style={cssVars({
+      '--hi-gap': px(s.settings.itemGap), '--hi-color': str(s.settings.linkColor), '--hi-hover': str(s.settings.linkHoverColor),
+      '--hi-badge': str(s.settings.badgeColor), '--hi-badge-ink': str(s.settings.badgeTextColor),
+    })}>
+      {search !== 'no' && item('/search', 'search', tr(ctx.lang, ['খুঁজুন', 'Search']), { className: search === 'mobile' ? 'sf-hicons__item--phone' : undefined })}
+      {s.settings.showAccount !== 'no' && item('/account', 'user-round', labels === 'beside' ? tr(ctx.lang, ['অ্যাকাউন্ট', 'Account']) : ctx.buyer ? tr(ctx.lang, ['অ্যাকাউন্ট', 'Account']) : tr(ctx.lang, ['লগ ইন', 'Sign in']), {
+        className: s.settings.showAccount === 'desktop' ? 'sf-hicons__item--desktop' : undefined,
+        small: ctx.buyer ? tr(ctx.lang, ['হ্যালো', 'Hello']) : tr(ctx.lang, ['হ্যালো, লগ ইন করুন', 'Hello, sign in']),
+      })}
+      {s.settings.showCart !== 'no' && item('/cart', 'shopping-bag', tr(ctx.lang, ['কার্ট', 'Cart']), {
+        drawer: s.settings.cartStyle !== 'page',
+        badge: count > 0 && <span className="sf-hicons__count">{num(ctx.lang, count)}</span>,
+      })}
+    </div>
+  )
+}
+
+function StoreSearch({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const label = tr(ctx.lang, ['খুঁজুন', 'Search'])
+  return (
+    <form className="sf-hsearch" data-look={str(s.settings.look) || 'button'} role="search" method="get" action={ctx.preview ? undefined : '/search'} style={cssVars({
+      '--hs-h': px(s.settings.height), '--hs-radius': px(s.settings.radius), '--hs-bg': str(s.settings.fieldBackground), '--hs-color': str(s.settings.fieldColor),
+      '--hs-border': str(s.settings.borderColor), '--hs-button': str(s.settings.buttonColor), '--hs-button-ink': str(s.settings.buttonIconColor),
+    })}>
+      <input type="search" name="q" placeholder={str(s.settings.placeholder)} aria-label={label} defaultValue={ctx.preview ? undefined : ctx.search?.query ?? ''} />
+      <button type="submit" aria-label={label}><MarketingIcon name="search" size={20} /></button>
+    </form>
+  )
+}
+
+// The menu in a side panel. A plain <details>: while open, its summary's ::after is the dimmed backdrop and its
+// ::before the close mark, so a tap outside or on × closes it without a script.
+function MenuButton({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const items = shown(ctx.menus?.[str(s.settings.menu)] ?? [])
+  const label = str(s.settings.label)
+  return (
+    <details className="sf-mbtn" style={cssVars({ '--mb-bg': str(s.settings.drawerBackground), '--mb-color': str(s.settings.drawerColor) })}>
+      <summary aria-label={label ? undefined : tr(ctx.lang, ['মেনু', 'Menu'])}><MarketingIcon name="menu" size={typeof s.settings.iconSize === 'number' ? s.settings.iconSize : 24} />{label && <span>{label}</span>}</summary>
+      <div className="sf-mbtn__panel">
+        <p className="sf-mbtn__title">{label || ctx.store?.name || tr(ctx.lang, ['মেনু', 'Menu'])}</p>
+        {items.length ? <nav aria-label={tr(ctx.lang, ['মেনু', 'Menu'])}><MenuTree items={items} current={ctx.current?.path} /></nav> : ctx.preview ? <p>মেনু বেছে নিন</p> : null}
+      </div>
+    </details>
   )
 }
 
@@ -914,6 +1004,11 @@ export function SectionView({ s, ctx, orderId }: { s: Section; ctx: Ctx; orderId
     case 'gallery': return <Gallery s={s} ctx={ctx} />
     case 'countdown': return <Countdown s={s} ctx={ctx} />
     case 'storeHeader': return <StoreHeader s={s} ctx={ctx} />
+    case 'storeLogo': return <StoreLogo s={s} ctx={ctx} />
+    case 'storeMenu': return <StoreMenu s={s} ctx={ctx} />
+    case 'storeIcons': return <StoreIcons s={s} ctx={ctx} />
+    case 'storeSearch': return <StoreSearch s={s} ctx={ctx} />
+    case 'menuButton': return <MenuButton s={s} ctx={ctx} />
     case 'storeFooter': return <StoreFooter s={s} ctx={ctx} />
     case 'productInfo': return <ProductInfo s={s} ctx={ctx} />
     case 'productGrid': return <ProductList s={s} ctx={ctx} />
@@ -1024,7 +1119,7 @@ export const css = `
 :root{--sf-ink:#1d1d1f;--sf-muted:#5f6368;--sf-paper:#fff;--sf-tint:#f5f6f4;--sf-rule:#e3e5e1;--sf-accent:#1f7a4d;--sf-accent-ink:#fff;--sf-error:#b3261e;--sf-radius:10px}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--sf-paper);color:var(--sf-ink);font:16px/1.6 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}
+body{margin:0;background:var(--sf-page,var(--sf-paper));color:var(--sf-ink);font:16px/1.6 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}
 img{max-width:100%;height:auto;display:block}
 h1,h2,h3,p{margin:0}
 .sf-wrap{max-width:1080px;margin:0 auto;padding:0 16px}
@@ -1097,7 +1192,8 @@ h1,h2,h3,p{margin:0}
 .sf-section-frame :is(h1,h2,h3,p,blockquote){overflow-wrap:anywhere}
 /* New section families and optional per-section overrides. Legacy pages retain their defaults. */
 .sf-section-frame{min-width:0;margin-top:var(--section-mt,0);margin-bottom:var(--section-mb,0);margin-left:var(--section-ml,0);margin-right:var(--section-mr,0);color:var(--sf-ink);font-family:var(--section-font,inherit)}
-.sf-styled>.sf-section{padding:var(--section-pt,40px) 0 var(--section-pb,40px);border:var(--section-border-width,0px) var(--section-border-style,solid) var(--section-border,var(--sf-rule));border-radius:var(--section-section-radius,0);box-shadow:var(--section-shadow,none)}
+.sf-styled>.sf-section{padding:var(--section-pt,40px) 0 var(--section-pb,40px);border:var(--section-border-width,0px) var(--section-border-style,solid) var(--section-border,var(--sf-rule));border-radius:var(--section-section-radius,0);box-shadow:var(--section-shadow,none);border-top-width:var(--section-bt,var(--section-border-width,0px));border-bottom-width:var(--section-bb,var(--section-border-width,0px))}
+.sf-section-frame[data-sticky]{position:sticky;top:0;z-index:30}.sf-section-frame[data-sticky]>.sf-section{background:var(--section-background,var(--sf-paper))}
 .sf-section-frame[data-background]>.sf-section{background:var(--section-background)}
 .sf-styled .sf-wrap{max-width:var(--section-width,1080px);padding-left:var(--section-pl,var(--section-px,16px));padding-right:var(--section-pr,var(--section-px,16px))}
 .sf-styled .sf-narrow{max-width:var(--section-width,680px)}

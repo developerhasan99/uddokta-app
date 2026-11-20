@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
-import { styleFromPreset, type SiteColors, type SiteStyle } from 'storefront/site'
+import { pageColor, styleFromPreset, type SiteColors, type SiteStyle } from 'storefront/site'
 import { pageFonts, presetIds, presets } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
@@ -99,7 +99,7 @@ export function OnlineStore() {
 
   const c = style.colors
   const colorLabels: Record<keyof SiteColors, readonly [string, string]> = {
-    accent: ['মূল রং', 'Main'], ink: ['লেখা', 'Text'], paper: ['পটভূমি', 'Background'], tint: ['হালকা পটভূমি', 'Soft background'], rule: ['রেখা', 'Lines'],
+    accent: ['মূল রং', 'Main'], ink: ['লেখা', 'Text'], page: ['পেজের পটভূমি', 'Page background'], paper: ['কার্ড ও বক্সের পটভূমি', 'Cards and boxes'], tint: ['হালকা পটভূমি', 'Soft background'], rule: ['রেখা', 'Lines'],
   }
   const discard = () => {
     setStyle(JSON.parse(saved.style) as SiteStyle)
@@ -166,7 +166,7 @@ export function OnlineStore() {
           </div>)}
           {group(L(['রং', 'Colours']), <div className="look-colors">
             {(Object.keys(colorLabels) as (keyof SiteColors)[]).map((key) => (
-              <ColorControl key={key} id={`site-color-${key}`} label={L(colorLabels[key])} value={c[key]} inherited="" onChange={(value) => { if (/^#[0-9a-f]{6}$/i.test(value)) setS({ colors: { ...c, [key]: value.toLowerCase() } }) }} />
+              <ColorControl key={key} id={`site-color-${key}`} label={L(colorLabels[key])} value={c[key] ?? ''} inherited={key === 'page' ? pageColor(c.paper) : ''} onChange={(value) => { if (/^#[0-9a-f]{6}$/i.test(value)) setS({ colors: { ...c, [key]: value.toLowerCase() } }); else if (key === 'page' && !value) { const { page: _, ...rest } = c; setS({ colors: rest }) } }} />
             ))}
           </div>)}
           {group(L(['লেখা ও আকার', 'Type and size']), <><div className="price-grid price-grid--two">

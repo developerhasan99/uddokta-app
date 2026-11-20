@@ -2,7 +2,7 @@
 // document of one type; the store-wide look (Site settings) is one small style object every page uses.
 // Plain data, no JSX: the API validates with these and the dashboard imports them.
 import { isPageFont, pageFonts, presets, type PresetId } from './themes.ts'
-import { newSection, readContent, type Content, type Section, type SectionType, type Settings } from './schema.ts'
+import { defOf, newSection, readContent, type Content, type NodeStyle, type PageNode, type Section, type SectionStyle, type SectionType, type Settings } from './schema.ts'
 
 export const templateTypes = ['header', 'footer', 'home', 'product', 'collection', 'products', 'collections', 'page', 'cart', 'search', 'account', 'notFound'] as const
 export type TemplateType = typeof templateTypes[number]
@@ -24,7 +24,8 @@ export const readTemplateContent = (raw: unknown): Content | null => readContent
 
 // ---- Site settings: the store-wide look ----
 
-export type SiteColors = { accent: string; ink: string; paper: string; tint: string; rule: string }
+// page: the page behind everything (blank: a soft cool grey on light themes, so white parts such as the header stand out).
+export type SiteColors = { accent: string; ink: string; paper: string; tint: string; rule: string; page?: string }
 export type SiteStyle = { colors: SiteColors; radius: number; bangla: string; latin: string; width: number; css: string }
 
 const hex = /^#[0-9a-f]{6}$/i
@@ -45,6 +46,10 @@ export function readSiteStyle(raw: unknown): SiteStyle | null {
     if (typeof s.colors[key] !== 'string' || !hex.test(s.colors[key])) return null
     colors[key] = s.colors[key].toLowerCase()
   }
+  if (s.colors.page !== undefined && s.colors.page !== '') {
+    if (typeof s.colors.page !== 'string' || !hex.test(s.colors.page)) return null
+    colors.page = s.colors.page.toLowerCase()
+  }
   if (!Number.isInteger(s.radius) || s.radius < 0 || s.radius > 32) return null
   if (!Number.isInteger(s.width) || s.width < 720 || s.width > 1600) return null
   if (!(s.bangla === '' || isPageFont('bangla', s.bangla)) || !(s.latin === '' || isPageFont('latin', s.latin))) return null
@@ -56,12 +61,14 @@ const isDark = (color: string) => {
   const n = Number.parseInt(color.slice(1), 16)
   return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 < 0.5
 }
+// The page colour behind white parts: a soft cool grey on light backgrounds, the background itself on dark ones.
+export const pageColor = (paper: string) => (isDark(paper) ? paper : '#f6f6f6')
 
 // The look as CSS variables (the storefront's styles read only these), its fonts and content width.
 export function siteCss(s: SiteStyle) {
   const c = s.colors
   const font = [s.latin, s.bangla].filter(Boolean).map((f) => `"${f}"`).join(',')
-  return `:root{--sf-accent:${c.accent};--sf-ink:${c.ink};--sf-paper:${c.paper};--sf-tint:${c.tint};--sf-rule:${c.rule};--sf-radius:${s.radius}px;--sf-muted:${isDark(c.paper) ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${isDark(c.accent) ? '#ffffff' : '#141414'};--sf-width:${s.width}px}body{font-family:${font ? `${font},` : ''}"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
+  return `:root{--sf-accent:${c.accent};--sf-ink:${c.ink};--sf-paper:${c.paper};--sf-tint:${c.tint};--sf-rule:${c.rule};--sf-radius:${s.radius}px;--sf-muted:${isDark(c.paper) ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${isDark(c.accent) ? '#ffffff' : '#141414'};--sf-width:${s.width}px;--sf-page:${c.page ?? pageColor(c.paper)}}body{font-family:${font ? `${font},` : ''}"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
 }
 
 export function siteFontsHref(s: SiteStyle) {
@@ -77,10 +84,87 @@ const typed = (type: SectionType, id: string, settings: Settings = {}): Section 
 }
 const page = (...sections: Section[]): Content => ({ version: 2, sections })
 
+// ---- Headers: one row, two rows, three rows ----
+// Each row is a layout section (its own background, height, border and width) holding a box of header blocks. Plain
+// black and white like the big fashion and marketplace shops; every colour, size and gap is the seller's to change.
+const block = (id: string, type: SectionType, settings: Settings = {}, extra: Partial<PageNode> = {}): PageNode =>
+  ({ id, kind: 'block', props: {}, block: { type, settings: { ...structuredClone(defOf(type).defaults), ...settings } }, ...extra })
+const row = (id: string, children: PageNode[], style: NodeStyle = {}, mobile: NodeStyle = {}): PageNode =>
+  ({ id, kind: 'box', props: {}, style: { direction: 'row', justify: 'between', align: 'center', gap: 24, ...style }, mobile: { direction: 'row', gap: 8, ...mobile }, children })
+// A thin bar in three equal parts (left, middle, right); on phones only what is not hidden shows, in one column.
+const bar = (id: string, children: PageNode[], style: NodeStyle = {}): PageNode =>
+  ({ id, kind: 'box', props: {}, style: { display: 'grid', gridColumns: 3, align: 'center', gap: 16, fontSize: 13, ...style }, children })
+const headerRow = (id: string, name: string, style: SectionStyle, children: PageNode[]): Section =>
+  ({ ...newSection('layout', id), settings: { name }, style: { paddingTop: 0, paddingBottom: 0, maxWidth: 1440, paddingX: 40, mobilePaddingLeft: 16, mobilePaddingRight: 16, ...style }, children })
+const text = (id: string, html: string, extra: Partial<PageNode> = {}): PageNode => ({ id, kind: 'text', props: { text: html }, ...extra })
+// Links in a row with thin lines between them (Help | Orders | Returns).
+const links = (id: string, items: [icon: string, text: string, link: string][], settings: Settings = {}, extra: Partial<PageNode> = {}) =>
+  block(id, 'iconList', { items: items.map(([icon, label, link]) => ({ icon, text: label, link })), direction: 'horizontal', itemGap: 12, iconGap: 6, iconSize: 15, iconColor: '', textColor: '', ...settings }, extra)
+// Phone sides of a main row: equal widths, so the logo sits in the middle.
+const phoneSide = { width: 30 }
+const menuButton = (extra: Partial<PageNode> = { mobile: phoneSide }) => block('header-menu-button', 'menuButton', {}, { hide: 'desktop', ...extra })
+const logo = (style: NodeStyle = {}, mobile: NodeStyle = {}) => block('header-logo', 'storeLogo', {}, { style: { fontSize: 26, fontWeight: '700', ...style }, mobile: { fontSize: 22, ...mobile } })
+
+// One row: logo, menu in the middle, search · account · bag (phones: menu button, logo, search, bag).
+const oneRowHeader = (): Content => page(headerRow('header', 'হেডার', { background: '#ffffff', color: '#111111' }, [
+  row('header-row', [
+    menuButton(),
+    logo(),
+    block('header-menu', 'storeMenu', { align: 'center', itemGap: 36 }, { hide: 'mobile', style: { fontSize: 16, fontWeight: '500' } }),
+    block('header-icons', 'storeIcons', { showAccount: 'desktop', iconSize: 24, itemGap: 22 }, { mobile: phoneSide }),
+  ], { minHeight: 76, gap: 32 }, { minHeight: 60 }),
+]))
+
+// Two rows: a black announcement bar with help links, then logo, menu (last link red for Sale), a round search box and icons.
+const twoRowHeader = (): Content => page(
+  headerRow('announcement-bar', 'ঘোষণা বার', { background: '#000000', color: '#ffffff' }, [
+    bar('announcement-row', [
+      { id: 'announcement-space', kind: 'spacer', props: {}, style: { minHeight: 1 }, hide: 'mobile' },
+      text('announcement-text', 'সারা দেশে ক্যাশ অন ডেলিভারি · পণ্য হাতে পেয়ে টাকা দিন', { style: { textAlign: 'center' } }),
+      links('announcement-links', [['', 'সাহায্য', '/policies/contact'], ['', 'অর্ডার ট্র্যাক', '/account'], ['', 'রিটার্ন', '/policies/refund']], { align: 'end', textColor: '#ffffff', divider: 'solid', dividerColor: '#ffffff59' }, { hide: 'mobile' }),
+    ], { minHeight: 40 }),
+  ]),
+  headerRow('header', 'হেডার', { background: '#ffffff', color: '#111111' }, [
+    row('header-row', [
+      menuButton(),
+      logo({ fontSize: 30 }),
+      block('header-menu', 'storeMenu', { itemGap: 28, lastLinkColor: '#d4111e' }, { hide: 'mobile', style: { fontSize: 15, fontWeight: '500' } }),
+      block('header-search', 'storeSearch', { look: 'icon', height: 40, radius: 20 }, { hide: 'mobile', style: { maxWidth: 260 } }),
+      block('header-icons', 'storeIcons', { showSearch: 'mobile', showAccount: 'desktop', iconSize: 24, itemGap: 20 }, { mobile: phoneSide }),
+    ], { minHeight: 72, gap: 32 }, { minHeight: 60 }),
+  ]),
+)
+
+// Three rows: a light top bar (delivery, offer, help links), logo with a wide search box and account/cart, then a dark
+// category bar with an "All" button. Phones: menu button, logo, account, cart, the search box under them, the bar below.
+const threeRowHeader = (): Content => page(
+  headerRow('utility-bar', 'ওপরের বার', { background: '#ececec', color: '#111111' }, [
+    bar('utility-row', [
+      links('utility-left', [['map-pin', 'সারা দেশে ডেলিভারি', '']], { iconColor: '#111111' }),
+      text('utility-offer', 'প্রথম অর্ডারে ১০% ছাড়। কোড: <strong>SHURU10</strong>', { style: { textAlign: 'center' }, hide: 'mobile' }),
+      links('utility-right', [['', 'সাহায্য', '/policies/contact'], ['', 'আমার অর্ডার', '/account'], ['', 'রিটার্ন', '/policies/refund']], { align: 'end', divider: 'solid', dividerColor: '#bdbdbd' }, { hide: 'mobile' }),
+    ], { minHeight: 36 }),
+  ]),
+  headerRow('header', 'হেডার', { background: '#ffffff', color: '#111111' }, [
+    row('header-row', [
+      menuButton({}),
+      logo({}, { grow: 'grow' }),
+      block('header-search', 'storeSearch', { placeholder: 'পণ্য, ব্র্যান্ড বা ক্যাটাগরি খুঁজুন', height: 42, radius: 6, buttonColor: '#febd69', buttonIconColor: '#111111' }, { style: { maxWidth: 820 }, mobile: { width: 100, order: 'last' } }),
+      block('header-icons', 'storeIcons', { showSearch: 'no', labels: 'beside', iconSize: 28, itemGap: 28, badgeColor: '#f08804', badgeTextColor: '#ffffff' }),
+    ], { minHeight: 80, gap: 32 }, { minHeight: 60, wrap: 'wrap', paddingBottom: 10, gap: 10 }),
+  ]),
+  headerRow('category-bar', 'ক্যাটাগরি বার', { background: '#232f3e', color: '#ffffff' }, [
+    row('category-row', [
+      block('category-button', 'menuButton', { label: 'সব', iconSize: 20 }, { style: { fontSize: 14, fontWeight: '700' } }),
+      block('category-menu', 'storeMenu', { itemGap: 24 }, { style: { fontSize: 14, fontWeight: '500' } }),
+    ], { minHeight: 42, gap: 24, justify: 'start' }, { minHeight: 40, gap: 18 }),
+  ]),
+)
+
 // The template each type uses until the store sets its own default: the pages the storefront always had. Read-only;
 // sellers duplicate one to change it.
 export const builtInTemplates: Record<TemplateType, Content> = {
-  header: page(typed('storeHeader', 'header')),
+  header: oneRowHeader(),
   footer: page(typed('storeFooter', 'footer')),
   home: page(typed('productGrid', 'products')),
   product: page(typed('productInfo', 'product')),
@@ -100,10 +184,12 @@ export const builtInTemplates: Record<TemplateType, Content> = {
 
 // Ready-made starting points offered when creating a template, besides blank and the built-in one.
 export const readyMade: Partial<Record<TemplateType, { id: string; label: readonly [string, string]; content: Content }[]>> = {
-  header: [{ id: 'announcement', label: ['ঘোষণা বারসহ হেডার', 'Header with announcement bar'], content: page(
-    typed('announcement', 'notice', { text: 'সারা দেশে ক্যাশ অন ডেলিভারি · পণ্য হাতে পেয়ে টাকা দিন', button: '', link: '' }),
-    typed('storeHeader', 'header', { sticky: 'yes' }),
-  ) }],
+  // New headers: one, two or three rows (blank is offered by the dialog too).
+  header: [
+    { id: 'one-row', label: ['এক সারির হেডার', 'One-row header'], content: oneRowHeader() },
+    { id: 'two-rows', label: ['দুই সারির হেডার', 'Two-row header'], content: twoRowHeader() },
+    { id: 'three-rows', label: ['তিন সারির হেডার', 'Three-row header'], content: threeRowHeader() },
+  ],
   footer: [{ id: 'contact', label: ['যোগাযোগসহ ফুটার', 'Footer with contact details'], content: page(typed('storeFooter', 'footer', { showContact: 'yes' })) }],
   home: [{ id: 'shopfront', label: ['দোকানের সামনে: ব্যানার, কালেকশন, নতুন পণ্য', 'Shop front: banner, collections, new arrivals'], content: page(
     { ...newSection('layout', 'hero'), settings: { name: 'হিরো' }, style: { align: 'center', paddingTop: 72, paddingBottom: 72 }, children: [

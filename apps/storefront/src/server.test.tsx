@@ -794,7 +794,7 @@ test('the cart: add from the product page, change and remove lines, and check ou
   assert.match(page, /পাঞ্জাবি/)
   assert.match(page, /চা পাতা/)
   assert.match(page, /value="3"/, 'adding the same variant again adds to its line')
-  assert.match(page, /<span class="sf-bar__count">৩<\/span>|sf-bar__count">৪</, 'the header shows how many items')
+  assert.match(page, /<span class="sf-hicons__count">৩<\/span>|sf-hicons__count">৪</, 'the header shows how many items')
   await send('/cart/update', { variant: m.id, quantity: '1' })
   await send('/cart/add', { variant: tea.variants[0].id, quantity: '1' }, 'https://evil.example')
   page = await cart()
@@ -880,10 +880,10 @@ test('the store language sets the store’s own words and digits on landing page
   assert.match(landing, /৳[0-9]/, 'Latin digits')
   assert.match(landing, /পাঞ্জাবি/, 'the product name the seller wrote is unchanged')
   const home = await (await visit(s.handle, '/')).text()
-  assert.match(home, />Search</)
-  assert.match(home, />Cart</)
+  assert.match(home, /aria-label="Search"/)
+  assert.match(home, /aria-label="Cart"/)
   await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, language: 'bn' })
-  assert.match(await (await visit(s.handle, '/')).text(), />খুঁজুন</)
+  assert.match(await (await visit(s.handle, '/')).text(), /aria-label="খুঁজুন"/)
 })
 
 test('buyer accounts: sign up, saved details fill the order form, only orders placed while signed in show, and nothing leaks between buyers or stores', async () => {
