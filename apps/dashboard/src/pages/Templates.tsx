@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as Dropdown from '@radix-ui/react-dropdown-menu'
-import { CircleCheck, CircleUser, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, CircleCheck, CircleUser, Copy, Ellipsis, ExternalLink, EyeOff, FileText, Folder, Folders, Home, LayoutGrid, Package, PanelBottom, PanelTop, Pencil, Plus, Search, ShoppingCart, Star, StarOff, Trash2, TriangleAlert } from 'lucide-react'
 import { readyMade, templateLabels, templateTypes, type TemplateType } from 'storefront/site'
 import { DemoGallery, type DemoCard } from './NewCampaignDialog'
 
@@ -254,20 +254,27 @@ function NewTemplateDialog({ initial, base, onClose, onMade }: { initial: Templa
             {type === 'header' ? <fieldset className="header-starts">
               <legend className="field__label">{L(['কেমন হেডার', 'Header layout'])}</legend>
               {[
-                { id: 'blank', rows: 0, label: L(['ফাঁকা', 'Blank']), help: L(['নিজে সারি আর ব্লক যোগ করুন', 'Add your own rows and blocks']) },
-                { id: 'one-row', rows: 1, label: L(['এক সারি', 'One row']), help: L(['লোগো, মেনু আর আইকন এক লাইনে', 'Logo, menu and icons on one line']) },
-                { id: 'two-rows', rows: 2, label: L(['দুই সারি', 'Two rows']), help: L(['ওপরে ঘোষণা বার, নিচে মূল হেডার', 'Announcement bar above the main header']) },
-                { id: 'three-rows', rows: 3, label: L(['তিন সারি', 'Three rows']), help: L(['ওপরের বার, খোঁজার বক্সসহ হেডার, ক্যাটাগরি বার', 'Top bar, header with search, category bar']) },
+                { id: 'blank', rows: 0, label: L(['ফাঁকা', 'Blank']), help: L(['নিজের মতো সারি সাজান', 'Build your own rows']) },
+                { id: 'one-row', rows: 1, label: L(['এক সারি', 'One row']), help: L(['লোগো, মেনু, আইকন', 'Logo, menu, icons']) },
+                { id: 'two-rows', rows: 2, label: L(['দুই সারি', 'Two rows']), help: L(['ঘোষণা বার আর হেডার', 'Announcement bar and header']) },
+                { id: 'three-rows', rows: 3, label: L(['তিন সারি', 'Three rows']), help: L(['ওপরের বার, খোঁজা, ক্যাটাগরি', 'Top bar, search, categories']) },
               ].map((o) => (
                 <label key={o.id} className="header-start" data-chosen={from === o.id || undefined}>
                   <input type="radio" className="visually-hidden" name="template-from" checked={from === o.id} onChange={() => setFrom(o.id)} />
-                  <span className="header-start__sketch" data-rows={o.rows} aria-hidden="true">
-                    {o.rows >= 2 && <span className="header-start__bar" />}
-                    {o.rows >= 1 && <span className="header-start__main"><i />{o.rows === 3 ? <em /> : <><b /><b /><b /></>}<u /><u /></span>}
-                    {o.rows === 3 && <span className="header-start__bar header-start__bar--dark" />}
+                  {/* A small page: the header rows in white on the grey page, with product blocks below for scale. */}
+                  <span className="header-start__sketch" aria-hidden="true">
+                    {o.rows === 2 && <span className="hs-bar hs-bar--dark"><b /></span>}
+                    {o.rows === 3 && <span className="hs-bar"><b /><b /><b /></span>}
+                    {o.rows > 0 && <span className="hs-main">
+                      <span className="hs-logo" />
+                      {o.rows === 3 ? <span className="hs-search"><span /></span> : <span className="hs-menu"><b /><b /><b /><b /></span>}
+                      <span className="hs-icons"><b /><b /><b /></span>
+                    </span>}
+                    {o.rows === 3 && <span className="hs-cats"><b /><b /><b /><b /><b /></span>}
+                    {o.rows === 0 && <span className="hs-add"><Plus size={18} /></span>}
+                    <span className="hs-body"><b /><b /><b /></span>
                   </span>
-                  <strong>{o.label}</strong>
-                  <span className="muted">{o.help}</span>
+                  <span className="header-start__text"><strong>{o.label}{from === o.id && <span className="header-start__check"><Check size={11} strokeWidth={3.5} /></span>}</strong><span>{o.help}</span></span>
                 </label>
               ))}
             </fieldset> : <fieldset className="choice-list">
