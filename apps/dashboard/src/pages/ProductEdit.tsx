@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, CircleCheck, CirclePlus, ImagePlus, Lock, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { ArrowLeft, CircleCheck, ExternalLink, CirclePlus, ImagePlus, Lock, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
-import { api, errorCode, type MediaItem } from '../api'
+import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
+import { productHref } from 'storefront/catalog'
+import { useHasFeature } from '../components/Plan'
 import { MediaPicker } from '../components/MediaPicker'
 import { RichText } from '../components/RichText'
 import { SeoCard } from '../components/SeoCard'
@@ -130,6 +132,8 @@ export function ProductEdit() {
   }, [base])
 
   const dirty = form !== null && JSON.stringify(form) !== baseline
+  const savedForm = JSON.parse(baseline) as Form
+  const hasStore = useHasFeature('onlineStore')
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -303,6 +307,10 @@ export function ProductEdit() {
           <Badge tone={statusInfo[form.status].tone}>{t(statusInfo[form.status].label)}</Badge>
         </div>
         <div className="detail-head__actions">
+          {/* The saved product's page in the store (a draft is hidden from buyers, so the button says how to show it). */}
+          {id && hasStore && (savedForm.status === 'draft'
+            ? <Button disabled title={t('productViewDraft')}><ExternalLink size={16} aria-hidden="true" />{t('viewOnSite')}</Button>
+            : <a className="btn" href={`${storefrontUrl(current.store.handle)}${productHref(savedForm.handle)}`} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewOnSite')}</a>)}
           {dirty && <Button onClick={discard}>{t('productDiscard')}</Button>}
           <Button type="submit" variant="primary" aria-busy={busy} disabled={busy || (Boolean(id) && !dirty)}>{t('productSave')}</Button>
         </div>

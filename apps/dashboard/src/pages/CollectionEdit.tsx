@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, ArrowUp, CircleCheck, GripVertical, ImagePlus, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, ExternalLink, CircleCheck, GripVertical, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
-import { api, errorCode, type MediaItem } from '../api'
+import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
+import { collectionHref } from 'storefront/catalog'
+import { useHasFeature } from '../components/Plan'
 import { MediaPicker } from '../components/MediaPicker'
 import { ProductPicker, type ProductRow } from '../components/ProductPicker'
 import { RichText } from '../components/RichText'
@@ -74,6 +76,7 @@ export function CollectionEdit() {
   }, [justSaved])
 
   const dirty = form !== null && JSON.stringify(form) !== baseline
+  const hasStore = useHasFeature('onlineStore')
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -163,6 +166,7 @@ export function CollectionEdit() {
           <h1>{id ? (savedName || t('collectionNew')) : t('collectionNew')}</h1>
         </div>
         <div className="detail-head__actions">
+          {id && hasStore && <a className="btn" href={`${storefrontUrl(current.store.handle)}${collectionHref((JSON.parse(baseline) as Form).handle)}`} target="_blank" rel="noopener"><ExternalLink size={16} aria-hidden="true" />{t('viewOnSite')}</a>}
           {dirty && <Button onClick={discard}>{t('productDiscard')}</Button>}
           <Button type="submit" variant="primary" aria-busy={busy} disabled={busy || (Boolean(id) && !dirty)}>{t('productSave')}</Button>
         </div>
