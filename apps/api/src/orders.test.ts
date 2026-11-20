@@ -26,7 +26,7 @@ function client() {
 let counter = 0
 async function owner() {
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Owner', email: `orders-${++counter}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `orders-${++counter}@example.com`, password: 'correct horse', phone: '01711000000' })
   const userId = (await call('GET', '/me')).json.user.id as string
   const handle = `order-shop-${counter}`
   const store = (await call('POST', '/stores', { name: 'Shop', handle })).json
@@ -160,7 +160,7 @@ test('saved views enforce store and personal ownership at API and RLS boundaries
   const s = await owner(), other = await owner()
   const invite = (await s.call('POST', `/stores/${s.handle}/invites`, { role: 'staff' })).json
   const staff = client()
-  await staff('POST', '/auth/signup', { name: 'Staff', email: `view-staff-${++counter}@example.com`, password: 'correct horse' })
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `view-staff-${++counter}@example.com`, password: 'correct horse', phone: '01711000000' })
   await staff('POST', `/invites/${invite.token}/accept`)
   const staffId = (await staff('GET', '/me')).json.user.id as string
   const mine = (await s.call('POST', s.views, { name: 'Private', filters: {} })).json

@@ -305,6 +305,10 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .auth__form .field__control .input { padding-inline-end: 44px; }
 .auth__link { color: var(--color-ink); font-weight: 500; }
 .auth__switch { text-align: center; }
+.auth__phone { color: var(--color-ink); font-weight: 600; white-space: nowrap; }
+.auth__form .field__control .input--code { padding-inline: var(--space-sm); font-size: var(--text-lg); font-variant-numeric: tabular-nums; letter-spacing: 0.5em; text-align: center; }
+.auth__resend { margin: 0; font-size: var(--text-sm); text-align: center; }
+.link-button:disabled { color: var(--color-muted); cursor: default; }
 .auth__forgot { justify-self: end; margin-top: calc(-1 * var(--space-xs)); font-size: 13px; }
 .auth__sent { display: flex; gap: var(--space-xs); padding: var(--space-sm); border-radius: var(--radius-box); background: var(--color-success-soft); }
 .auth__sent svg { flex: none; margin-top: 2px; color: var(--color-primary); }

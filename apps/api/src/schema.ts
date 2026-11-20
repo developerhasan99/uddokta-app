@@ -17,8 +17,28 @@ export const users = pgTable('users', {
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   // The dashboard language last chosen, used for this account's emails.
   language: text('language').notNull().default('bn'),
+  // Bangladeshi mobile number (01XXXXXXXXX) given at sign-up. Only verified numbers are unique, so nobody can hold
+  // another person's number by typing it; verifying sets phone_verified_at (start/finish_phone_verification).
+  phone: text('phone'),
+  phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`), check('users_language', sql`${t.language} in ('bn', 'en')`)])
+}, (t) => [
+  check('users_email_lowercase', sql`${t.email} = lower(${t.email})`), check('users_language', sql`${t.language} in ('bn', 'en')`),
+  check('users_phone', sql`${t.phone} ~ '^01[3-9][0-9]{8}$'`), check('users_phone_verified', sql`${t.phoneVerifiedAt} is null or ${t.phone} is not null`),
+  uniqueIndex('users_verified_phone').on(t.phone).where(sql`${t.phoneVerifiedAt} is not null`),
+])
+
+// One-time codes sent by SMS to verify an account's phone. Only the sha256 of the code (with the user id) is kept.
+// Reached through SECURITY DEFINER functions only (migration 0107), like account_tokens.
+export const phoneCodes = pgTable('phone_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  phone: text('phone').notNull(),
+  codeHash: text('code_hash').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('phone_codes_user').on(t.userId, t.createdAt), index('phone_codes_phone').on(t.phone, t.createdAt)])
 
 // Single-use links sent by email (password reset, email verification). Only the sha256 of the token is kept.
 // Reached through SECURITY DEFINER functions only, like sessions.

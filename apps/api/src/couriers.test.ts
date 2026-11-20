@@ -50,7 +50,7 @@ let count = 0
 async function storeWithOrder() {
   const call = client()
   const n = ++count
-  await call('POST', '/auth/signup', { name: 'Owner', email: `cr${n}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `cr${n}@example.com`, password: 'correct horse', phone: '01711000000' })
   const handle = `cr-${n}`
   await call('POST', '/stores', { name: 'Shop', handle })
   const product = (await call('POST', `/stores/${handle}/products`, { name: 'আতর', variants: [{ options: [], price: 500, stock: 5 }] })).json
@@ -97,7 +97,7 @@ test('staff can book parcels but not change the courier login; other stores reac
   await s.call('PUT', `/stores/${s.handle}/couriers/steadfast`, { apiKey: 'good-key', secretKey: 'good-secret' })
   const invite = await s.call('POST', `/stores/${s.handle}/invites`, { role: 'staff' })
   const staff = client()
-  await staff('POST', '/auth/signup', { name: 'Staff', email: `crstaff${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `crstaff${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   await staff('POST', `/invites/${invite.json.token}/accept`)
   assert.equal((await staff('PUT', `/stores/${s.handle}/couriers/steadfast`, { apiKey: 'good-key', secretKey: 'good-secret' })).status, 403)
   assert.equal((await staff('DELETE', `/stores/${s.handle}/couriers/steadfast`)).status, 403)
@@ -120,7 +120,7 @@ test('self delivery: turned on by managers, sends the order with no booking, and
 
   const invite = await s.call('POST', `/stores/${s.handle}/invites`, { role: 'staff' })
   const staff = client()
-  await staff('POST', '/auth/signup', { name: 'Staff', email: `crstaff${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `crstaff${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   await staff('POST', `/invites/${invite.json.token}/accept`)
   assert.equal((await staff('PUT', `/stores/${s.handle}/couriers/self`)).status, 403)
   assert.equal((await s.call('PUT', `/stores/${s.handle}/couriers/self`)).status, 200)

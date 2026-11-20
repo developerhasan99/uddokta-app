@@ -7,7 +7,7 @@
     "start": "node server/index.ts",
     "build": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit && vite build",
     "admin": "node --env-file-if-exists=../api/.env server/console-admin.ts",
-    "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media EMAIL_DIR=/tmp/uddokta-test-emails node --test --test-concurrency=1 server/*.test.ts"
+    "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media EMAIL_DIR=/tmp/uddokta-test-emails SMS_DIR=/tmp/uddokta-test-sms node --test --test-concurrency=1 server/*.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

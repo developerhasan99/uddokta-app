@@ -4,8 +4,8 @@ import { Badge, Button, PageHeader, SearchInput } from '../../../dashboard/src/c
 import { api, count, date } from '../api'
 import { LoadError, Loading, ReasonDialog, useLoad } from '../ui'
 
-type Row = { id: string; name: string; email: string; verified: boolean; suspended_at: string | null; created_at: string; stores: number; is_admin: boolean }
-type User = { id: string; name: string; email: string; language: string; verified: boolean; suspendedAt: string | null; createdAt: string; isAdmin: boolean; sessions: number; stores: { id: string; name: string; handle: string; role: string }[] }
+type Row = { id: string; name: string; email: string; verified: boolean; phone: string | null; phone_verified: boolean; suspended_at: string | null; created_at: string; stores: number; is_admin: boolean }
+type User = { id: string; name: string; email: string; language: string; verified: boolean; phone: string | null; phoneVerified: boolean; suspendedAt: string | null; createdAt: string; isAdmin: boolean; sessions: number; stores: { id: string; name: string; handle: string; role: string }[] }
 
 export function UserList() {
   const [q, setQ] = useState('')
@@ -18,17 +18,18 @@ export function UserList() {
       <PageHeader title="Users" description="Everyone with an account. Open one to see their stores, suspend them or send a reset link." />
       <div className="data-list">
         <form className="filter-bar" onSubmit={(e) => { e.preventDefault(); setOffset(0); setSearch(q.trim()) }}>
-          <SearchInput label="Search users" placeholder="Name or email" value={q} onChange={(e) => setQ(e.target.value)} />
+          <SearchInput label="Search users" placeholder="Name, email or phone" value={q} onChange={(e) => setQ(e.target.value)} />
           {data && <span className="muted console-total">{count(data.total)} {data.total === 1 ? 'user' : 'users'}</span>}
         </form>
-        {error ? <LoadError error={error} retry={reload} /> : !data ? <Loading /> : data.items.length === 0 ? <div className="notice"><h2>No users match “{search}”.</h2><p className="muted">Try part of the email or name.</p></div> : (
+        {error ? <LoadError error={error} retry={reload} /> : !data ? <Loading /> : data.items.length === 0 ? <div className="notice"><h2>No users match “{search}”.</h2><p className="muted">Try part of the email, name or phone number.</p></div> : (
           <table className="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th style={{ width: '7rem' }}>Stores</th><th style={{ width: '9rem' }}>Status</th><th style={{ width: '9rem' }}>Joined</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th style={{ width: '9rem' }}>Phone</th><th style={{ width: '7rem' }}>Stores</th><th style={{ width: '9rem' }}>Status</th><th style={{ width: '9rem' }}>Joined</th></tr></thead>
             <tbody>
               {data.items.map((u) => (
                 <tr key={u.id} className="data-table__row" onClick={() => navigate(`/users/${u.id}`)}>
                   <th scope="row"><Link to={`/users/${u.id}`} onClick={(e) => e.stopPropagation()}>{u.name}</Link>{u.is_admin && <> <Badge tone="info">Admin</Badge></>}</th>
                   <td className="console-ellipsis">{u.email}</td>
+                  <td>{u.phone ? <span title={u.phone_verified ? 'Verified' : 'Not verified'}>{u.phone}{!u.phone_verified && <span className="muted"> (unverified)</span>}</span> : <span className="muted">None</span>}</td>
                   <td className="num">{u.stores}</td>
                   <td>{u.suspended_at ? <Badge tone="danger">Suspended</Badge> : u.verified ? <Badge tone="success">Confirmed</Badge> : <Badge>Unconfirmed</Badge>}</td>
                   <td>{date(u.created_at)}</td>
@@ -80,6 +81,7 @@ export function UserDetail({ adminId }: { adminId: string }) {
         <dl className="console-facts">
           <div><dt>Status</dt><dd>{user.suspendedAt ? <Badge tone="danger">Suspended {date(user.suspendedAt)}</Badge> : <Badge tone="success">Active</Badge>}{user.isAdmin && <> <Badge tone="info">Platform admin</Badge></>}</dd></div>
           <div><dt>Email</dt><dd>{user.verified ? 'Confirmed' : 'Not confirmed'}</dd></div>
+          <div><dt>Phone</dt><dd>{user.phone ? <><a href={`tel:${user.phone}`}>{user.phone}</a> {user.phoneVerified ? 'Verified' : 'Not verified'}</> : 'None'}</dd></div>
           <div><dt>Joined</dt><dd>{date(user.createdAt)}</dd></div>
           <div><dt>Signed in on</dt><dd>{user.sessions} {user.sessions === 1 ? 'device' : 'devices'}</dd></div>
           <div><dt>Language</dt><dd>{user.language === 'en' ? 'English' : 'Bangla'}</dd></div>

@@ -39,7 +39,7 @@ const linkIn = (email: string, path: string) => email.match(new RegExp(`/${path}
 
 test('sign-up sends a verification link that works once', async () => {
   const call = client()
-  await call('POST', '/auth/signup', { name: 'রহিম', email: 'verify@example.com', password: 'correct horse', lang: 'bn' })
+  await call('POST', '/auth/signup', { name: 'রহিম', email: 'verify@example.com', password: 'correct horse', phone: '01711000000', lang: 'bn' })
   assert.equal((await call('GET', '/me')).json.user.emailVerified, false)
   const [email] = await inbox('verify@example.com')
   assert.match(email, /Subject: উদ্যোক্তা: আপনার ইমেইল নিশ্চিত করুন/)
@@ -54,7 +54,7 @@ test('sign-up sends a verification link that works once', async () => {
 
 test('password reset: same answer for unknown emails, one use, signs out other sessions, three an hour', async () => {
   const old = client()
-  await old('POST', '/auth/signup', { name: 'Karim', email: 'reset@example.com', password: 'first password', lang: 'en' })
+  await old('POST', '/auth/signup', { name: 'Karim', email: 'reset@example.com', password: 'first password', phone: '01711000000', lang: 'en' })
   assert.deepEqual(await client()('POST', '/auth/forgot', { email: 'nobody@example.com' }), { status: 200, json: { ok: true } })
   assert.equal((await inbox('nobody@example.com')).length, 0)
 
@@ -89,7 +89,7 @@ test('SES bounce and complaint reports: only signed messages from our topic, the
   assert.equal((await post(signed)).status, 200)
 
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Gone', email: 'gone@example.com', password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Gone', email: 'gone@example.com', password: 'correct horse', phone: '01711000000' })
   assert.equal((await inbox('gone@example.com')).length, 0, 'suppressed address gets nothing')
 
   assert.deepEqual(suppressedBy({ notificationType: 'Bounce', bounce: { bounceType: 'Transient', bouncedRecipients: [{ emailAddress: 'full@example.com' }] } }), [], 'a full mailbox is not suppressed')
@@ -102,7 +102,7 @@ test('production without SES keys or APP_URL: no reset promised, no verification
   delete process.env.AWS_ACCESS_KEY_ID
   try {
     const call = client()
-    await call('POST', '/auth/signup', { name: 'Early', email: 'early@example.com', password: 'correct horse' })
+    await call('POST', '/auth/signup', { name: 'Early', email: 'early@example.com', password: 'correct horse', phone: '01711000000' })
     assert.equal((await call('GET', '/me')).json.user.emailVerified, true, 'nothing to confirm while email is off')
     assert.equal((await client()('POST', '/auth/forgot', { email: 'early@example.com' })).json.error, 'emailUnavailable')
     assert.equal((await inbox('early@example.com')).length, 0)

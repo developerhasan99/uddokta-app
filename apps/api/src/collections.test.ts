@@ -32,7 +32,7 @@ let count = 0
 async function storeOwner() {
   const call = client()
   const n = ++count
-  await call('POST', '/auth/signup', { name: 'Owner', email: `c${n}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `c${n}@example.com`, password: 'correct horse', phone: '01711000000' })
   const handle = `coll-${n}`
   const store = await call('POST', '/stores', { name: 'Shop', handle })
   return { call, handle, storeId: store.json.id as string, base: `/stores/${handle}/collections`, products: `/stores/${handle}/products` }
@@ -138,7 +138,7 @@ test('staff can add and edit collections but not delete them', async () => {
   const owner = await storeOwner()
   const invite = await owner.call('POST', `/stores/${owner.handle}/invites`, { role: 'staff' })
   const staff = client()
-  await staff('POST', '/auth/signup', { name: 'Staff', email: `cstaff${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `cstaff${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   await staff('POST', `/invites/${invite.json.token}/accept`)
   const made = await staff('POST', owner.base, { name: 'S' })
   assert.equal(made.status, 201)

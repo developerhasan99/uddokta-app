@@ -9,7 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "node --env-file=.env ../../node_modules/drizzle-kit/bin.cjs studio",
     "typecheck": "tsc --noEmit",
-    "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media EMAIL_DIR=/tmp/uddokta-test-emails node --test --test-concurrency=1 src/*.test.ts",
+    "test": "DATABASE_URL=postgres://uddokta@localhost:5433/uddokta_test MEDIA_DIR=/tmp/uddokta-test-media EMAIL_DIR=/tmp/uddokta-test-emails SMS_DIR=/tmp/uddokta-test-sms node --test --test-concurrency=1 src/*.test.ts",
     "migrate:deploy": "node src/migrate.ts"
   },
   "dependencies": {

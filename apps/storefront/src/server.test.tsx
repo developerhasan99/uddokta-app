@@ -28,7 +28,7 @@ function client() {
 let count = 0
 async function staffMember(token: string) {
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Staff', email: `sfstaff${++count}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Staff', email: `sfstaff${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   await call('POST', `/invites/${token}/accept`)
   return call
 }
@@ -36,7 +36,7 @@ async function staffMember(token: string) {
 async function publishedPage(status = 'active') {
   const call = client()
   const n = ++count
-  await call('POST', '/auth/signup', { name: 'Owner', email: `sf${n}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `sf${n}@example.com`, password: 'correct horse', phone: '01711000000' })
   const handle = `sf-${n}`
   await call('POST', '/stores', { name: 'রঙিন শপ', handle, deliveryInside: 60, deliveryOutside: 120 })
   const [inside, outside] = (await call('GET', `/stores/${handle}/shipping-rates`)).json.map((r: { id: string }) => r.id) as string[]

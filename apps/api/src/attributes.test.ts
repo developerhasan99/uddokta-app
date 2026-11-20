@@ -24,7 +24,7 @@ function client() {
 let counter = 0
 async function person() {
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Seller', email: `attr-${++counter}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Seller', email: `attr-${++counter}@example.com`, password: 'correct horse', phone: '01711000000' })
   return { call, id: (await call('GET', '/me')).json.user.id as string }
 }
 async function shop() {

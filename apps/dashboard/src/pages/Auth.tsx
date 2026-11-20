@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Check, Eye, EyeOff, MailCheck } from 'lucide-react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, Navigate, Outlet, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession, type Role } from '../account-context'
 import { api, errorCode } from '../api'
 import { SupportLink } from '../components/Support'
@@ -17,7 +17,7 @@ function useNext() {
 
 const benefits: Key[] = ['authBenefitOrders', 'authBenefitCouriers', 'authBenefitFake']
 
-function AuthLayout({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function AuthLayout({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   const { t, lang, setLang } = useLang()
   return (
     <div className="auth-page">
@@ -122,6 +122,7 @@ export function Signup() {
   const next = useNext()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -134,7 +135,7 @@ export function Signup() {
     setBusy(true)
     setError(null)
     try {
-      await api('/auth/signup', { method: 'POST', body: { name, email, password, lang } })
+      await api('/auth/signup', { method: 'POST', body: { name, email, phone, password, lang } })
       await refresh()
     } catch (err) {
       setError(errorCode(err))
@@ -144,7 +145,7 @@ export function Signup() {
   }
 
   const fieldError = (...codes: string[]) => (error && codes.includes(error) ? t(errorLabel(error)) : undefined)
-  const isFieldError = error === 'nameRequired' || error === 'emailInvalid' || error === 'emailTaken' || error === 'weakPassword'
+  const isFieldError = ['nameRequired', 'emailInvalid', 'emailTaken', 'phoneInvalid', 'phoneTaken', 'weakPassword'].includes(error ?? '')
 
   return (
     <AuthLayout title={t('signupTitle')} description={t('signupD')}>
@@ -152,6 +153,7 @@ export function Signup() {
         {error && !isFieldError && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         <Field id="signup-name" name="name" label={t('yourName')} autoComplete="name" value={name} error={fieldError('nameRequired')} onChange={(e) => setName(e.target.value)} />
         <Field id="signup-email" name="email" type="email" label={t('emailLabel')} autoComplete="email" value={email} error={fieldError('emailInvalid', 'emailTaken')} onChange={(e) => setEmail(e.target.value)} />
+        <Field id="signup-phone" name="phone" type="tel" inputMode="tel" label={t('phoneLabel')} autoComplete="tel-national" placeholder="01XXXXXXXXX" help={t('phoneHelp')} value={phone} error={fieldError('phoneInvalid', 'phoneTaken')} onChange={(e) => setPhone(e.target.value)} />
         <PasswordField id="signup-password" autoComplete="new-password" help={t('passwordHelp')} value={password} error={fieldError('weakPassword')} onChange={setPassword} />
         <Button type="submit" variant="primary" aria-busy={busy}>{t('signupAction')}</Button>
       </form>
@@ -366,5 +368,113 @@ export function VerifyEmailBar() {
       <span>{sent && sent !== 'sent' ? t(errorLabel(sent)) : t('verifyBar', { email: state.me.user.email })}</span>
       {sent === 'sent' ? <span className="verify-bar__done">{t('verifyResent')}</span> : sent === null && <button type="button" className="verify-bar__action" onClick={() => void resend()}>{t('verifyResend')}</button>}
     </div>
+  )
+}
+
+// Every screen after sign-in waits until the account's mobile number is verified (when SMS is set up; /me says).
+export function RequirePhone() {
+  const { state } = useSession()
+  if (state.status === 'ready' && !state.me.user.phoneVerified) return <VerifyPhone />
+  return <Outlet />
+}
+
+function VerifyPhone() {
+  const { t, num, lang } = useLang()
+  const { state, refresh, logout } = useSession()
+  const saved = state.status === 'ready' ? state.me.user.phone : null
+  // An account from before phone sign-up has no number yet, so it starts by giving one.
+  const [editing, setEditing] = useState(!saved)
+  const [phone, setPhone] = useState(saved ?? '')
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [wait, setWait] = useState(0)
+
+  useEffect(() => {
+    if (wait <= 0) return
+    const timer = setTimeout(() => setWait(wait - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [wait])
+
+  const send = async (number?: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api('/me/phone', { method: 'POST', body: number === undefined ? {} : { phone: number } })
+      await refresh()
+      setEditing(false)
+      setSent(true)
+      setCode('')
+      setWait(60)
+    } catch (err) {
+      setError(errorCode(err))
+      if (errorCode(err) === 'codeWait') setWait(60)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const verify = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api('/me/phone/verify', { method: 'POST', body: { code } })
+      await refresh()
+    } catch (err) {
+      setError(errorCode(err))
+      setBusy(false)
+    }
+  }
+
+  const fieldError = (...codes: string[]) => (error && codes.includes(error) ? t(errorLabel(error)) : undefined)
+  const otherError = error && !['phoneInvalid', 'phoneTaken', 'codeWrong', 'codeExpired'].includes(error) ? t(errorLabel(error)) : null
+  const footer = (
+    <p className="muted auth__switch">
+      <button type="button" className="link-button" onClick={() => void logout()}>{t('logout')}</button>
+    </p>
+  )
+
+  if (editing) {
+    return (
+      <AuthLayout title={t('phoneVerifyTitle')} description={t('phoneAddD')}>
+        <form className="auth__form" onSubmit={(e) => { e.preventDefault(); if (!busy) void send(phone) }} noValidate>
+          {otherError && <p className="form-error" role="alert">{otherError}</p>}
+          <Field id="verify-phone" name="phone" type="tel" inputMode="tel" label={t('phoneLabel')} autoComplete="tel-national" placeholder="01XXXXXXXXX" value={phone} error={fieldError('phoneInvalid', 'phoneTaken')} onChange={(e) => setPhone(e.target.value)} />
+          <Button type="submit" variant="primary" aria-busy={busy} disabled={wait > 0}>{wait > 0 ? t('phoneResendIn', { n: num(wait) }) : t('phoneSendCode')}</Button>
+          {saved && <button type="button" className="link-button" onClick={() => { setEditing(false); setError(null) }}>{t('cancel')}</button>}
+        </form>
+        {footer}
+      </AuthLayout>
+    )
+  }
+
+  // 01711 222333, in Bangla digits on the Bangla dashboard.
+  const grouped = saved ? `${saved.slice(0, 5)} ${saved.slice(5)}` : ''
+  const shown = lang === 'bn' ? grouped.replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]) : grouped
+  const description = (
+    <>
+      {/* The number sits where the sentence puts it, in either language. */}
+      {t('phoneSentTo', { phone: '\0' }).split('\0').flatMap((part, i) => (i ? [<strong key={i} className="auth__phone">{shown}</strong>, part] : [part]))}
+      {' '}<button type="button" className="link-button" onClick={() => { setEditing(true); setError(null) }}>{t('phoneChange')}</button>
+    </>
+  )
+
+  return (
+    <AuthLayout title={t('phoneVerifyTitle')} description={description}>
+      <form className="auth__form" onSubmit={verify} noValidate>
+        {otherError && <p className="form-error" role="alert">{otherError}</p>}
+        <Field id="verify-code" name="code" className="input input--code" label={t('phoneCodeLabel')} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="••••••" value={code}
+          error={fieldError('codeWrong', 'codeExpired', 'phoneTaken')} onChange={(e) => setCode(e.target.value)} />
+        <Button type="submit" variant="primary" aria-busy={busy}>{t('phoneVerifyAction')}</Button>
+        <p className="auth__resend muted" role="status">
+          {sent && wait > 0 ? t('phoneSentAgain') : t('phoneNoCode')}{' '}
+          <button type="button" className="link-button" disabled={busy || wait > 0} onClick={() => void send()}>{wait > 0 ? t('phoneResendIn', { n: num(wait) }) : t('phoneResend')}</button>
+        </p>
+      </form>
+      {footer}
+    </AuthLayout>
   )
 }

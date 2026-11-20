@@ -33,6 +33,8 @@ import { registerRepeat } from './repeat.ts'
 import { defaultWarehouseName, registerWarehouses } from './warehouses.ts'
 import { registerDomains } from './domains.ts'
 import { registerEmailChange, registerProfile } from './profile.ts'
+import { readPhone } from 'storefront/schema'
+import { registerPhone, sendCode, smsReady, startPhone } from './sms.ts'
 import { guardStores, over, registerPlans, storeLimits } from './plans.ts'
 import { appUrl, emailReady, readLang, registerEmailEvents, resetEmail, sendEmail, verifyEmail, type Lang } from './email.ts'
 import { liveMediaUrl, readLocalFile } from './storage.ts'
@@ -144,19 +146,31 @@ app.post('/auth/signup', async (c) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, 'emailInvalid')
   if (!registrationAllowed(email)) throw fail(403, 'signupClosed')
   if (password.length < 8) throw fail(400, 'weakPassword')
+  // Many sellers never read email, so a Bangladeshi mobile number is required; it is verified by SMS code.
+  const phone = typeof body.phone === 'string' ? readPhone(body.phone) : null
+  if (!phone) throw fail(400, 'phoneInvalid')
   const address = c.req.header('x-real-ip')
   if (address && overHourlyCap(`signup:${address}`, maxSignupsPerAddress)) throw fail(429, 'tooManySignups')
 
   const id = randomUUID()
   const passwordHash = await hashPassword(password)
+  let sms: Awaited<ReturnType<typeof startPhone>>
   try {
-    await tx(null, (t) => t.execute(sql`select register_user(${id}::uuid, ${email}, ${name}, ${passwordHash})`))
+    sms = await tx(null, async (t) => {
+      await t.execute(sql`select register_user(${id}::uuid, ${email}, ${name}, ${passwordHash})`)
+      const started = await startPhone(t, id, phone)
+      // A number another account has verified: nothing is created.
+      if (started.status === 'phoneTaken') throw fail(409, 'phoneTaken')
+      return started
+    })
   } catch (err) {
     if (databaseCode(err) === '23505') throw fail(409, 'emailTaken')
     throw err
   }
   await startSession(c, id)
   await tx(null, (t) => t.execute(sql`select update_profile(${id}::uuid, null, ${readLang(body.lang)})`))
+  // A failed SMS does not undo the account: the verification screen can send the code again.
+  if (sms.status === 'ok' && smsReady()) await sendCode(phone, sms.code, readLang(body.lang)).catch((err) => console.error('SMS failed', err))
   await sendVerification(id, email, name, readLang(body.lang))
   return c.json({ ok: true }, 201)
 })
@@ -278,18 +292,20 @@ app.use('*', async (c, next) => {
 app.get('/me', async (c) => {
   const userId = c.get('userId')
   return tx(userId, async (t) => {
-    const [{ verifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, language: users.language, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId))
+    const [{ verifiedAt, phoneVerifiedAt, ...user }] = await t.select({ id: users.id, name: users.name, email: users.email, phone: users.phone, language: users.language, verifiedAt: users.emailVerifiedAt, phoneVerifiedAt: users.phoneVerifiedAt }).from(users).where(eq(users.id, userId))
     const myStores = await t
       .select({ id: stores.id, handle: stores.handle, name: stores.name, role: storeMembers.role, deletionDueAt: stores.deletionDueAt, suspendedAt: stores.suspendedAt })
       .from(storeMembers)
       .innerJoin(stores, eq(stores.id, storeMembers.storeId))
       .where(eq(storeMembers.userId, userId))
       .orderBy(asc(storeMembers.createdAt))
-    return c.json({ user: { ...user, emailVerified: verifiedAt !== null || !emailReady() }, stores: myStores, emailEnabled: emailReady() })
+    // Without SMS (production until the provider is connected) nobody is asked for a code.
+    return c.json({ user: { ...user, emailVerified: verifiedAt !== null || !emailReady(), phoneVerified: phoneVerifiedAt !== null || !smsReady() }, stores: myStores, emailEnabled: emailReady() })
   })
 })
 
 registerProfile(app)
+registerPhone(app)
 guardStores(app)
 registerPlans(app)
 

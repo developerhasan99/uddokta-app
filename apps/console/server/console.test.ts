@@ -34,7 +34,7 @@ let counter = 0
 async function person() {
   const email = `console-${++counter}@example.com`
   const call = client()
-  await call('POST', '/auth/signup', { name: `Person ${counter}`, email, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: `Person ${counter}`, email, password: 'correct horse', phone: '01711000000' })
   const id = (await call('GET', '/me')).json.user.id as string
   return { call, email, id }
 }

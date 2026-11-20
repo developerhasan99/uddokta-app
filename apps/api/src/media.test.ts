@@ -38,7 +38,7 @@ let count = 0
 async function storeOwner() {
   const call = client()
   const n = ++count
-  await call('POST', '/auth/signup', { name: 'Owner', email: `m${n}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `m${n}@example.com`, password: 'correct horse', phone: '01711000000' })
   const handle = `media-${n}`
   const store = await call('POST', '/stores', { name: 'Shop', handle })
   return { call, handle, storeId: store.json.id as string }
@@ -143,7 +143,7 @@ test('staff can upload but not delete', async () => {
   const { call, handle } = await storeOwner()
   const invite = await call('POST', `/stores/${handle}/invites`, { role: 'staff' })
   const staff = client()
-  await staff('POST', '/auth/signup', { name: 'Staff', email: `s${++count}@example.com`, password: 'correct horse' })
+  await staff('POST', '/auth/signup', { name: 'Staff', email: `s${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   await staff('POST', `/invites/${invite.json.token}/accept`)
   const up = await staff('POST', `/stores/${handle}/media`, form(await png(50, 50)))
   assert.equal(up.status, 201)

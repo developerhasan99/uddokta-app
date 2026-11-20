@@ -8,7 +8,7 @@ import { AccountProvider, lastStoreHandle, RequireAccount, useAccount } from './
 import { LangProvider } from './i18n'
 import { nav, channels, settingsNav } from './nav'
 import { AccountLayout, Shell } from './components/Shell'
-import { ChangeEmail, ForgotPassword, Invite, Login, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
+import { ChangeEmail, ForgotPassword, Invite, Login, RequirePhone, ResetPassword, Signup, VerifyEmail } from './pages/Auth'
 import { PlanGate } from './components/Plan'
 import { Placeholder, NotFound } from './pages/Placeholder'
 import { SettingsLayout } from './pages/Settings'
@@ -83,6 +83,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="verify-email/:token" element={<VerifyEmail />} />
             <Route path="change-email/:token" element={<ChangeEmail />} />
             <Route element={<RequireAccount />}>
+              <Route element={<RequirePhone />}>
               <Route index element={<Start />} />
               <Route element={<AccountLayout />}>
                 <Route path="stores" element={<Stores />} />
@@ -143,6 +144,7 @@ createRoot(document.getElementById('root')!).render(
                 </Route>
                 <Route path="design-system" element={<DesignSystem />} />
                 <Route path="*" element={<NotFound />} />
+              </Route>
               </Route>
             </Route>
           </Routes>

@@ -26,7 +26,7 @@ function client() {
 let count = 0
 async function person() {
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Person', email: `d${++count}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Person', email: `d${++count}@example.com`, password: 'correct horse', phone: '01711000000' })
   return call
 }
 async function storeOwner() {

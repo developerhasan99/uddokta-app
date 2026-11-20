@@ -26,7 +26,7 @@ let count = 0
 async function shop() {
   const call = client()
   const n = ++count
-  await call('POST', '/auth/signup', { name: 'Owner', email: `disc${n}@example.com`, password: 'correct horse' })
+  await call('POST', '/auth/signup', { name: 'Owner', email: `disc${n}@example.com`, password: 'correct horse', phone: '01711000000' })
   const handle = `disc-${n}`
   await call('POST', '/stores', { name: 'Shop', handle, deliveryInside: 70, deliveryOutside: 130 })
   const product = async (name: string, price: number) => (await call('POST', `/stores/${handle}/products`, { name, variants: [{ options: [], price }] })).json

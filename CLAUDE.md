@@ -60,6 +60,13 @@ Use the analysis as a feature reference only. Write our own copy, guides and bra
 - SES reports permanent bounces and complaints to an SNS topic that posts to `/api/ses/events` (registered before the CSRF check). Only messages signed by SNS from `SES_EVENTS_TOPIC_ARN` are accepted; the addresses go into `email_suppressions` and get nothing again. Our SES production-access request promised this, so keep it working.
 - Every email is a Bangla/English pair in `email.ts`, in the language the dashboard was using.
 
+## Phone verification
+
+- Sign-up requires a Bangladeshi mobile number (`readPhone`, kept as `01XXXXXXXXX` in `users.phone`), because many sellers never read email. A 6-digit code is sent by SMS (`apps/api/src/sms.ts`); every screen after sign-in waits on `RequirePhone` (`VerifyPhone` in `pages/Auth.tsx`) until it is confirmed, where the number can be changed and the code sent again. Accounts from before this have no number and are asked for one.
+- Codes live in `phone_codes` (sha256 of user id and code, 10 minutes, 5 tries), reached only through `start_phone_verification` / `finish_phone_verification` (migration 0107; a test proves the app role cannot read the table). Limits: one code a minute and 3 an hour per account, 5 a day per number. Only verified numbers are unique (`users_verified_phone`), so typing someone else's number takes nothing from them; signing up with a number another account verified answers 409 `phoneTaken`.
+- SMS go through Alpha SMS (sms.net.bd, `POST https://api.sms.net.bd/sendsms` with `api_key`, `msg`, `to`, optional `sender_id`; `{"error": 0}` is success) when `SMS_API_KEY` is set (`SMS_SENDER_ID` optional, `SMS_API_URL` for tests). Without a key, development writes them to `.sms/` (tests: `SMS_DIR`) and production is not ready (`smsReady`): `/me` reports the phone verified, nobody is asked for a code, and sign-up still records the number. The API does not refuse unverified accounts yet; the dashboard gate does.
+- The console shows each account's phone (verified or not) on Users and finds accounts by number.
+
 ## Platform console (super administrators)
 
 - Its own app and Railway service: `apps/console` (Hono server in `server/`, React screens in `src/`, `deploy/Dockerfile.console`, domain `console.uddokta.co`; development: screens on port 5174, server on 8789). The main API has no console routes. The console reuses the dashboard's styles and `components/ui.tsx`, and is in English (internal tool).

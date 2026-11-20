@@ -5,7 +5,7 @@ import { Button, Notice } from './components/ui'
 import { useLang } from './i18n'
 
 export type Role = 'owner' | 'admin' | 'staff'
-export type User = { id: string; name: string; email: string; emailVerified: boolean; language: 'bn' | 'en' }
+export type User = { id: string; name: string; email: string; emailVerified: boolean; phone: string | null; phoneVerified: boolean; language: 'bn' | 'en' }
 // deletionDueAt: the owner asked to delete the store; it is offline and read-only until then (store-deletion.ts).
 // suspendedAt: Uddokta suspended the store from the console; it is offline and read-only until restored.
 export type Store = { id: string; handle: string; name: string; deletionDueAt?: string | null; suspendedAt?: string | null }

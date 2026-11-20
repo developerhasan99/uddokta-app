@@ -29,7 +29,7 @@ let counter = 0
 async function person(lang = 'bn') {
   const email = `profile-${++counter}@example.com`
   const call = client()
-  await call('POST', '/auth/signup', { name: 'Seller', email, password: 'correct horse', lang })
+  await call('POST', '/auth/signup', { name: 'Seller', email, password: 'correct horse', phone: '01711000000', lang })
   return { call, email }
 }
 async function inbox(to: string) {

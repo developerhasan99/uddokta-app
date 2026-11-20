@@ -6,3 +6,4 @@ dist
 .media
 .emails
 .env.live
+.sms
