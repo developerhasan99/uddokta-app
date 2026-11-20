@@ -37,6 +37,8 @@ const messages: Record<string, string> = {
   emailUnavailable: 'Email sending is not set up yet (SES keys and APP_URL on the API service).',
   tooManyEmails: 'Three reset links were already sent in the last hour.',
   notFound: 'Not found. It may have been deleted.',
+  userNotFound: 'No account uses this email. Ask the person to sign up first.',
+  alreadyMember: 'This person is already on the store’s team.',
   invalidRequest: 'Some values are not valid.',
   storeNotScheduled: 'The owner has not asked to delete this store. Only stores in their 30 days can be deleted from here.',
   storeNotFound: 'No store has that address. Use the part before .uddokta.live.',

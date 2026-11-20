@@ -9,6 +9,7 @@
 .console-signin__brand { padding: 0; color: var(--color-ink); }
 .console-loading { min-height: 40vh; }
 .console-h2 { font-size: var(--text-md, 15px); font-weight: 600; }
+.filter-bar > .console-h2 { flex: 1; }
 .console-stat__sub { padding: 0 var(--space-md) var(--space-md); color: var(--color-muted); font-size: var(--text-sm); }
 .console-stat__text { font-size: var(--text-xl); }
 .console-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-md); }

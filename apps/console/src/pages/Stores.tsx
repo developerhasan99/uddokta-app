@@ -63,6 +63,38 @@ export function StoreList() {
   )
 }
 
+function AddMemberDialog({ store, onClose, onDone }: { store: Store; onClose: () => void; onDone: (name: string) => void }) {
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState('staff')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const max = store.limits.max_members
+  return (
+    <Modal title={`Add someone to ${store.name}`} sub="They must already have an Uddokta account. They get the store in their store list at once, with the role you choose." onClose={onClose} foot={(close) => <>
+      <Button onClick={() => close()}>Cancel</Button>
+      <Button variant="primary" aria-busy={busy} disabled={!email.trim() || !reason.trim()} onClick={async () => {
+        setBusy(true); setError(null)
+        try { const added = await api<{ name: string }>(`/console/stores/${store.id}/members`, { method: 'POST', body: { email, role, reason } }); close(() => onDone(added.name)) } catch (err) { setError(errorText(err)); setBusy(false) }
+      }}>Add to team</Button>
+    </>}>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="field"><label htmlFor="member-email">Account email</label>
+        <input id="member-email" type="email" className="input" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="field"><label htmlFor="member-role">Role</label>
+        <select id="member-role" className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="staff">Staff: orders, products and pages; no profit, buying prices or settings</option>
+          <option value="admin">Admin: runs the store like an owner, but cannot add or change owners</option>
+          <option value="owner">Owner: everything, including adding and changing owners</option>
+        </select>
+      </div>
+      {max !== null && store.members.length >= max && <p className="notice-line">The {store.limits.plan_name} plan allows {max} {max === 1 ? 'member' : 'members'} and the team is full. Adding from here goes over the limit.</p>}
+      <div className="field"><label htmlFor="member-reason">Reason</label><textarea id="member-reason" className="input console-textarea" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Kept in the audit log" /></div>
+    </Modal>
+  )
+}
+
 function PlanDialog({ store, plans, onClose, onDone }: { store: Store; plans: Plan[]; onClose: () => void; onDone: () => void }) {
   const [planId, setPlanId] = useState(store.planId ?? '')
   const [until, setUntil] = useState(store.planUntil ?? '')
@@ -171,7 +203,7 @@ function CustomPlanDialog({ store, onClose, onDone }: { store: Store; onClose: (
   )
 }
 
-type Action = 'plan' | 'payment' | 'suspend' | 'restore' | 'custom' | 'endCustom' | 'export' | 'deleteNow'
+type Action = 'member' | 'plan' | 'payment' | 'suspend' | 'restore' | 'custom' | 'endCustom' | 'export' | 'deleteNow'
 
 export function StoreDetail() {
   const { id } = useParams()
@@ -222,7 +254,7 @@ export function StoreDetail() {
         </ul>
       </section>
       <section className="data-list">
-        <div className="filter-bar"><h2 className="console-h2">Team</h2></div>
+        <div className="filter-bar"><h2 className="console-h2">Team</h2><Button onClick={() => setAction('member')}>Add member</Button></div>
         <table className="data-table"><thead><tr><th>Name</th><th>Email</th><th style={{ width: '8rem' }}>Role</th></tr></thead>
           <tbody>{store.members.map((m) => <tr key={m.id}><th scope="row"><Link to={`/users/${m.id}`}>{m.name}</Link></th><td className="console-ellipsis">{m.email}</td><td className="console-cap">{m.role}</td></tr>)}</tbody>
         </table>
@@ -238,6 +270,7 @@ export function StoreDetail() {
       {action === 'custom' && <CustomPlanDialog store={store} onClose={() => setAction(null)} onDone={() => finish('Custom plan saved.')} />}
       {action === 'endCustom' && <ReasonDialog title="End the custom plan?" sub="The store goes back to the default plan straight away. Payments already recorded stay in its history." action="End custom plan" danger
         onConfirm={(reason) => api(`/console/stores/${store.id}/custom-plan`, { method: 'DELETE', body: { reason } })} onClose={() => setAction(null)} onDone={() => finish('Custom plan ended; the store is on the default plan.')} />}
+      {action === 'member' && <AddMemberDialog store={store} onClose={() => setAction(null)} onDone={(name) => finish(`${name} added to the team.`)} />}
       {action === 'plan' && <PlanDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={() => finish('Plan saved.')} />}
       {action === 'payment' && <PaymentDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={(until) => finish(`Payment recorded. The plan now runs until ${date(until)}.`)} />}
       {action === 'export' && <ReasonDialog title={`Export ${store.name}’s data?`} sub="Downloads everything the store holds as a JSON file: products, orders, customers, pages, settings and team. Passwords, keys and tokens are left out. Keep the file safe; it holds buyers’ personal details." action="Export data"

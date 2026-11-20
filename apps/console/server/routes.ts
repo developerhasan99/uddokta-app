@@ -145,6 +145,14 @@ export function registerConsole(app: Hono<Env>) {
     await Promise.allSettled(keys.map((key) => deleteFile(key)))
     return c.json({ ok: true })
   })
+  // Adds an existing account (by email) to the store's team with any role, over the plan's member limit if need be.
+  app.post('/console/stores/:id/members', async (c) => {
+    const b = await body(c)
+    const email = text(b.email, 254)
+    if (!isId(c.req.param('id')) || !email || !['owner', 'admin', 'staff'].includes(b.role as string)) throw fail(400, 'invalidRequest')
+    const added = await run((t) => one<{ m: unknown }>(t, sql`select console_add_member(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${email}, ${b.role as string}, ${reason(b)}) as m`))
+    return c.json(added!.m)
+  })
   app.put('/console/stores/:id/plan', async (c) => {
     const b = await body(c)
     if (!isId(c.req.param('id')) || !(b.planId === null || isId(b.planId))) throw fail(400, 'invalidRequest')

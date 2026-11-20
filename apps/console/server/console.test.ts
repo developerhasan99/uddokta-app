@@ -207,6 +207,26 @@ test('hidden plans stay off Billing; moving stores off a plan lets it be deleted
   assert.equal((await admin.call('DELETE', `/console/plans/${free.id}`, {})).json.error, 'planDefaultRequired')
 })
 
+test('administrators add an existing account to any store, with a role and a reason in the audit log', async () => {
+  const admin = await administrator()
+  const owner = await person()
+  const helper = await person()
+  await owner.call('POST', '/stores', { name: 'Team Shop', handle: `team-shop-${counter}` })
+  const storeId = (await owner.call('GET', '/me')).json.stores[0].id as string
+  const add = (body: unknown) => admin.call('POST', `/console/stores/${storeId}/members`, body)
+  assert.equal((await add({ email: helper.email, role: 'admin' })).json.error, 'reasonRequired')
+  assert.equal((await add({ email: helper.email, role: 'boss', reason: 'x' })).status, 400)
+  assert.equal((await add({ email: 'nobody@example.com', role: 'admin', reason: 'x' })).json.error, 'userNotFound')
+  const added = await add({ email: helper.email.toUpperCase(), role: 'admin', reason: 'Owner asked by phone' })
+  assert.equal(added.status, 200)
+  assert.equal(added.json.id, helper.id)
+  assert.deepEqual((await helper.call('GET', '/me')).json.stores.map((s: any) => [s.id, s.role]), [[storeId, 'admin']])
+  assert.equal((await add({ email: helper.email, role: 'staff', reason: 'again' })).json.error, 'alreadyMember')
+  const entry = (await admin.call('GET', '/console/audit')).json.items.find((e: any) => e.action === 'store.addMember')
+  assert.deepEqual([entry.detail, entry.reason], [{ email: helper.email, role: 'admin' }, 'Owner asked by phone'])
+  await assert.rejects(tx(owner.id, (t) => t.execute(sql`select console_add_member(${owner.id}::uuid, ${storeId}::uuid, ${helper.email}, 'owner', 'x')`)), (err: any) => (err.cause?.code ?? err.code) === '42501')
+})
+
 test('console tables are out of reach for the app role, and the functions refuse anyone but administrators', async () => {
   const seller = await person()
   for (const table of ['platform_admins', 'plans', 'store_payments', 'console_audit', 'platform_settings']) {
