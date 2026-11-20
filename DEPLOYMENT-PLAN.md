@@ -657,3 +657,7 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 ## Content width 1200px (November 20, 2026)
 
 - Every store and landing page container is 1200px of content (padding outside), read from Site settings › Content width (`--sf-width`, which until now was saved but not used). Section "Standard" width is 1200; header rows follow the site width. Migration 0109 moves stores still on the old 1100px default to 1200. Checked on the local QA store: containers 1232px (1200 + 2×16) at a 1440px window, header and products aligned.
+
+## /admin on store addresses (November 20, 2026)
+
+- `https://{store}.uddokta.live/admin` and `https://{own domain}/admin` redirect (302) to the store's dashboard, `https://admin.uddokta.co/store/{handle}` (deeper paths too: `/admin/orders`). The storefront reads `APP_URL` if set, else `https://admin.uddokta.co`. Tested for both addresses in `server.test.tsx`.

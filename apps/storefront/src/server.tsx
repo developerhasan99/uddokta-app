@@ -437,6 +437,12 @@ export const app = new Hono()
 // Every storefront page is public, so trusting X-Store-Host shows nothing a buyer could not see on that store's own domain.
 // ponytail: put a shared secret on the proxy's headers before a CDN cache sits in front of the storefront.
 // ponytail: one database lookup per page for the live-domain redirect; cache it if it shows up in response times.
+// The store's own /admin opens its dashboard (sign-in first if needed); /admin/orders opens Orders, and so on. Works on
+// {store}.uddokta.live and on the seller's own domain, before any redirect to that domain. 'admin' is a reserved page handle.
+const dashboardUrl = (process.env.APP_URL ?? (process.env.NODE_ENV === 'production' ? 'https://admin.uddokta.co' : 'http://localhost:5173')).replace(/\/+$/, '')
+const adminPath = /^\/admin(\/[a-z0-9/-]*)?\/?$/i
+export const adminRedirect = (handle: string, path: string) => `${dashboardUrl}/store/${encodeURIComponent(handle)}${(adminPath.exec(path)?.[1] ?? '').replace(/\/+$/, '').toLowerCase()}`
+
 app.use('*', async (c, next) => {
   if (c.req.path.startsWith('/_')) return next()
   const url = new URL(c.req.url)
@@ -446,11 +452,14 @@ app.use('*', async (c, next) => {
     const asked = (c.req.header('x-store-host') ?? '').split(':')[0].toLowerCase()
     const bare = asked.replace(/^www\./, '')
     if (asked !== bare) return c.redirect(`https://${bare}${rest}`, 301)
-    c.set('handle', bare ? await domainStore(bare) : null)
+    const owner = bare ? await domainStore(bare) : null
+    if (owner && adminPath.test(url.pathname)) return c.redirect(adminRedirect(owner, url.pathname), 302)
+    c.set('handle', owner)
     c.set('origin', `https://${bare}`)
     return next()
   }
   const handle = subdomainHandle(host)
+  if (handle && adminPath.test(url.pathname)) return c.redirect(adminRedirect(handle, url.pathname), 302)
   // Once a store's own domain is live, its uddokta.live pages send buyers there. Form posts stay, so open checkouts still work.
   const live = handle && c.req.method === 'GET' ? await liveDomain(handle) : null
   if (live) return c.redirect(`https://${live}${rest}`, 302)

@@ -586,6 +586,16 @@ test('a seller’s own domain shows their store through the domains proxy, and b
   assert.deepEqual([moved.status, moved.headers.get('location')], [302, `https://rongin-shop.com${s.url}`])
   const posted = await order(s.handle, s.url, { section: s.orderSection, variant: s.product.variants[0].id, name: 'ক্রেতা', phone: '01711111111', address: 'বাসা ১২, রোড ৪, ধানমন্ডি', rate: s.inside, quantity: '1' })
   assert.match(posted.headers.get('location') ?? '', /^\/[^/].*thanks\?receipt=/, 'an open checkout form still submits on the old address and gets its receipt')
+
+
+  // /admin opens the store's dashboard from either address, straight away (no hop through the live domain first).
+  const fromDomain = await proxied('/admin', 'rongin-shop.com')
+  assert.deepEqual([fromDomain.status, fromDomain.headers.get('location')], [302, `http://localhost:5173/store/${s.handle}`])
+  const fromSubdomain = await visit(s.handle, '/admin/')
+  assert.deepEqual([fromSubdomain.status, fromSubdomain.headers.get('location')], [302, `http://localhost:5173/store/${s.handle}`])
+  assert.equal((await visit(s.handle, '/admin/Orders')).headers.get('location'), `http://localhost:5173/store/${s.handle}/orders`, 'deeper paths open that screen')
+  assert.equal((await proxied('/admin', 'not-a-seller.com')).status, 404, 'no store, no redirect')
+  assert.equal((await visit(s.handle, '/administrator')).status === 302 && (await visit(s.handle, '/administrator')).headers.get('location')?.includes('/store/'), false, 'only /admin itself')
 })
 
 

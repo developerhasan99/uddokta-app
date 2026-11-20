@@ -241,6 +241,10 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Landing pages and store pages share one address space: `chooseHandle` in `pages.ts` (via `page_handle_free`) picks free handles for both, and the `check_page_handle` trigger on both tables refuses a clash (409 `pageHandleTaken`).
 - Policies (refund, privacy, shipping, terms, contact), one of each per store, start hidden from our own Bangla drafts in `apps/api/src/policy-drafts.ts`; `/policies/:kind` redirects to the policy's page. The contact page also lists the Settings › Store contact details. Creating a page can append a link to the footer menu.
 
+## Store admin shortcut
+
+- `/admin` on any store address (`{store}.uddokta.live` or the seller's own domain) redirects to that store's dashboard, `{APP_URL}/store/{handle}` (storefront `APP_URL`, default `https://admin.uddokta.co`); `/admin/orders` and the like open that screen. It runs before the live-domain redirect, and `admin` is a reserved page handle.
+
 ## Menus
 
 - `menus` (store_id, handle, title, `items` jsonb tree, revision): any number per store, up to 30. `main-menu` and `footer` are made for every store by a trigger, cannot be deleted (row-level security) and keep their handles (API). Staff edit; owners and admins delete.
