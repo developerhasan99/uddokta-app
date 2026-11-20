@@ -807,6 +807,13 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .dialog__foot { padding: var(--space-xs) var(--space-md); }
   .picker__tools { padding: 0 var(--space-md) var(--space-sm); }
 }
+/* On phones a modal that asks for typing fills the screen, so its fields stay at the top when the keyboard takes the
+   lower half of the screen (a centred modal slips under it). Close and Cancel stay where they are. */
+@media (max-width: 719px) {
+  dialog.modal:has(:is(input:not([type=checkbox], [type=radio], [type=hidden], [type=range], [type=color], [type=file]), textarea, select)) {
+    width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; box-shadow: none;
+  }
+}
 /* Dialogs arrive quickly but never pop: centred ones rise and settle, side sheets slide in, backdrops fade.
    Leaving is quicker and accelerates away; components/dialog.ts sets [data-closing] and waits for it before closing.
    The curve front-loads the motion, so a dialog is usable almost at once. Reduced motion is handled globally. */
