@@ -9,6 +9,7 @@ import { app } from './app.ts'
 import { pool } from './db.ts'
 import { storeLimitBytes } from './media.ts'
 import { media } from './schema.ts'
+import { downloadImage, isPrivateAddress, readImageUrl } from './images.ts'
 import { tx } from './db.ts'
 
 before(async () => {
@@ -254,4 +255,46 @@ test('a store logo and favicon must be the store’s own images and cannot be de
   assert.equal((await owner.call('PUT', settings, { faviconId: icon.id })).json.favicon.id, icon.id)
   assert.deepEqual(await owner.call('GET', `/stores/${owner.handle}/media/${icon.id}/usage`).then((r) => [r.json.favicon, r.json.logo]), [true, false])
   assert.equal((await owner.call('DELETE', `/stores/${owner.handle}/media/${icon.id}`)).json.error, 'mediaInUse')
+})
+
+test('import downloads refuse the server’s own network, odd ports and other schemes', async () => {
+  for (const address of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', '::', 'fe80::1', 'fd00::1', '::ffff:127.0.0.1', '64:ff9b::7f00:1']) {
+    assert.equal(isPrivateAddress(address), true, address)
+  }
+  for (const address of ['8.8.8.8', '23.227.38.65', '2606:4700::1111']) assert.equal(isPrivateAddress(address), false, address)
+  for (const url of ['ftp://example.com/a.png', 'http://example.com:8080/a.png', 'https://user:pw@example.com/a.png', 'file:///etc/passwd', 'not a url', 42]) {
+    assert.throws(() => readImageUrl(url), { status: 400 }, String(url))
+  }
+
+  const { call, handle } = await storeOwner()
+  for (const url of ['http://127.0.0.1/a.png', 'http://localhost/a.png', 'http://[::1]/a.png', 'http://169.254.169.254/latest']) {
+    const res = await call('POST', `/stores/${handle}/media/import`, { url })
+    assert.equal(res.status, 422, url)
+    assert.equal(res.json.error, 'imageUnavailable')
+  }
+  assert.equal((await call('POST', `/stores/${handle}/media/import`, { url: 'ftp://example.com/a.png' })).status, 400)
+})
+
+test('import downloads follow a few redirects and stop at the size limit', async () => {
+  const image = await png(10, 10)
+  const server = createServer((req, res) => {
+    if (req.url === '/moved') return res.writeHead(302, { location: '/photo.png' }).end()
+    if (req.url === '/loop') return res.writeHead(302, { location: '/loop' }).end()
+    if (req.url === '/huge') return res.writeHead(200, { 'content-length': String(11 * 1024 * 1024) }).end()
+    if (req.url === '/photo.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(image)
+    res.writeHead(404).end()
+  })
+  await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  const open = { isBlocked: () => false, checkUrl: (v: unknown) => new URL(String(v)) }
+  try {
+    assert.deepEqual(await downloadImage(new URL(`${base}/moved`), open), image)
+    await assert.rejects(downloadImage(new URL(`${base}/loop`), open))
+    await assert.rejects(downloadImage(new URL(`${base}/huge`), open))
+    await assert.rejects(downloadImage(new URL(`${base}/missing`), open))
+    // With the real checks, the same server is out of reach.
+    await assert.rejects(downloadImage(new URL(`${base}/photo.png`)))
+  } finally {
+    server.close()
+  }
 })

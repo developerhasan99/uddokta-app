@@ -126,6 +126,7 @@ One picker used across products, pages, templates and the logo. It shows where e
 - Each product has a `handle`, unique in its store and allowed to contain Bangla. Saves keep it when the name changes. A blank search title or description means the storefront uses the name and `searchDescription` from `apps/dashboard/src/product-form.ts`.
 - A variant image must be one of its product's images, enforced by a deferred foreign key to `product_media`.
 - `product_media` has a deferred foreign key to `media`, which is what blocks deleting an image in use.
+- Import (Products › Import): the Shopify or WooCommerce product CSV is read in the dashboard (`product-import.ts`) and sent one product at a time through the normal product API, best effort (what cannot map is blanked or skipped with a reason, the seller fixes it by hand; an existing address is skipped, so re-running continues). Images come through `POST /stores/:handle/media/import`, whose `downloadImage` (`images.ts`) refuses private networks, odd ports and other schemes; keep that guard on any new server-side fetch of a seller-given address.
 
 ## Attributes and store filters
 

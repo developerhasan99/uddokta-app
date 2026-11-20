@@ -8,7 +8,7 @@ import { collections, media, pageMedia, pages, productMedia, products, stores, t
 import { deleteFile, getFile, publicUrl, putFile } from './storage.ts'
 import { storeLimits } from './plans.ts'
 import { fail, storeByHandle, type Env } from './app.ts'
-import { processImage } from './images.ts'
+import { downloadImage, processImage, readImageUrl } from './images.ts'
 
 const maxUploadBytes = 10 * 1024 * 1024
 const pageSize = 60
@@ -32,7 +32,7 @@ export const present = (row: typeof media.$inferSelect) => ({
 export const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
 // Stores the files, then the row; if the row is refused, the files are removed again.
-export async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }) {
+export async function saveImage(userId: string, storeId: string, name: string, image: { full: Buffer; thumb: Buffer; width: number; height: number; sourceFormat: string }, alt = '') {
   const sizeBytes = image.full.length + image.thumb.length
   const id = randomUUID()
   const key = `${storeId}/${id}.webp`
@@ -46,7 +46,7 @@ export async function saveImage(userId: string, storeId: string, name: string, i
       const used = await one<{ total: string }>(t, sql`select coalesce(sum(size_bytes), 0) as total from media where store_id = ${storeId}::uuid`)
       if (Number(used?.total ?? 0) + sizeBytes > (await storeLimits(t, storeId)).storageMb * 1024 * 1024) throw fail(413, 'storageFull')
       const [inserted] = await t.insert(media).values({
-        id, storeId, name: name.slice(0, 200) || 'image', key, thumbKey, width: image.width, height: image.height, sizeBytes, sourceFormat: image.sourceFormat,
+        id, storeId, name: name.slice(0, 200) || 'image', alt: alt.slice(0, 500), key, thumbKey, width: image.width, height: image.height, sizeBytes, sourceFormat: image.sourceFormat,
       }).returning()
       return inserted
     })
@@ -103,6 +103,20 @@ export function registerMedia(app: Hono<Env>) {
       return c.json(present(await saveImage(userId, store.id, file.name, image)), 201)
     },
   )
+
+  // Product import (Shopify/WooCommerce files) brings images in by their web address. The download is guarded
+  // in downloadImage; what arrives is checked and converted like any upload.
+  app.post('/stores/:handle/media/import', async (c) => {
+    const body = await c.req.json().catch(() => null)
+    const url = readImageUrl(body?.url)
+    const alt = typeof body?.alt === 'string' ? body.alt.trim() : ''
+    const userId = c.get('userId')
+    const store = await tx(userId, (t) => storeByHandle(t, c.req.param('handle')))
+    const image = await processImage(await downloadImage(url))
+    let name = url.pathname.split('/').pop() || 'image'
+    try { name = decodeURIComponent(name) } catch {}
+    return c.json(present(await saveImage(userId, store.id, name, image, alt)), 201)
+  })
 
   // A crop is saved as a new image, so the original is never lost.
   app.post('/stores/:handle/media/:id/crop', async (c) => {

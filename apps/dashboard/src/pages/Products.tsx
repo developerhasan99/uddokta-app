@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Plus, Tag } from 'lucide-react'
+import { FileUp, Plus, Tag } from 'lucide-react'
 import { useStorePath, useCurrentStore } from '../account-context'
 import { api } from '../api'
 import { Badge, Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
@@ -8,6 +8,7 @@ import { useLang, type Key } from '../i18n'
 import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 import { productStatuses, statusInfo, type ProductStatus } from '../product-form'
 import { useUrlSearch } from '../use-url-search'
+import { ProductImportDialog } from './ProductImport'
 
 type Row = { id: string; name: string; status: ProductStatus; thumbUrl: string | null; variantCount: number; minPrice: number; maxPrice: number; stock: number | null }
 type Page = { items: Row[]; hasMore: boolean; counts: Partial<Record<ProductStatus, number>> }
@@ -30,6 +31,7 @@ export function Products() {
   const latest = useRef(0)
   const [page, setPage] = useState<Page | null>(null)
   const [failed, setFailed] = useState(false)
+  const [importing, setImporting] = useState(false)
   const list = `${base}?q=${encodeURIComponent(query)}&status=${status}`
 
   const load = useCallback(async () => {
@@ -70,12 +72,14 @@ export function Products() {
   const count = (value: '' | ProductStatus) => (value ? page?.counts[value] ?? 0 : productStatuses.reduce((n, s) => n + (page?.counts[s] ?? 0), 0))
   const noProducts = page !== null && !query && count('') === 0
   const addButton = <LinkButton to={path('/products/new')} variant="primary"><Plus size={16} aria-hidden="true" />{t('productAdd')}</LinkButton>
+  const importButton = <Button onClick={() => setImporting(true)}><FileUp size={16} aria-hidden="true" />{t('productImport')}</Button>
+  const actions = <div className="row">{importButton}{addButton}</div>
   const priceText = (row: Row) => (row.minPrice === row.maxPrice ? money(row.minPrice) : `${money(row.minPrice)} – ${money(row.maxPrice)}`)
   const stockText = (row: Row) => (row.stock === null ? t('productUntracked') : row.stock === 0 ? t('productOutOfStock') : num(row.stock))
 
   return (
     <div className="page">
-      <PageHeader title={t('products')} description={t('products.d')} action={noProducts ? undefined : addButton} />
+      <PageHeader title={t('products')} description={t('products.d')} action={noProducts ? undefined : actions} />
 
       {failed && (
         <section className="card card--flush">
@@ -88,7 +92,7 @@ export function Products() {
           <Tag size={32} strokeWidth={1.5} aria-hidden="true" />
           <h2>{t('productEmptyTitle')}</h2>
           <p className="muted">{t('productEmptyBody')}</p>
-          {addButton}
+          {actions}
         </section>
       )}
 
@@ -156,6 +160,7 @@ export function Products() {
           {page?.hasMore && <footer className="data-list__footer"><span /><Button onClick={() => void more()}>{t('mediaLoadMore')}</Button></footer>}
         </div>
       )}
+      {importing && <ProductImportDialog onClose={() => setImporting(false)} onImported={() => void load()} />}
     </div>
   )
 }
