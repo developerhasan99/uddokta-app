@@ -1156,7 +1156,7 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .header-start__check { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-inline-start: auto; border-radius: 50%; background: var(--color-primary); color: var(--color-primary-ink); }
 .header-start__text { display: grid; gap: 2px; padding-inline: 2px; }
 .header-start__text strong { display: flex; align-items: center; gap: var(--space-2xs); font-size: var(--text-md, 14px); }
-.header-start__text span { color: var(--color-muted); font-size: var(--text-sm); line-height: 1.35; }
+.header-start__text > span { color: var(--color-muted); font-size: var(--text-sm); line-height: 1.35; }
 .hs-bar { display: flex; align-items: center; justify-content: flex-end; gap: 5px; height: 9px; padding: 0 10px; background: var(--color-rule); }
 .hs-bar b { width: 12px; height: 2px; border-radius: 1px; background: var(--color-muted); }
 .hs-bar b:first-child { margin-right: auto; width: 18px; }
