@@ -6,7 +6,7 @@ import { api, errorCode } from '../api'
 import { SupportLink } from '../components/Support'
 import { roleLabels } from '../components/AppMenu'
 import { Button, Field, LinkButton, Notice, PageTitle } from '../components/ui'
-import { errorLabel, useLang, type Key } from '../i18n'
+import { errorLabel, siteUrl, useLang, type Key } from '../i18n'
 
 // Only same-site paths, so a crafted link cannot send someone to another website after login.
 function useNext() {
@@ -156,6 +156,12 @@ export function Signup() {
         <Field id="signup-phone" name="phone" type="tel" inputMode="tel" label={t('phoneLabel')} autoComplete="tel-national" placeholder="01XXXXXXXXX" help={t('phoneHelp')} value={phone} error={fieldError('phoneInvalid', 'phoneTaken')} onChange={(e) => setPhone(e.target.value)} />
         <PasswordField id="signup-password" autoComplete="new-password" help={t('passwordHelp')} value={password} error={fieldError('weakPassword')} onChange={setPassword} />
         <Button type="submit" variant="primary" aria-busy={busy}>{t('signupAction')}</Button>
+        <p className="muted auth__agree">
+          {t('signupAgree', { terms: '{terms}', privacy: '{privacy}' }).split(/(\{terms\}|\{privacy\})/).map((part, i) =>
+            part === '{terms}' ? <a key={i} className="auth__link" href={siteUrl(lang, 'terms')} target="_blank" rel="noopener">{t('legalTerms')}</a>
+            : part === '{privacy}' ? <a key={i} className="auth__link" href={siteUrl(lang, 'privacy')} target="_blank" rel="noopener">{t('legalPrivacy')}</a>
+            : part)}
+        </p>
       </form>
       <p className="muted auth__switch">
         {t('haveAccount')} <Link className="auth__link" to={`/login?next=${encodeURIComponent(next)}`}>{t('loginAction')}</Link>

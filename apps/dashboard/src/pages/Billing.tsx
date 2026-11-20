@@ -5,7 +5,7 @@ import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Badge, Button, Notice, PageHeader, Skeleton } from '../components/ui'
 import { waDigits } from '../components/Support'
-import { errorLabel, useLang, type Key } from '../i18n'
+import { errorLabel, siteUrl, useLang, type Key } from '../i18n'
 
 // Settings › Billing (owners and admins): the store's plan, what it uses and includes, the plans it can move to,
 // how to pay (amount worked out from the plan's price for display, with the details to send on WhatsApp), and the
@@ -21,8 +21,6 @@ type Data = {
   pay: { whatsapp: string; bkash: string; nagad: string; bank: string; note: string }
 }
 
-// The full comparison lives on the marketing site, in the dashboard's language.
-const pricingUrl = (lang: string) => (lang === 'en' ? 'https://uddokta.co/en/pricing' : 'https://uddokta.co/pricing')
 const monthChoices = [1, 3, 6, 12]
 
 function CopyValue({ value, label }: { value: string; label: string }) {
@@ -55,7 +53,7 @@ export function Billing() {
   const date = (v: string) => new Date(v).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const mb = (n: number) => (n >= 1024 ? `${num(Math.round((n / 1024) * 10) / 10)} GB` : `${num(n)} MB`)
   const limit = (n: number | null) => (n === null ? t('billingUnlimited') : num(n))
-  const header = <PageHeader title={t('billing')} description={t('billing.d')} action={<a className="btn btn--default" href={pricingUrl(lang)} target="_blank" rel="noopener">{t('billingCompare')}<ArrowUpRight size={14} aria-hidden="true" /></a>} />
+  const header = <PageHeader title={t('billing')} description={t('billing.d')} action={<a className="btn btn--default" href={siteUrl(lang, 'pricing')} target="_blank" rel="noopener">{t('billingCompare')}<ArrowUpRight size={14} aria-hidden="true" /></a>} />
 
   if (error) return <div className="page page--narrow">{header}<section className="card card--flush"><Notice title={t(error === 'forbidden' ? 'billingOwnersOnly' : errorLabel(error))} /></section></div>
   if (!data) return <div className="page page--narrow">{header}<section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
@@ -130,7 +128,7 @@ export function Billing() {
         <section aria-labelledby="billing-plans">
           <div className="billing-section-head">
             <div><h2 id="billing-plans" className="billing-h2">{t('billingPlans')}</h2><p className="muted">{t('billingPlansD')}</p></div>
-            <a className="billing-link" href={pricingUrl(lang)} target="_blank" rel="noopener">{t('billingCompareAll')}<ArrowUpRight size={14} aria-hidden="true" /></a>
+            <a className="billing-link" href={siteUrl(lang, 'pricing')} target="_blank" rel="noopener">{t('billingCompareAll')}<ArrowUpRight size={14} aria-hidden="true" /></a>
           </div>
           <div className="billing-offers">
             {data.plans.map((p) => {
@@ -161,6 +159,7 @@ export function Billing() {
         <div>
           <h2 id="billing-pay-title" className="billing-h2">{t('billingHowToPay')}</h2>
           <p className="muted">{t('billingHowToPayD')}</p>
+          <a className="billing-link" href={siteUrl(lang, 'refund')} target="_blank" rel="noopener">{t('legalRefund')}<ArrowUpRight size={14} aria-hidden="true" /></a>
         </div>
         {!picked && !ways.length && !data.pay.bank
           ? <p>{t('billingPayContact')}</p>

@@ -259,6 +259,10 @@ const bn = {
   signupAction: 'অ্যাকাউন্ট খুলুন',
   noAccount: 'অ্যাকাউন্ট নেই?',
   haveAccount: 'আগে থেকেই অ্যাকাউন্ট আছে?',
+  signupAgree: 'অ্যাকাউন্ট খুললে আমাদের {terms} ও {privacy} মেনে নিচ্ছেন।',
+  legalTerms: 'ব্যবহারের শর্তাবলী',
+  legalPrivacy: 'গোপনীয়তা নীতি',
+  legalRefund: 'রিফান্ড নীতি',
   yourName: 'আপনার নাম',
   emailLabel: 'ইমেইল',
   passwordLabel: 'পাসওয়ার্ড',
@@ -1777,6 +1781,10 @@ const en: Record<Key, string> = {
   signupAction: 'Create account',
   noAccount: 'No account yet?',
   haveAccount: 'Already have an account?',
+  signupAgree: 'By creating an account, you agree to our {terms} and {privacy}.',
+  legalTerms: 'Terms of service',
+  legalPrivacy: 'Privacy policy',
+  legalRefund: 'Refund policy',
   yourName: 'Your name',
   emailLabel: 'Email',
   passwordLabel: 'Password',
@@ -3212,6 +3220,9 @@ export function LangProvider({ children }: { children: ReactNode }) {
 
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>
 }
+
+// Pages on the marketing site (pricing, terms, privacy, refund), in the dashboard's language.
+export const siteUrl = (lang: string, path: string) => `https://uddokta.co${lang === 'en' ? '/en' : ''}/${path}`
 
 export function useLang() {
   const ctx = useContext(LangContext)
