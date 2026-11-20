@@ -170,7 +170,7 @@ app.post('/auth/signup', async (c) => {
   await startSession(c, id)
   await tx(null, (t) => t.execute(sql`select update_profile(${id}::uuid, null, ${readLang(body.lang)})`))
   // A failed SMS does not undo the account: the verification screen can send the code again.
-  if (sms.status === 'ok' && smsReady()) await sendCode(phone, sms.code, readLang(body.lang)).catch((err) => console.error('SMS failed', err))
+  if (sms.status === 'ok' && smsReady()) await sendCode(phone, sms.code).catch((err) => console.error('SMS failed', err))
   await sendVerification(id, email, name, readLang(body.lang))
   return c.json({ ok: true }, 201)
 })

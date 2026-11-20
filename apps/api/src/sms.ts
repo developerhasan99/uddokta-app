@@ -5,7 +5,6 @@ import type { Hono } from 'hono'
 import { readPhone } from 'storefront/schema'
 import { one, tx, type Tx } from './db.ts'
 import { databaseCode, fail, hash } from './http.ts'
-import type { Lang } from './email.ts'
 import type { Env } from './app.ts'
 
 // Phone verification by SMS. Codes are sent at once, not queued: a code is only useful for a few minutes.
@@ -19,9 +18,9 @@ export const smsReady = (env = process.env) => Boolean(env.SMS_API_KEY) || env.N
 
 const codeHash = (userId: string, code: string) => hash(`${userId}:${code}`)
 
-const codeText = (lang: Lang, code: string) => (lang === 'bn'
-  ? `উদ্যোক্তা কোড: ${code}। ${new Intl.NumberFormat('bn-BD').format(codeMinutes)} মিনিট কাজ করবে। কাউকে বলবেন না।`
-  : `Uddokta code: ${code}. It works for ${codeMinutes} minutes. Do not share it.`)
+// Alpha SMS requires the brand in every message and this OTP wording (their portal's rule), so it is the same in both
+// languages; plain English also keeps it one ৳0.40 SMS. Phones pick the code out for autofill.
+const codeText = (code: string) => `Your Uddokta OTP Code is ${code}`
 
 export async function sendSms(to: string, text: string, env = process.env) {
   if (env.SMS_API_KEY) {
@@ -49,7 +48,7 @@ export async function startPhone(t: Tx, userId: string, phone: string) {
   return { status: row!.status as 'ok' | 'verified' | 'phoneTaken' | 'wait' | 'tooMany', code }
 }
 
-export const sendCode = (phone: string, code: string, lang: Lang) => sendSms(phone, codeText(lang, code))
+export const sendCode = (phone: string, code: string) => sendSms(phone, codeText(code))
 
 const verifiedTaken = (err: unknown) => {
   throw databaseCode(err) === '23505' ? fail(409, 'phoneTaken') : err
@@ -63,17 +62,17 @@ export function registerPhone(app: Hono<Env>) {
     const body = await c.req.json().catch(() => ({}))
     const given = typeof body?.phone === 'string' ? readPhone(body.phone) : null
     if (body?.phone !== undefined && !given) throw fail(400, 'phoneInvalid')
-    const { status, code, phone, lang } = await tx(userId, async (t) => {
-      const user = await one<{ phone: string | null; language: Lang }>(t, sql`select phone, language from users where id = ${userId}::uuid`)
+    const { status, code, phone } = await tx(userId, async (t) => {
+      const user = await one<{ phone: string | null }>(t, sql`select phone from users where id = ${userId}::uuid`)
       const phone = given ?? user?.phone
       if (!phone) throw fail(400, 'phoneInvalid')
-      return { ...(await startPhone(t, userId, phone)), phone, lang: user!.language }
+      return { ...(await startPhone(t, userId, phone)), phone }
     })
     if (status === 'verified') throw fail(409, 'phoneVerified')
     if (status === 'phoneTaken') throw fail(409, 'phoneTaken')
     if (status === 'wait') throw fail(429, 'codeWait')
     if (status === 'tooMany') throw fail(429, 'tooManyCodes')
-    await sendCode(phone, code, lang).catch((err) => {
+    await sendCode(phone, code).catch((err) => {
       console.error('SMS failed', err)
       throw fail(502, 'smsFailed')
     })
