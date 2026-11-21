@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router'
 import { FileUp } from 'lucide-react'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -53,6 +53,7 @@ export function ProductImportDialog({ onClose, onImported }: { onClose: () => vo
   const [running, setRunning] = useState(false)
   const [done, setDone] = useState(0)
   const [result, setResult] = useState<Result | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     ref.current?.showModal()
@@ -63,6 +64,20 @@ export function ProductImportDialog({ onClose, onImported }: { onClose: () => vo
     setUnknown(!read)
     setFile(read)
     if (input.current) input.current.value = ''
+  }
+
+  // A CSV dragged in from the desktop works anywhere on the dialog until the import starts.
+  const accepts = (e: DragEvent) => !running && !result && e.dataTransfer.types.includes('Files')
+  const drop = {
+    onDragOver: (e: DragEvent) => { if (!accepts(e)) return; e.preventDefault(); setDragging(true) },
+    onDragLeave: (e: DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false) },
+    onDrop: (e: DragEvent) => {
+      if (!accepts(e)) return
+      e.preventDefault()
+      setDragging(false)
+      const f = e.dataTransfer.files[0]
+      if (f) void choose(f)
+    },
   }
 
   const run = async (products: ImportProduct[]) => {
@@ -114,7 +129,7 @@ export function ProductImportDialog({ onClose, onImported }: { onClose: () => vo
   const percent = file && file.products.length ? (done / file.products.length) * 100 : 0
 
   return (
-    <dialog {...props} className="modal product-import" aria-labelledby="product-import-title" onCancel={(e) => { e.preventDefault(); if (!running) close() }}>
+    <dialog {...props} {...drop} className="modal product-import" aria-labelledby="product-import-title" onCancel={(e) => { e.preventDefault(); if (!running) close() }}>
       <DialogHead id="product-import-title" title={t('productImportTitle')} onClose={() => close()} disabled={running} />
       <input ref={input} type="file" accept=".csv,text/csv" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; if (f) void choose(f) }} />
 
@@ -126,11 +141,15 @@ export function ProductImportDialog({ onClose, onImported }: { onClose: () => vo
               <li>{t('productImportShopifyHow')}</li>
               <li>{t('productImportWooHow')}</li>
             </ul>
+            <button type="button" className="media__empty" onClick={() => input.current?.click()}>
+              <FileUp size={32} strokeWidth={1.5} aria-hidden="true" />
+              <strong>{t('productImportChoose')}</strong>
+              <span className="muted">{t('productImportDrag')}</span>
+            </button>
             {unknown && <p className="form-error" role="alert">{t('productImportUnknown')}</p>}
           </div>
           <div className="dialog__foot">
             <Button onClick={() => close()}>{t('cancel')}</Button>
-            <Button variant="primary" onClick={() => input.current?.click()}><FileUp size={16} aria-hidden="true" />{t('productImportChoose')}</Button>
           </div>
         </>
       )}
@@ -200,6 +219,7 @@ export function ProductImportDialog({ onClose, onImported }: { onClose: () => vo
           </div>
         </>
       )}
+      {dragging && <div className="media__drop" aria-hidden="true"><FileUp size={24} />{t('productImportDrop')}</div>}
     </dialog>
   )
 }
