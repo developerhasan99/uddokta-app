@@ -261,7 +261,7 @@ export function OnlineStore() {
             <a href={`${url}/sitemap.xml`} target="_blank" rel="noopener">{`${url}/sitemap.xml`}</a>
             <span className="field__help">{L(['Google Search Console-এ এই লিংকটি জমা দিন। নতুন পণ্য, কালেকশন আর পেজ নিজে থেকেই যোগ হয়; খসড়া আর লুকানো পণ্য বাদ থাকে।', 'Submit this link in Google Search Console. New products, collections and pages are added by themselves; drafts and unlisted products are left out.'])}</span>
           </div>
-          <fieldset className="choice-list">
+          <fieldset className="check-row">
             <legend className="field__label">{L(['সাইটম্যাপে যা থাকবে', 'What the sitemap lists'])}</legend>
             {([['product', L(['পণ্য', 'Products'])], ['collection', L(['কালেকশন', 'Collections'])], ['storePage', L(['দোকানের পেজ', 'Store pages'])], ['landingPage', L(['ল্যান্ডিং পেজ', 'Landing pages'])]] as const).map(([kind, label]) => (
               <label key={kind} className="check-line"><input type="checkbox" className="check" checked={prefs.sitemapKinds.includes(kind)} onChange={(e) => setP({ sitemapKinds: e.target.checked ? [...prefs.sitemapKinds, kind] : prefs.sitemapKinds.filter((k) => k !== kind) })} />{label}</label>
