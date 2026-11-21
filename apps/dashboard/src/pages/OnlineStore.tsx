@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
+import { defaultRobots } from 'storefront/paths'
 import { pageColor, styleFromPreset, type SiteColors, type SiteStyle } from 'storefront/site'
 import { pageFonts, presetIds, presets } from 'storefront/themes'
 import { useCurrentStore, useStorePath } from '../account-context'
@@ -13,7 +14,7 @@ import { errorLabel, useLang } from '../i18n'
 
 const CssEditor = lazy(() => import('../components/CssEditor'))
 
-type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en' }
+type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en'; seoHidden: boolean; robotsTxt: string; googleVerification: string }
 type Counts = { templates: number; pages: number; menus: number; broken: number }
 
 // Online store: the store's address and parts (templates, pages, menus), its look (Site settings) and its preferences
@@ -84,7 +85,7 @@ export function OnlineStore() {
     setError(null)
     try {
       const nextStyle = styleDirty ? await api<SiteStyle>(`/stores/${handle}/site-style`, { method: 'PUT', body: style }) : style
-      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language } }) : prefs
+      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language, seoHidden: prefs.seoHidden, robotsTxt: prefs.robotsTxt, googleVerification: prefs.googleVerification } }) : prefs
       setStyle(nextStyle)
       setPrefs(nextPrefs)
       setSaved({ style: JSON.stringify(nextStyle), prefs: JSON.stringify(nextPrefs) })
@@ -244,6 +245,26 @@ export function OnlineStore() {
             <Field id="pref-message" label={t('prefPasswordMessage')} maxLength={300} placeholder={t('prefPasswordMessageHint')} value={prefs.passwordMessage} onChange={(e) => setP({ passwordMessage: e.target.value })} />
           </div>}
           {prefs.passwordOn && wasLocked && <a className="field__help" href={`${url}/password`} target="_blank" rel="noopener">{t('prefPasswordView')}</a>}
+        </>)}
+
+        {section(L(['সার্চ ইঞ্জিন', 'Search engines']), L(['Google-এর মতো সার্চ ইঞ্জিন আপনার দোকান কীভাবে খুঁজে পাবে। সাইটম্যাপ নিজে থেকে তৈরি হয়।', 'How Google and other search engines find your store. The sitemap is made for you.']), <>
+          <label className="switch-row switch-row--flush">
+            <input type="checkbox" className="check" checked={!prefs.seoHidden} onChange={(e) => setP({ seoHidden: !e.target.checked })} />
+            <span className="switch-row__text"><span className="switch-row__title">{L(['সার্চ ইঞ্জিনে দোকান দেখাবে', 'Show the store in search engines'])}</span><span className="muted">{prefs.seoHidden
+              ? L(['বন্ধ: কোনো পেজ সার্চে আসবে না। দোকান সাজানোর সময় এভাবে রাখতে পারেন।', 'Off: no page shows in search results. Useful while you set the store up.'])
+              : L(['চালু: দোকান, পণ্য আর ল্যান্ডিং পেজ সার্চে আসতে পারে।', 'On: the store, products and landing pages can show in search results.'])}</span></span>
+          </label>
+          <div className="field">
+            <span className="field__label">{L(['সাইটম্যাপ', 'Sitemap'])}</span>
+            <a href={`${url}/sitemap.xml`} target="_blank" rel="noopener">{`${url}/sitemap.xml`}</a>
+            <span className="field__help">{L(['Google Search Console-এ এই লিংকটি জমা দিন। নতুন পণ্য, কালেকশন আর পেজ নিজে থেকেই যোগ হয়; খসড়া আর লুকানো পণ্য বাদ থাকে।', 'Submit this link in Google Search Console. New products, collections and pages are added by themselves; drafts and unlisted products are left out.'])}</span>
+          </div>
+          <Field id="pref-google" label={L(['Google Search Console যাচাই', 'Google Search Console verification'])} maxLength={300} autoComplete="off" placeholder={'<meta name="google-site-verification" content="…" />'} help={L(['Search Console-এর "HTML ট্যাগ" পদ্ধতির পুরো ট্যাগটি বা শুধু কোডটি দিন।', 'Paste the whole tag from Search Console\'s "HTML tag" method, or just its code.'])} value={prefs.googleVerification} onChange={(e) => setP({ googleVerification: e.target.value })} />
+          <div className="field">
+            <label className="field__label" htmlFor="pref-robots">robots.txt</label>
+            <textarea id="pref-robots" className="input input--area input--mono" rows={7} maxLength={5000} spellCheck={false} placeholder={defaultRobots} value={prefs.robotsTxt} onChange={(e) => setP({ robotsTxt: e.target.value })} />
+            <span className="field__help">{L(['ফাঁকা রাখলে আমাদের নিয়ম চলে (ধূসর লেখা): কার্ট, অ্যাকাউন্ট আর খোঁজার পেজ বাদ। সাইটম্যাপের লাইন নিজে থেকে যোগ হয়।', 'Leave it blank to use ours (the grey text): carts, accounts and search pages stay out. The sitemap line is added for you.'])} <a href={`${url}/robots.txt`} target="_blank" rel="noopener">{L(['এখন যা আছে দেখুন', 'See the current file'])}</a></span>
+          </div>
         </>)}
       </fieldset>
 

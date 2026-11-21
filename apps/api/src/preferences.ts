@@ -9,7 +9,7 @@ import { media, stores } from './schema.ts'
 
 const show = async (t: Tx, store: typeof stores.$inferSelect) => {
   const [image] = store.shareMediaId ? await t.select().from(media).where(and(eq(media.storeId, store.id), eq(media.id, store.shareMediaId))) : []
-  return { homeTitle: store.homeTitle, homeDescription: store.homeDescription, shareImage: image ? present(image) : null, passwordOn: store.storePasswordHash !== null, passwordMessage: store.passwordMessage, language: store.language }
+  return { homeTitle: store.homeTitle, homeDescription: store.homeDescription, shareImage: image ? present(image) : null, passwordOn: store.storePasswordHash !== null, passwordMessage: store.passwordMessage, language: store.language, seoHidden: store.seoHidden, robotsTxt: store.robotsTxt, googleVerification: store.googleVerification }
 }
 
 // Online store › Preferences. Owners and admins change them, like the other store settings (row-level security on stores).
@@ -28,12 +28,21 @@ export function registerPreferences(app: Hono<Env>) {
     const language = body?.language
     if (homeTitle === null || homeDescription === null || passwordMessage === null || !(shareImageId === null || isId(shareImageId))
       || typeof body?.passwordOn !== 'boolean' || typeof password !== 'string' || password.length > 100 || !(language === undefined || language === 'bn' || language === 'en')) throw fail(400, 'invalidRequest')
-    if (password && password.trim().length < 8) throw fail(400, 'storePasswordShort')
+    // Any length will do: it only keeps buyers out while the store is being set up.
+    if (password && !password.trim()) throw fail(400, 'storePasswordShort')
+    // Search engines. The verification code may be pasted as the whole meta tag Google gives; only the code is kept.
+    // Left out (an older screen) keeps what is saved.
+    const seoHidden = body?.seoHidden
+    const robotsTxt = body?.robotsTxt === undefined ? undefined : str(String(body.robotsTxt).replace(/\r\n?/g, '\n'), 5000)
+    const pasted = typeof body?.googleVerification === 'string' ? body.googleVerification.trim() : body?.googleVerification
+    const googleVerification = typeof pasted === 'string' ? /content\s*=\s*["']([^"']*)["']/i.exec(pasted)?.[1]?.trim() ?? pasted : pasted
+    if (!(seoHidden === undefined || typeof seoHidden === 'boolean') || robotsTxt === null || (typeof robotsTxt === 'string' && typeof body.robotsTxt !== 'string')
+      || !(googleVerification === undefined || (typeof googleVerification === 'string' && /^[A-Za-z0-9_-]{0,100}$/.test(googleVerification)))) throw fail(400, 'searchEnginesInvalid')
     return tx(c.get('userId'), async (t) => {
       const store = await storeByHandle(t, c.req.param('handle'))
       if (body.passwordOn && !password && store.storePasswordHash === null) throw fail(400, 'storePasswordShort')
       const storePasswordHash = !body.passwordOn ? null : password ? await hashPassword(password.trim()) : store.storePasswordHash
-      const [row] = await t.update(stores).set({ homeTitle, homeDescription, passwordMessage, shareMediaId: shareImageId, storePasswordHash, language: language ?? store.language }).where(eq(stores.id, store.id)).returning()
+      const [row] = await t.update(stores).set({ homeTitle, homeDescription, passwordMessage, shareMediaId: shareImageId, storePasswordHash, language: language ?? store.language, seoHidden: seoHidden ?? store.seoHidden, robotsTxt: robotsTxt ?? store.robotsTxt, googleVerification: googleVerification ?? store.googleVerification }).where(eq(stores.id, store.id)).returning()
       if (!row) throw fail(403, 'forbidden')
       return c.json(await show(t, row))
     })

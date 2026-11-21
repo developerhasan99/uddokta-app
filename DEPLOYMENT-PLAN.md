@@ -661,3 +661,7 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 ## /admin on store addresses (November 20, 2026)
 
 - `https://{store}.uddokta.live/admin` and `https://{own domain}/admin` redirect (302) to the store's dashboard, `https://admin.uddokta.co/store/{handle}` (deeper paths too: `/admin/orders`). The storefront reads `APP_URL` if set, else `https://admin.uddokta.co`. Tested for both addresses in `server.test.tsx`.
+
+## Store password and search engines (November 21, 2026)
+
+- The store password may be any length (not blank). Online store › Search engines: show/hide the store in search engines, the sitemap link to give Google Search Console, Google verification (paste the tag or the code), and the store's own robots.txt (blank: ours). Each store now serves its own `/robots.txt` and `/sitemap.xml` (also on own domains). Migration 0110 adds `seo_hidden`, `robots_txt`, `google_verification` and `storefront_sitemap()`. Tested in `server.test.tsx`; checked on the local QA store.

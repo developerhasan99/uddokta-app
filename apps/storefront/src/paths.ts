@@ -5,3 +5,7 @@ export const isReservedPageHandle = (handle: string) => reservedPages.has(handle
 export const isReservedStoreHandle = (handle: string) => reservedStores.has(handle.toLowerCase())
 // Existing pages with a reserved handle retain their legacy URL until the seller renames them.
 export const pageHref = (handle: string) => `${isReservedPageHandle(handle) ? '/pages' : ''}/${encodeURIComponent(handle)}`
+
+// The robots.txt a store gets unless the seller writes their own (Online store › Search engines): everything open but
+// buyers' carts, accounts, searches, the password page and order receipts. The storefront adds the sitemap line.
+export const defaultRobots = ['User-agent: *', 'Disallow: /cart', 'Disallow: /account', 'Disallow: /search', 'Disallow: /password', 'Disallow: /*/thanks', 'Allow: /'].join('\n')

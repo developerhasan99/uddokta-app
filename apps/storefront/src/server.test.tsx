@@ -834,7 +834,8 @@ test('search finds active products by name, and never drafts', async () => {
 
 test('a store password closes store pages (not landing pages) until the buyer enters it; home title comes from Preferences', async () => {
   const s = await publishedPage()
-  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'eid2026' })).json.error, 'storePasswordShort')
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: '   ' })).json.error, 'storePasswordShort', 'a blank password is refused')
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: '12' })).status, 200, 'any length will do')
   assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: 'রঙিন শপ: হাতের কাজ', homeDescription: 'দেশি পোশাক', passwordOn: true, password: 'eid-2026', passwordMessage: 'ঈদে খুলছি' })).status, 200)
   const closed = await (await visit(s.handle, '/')).text()
   assert.match(closed, /ঈদে খুলছি/)
@@ -852,6 +853,43 @@ test('a store password closes store pages (not landing pages) until the buyer en
   assert.match(open, /পাঞ্জাবি/)
   await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false })
   assert.match(await (await visit(s.handle, '/')).text(), /পাঞ্জাবি/, 'turning the password off opens the store')
+})
+
+test('search engines: per-store robots.txt and sitemap (only what buyers can open), hide the store, Google verification', async () => {
+  const s = await publishedPage()
+  const prefs = (extra: object) => s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, ...extra })
+  await s.call('POST', `/stores/${s.handle}/products`, { name: 'গোপন', status: 'unlisted', variants: [{ options: [], price: 500 }] })
+  await s.call('POST', `/stores/${s.handle}/products`, { name: 'খসড়া', status: 'draft', variants: [{ options: [], price: 500 }] })
+  const collection = (await s.call('POST', `/stores/${s.handle}/collections`, { name: 'ঈদ', productIds: [] })).json
+
+  const robots = await (await visit(s.handle, '/robots.txt')).text()
+  assert.match(robots, /^User-agent: \*\nDisallow: \/cart\n/)
+  const origin = /Sitemap: (http:\/\/[^\s]+)\/sitemap\.xml/.exec(robots)?.[1] ?? ''
+  assert.match(origin, new RegExp(`^http://${s.handle}\\.localhost`), 'the sitemap line points at this store')
+  const map = await visit(s.handle, '/sitemap.xml')
+  assert.equal(map.headers.get('content-type'), 'application/xml; charset=utf-8')
+  const xml = await map.text()
+  for (const path of ['/', '/products', `/products/${encodeURIComponent(s.product.handle)}`, `/collections/${encodeURIComponent(collection.handle)}`, s.url]) assert.ok(xml.includes(`<loc>${origin}${path}</loc>`), path)
+  assert.doesNotMatch(xml, /%E0%A6%97%E0%A7%8B%E0%A6%AA%E0%A6%A8|%E0%A6%96%E0%A6%B8%E0%A6%A1%E0%A6%BC%E0%A6%BE/, 'unlisted and draft products stay out')
+
+  // The seller's own robots.txt; the sitemap line is added unless they wrote one. The verification tag may be pasted whole.
+  assert.equal((await prefs({ robotsTxt: 'User-agent: *\r\nDisallow: /secret', googleVerification: '<meta name="google-site-verification" content="abc_DEF-123" />' })).json.googleVerification, 'abc_DEF-123')
+  assert.match(await (await visit(s.handle, '/robots.txt')).text(), /^User-agent: \*\nDisallow: \/secret\n\nSitemap: /)
+  assert.match(await (await visit(s.handle, '/')).text(), /<meta name="google-site-verification" content="abc_DEF-123"\/>/)
+  assert.equal((await prefs({ googleVerification: '"><script>' })).json.error, 'searchEnginesInvalid')
+  assert.equal((await prefs({ robotsTxt: 'x'.repeat(5001) })).json.error, 'searchEnginesInvalid')
+  assert.equal((await prefs({})).json.robotsTxt, 'User-agent: *\nDisallow: /secret', 'fields left out keep what is saved')
+
+  // Hidden: everything blocked, every page noindex, an empty sitemap.
+  await prefs({ seoHidden: true })
+  assert.equal(await (await visit(s.handle, '/robots.txt')).text(), 'User-agent: *\nDisallow: /\n')
+  assert.match(await (await visit(s.handle, s.url)).text(), /name="robots" content="noindex"/)
+  assert.doesNotMatch(await (await visit(s.handle, '/sitemap.xml')).text(), /<url>/)
+  // A password-protected store lists only its landing pages.
+  await prefs({ seoHidden: false, passwordOn: true, password: 'x' })
+  const locked = await (await visit(s.handle, '/sitemap.xml')).text()
+  assert.ok(locked.includes(`${s.url}</loc>`))
+  assert.doesNotMatch(locked, /\/products/)
 })
 
 test('20 wrong store passwords in 15 minutes close the password form, even for the right password', async () => {

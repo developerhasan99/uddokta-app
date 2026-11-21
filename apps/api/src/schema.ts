@@ -136,6 +136,11 @@ export const stores = pgTable('stores', {
   shareMediaId: uuid('share_media_id'),
   storePasswordHash: text('store_password_hash'),
   passwordMessage: text('password_message').notNull().default(''),
+  // Search engines (Online store page): hide the whole store (robots.txt and noindex), the seller's own robots.txt
+  // (blank: ours), and the Google Search Console verification code (written as a meta tag).
+  seoHidden: boolean('seo_hidden').notNull().default(false),
+  robotsTxt: text('robots_txt').notNull().default(''),
+  googleVerification: text('google_verification').notNull().default(''),
   // The language of the store's own words (buttons, form labels, messages; storefront/src/words.ts) on every store
   // page and landing page. What the seller writes is shown as written. Later: both, with a switch for buyers.
   language: text('language', { enum: ['bn', 'en'] }).notNull().default('bn'),

@@ -6,14 +6,14 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { renderToString } from 'react-dom/server'
 import { tx, type Tx } from '../../api/src/db.ts'
 import { liveMediaUrl, publicUrl, readLocalFile } from '../../api/src/storage.ts'
-import { isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
+import { defaultRobots, isReservedPageHandle, isReservedStoreHandle, pageHref } from './paths.ts'
 import { cleanRichText } from './rich.ts'
 import { validateRuntime } from '../../api/src/runtime.ts'
 import { dummyHash, hashPassword, verifyPassword } from '../../api/src/password.ts'
 import { hasCustomHtml, orderBlocks, readPhone, references, walk, type Content, type Section, type Settings } from './schema.ts'
 import { isPreset, type PresetId } from './themes.ts'
 import { builtInTemplates, readSiteStyle, siteCss, siteFontsHref, styleFromPreset, type SiteStyle, type TemplateType } from './site.ts'
-import { catalogCss, collectionHref, type Card, type CollectionLink } from './catalog.tsx'
+import { catalogCss, collectionHref, productHref, type Card, type CollectionLink } from './catalog.tsx'
 import { linkedIds, resolveMenu, type IdLinkType, type LinkTargets, type MenuItem, type ResolvedItem } from './menus.ts'
 import { num, taka, tr, type Lang } from './words.ts'
 import { applyFilters, readSelection, selectionQuery, type FilterAttribute, type FilterRow } from './filters.ts'
@@ -144,7 +144,7 @@ async function loadStore(handle: string) {
     if (!menus['main-menu']?.length) menus['main-menu'] = collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] }))
     const info = (await t.execute<{ logo_key: string | null; logo_width: number; logo_height: number; phone: string; whatsapp: string; email: string; address: string; facebook: string }>(sql`select * from storefront_store_info(${store.id}::uuid)`)).rows[0]
     const storeInfo: StoreInfo = { name: store.name, logo: info ? image(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' }
-    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string; language: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
+    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string; language: string; seo_hidden: boolean; robots_txt: string; google_verification: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
     const policyRows = (await t.execute<{ kind: string; handle: string | null }>(sql`select k.kind, storefront_policy(${store.id}::uuid, k.kind) as handle from unnest(array['refund', 'terms', 'privacy', 'shipping', 'contact']) as k(kind)`)).rows
     const policies = Object.fromEntries(policyRows.filter((r) => r.handle).map((r) => [r.kind, pageHref(r.handle!)])) as Ctx['policies']
     return { ...store, collections, style, menus, info: storeInfo, prefs, policies, shipping: await shippingOptions(t, store.id) }
@@ -207,7 +207,11 @@ type Look = { css: string; fontsHref: string | null; custom: string }
 const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style), custom: style.css })
 const defaultLook = lookOf(styleFromPreset('fresh'))
 
-function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, lang = 'bn', children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; lang?: Lang; children: React.ReactNode }) {
+// A store's search engine settings for every page's <head>: hidden from search engines (noindex) and Google's code.
+type Seo = { hidden: boolean; google: string }
+const seoOf = (store: LoadedStore | null | undefined): Seo | undefined => store?.prefs ? { hidden: store.prefs.seo_hidden, google: store.prefs.google_verification } : undefined
+
+function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, lang = 'bn', seo, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; lang?: Lang; seo?: Seo; children: React.ReactNode }) {
   // lang also tells the page scripts which digits to write.
   return (
     <html lang={lang}>
@@ -217,7 +221,8 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
         <title>{title}</title>
         <link rel="icon" href="/favicon.ico" />
         {description && <meta name="description" content={description} />}
-        {(noindex || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
+        {(noindex || seo?.hidden || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
+        {seo?.google && <meta name="google-site-verification" content={seo.google} />}
         <meta property="og:title" content={title} />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'bn_BD'} />
@@ -299,7 +304,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
   }
   const frame = store ? { header, footer } : undefined
   return html(c, (
-    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel} lang={langOf(store)}>
+    <Document title={page.seo_title || page.title} description={page.seo_description} canonical={`${c.get('origin')}${pagePath(c)}`} look={store ? lookOf(store.style) : undefined} pixel={pixel} lang={langOf(store)} seo={seoOf(store)}>
       <PageView content={page.content} ctx={ctx} storeName={page.store_name} frame={frame} themeCss={store?.style.css} />
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
       {store && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
@@ -382,7 +387,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
     buyer: (await buyerOf(c, store.id)) ?? undefined,
   }
   return html(c, (
-    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel} lang={langOf(store)}>
+    <Document title={meta.title} description={meta.description} canonical={meta.canonical} shareImage={meta.shareImage} noindex={meta.noindex} look={lookOf(store.style)} pixel={pixel} lang={langOf(store)} seo={seoOf(store)}>
       <PageView content={{ ...template, canvas: { header: true, footer: true } }} ctx={ctx} storeName={store.name} frame={{ header: header.sections, footer: footer.sections }} themeCss={store.style.css} />
       {here.product && <script dangerouslySetInnerHTML={{ __html: pageScript }} />}
       {(filtersUsed || here.search?.filters) && <script dangerouslySetInnerHTML={{ __html: filterScript }} />}
@@ -496,7 +501,40 @@ app.get('/_domains/allowed', async (c) => {
   return asked && await domainStore(asked) ? c.text('ok') : c.text('unknown', 404)
 })
 
-app.get('/robots.txt', (c) => c.text(process.env.ROBOTS_NOINDEX === 'true' ? 'User-agent: *\nDisallow: /\n' : 'User-agent: *\nAllow: /\n'))
+// Search engines. Each store has its own robots.txt: blocked entirely while it is hidden (Online store › Search
+// engines) or the whole service is (ROBOTS_NOINDEX); else the seller's own text, or ours (keep buyers' carts, accounts and
+// searches out). The sitemap line is added unless the seller wrote one.
+app.get('/robots.txt', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle ? await loadStore(handle) : null
+  if (process.env.ROBOTS_NOINDEX === 'true' || !store || store.prefs?.seo_hidden) return c.text('User-agent: *\nDisallow: /\n')
+  const own = store.prefs?.robots_txt.trim() ?? ''
+  const body = own || defaultRobots
+  return c.text(`${body}${/^\s*sitemap\s*:/im.test(body) ? '' : `\n\nSitemap: ${c.get('origin')}/sitemap.xml`}\n`)
+})
+
+// Every page a buyer can open, for search engines. A password-protected store lists only its landing pages (the rest
+// asks for the password); without the online store in its plan, only landing pages exist; a hidden store lists nothing.
+const xml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+app.get('/sitemap.xml', async (c) => {
+  const handle = storeHandle(c)
+  const store = handle ? await loadStore(handle) : null
+  if (!store) return notFound(c)
+  const origin = c.get('origin')
+  const urls: { path: string; changed?: string }[] = []
+  if (!store.prefs?.seo_hidden && process.env.ROBOTS_NOINDEX !== 'true') {
+    const rows = (await tx(null, (t) => t.execute<{ kind: string; handle: string; changed: string | null }>(sql`select * from storefront_sitemap(${store.id}::uuid)`))).rows
+    const shop = c.get('online') && !store.prefs?.password_hash
+    if (shop) urls.push({ path: '/' }, { path: '/products' }, { path: '/collections' })
+    for (const r of rows) {
+      if (r.kind !== 'landingPage' && !shop) continue
+      const path = r.kind === 'product' ? productHref(r.handle) : r.kind === 'collection' ? collectionHref(r.handle) : pageHref(r.handle)
+      urls.push({ path, changed: r.changed ? new Date(r.changed).toISOString() : undefined })
+    }
+  }
+  const body = urls.map((u) => `<url><loc>${xml(`${origin}${u.path}`)}</loc>${u.changed ? `<lastmod>${u.changed}</lastmod>` : ''}</url>`).join('')
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>\n`, 200, { 'content-type': 'application/xml; charset=utf-8' })
+})
 // Every page links here, and browsers ask on their own: the store's favicon from Settings › Store, or nothing.
 app.get('/favicon.ico', async (c) => {
   const handle = storeHandle(c)
@@ -576,7 +614,7 @@ const locked = (c: Context, store: LoadedStore) => Boolean(store.prefs?.password
 function passwordPage(c: Context, store: LoadedStore, error: 'wrong' | 'tooMany' | null = null) {
   const wrong = error !== null
   return html(c, (
-    <Document title={store.name} description="" noindex look={lookOf(store.style)} lang={langOf(store)}>
+    <Document title={store.name} description="" noindex look={lookOf(store.style)} lang={langOf(store)} seo={seoOf(store)}>
       <main className="sf-done sf-wrap sf-narrow sf-password">
         {store.info.logo ? <img className="sf-password__logo" src={store.info.logo.url} alt={store.name} /> : <h1>{store.name}</h1>}
         <p>{store.prefs?.password_message || tr(langOf(store), ['দোকানটি শিগগিরই খুলছে। পাসওয়ার্ড থাকলে নিচে লিখুন।', 'The store opens soon. Enter the password if you have it.'])}</p>
