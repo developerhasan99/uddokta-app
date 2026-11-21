@@ -1510,6 +1510,8 @@ export type PreviewData = {
   builtIn: { header: Section[]; footer: Section[] }
   // The store's home page (default home template or built-in) and the images it and the frames use.
   home: Content; images: Record<string, { url: string; alt: string; width: number; height: number }>
+  // The default product template, for Customize to preview a product page.
+  productPage: Content
   filter: { attrs: FilterAttribute[]; rows: FilterRow[] }
   choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
 }

@@ -110,8 +110,8 @@ function declarations(node: PageNode, st: NodeStyle, ctx: Ctx, base: NodeStyle =
   }
   if (n('fontSize') !== undefined) out.push(`font-size:${n('fontSize')}px`)
   if (st.fontWeight) out.push(`font-weight:${st.fontWeight}`)
-  if (st.color) out.push(`color:${st.color}`, `--sf-ink:${st.color}`, `--sf-muted:${st.color}`)
-  if (st.background) out.push(node.kind === 'button' ? `--sf-accent:${st.background}` : `background-color:${st.background}`)
+  if (st.color) out.push(`color:${st.color}`, `--sf-ink:${st.color}`, `--sf-muted:${st.color}`, ...(node.kind === 'button' ? [`--sf-btn-ink:${st.color}`, `--sf-btn-hover-ink:${st.color}`] : []))
+  if (st.background) out.push(...(node.kind === 'button' ? [`--sf-accent:${st.background}`, `--sf-btn-bg:${st.background}`, `--sf-btn-hover-bg:${st.background}`] : [`background-color:${st.background}`]))
   if (typeof st.backgroundImage === 'string') {
     const img = ctx.image(st.backgroundImage)
     if (img) out.push(`background-image:url(${JSON.stringify(img.url.replace(/[<>]/g, encodeURIComponent))})`, 'background-size:cover', 'background-position:center')
@@ -221,10 +221,10 @@ export const layoutBaseCss = `
 .sf-n-root{display:flex;flex-direction:column;gap:${rootGap}px}
 .sf-n-box{display:flex;flex-direction:column;gap:${boxGap}px;min-width:0;background-repeat:no-repeat}
 .sf-n{box-sizing:border-box;min-width:0}
-.sf-n-heading{margin:0;color:var(--sf-ink);font-weight:700;line-height:1.25;overflow-wrap:anywhere}
-:where(h1).sf-n-heading{font-size:clamp(30px,5vw,48px)}:where(h2).sf-n-heading{font-size:clamp(24px,3.6vw,34px)}:where(h3).sf-n-heading{font-size:clamp(20px,2.6vw,24px)}:where(h4).sf-n-heading{font-size:19px}:where(h5).sf-n-heading{font-size:17px}:where(h6).sf-n-heading{font-size:15px;letter-spacing:.02em}:where(p).sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
+.sf-n-heading{margin:0;color:var(--sf-ink);font-weight:var(--sf-heading-weight,700);line-height:1.25;overflow-wrap:anywhere}
+:where(h1).sf-n-heading{font-size:var(--sf-h1,clamp(30px,5vw,48px))}:where(h2).sf-n-heading{font-size:var(--sf-h2,clamp(24px,3.6vw,34px))}:where(h3).sf-n-heading{font-size:var(--sf-h3,clamp(20px,2.6vw,24px))}:where(h4).sf-n-heading{font-size:19px}:where(h5).sf-n-heading{font-size:17px}:where(h6).sf-n-heading{font-size:15px;letter-spacing:.02em}:where(p).sf-n-heading{font-size:16px;font-weight:400;line-height:1.6}
 .sf-n-text{line-height:1.7;overflow-wrap:anywhere}.sf-n-text :is(p,ul,ol,h2,h3){margin:0 0 .8em}.sf-n-text>:last-child{margin-bottom:0}.sf-n-text :is(ul,ol){padding-inline-start:1.4em}.sf-n-text h2{font-size:1.4em;line-height:1.3}.sf-n-text h3{font-size:1.2em;line-height:1.35}.sf-n-text a{color:var(--sf-accent)}
-.sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-radius)}.sf-n-image img{display:block;width:100%;height:auto}
+.sf-n-image{display:block;overflow:hidden;border-radius:var(--sf-image-radius,var(--sf-radius))}.sf-n-image img{display:block;width:100%;height:auto}
 :where(.sf-n).sf-button{margin:0;width:fit-content;gap:8px}
 .sf-n-icon{display:inline-flex;width:fit-content;color:var(--sf-accent)}
 [data-anim]{--sf-anim:1;animation-iteration-count:infinite}[data-anim-speed=slow]{--sf-anim:1.6}[data-anim-speed=fast]{--sf-anim:.6}

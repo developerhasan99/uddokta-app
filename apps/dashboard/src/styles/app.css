@@ -1060,7 +1060,12 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .page--settings { max-width: 64rem; padding-bottom: 6rem; }
 .store-hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: var(--space-md); }
 .store-hero__side { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
-.store-hero__view { align-self: flex-start; }
+.store-hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+/* The home page preview opens Customize; a small label says so on hover and keyboard focus. */
+.store-hero__preview { position: relative; display: block; min-width: 0; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
+.store-hero__customize { position: absolute; right: var(--space-sm); bottom: var(--space-sm); display: inline-flex; align-items: center; gap: var(--space-2xs); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-control); background: var(--color-ink); color: var(--color-paper); font-size: var(--text-sm); font-weight: 500; opacity: 0; transform: translateY(4px); transition: opacity var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.store-hero__preview:hover .store-hero__customize, .store-hero__preview:focus-visible .store-hero__customize { opacity: 1; transform: none; }
+.store-hero__preview:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .store-hero__info { display: grid; gap: var(--space-2xs); min-width: 0; }
 .store-hero__info h2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); font-size: var(--text-lg); }
 .store-hero__address { display: flex; align-items: center; gap: var(--space-2xs); min-width: 0; color: var(--color-muted); font-size: var(--text-sm); }
@@ -2266,3 +2271,30 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .deletion-bar > svg { flex: none; color: var(--color-danger); }
 .deletion-bar > span:first-of-type { flex: 1; min-width: 14rem; }
 .danger-zone { border-color: color-mix(in oklch, var(--color-danger) 35%, var(--color-rule)); }
+
+/* Online store › Customize (pages/Customize.tsx): the editor's frame with a settings list and a read-only page structure. */
+.customize .editor__sidebar > aside { overflow-y: auto; }
+.customize__intro { display: flex; gap: var(--space-2xs); align-items: flex-start; margin: 0; padding: 0 var(--space-sm) var(--space-xs); }
+.customize__intro svg { flex: none; margin-top: 2px; }
+.customize__back { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-inline-end: var(--space-2xs); padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: inherit; cursor: pointer; vertical-align: -6px; }
+.customize__back:hover { background: var(--color-paper-3); }
+.customize-groups { margin: 0; padding: 0 var(--space-2xs) var(--space-xs); list-style: none; }
+.customize-groups button { display: flex; align-items: center; gap: var(--space-xs); width: 100%; padding: var(--space-xs); border: 0; border-radius: var(--radius-box); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.customize-groups button:hover { background: var(--color-paper-3); }
+.customize-groups button > svg { flex: none; color: var(--color-muted); }
+.customize-groups__icon { display: grid; flex: none; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-box); background: var(--color-paper-3); color: var(--color-ink-2); }
+.customize-groups__text { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.customize-groups__text strong { font-size: var(--text-sm); font-weight: 600; }
+.customize-groups__text span { color: var(--color-muted); font-size: 12px; }
+.customize-tree { padding: 0 var(--space-2xs) var(--space-xs); }
+.customize-tree__label { margin: var(--space-xs) var(--space-xs) var(--space-3xs); color: var(--color-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.customize-tree ul { margin: 0; padding: 0; list-style: none; }
+.customize-tree button { display: block; width: 100%; overflow: hidden; padding: 5px var(--space-xs) 5px calc(var(--space-xs) + var(--depth, 0) * 14px); border: 0; border-radius: var(--radius-media); background: none; color: var(--color-ink-2); font: inherit; font-size: 12.5px; text-align: start; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.customize-tree button:hover { background: var(--color-paper-3); color: var(--color-ink); }
+.customize-tree button[aria-current] { background: color-mix(in srgb, var(--color-primary) 18%, transparent); color: var(--color-ink); }
+.customize-tree button.customize-tree__section { font-weight: 600; color: var(--color-ink); }
+@media (max-width: 719px) {
+  .customize { grid-template: "bar" auto "error" auto "sidebar" minmax(0, 42dvh) "preview" minmax(0, 1fr) / minmax(0, 1fr); }
+  .customize .editor__sidebar { border-right: 0; border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
+  .customize .editor__title h1 { display: none; }
+}

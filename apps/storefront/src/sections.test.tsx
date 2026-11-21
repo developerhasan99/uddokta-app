@@ -238,3 +238,21 @@ test('content width: 1200px by default on every page, set from Site settings, pa
   assert.match(css, /\.sf-wrap\{max-width:calc\(var\(--sf-width,1200px\) \+ 32px\)/)
   assert.match(css, /\.sf-styled \.sf-wrap\{max-width:calc\(var\(--section-width,var\(--sf-width,1200px\)\)/)
 })
+
+test('global element styles: checked on save, written as variables, read by buttons, fields, text and images', async () => {
+  const { readSiteStyle, siteCss, styleFromPreset } = await import('./site.ts')
+  const { layoutBaseCss } = await import('./layout.tsx')
+  const base = styleFromPreset('fresh')
+  const style = readSiteStyle({ ...base, elements: { buttonBg: '#111111', buttonRadius: 0, buttonWeight: '600', inputRadius: 4, h1: 40, imageRadius: 0, textSize: 15, unknown: 'x' } })!
+  assert.deepEqual(style.elements, { buttonBg: '#111111', buttonRadius: 0, buttonWeight: '600', inputRadius: 4, h1: 40, imageRadius: 0, textSize: 15 }, 'unknown keys are dropped')
+  const vars = siteCss(style)
+  for (const v of ['--sf-btn-bg:#111111', '--sf-btn-radius:0px', '--sf-btn-weight:600', '--sf-input-radius:4px', '--sf-h1:clamp(27px,5vw,40px)', '--sf-image-radius:0px', '--sf-text-size:15px']) assert.ok(vars.includes(v), v)
+  for (const bad of [{ buttonBg: 'red' }, { buttonRadius: 99 }, { buttonWeight: '950' }, { textSize: 15.5 }]) assert.equal(readSiteStyle({ ...base, elements: bad }), null, JSON.stringify(bad))
+  assert.equal(readSiteStyle(base)!.elements, undefined, 'no element styles: the storefront keeps its own look')
+  assert.match(css, /\.sf-button\{[^}]*background:var\(--sf-btn-bg,var\(--sf-accent\)\)/)
+  assert.match(css, /\.sf-field input,[^{]*\{[^}]*border-radius:var\(--sf-input-radius,8px\)/)
+  assert.match(layoutBaseCss, /:where\(h1\)\.sf-n-heading\{font-size:var\(--sf-h1,/)
+  // A section's own button colour still wins over the global one (it sets the same variables, closer to the button).
+  const section = renderToStaticMarkup(<PageView content={{ ...blankContent(), sections: [{ ...newSection('announcement', 'a'), style: { accent: '#ff0000' } }] }} ctx={ctx} storeName="x" />)
+  assert.match(section, /--sf-btn-bg:#ff0000/)
+})

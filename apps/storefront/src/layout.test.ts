@@ -30,7 +30,7 @@ test('corners: one size per corner, after the older all-corners size so they win
 test('hover: only the values set for hover, after everything else and only where a pointer can hover', () => {
   const out = css({ id: 'e', kind: 'button', props: {}, style: { background: '#111111', borderTopWidth: 1, transitionDuration: 200 }, hover: { background: '#222222', borderColor: '#ff0000' } })
   assert.match(out, /\.n-e\{[^}]*transition-property:[^;]*background-color[^;]*;transition-duration:200ms;transition-timing-function:ease/)
-  assert.match(out, /@media \(hover:hover\)\{\.n-e:hover\{--sf-accent:#222222;border-color:#ff0000\}\}$/, 'the hover rule keeps the normal border widths and style')
+  assert.match(out, /@media \(hover:hover\)\{\.n-e:hover\{--sf-accent:#222222;--sf-btn-bg:#222222;--sf-btn-hover-bg:#222222;border-color:#ff0000\}\}$/, 'the hover rule keeps the normal border widths and style')
 })
 
 test('a seller font size beats the default size for the heading level', () => {

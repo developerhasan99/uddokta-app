@@ -269,7 +269,10 @@ export function registerTemplates(app: Hono<Env>) {
     // images it and the header and footer templates use, so the Online store page can preview the real home page.
     const [homeRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'home'), sql`(${templates.isDefault} or ${templates.builtIn}) and ${templates.published} is not null`)).orderBy(desc(templates.isDefault)).limit(1)
     const home = (homeRow?.published as Content | undefined) ?? builtInTemplates.home
-    const mediaIds = [...new Set([home, ...frames.map((f) => f.published as Content)].flatMap((d) => references(d).media))]
+    // The product page likewise (the default product template), for Customize to preview buttons and the order form.
+    const [productRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'product'), sql`(${templates.isDefault} or ${templates.builtIn}) and ${templates.published} is not null`)).orderBy(desc(templates.isDefault)).limit(1)
+    const productPage = (productRow?.published as Content | undefined) ?? builtInTemplates.product
+    const mediaIds = [...new Set([home, productPage, ...frames.map((f) => f.published as Content)].flatMap((d) => references(d).media))]
     const images = Object.fromEntries((mediaIds.length ? await t.select({ id: media.id, key: media.key, name: media.name, alt: media.alt, width: media.width, height: media.height }).from(media).where(and(eq(media.storeId, store.id), inArray(media.id, mediaIds))) : [])
       .map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt || m.name, width: m.width, height: m.height }]))
     const choices = {
@@ -284,7 +287,7 @@ export function registerTemplates(app: Hono<Env>) {
       style: siteStyleOf(store), language: store.language,
       headers: frame('header'), footers: frame('footer'),
       builtIn: { header: builtInTemplates.header.sections, footer: builtInTemplates.footer.sections },
-      home, images,
+      home, productPage, images,
       // The store's filters with the previewed list's products, so list and search templates preview their filter panel.
       filter: {
         attrs: (await t.execute(sql`select * from storefront_filter_attributes(${store.id}::uuid)`)).rows,

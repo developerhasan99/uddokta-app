@@ -26,7 +26,70 @@ export const readTemplateContent = (raw: unknown): Content | null => readContent
 
 // page: the page behind everything (blank: a soft cool grey on light themes, so white parts such as the header stand out).
 export type SiteColors = { accent: string; ink: string; paper: string; tint: string; rule: string; page?: string }
-export type SiteStyle = { colors: SiteColors; radius: number; bangla: string; latin: string; width: number; css: string }
+// elements: global styles for buttons, form fields, text and images (Online store › Customize), each optional (absent keeps
+// the storefront's own look). A section's or element's own style in the page builder still wins over these.
+export type SiteElements = Partial<Record<SiteElementKey, string | number>>
+export type SiteStyle = { colors: SiteColors; radius: number; bangla: string; latin: string; width: number; css: string; elements?: SiteElements }
+
+// ---- Global element styles: one list for validation, the CSS variables the storefront reads and the Customize form ----
+type ElementField = { key: string; group: 'type' | 'button' | 'input' | 'image'; label: readonly [string, string]; variable: string }
+  & ({ kind: 'number'; min: number; max: number } | { kind: 'color' } | { kind: 'select'; options: readonly (readonly [string, readonly [string, string]])[] })
+const weights = [['400', ['স্বাভাবিক', 'Regular']], ['500', ['মাঝারি', 'Medium']], ['600', ['সেমিবোল্ড', 'Semibold']], ['700', ['বোল্ড', 'Bold']], ['800', ['খুব মোটা', 'Extra bold']]] as const
+export const siteElementFields = [
+  { key: 'textSize', group: 'type', kind: 'number', min: 12, max: 22, label: ['লেখার মাপ', 'Body text size'], variable: '--sf-text-size' },
+  { key: 'h1', group: 'type', kind: 'number', min: 20, max: 80, label: ['H1 শিরোনামের মাপ', 'H1 heading size'], variable: '--sf-h1' },
+  { key: 'h2', group: 'type', kind: 'number', min: 18, max: 64, label: ['H2 শিরোনামের মাপ', 'H2 heading size'], variable: '--sf-h2' },
+  { key: 'h3', group: 'type', kind: 'number', min: 16, max: 48, label: ['H3 শিরোনামের মাপ', 'H3 heading size'], variable: '--sf-h3' },
+  { key: 'headingWeight', group: 'type', kind: 'select', options: weights, label: ['শিরোনামের ওজন', 'Heading weight'], variable: '--sf-heading-weight' },
+  { key: 'buttonBg', group: 'button', kind: 'color', label: ['পটভূমি', 'Background'], variable: '--sf-btn-bg' },
+  { key: 'buttonInk', group: 'button', kind: 'color', label: ['লেখার রং', 'Text colour'], variable: '--sf-btn-ink' },
+  { key: 'buttonHoverBg', group: 'button', kind: 'color', label: ['মাউস রাখলে পটভূমি', 'Background on hover'], variable: '--sf-btn-hover-bg' },
+  { key: 'buttonHoverInk', group: 'button', kind: 'color', label: ['মাউস রাখলে লেখার রং', 'Text colour on hover'], variable: '--sf-btn-hover-ink' },
+  { key: 'buttonSize', group: 'button', kind: 'number', min: 12, max: 24, label: ['লেখার মাপ', 'Text size'], variable: '--sf-btn-size' },
+  { key: 'buttonWeight', group: 'button', kind: 'select', options: weights, label: ['লেখার ওজন', 'Text weight'], variable: '--sf-btn-weight' },
+  { key: 'buttonHeight', group: 'button', kind: 'number', min: 32, max: 64, label: ['উচ্চতা', 'Height'], variable: '--sf-btn-h' },
+  { key: 'buttonPadding', group: 'button', kind: 'number', min: 8, max: 48, label: ['পাশের ফাঁকা', 'Side padding'], variable: '--sf-btn-px' },
+  { key: 'buttonRadius', group: 'button', kind: 'number', min: 0, max: 40, label: ['কোণা', 'Corners'], variable: '--sf-btn-radius' },
+  { key: 'buttonBorder', group: 'button', kind: 'number', min: 0, max: 4, label: ['বর্ডার', 'Border'], variable: '--sf-btn-border' },
+  { key: 'buttonBorderColor', group: 'button', kind: 'color', label: ['বর্ডারের রং', 'Border colour'], variable: '--sf-btn-border-color' },
+  { key: 'inputBg', group: 'input', kind: 'color', label: ['পটভূমি', 'Background'], variable: '--sf-input-bg' },
+  { key: 'inputInk', group: 'input', kind: 'color', label: ['লেখার রং', 'Text colour'], variable: '--sf-input-ink' },
+  { key: 'inputBorderColor', group: 'input', kind: 'color', label: ['বর্ডারের রং', 'Border colour'], variable: '--sf-input-border-color' },
+  { key: 'inputFocus', group: 'input', kind: 'color', label: ['ক্লিক করলে বর্ডার', 'Focus outline'], variable: '--sf-input-focus' },
+  { key: 'inputBorder', group: 'input', kind: 'number', min: 0, max: 4, label: ['বর্ডার', 'Border'], variable: '--sf-input-border' },
+  { key: 'inputHeight', group: 'input', kind: 'number', min: 36, max: 64, label: ['উচ্চতা', 'Height'], variable: '--sf-input-h' },
+  { key: 'inputRadius', group: 'input', kind: 'number', min: 0, max: 32, label: ['কোণা', 'Corners'], variable: '--sf-input-radius' },
+  { key: 'imageRadius', group: 'image', kind: 'number', min: 0, max: 40, label: ['ছবির কোণা', 'Image corners'], variable: '--sf-image-radius' },
+] as const satisfies readonly ElementField[]
+export type SiteElementKey = typeof siteElementFields[number]['key']
+
+// The trust boundary for element styles: known keys only, numbers in range, #RRGGBB(AA) colours, listed choices.
+function readElements(raw: unknown): SiteElements | null {
+  if (raw === undefined) return {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const out: SiteElements = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const field = siteElementFields.find((f) => f.key === key)
+    if (!field || value === undefined || value === null || value === '') continue
+    if (field.kind === 'number' && !(Number.isInteger(value) && (value as number) >= field.min && (value as number) <= field.max)) return null
+    if (field.kind === 'color' && !(typeof value === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value))) return null
+    if (field.kind === 'select' && !field.options.some(([v]) => v === value)) return null
+    out[field.key] = field.kind === 'color' ? (value as string).toLowerCase() : value as string | number
+  }
+  return out
+}
+
+// The element styles as CSS variables. Heading sizes shrink on small screens, like the storefront's own.
+function elementVars(elements: SiteElements | undefined) {
+  if (!elements) return ''
+  return siteElementFields.flatMap((f) => {
+    const v = elements[f.key]
+    if (v === undefined) return []
+    if (f.kind !== 'number') return [`${f.variable}:${v}`]
+    if (f.key === 'h1' || f.key === 'h2' || f.key === 'h3') return [`${f.variable}:clamp(${Math.round((v as number) * 0.68)}px,${f.key === 'h1' ? 5 : f.key === 'h2' ? 3.6 : 2.6}vw,${v}px)`]
+    return [`${f.variable}:${v}px`]
+  }).map((d) => `;${d}`).join('')
+}
 
 const hex = /^#[0-9a-f]{6}$/i
 const colorKeys = ['accent', 'ink', 'paper', 'tint', 'rule'] as const
@@ -54,7 +117,9 @@ export function readSiteStyle(raw: unknown): SiteStyle | null {
   if (!Number.isInteger(s.width) || s.width < 720 || s.width > 1600) return null
   if (!(s.bangla === '' || isPageFont('bangla', s.bangla)) || !(s.latin === '' || isPageFont('latin', s.latin))) return null
   if (typeof s.css !== 'string' || s.css.length > 20000 || s.css.includes('<')) return null
-  return { colors, radius: s.radius, bangla: s.bangla, latin: s.latin, width: s.width, css: s.css }
+  const elements = readElements(s.elements)
+  if (!elements) return null
+  return { colors, radius: s.radius, bangla: s.bangla, latin: s.latin, width: s.width, css: s.css, ...(Object.keys(elements).length ? { elements } : {}) }
 }
 
 const isDark = (color: string) => {
@@ -68,7 +133,7 @@ export const pageColor = (paper: string) => (isDark(paper) ? paper : '#f6f6f6')
 export function siteCss(s: SiteStyle) {
   const c = s.colors
   const font = [s.latin, s.bangla].filter(Boolean).map((f) => `"${f}"`).join(',')
-  return `:root{--sf-accent:${c.accent};--sf-ink:${c.ink};--sf-paper:${c.paper};--sf-tint:${c.tint};--sf-rule:${c.rule};--sf-radius:${s.radius}px;--sf-muted:${isDark(c.paper) ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${isDark(c.accent) ? '#ffffff' : '#141414'};--sf-width:${s.width}px;--sf-page:${c.page ?? pageColor(c.paper)}}body{font-family:${font ? `${font},` : ''}"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
+  return `:root{--sf-accent:${c.accent};--sf-ink:${c.ink};--sf-paper:${c.paper};--sf-tint:${c.tint};--sf-rule:${c.rule};--sf-radius:${s.radius}px;--sf-muted:${isDark(c.paper) ? '#a8a8a8' : '#5f6368'};--sf-accent-ink:${isDark(c.accent) ? '#ffffff' : '#141414'};--sf-width:${s.width}px;--sf-page:${c.page ?? pageColor(c.paper)}${elementVars(s.elements)}}body{font-family:${font ? `${font},` : ''}"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}`
 }
 
 export function siteFontsHref(s: SiteStyle) {

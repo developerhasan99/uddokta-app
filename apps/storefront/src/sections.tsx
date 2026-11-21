@@ -443,7 +443,7 @@ function CallToAction({ s, orderId, ctx }: { s: Section; orderId?: string; ctx?:
 export function sectionStyle(style?: SectionStyle): CSSProperties {
   const out: Record<string, string | number> = {}
   const lengths: Record<string, string> = { iconSize: 'icon-size', iconRadius: 'icon-radius', maxWidth: 'width', headingSize: 'heading', mobileHeadingSize: 'mobile-heading', bodySize: 'body', buttonSize: 'button-size', paddingTop: 'pt', paddingBottom: 'pb', paddingX: 'px', paddingLeft: 'pl', paddingRight: 'pr', marginLeft: 'ml', marginRight: 'mr', mobilePaddingLeft: 'mobile-pl', mobilePaddingRight: 'mobile-pr', mobileMarginTop: 'mobile-mt', mobileMarginRight: 'mobile-mr', mobileMarginBottom: 'mobile-mb', mobileMarginLeft: 'mobile-ml', mobilePaddingTop: 'mobile-pt', mobilePaddingBottom: 'mobile-pb', marginTop: 'mt', marginBottom: 'mb', gap: 'gap', borderWidth: 'border-width', borderTopWidth: 'bt', borderBottomWidth: 'bb', radius: 'radius', sectionRadius: 'section-radius', buttonRadius: 'button-radius' }
-  const colors: Record<string, string[]> = { iconColor: ['--section-icon-color'], iconBackground: ['--section-icon-background'], background: ['--section-background'], color: ['--sf-ink', '--sf-muted'], accent: ['--sf-accent'], buttonText: ['--sf-accent-ink'], cardBackground: ['--section-card'], borderColor: ['--section-border'] }
+  const colors: Record<string, string[]> = { iconColor: ['--section-icon-color'], iconBackground: ['--section-icon-background'], background: ['--section-background'], color: ['--sf-ink', '--sf-muted'], accent: ['--sf-accent', '--sf-btn-bg', '--sf-btn-hover-bg'], buttonText: ['--sf-accent-ink', '--sf-btn-ink', '--sf-btn-hover-ink'], cardBackground: ['--section-card'], borderColor: ['--section-border'] }
   for (const [key, value] of Object.entries(style ?? {})) {
     if (lengths[key] && typeof value === 'number') out[`--section-${lengths[key]}`] = `${value}px`
     if (colors[key] && typeof value === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) for (const variable of colors[key]) out[variable] = value
@@ -458,7 +458,7 @@ export function sectionStyle(style?: SectionStyle): CSSProperties {
   if (style?.imageRatio) out['--section-image-ratio'] = style.imageRatio
   if (typeof style?.minHeight === 'number') out['--section-min-height'] = `${style.minHeight}px`
   if (style?.font) out['--section-font'] = style.font === 'serif' ? '"Tiro Bangla", Georgia, serif' : '"Noto Sans Bengali", system-ui, sans-serif'
-  if (style?.radius !== undefined) out['--sf-radius'] = `${style.radius}px`
+  if (style?.radius !== undefined) out['--sf-radius'] = out['--sf-image-radius'] = `${style.radius}px`
   if (style?.shadow) out['--section-shadow'] = ({ none: 'none', soft: '0 6px 24px #00000012', strong: '0 12px 40px #00000029' } as Record<string, string>)[style.shadow] ?? 'none'
   return out as CSSProperties
 }
@@ -1119,7 +1119,7 @@ export const css = `
 :root{--sf-ink:#1d1d1f;--sf-muted:#5f6368;--sf-paper:#fff;--sf-tint:#f5f6f4;--sf-rule:#e3e5e1;--sf-accent:#1f7a4d;--sf-accent-ink:#fff;--sf-error:#b3261e;--sf-radius:10px}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--sf-page,var(--sf-paper));color:var(--sf-ink);font:16px/1.6 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}
+body{margin:0;background:var(--sf-page,var(--sf-paper));color:var(--sf-ink);font:var(--sf-text-size,16px)/1.6 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif}
 img{max-width:100%;height:auto;display:block}
 h1,h2,h3,p{margin:0}
 /* Content width (Site settings, default 1200px) is the content itself; the side padding sits outside it. */
@@ -1129,12 +1129,13 @@ h1,h2,h3,p{margin:0}
 .sf-foot{border-top:1px solid var(--sf-rule);padding:24px 0;color:var(--sf-muted);font-size:14px;text-align:center}
 .sf-section{padding:40px 0}
 .sf-section--tint{background:var(--sf-tint)}
-.sf-heading{font-size:24px;line-height:1.3;margin-bottom:20px;text-align:center}
+.sf-heading{font-size:var(--sf-h2,24px);font-weight:var(--sf-heading-weight,700);line-height:1.3;margin-bottom:20px;text-align:center}
 .sf-body p{margin-bottom:12px}
-.sf-button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;margin-top:16px;border:0;border-radius:var(--sf-radius);background:var(--sf-accent);color:var(--sf-accent-ink);font:inherit;font-weight:700;font-size:18px;text-decoration:none;cursor:pointer}
+.sf-button{display:inline-flex;align-items:center;justify-content:center;min-height:var(--sf-btn-h,48px);padding:0 var(--sf-btn-px,24px);margin-top:16px;border:var(--sf-btn-border,0px) solid var(--sf-btn-border-color,transparent);border-radius:var(--sf-btn-radius,var(--sf-radius));background:var(--sf-btn-bg,var(--sf-accent));color:var(--sf-btn-ink,var(--sf-accent-ink));font:inherit;font-weight:var(--sf-btn-weight,700);font-size:var(--sf-btn-size,18px);text-decoration:none;cursor:pointer}
 .sf-button:disabled{opacity:.5;cursor:not-allowed}
 .sf-button--block{width:100%}
-.sf-button--outline{background:transparent;color:var(--sf-accent);box-shadow:inset 0 0 0 2px var(--sf-accent)}
+.sf-button--outline{background:transparent;color:var(--sf-btn-bg,var(--sf-accent));box-shadow:inset 0 0 0 2px var(--sf-btn-bg,var(--sf-accent))}
+@media (hover:hover){.sf-button:not(.sf-button--outline):hover{background:var(--sf-btn-hover-bg,var(--sf-btn-bg,var(--sf-accent)));color:var(--sf-btn-hover-ink,var(--sf-btn-ink,var(--sf-accent-ink)))}}
 .sf-features{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .sf-features li{display:flex;gap:12px;background:var(--sf-paper);border:1px solid var(--sf-rule);border-radius:var(--sf-radius);padding:16px}
 .sf-features svg{flex:none;color:var(--sf-accent);margin-top:4px}
@@ -1154,12 +1155,12 @@ h1,h2,h3,p{margin:0}
 .sf-order__product{display:flex;gap:12px;align-items:center;font-weight:600}
 .sf-order__product img{width:64px;height:64px;object-fit:cover;border-radius:6px}
 .sf-field{display:grid;gap:4px;font-weight:600;font-size:15px}
-.sf-field input,.sf-field textarea,.sf-field select{font:inherit;font-weight:400;min-height:48px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--sf-ink) 25%,transparent);border-radius:8px;background:var(--sf-paper);color:inherit;width:100%}
-.sf-field input:focus,.sf-field textarea:focus,.sf-field select:focus,.sf-choice:focus-within{outline:2px solid var(--sf-accent);outline-offset:1px}
+.sf-field input,.sf-field textarea,.sf-field select{font:inherit;font-weight:400;min-height:var(--sf-input-h,48px);padding:10px 12px;border:var(--sf-input-border,1px) solid var(--sf-input-border-color,color-mix(in srgb,var(--sf-ink) 25%,transparent));border-radius:var(--sf-input-radius,8px);background:var(--sf-input-bg,var(--sf-paper));color:var(--sf-input-ink,inherit);width:100%}
+.sf-field input:focus,.sf-field textarea:focus,.sf-field select:focus,.sf-choice:focus-within{outline:2px solid var(--sf-input-focus,var(--sf-accent));outline-offset:1px}
 .sf-field [aria-invalid]{border-color:var(--sf-error)}
 .sf-choices{border:0;margin:0;padding:0;display:grid;gap:8px}
 .sf-choices legend{font-weight:600;font-size:15px;margin-bottom:4px;padding:0}
-.sf-choice{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border:1px solid color-mix(in srgb,var(--sf-ink) 25%,transparent);border-radius:8px;cursor:pointer}
+.sf-choice{display:flex;align-items:center;gap:10px;min-height:var(--sf-input-h,48px);padding:0 12px;border:var(--sf-input-border,1px) solid var(--sf-input-border-color,color-mix(in srgb,var(--sf-ink) 25%,transparent));border-radius:var(--sf-input-radius,8px);background:var(--sf-input-bg,transparent);color:var(--sf-input-ink,inherit);cursor:pointer}
 .sf-choice span{flex:1}.sf-choice__text{display:grid;gap:2px;padding:8px 0}.sf-choice__text small{font-size:13px;opacity:.75}.sf-choice__text .sf-choice__free{color:var(--sf-accent);opacity:1;font-weight:600}
 .sf-choice input{accent-color:var(--sf-accent);width:18px;height:18px;margin:0}
 .sf-total{display:flex;justify-content:space-between;font-size:18px;border-top:1px solid var(--sf-rule);padding-top:12px}
@@ -1185,7 +1186,7 @@ h1,h2,h3,p{margin:0}
 .sf-done p{color:var(--sf-muted)}
 @media (min-width:720px){
   .sf-section{padding:56px 0}
-  .sf-heading{font-size:28px}
+  .sf-heading{font-size:var(--sf-h2,28px)}
   .sf-features,.sf-reviews{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
   .sf-gallery{grid-template-columns:repeat(3,1fr);gap:12px}
 }
@@ -1198,11 +1199,11 @@ h1,h2,h3,p{margin:0}
 .sf-section-frame[data-background]>.sf-section{background:var(--section-background)}
 .sf-styled .sf-wrap{max-width:calc(var(--section-width,var(--sf-width,1200px)) + var(--section-pl,var(--section-px,16px)) + var(--section-pr,var(--section-px,16px)));padding-left:var(--section-pl,var(--section-px,16px));padding-right:var(--section-pr,var(--section-px,16px))}
 .sf-styled .sf-narrow{max-width:var(--section-width,680px)}
-.sf-styled .sf-heading{font-size:var(--section-heading,24px);font-weight:var(--section-weight,700)}
+.sf-styled .sf-heading{font-size:var(--section-heading,var(--sf-h2,24px));font-weight:var(--section-weight,var(--sf-heading-weight,700))}
 .sf-section-frame[data-align]>.sf-section{text-align:var(--section-align)}
 .sf-section-frame[data-align] :is(.sf-heading,.sf-body,.sf-info-grid li){text-align:var(--section-align)}
 .sf-section-frame[data-body-size] :is(p,blockquote,dd,td){font-size:var(--section-body)}
-:where(.sf-styled) .sf-button{font-size:var(--section-button-size,18px);border-radius:var(--section-button-radius,var(--sf-radius))}
+:where(.sf-styled) .sf-button{font-size:var(--section-button-size,var(--sf-btn-size,18px));border-radius:var(--section-button-radius,var(--sf-btn-radius,var(--sf-radius)))}
 .sf-styled :is(.sf-features,.sf-reviews,.sf-gallery,.sf-info-grid){gap:var(--section-gap,12px)}
 .sf-styled :is(.sf-features li,.sf-reviews li,.sf-info-grid li,.sf-order){background:var(--section-card,var(--sf-paper))}
 .sf-section-frame :is(.sf-card-image,.sf-gallery img){object-fit:var(--section-image-fit,cover)}

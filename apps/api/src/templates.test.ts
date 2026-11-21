@@ -108,6 +108,13 @@ test('history restores a template version into the draft; Site settings refuse u
   const style = (await s.owner.call('GET', `/stores/${s.handle}/site-style`)).json
   assert.equal((await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, css: '</style>' })).status, 400)
   assert.equal((await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, radius: 4 })).json.radius, 4)
+  // Customize: global element styles save with the look; bad values are refused; staff cannot change them (above).
+  const withElements = (await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, elements: { buttonBg: '#111111', inputRadius: 4 } })).json
+  assert.deepEqual(withElements.elements, { buttonBg: '#111111', inputRadius: 4 })
+  assert.equal((await s.owner.call('PUT', `/stores/${s.handle}/site-style`, { ...style, elements: { buttonRadius: 500 } })).status, 400)
+  assert.deepEqual((await s.owner.call('GET', `/stores/${s.handle}/site-style`)).json.elements, { buttonBg: '#111111', inputRadius: 4 })
+  // Its preview draws the store's product page too (the built-in product template until the store has its own default).
+  assert.deepEqual((await s.owner.call('GET', `/stores/${s.handle}/store-preview`)).json.productPage.sections.map((x: any) => x.type), ['productInfo'])
 })
 
 test('the store preview shows the default published home template, else the built-in one', async () => {

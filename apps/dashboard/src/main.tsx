@@ -40,6 +40,7 @@ const Orders = screen(() => import('./pages/Orders'), 'Orders')
 const Protection = screen(() => import('./pages/Protection'), 'Protection')
 const PageEditor = screen(() => import('./pages/PageEditor'), 'PageEditor')
 const TemplateEditor = screen(() => import('./pages/TemplateEditor'), 'TemplateEditor')
+const Customize = screen(() => import('./pages/Customize'), 'Customize')
 const Pages = screen(() => import('./pages/Pages'), 'Pages')
 const Warehouses = screen(() => import('./pages/Warehouses'), 'Warehouses')
 const ProductEdit = screen(() => import('./pages/ProductEdit'), 'ProductEdit')
@@ -98,6 +99,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="store/:handle" element={<Shell bare />}>
                 <Route path="landing-pages/:id" element={<PageEditor />} />
                 <Route path="online-store/templates/:id" element={<TemplateEditor />} />
+                <Route path="online-store/customize" element={<Customize />} />
               </Route>
               <Route path="store/:handle" element={<Shell />}>
                 <Route index element={<Home />} />
