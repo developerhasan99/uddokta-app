@@ -93,6 +93,18 @@ test('WooCommerce: simple and variable products, "any" values, sale prices and c
   assert.deepEqual(file.skipped, [{ name: 'Bundle', reason: 'unsupportedType' }])
 })
 
+test('WooCommerce from a Bangla site: the translated Name and Description columns are read', () => {
+  // The header row of a real export from a WordPress site set to Bangla.
+  const head = 'ID,Type,SKU,"GTIN, UPC, EAN, or ISBN",নাম,Published,"Is featured?","Visibility in catalog","Short description",বিবরণ,"Date sale price starts","Date sale price ends","Tax status","Tax class","In stock?",Stock,"Low stock amount","Backorders allowed?","Sold individually?","Weight (lbs)","Length (in)","Width (in)","Height (in)","Allow customer reviews?","Purchase note","Sale price","Regular price",Categories,Tags,"Shipping class",Images,"Download limit","Download expiry days",Parent,"Grouped products",Upsells,Cross-sells,"External URL","Button text",Position,Brands,"Attribute 1 name","Attribute 1 value(s)","Attribute 1 visible","Attribute 1 global"'
+  const row = '3439,simple,,,"৫টি বেস্টসেলার বই মাত্র ৪৯৯৳ 🔥",1,0,visible,"Short","<strong>৫টি বই</strong>",,,taxable,,1,,,0,0,,,,,1,,499,1610,"সমকালীন উপন্যাস, স্পেশাল কম্বো প্যাকেজ",,,https://shop.example/books.png,,,,,,,,,0,,কভার,হার্ডকভার,1,0'
+  const file = readProductFile(`${head}\n${row}`)!
+  assert.equal(file.source, 'woocommerce')
+  const [books] = file.products
+  assert.deepEqual([books.name, books.description, books.productType], ['৫টি বেস্টসেলার বই মাত্র ৪৯৯৳ 🔥', '<p><strong>৫টি বই</strong></p>', 'সমকালীন উপন্যাস'])
+  assert.deepEqual(books.variants.map((v) => [v.price, v.comparePrice]), [[499, 1610]])
+  assert.equal(books.images.length, 1)
+})
+
 test('more than 20 images keeps the first 20, and a variant image that did not fit is cleared', () => {
   const rows = [shopifyHead, ['p', 'P', '', '', '', '', '', 'Title', 'Default Title', '', '', '', '', '', '10', '', 'https://x.test/0.jpg', '1', '', '', '', 'https://x.test/v.jpg', '', 'active']]
   for (let i = 1; i < 21; i++) rows.push(['p', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', `https://x.test/${i}.jpg`, String(i + 1), '', '', '', '', '', ''])

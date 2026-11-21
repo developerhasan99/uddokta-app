@@ -210,11 +210,15 @@ function readWoo(header: string[], rows: Row[]): ImportFile {
   return file
 }
 
+// WooCommerce writes column names in the site's language. A Bangla site translates only these (seen in real exports).
+// ponytail: add other translated names here when a seller's file shows them.
+const headerAliases: Record<string, string> = { 'নাম': 'Name', 'বিবরণ': 'Description' }
+
 // Null when the file is neither a Shopify nor a WooCommerce product export.
 export function readProductFile(text: string): ImportFile | null {
   const [header, ...body] = parseCsv(text)
   if (!header) return null
-  const names = header.map((h) => h.trim())
+  const names = header.map((h) => headerAliases[h.trim()] ?? h.trim())
   const rows: Row[] = body.map((cells) => (column) => {
     const i = names.indexOf(column)
     return i < 0 ? '' : cells[i] ?? ''

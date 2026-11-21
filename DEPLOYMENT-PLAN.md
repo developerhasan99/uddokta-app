@@ -629,6 +629,7 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - A product whose address already exists is skipped, so running the same file again continues an interrupted import. The import runs in the browser; closing the tab stops it (move to a server job if sellers import thousands of products).
 - Images: new `POST /stores/:handle/media/import {url, alt}` downloads by address (`downloadImage` in `apps/api/src/images.ts`: http(s) on the default port only, every resolved address checked at connect time against private, loopback, link-local, CGNAT, multicast and NAT64/6to4 ranges, 3 redirects each re-checked, 10 MB, 20 s), then the usual `processImage` and `saveImage` (counts against storage; storage full stops further images). Tests in `media.test.ts`.
 - The dialog's first step is a dashed drop zone (click to choose, or drag the CSV from the desktop); a file dropped anywhere on the dialog is read until the import starts, with the same "drop here" overlay as the media picker.
+- WooCommerce on a Bangla site writes `নাম` and `বিবরণ` for Name and Description (other columns stay English); `headerAliases` in `product-import.ts` maps them back, so those exports are no longer refused as unknown files.
 - Browser-checked locally with a Shopify sample (Bangla name, 2 options with a missing combination, redirecting variant image, a broken image, a product with no price) and a second run of the same file (all skipped).
 
 ## Phone verification at sign-up (November 20, 2026)
