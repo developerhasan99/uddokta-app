@@ -7,6 +7,8 @@ import type { SiteStyle } from 'storefront/site'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
+import { DialogHead } from '../components/DialogHead'
+import { useDialog } from '../components/dialog'
 import { StorePreview } from '../components/StorePreview'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
@@ -31,7 +33,7 @@ export function OnlineStore() {
   const [style, setStyle] = useState<SiteStyle | null>(null)
   const [prefs, setPrefs] = useState<Prefs | null>(null)
   const [saved, setSaved] = useState({ prefs: '' })
-  const [password, setPassword] = useState('')
+  const [access, setAccess] = useState(false)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -47,7 +49,6 @@ export function OnlineStore() {
       setStyle(s)
       setPrefs(p)
       setSaved({ prefs: JSON.stringify(p) })
-      setPassword('')
     } catch {
       setFailed(true)
     }
@@ -63,7 +64,7 @@ export function OnlineStore() {
     const timer = setTimeout(() => setDone(false), 4000)
     return () => clearTimeout(timer)
   }, [done])
-  const unsaved = Boolean(prefs && (JSON.stringify(prefs) !== saved.prefs || password !== ''))
+  const unsaved = Boolean(prefs && JSON.stringify(prefs) !== saved.prefs)
   useEffect(() => {
     if (!unsaved) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -74,7 +75,7 @@ export function OnlineStore() {
   if (failed) return <div className="page page--narrow"><section className="card card--flush"><Notice role="alert" title={t('errGeneric')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section></div>
   if (!style || !prefs) return <div className="page page--narrow"><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
 
-  const prefsDirty = JSON.stringify(prefs) !== saved.prefs || password !== ''
+  const prefsDirty = JSON.stringify(prefs) !== saved.prefs
   const setP = (next: Partial<Prefs>) => setPrefs({ ...prefs, ...next })
   const wasLocked = (JSON.parse(saved.prefs) as Prefs).passwordOn
 
@@ -83,10 +84,9 @@ export function OnlineStore() {
     setBusy(true)
     setError(null)
     try {
-      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language, seoHidden: prefs.seoHidden, robotsTxt: prefs.robotsTxt, sitemapKinds: prefs.sitemapKinds, codeHead: prefs.codeHead, codeBodyStart: prefs.codeBodyStart, codeBodyEnd: prefs.codeBodyEnd } }) : prefs
+      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, passwordMessage: prefs.passwordMessage, language: prefs.language, seoHidden: prefs.seoHidden, robotsTxt: prefs.robotsTxt, sitemapKinds: prefs.sitemapKinds, codeHead: prefs.codeHead, codeBodyStart: prefs.codeBodyStart, codeBodyEnd: prefs.codeBodyEnd } }) : prefs
       setPrefs(nextPrefs)
       setSaved({ prefs: JSON.stringify(nextPrefs) })
-      setPassword('')
       setDone(true)
     } catch (err) {
       setError(errorCode(err))
@@ -97,7 +97,6 @@ export function OnlineStore() {
 
   const discard = () => {
     setPrefs(JSON.parse(saved.prefs) as Prefs)
-    setPassword('')
     setError(null)
   }
   const copy = () => { void navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }
@@ -125,7 +124,7 @@ export function OnlineStore() {
         {/* The saved look of the real home page; Customize changes it. */}
         <Link className="store-hero__preview" to={path('/online-store/customize')} aria-label={L(['দোকান সাজান', 'Customize store'])}>
           <StorePreview handle={handle} style={style} lang={prefs.language} />
-          <span className="store-hero__customize" aria-hidden="true"><Paintbrush size={14} />{L(['সাজান', 'Customize'])}</span>
+          <span className="store-hero__customize" aria-hidden="true"><Paintbrush size={12} />{L(['সাজান', 'Customize'])}</span>
         </Link>
         <div className="store-hero__side">
           <div className="store-hero__info">
@@ -139,6 +138,12 @@ export function OnlineStore() {
               <a href={url} target="_blank" rel="noopener">{url.replace(/^https?:\/\//, '')}</a>
               <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
             </div>
+          </div>
+          {/* Who can open the store: everyone, or only people with the password (landing pages always stay open). */}
+          <div className="store-hero__access">
+            {wasLocked ? <Lock size={14} aria-hidden="true" /> : <Globe size={14} aria-hidden="true" />}
+            <span>{wasLocked ? L(['শুধু পাসওয়ার্ড দিয়ে খোলে', 'Opens only with the password']) : L(['সবার জন্য খোলা', 'Open to everyone'])}</span>
+            {canEdit && <button type="button" className="link-button" onClick={() => setAccess(true)}>{wasLocked ? L(['বদলান', 'Change']) : L(['পাসওয়ার্ড দিন', 'Add a password'])}</button>}
           </div>
           <div className="store-hero__actions">
             <Link className="btn btn--primary" to={path('/online-store/customize')}><Paintbrush size={16} aria-hidden="true" />{L(['সাজান', 'Customize'])}</Link>
@@ -187,17 +192,6 @@ export function OnlineStore() {
           </div>
         </>)}
 
-        {section(t('prefPassword'), t('prefPasswordHelp'), <>
-          <label className="switch-row switch-row--flush">
-            <input type="checkbox" className="check" checked={prefs.passwordOn} onChange={(e) => setP({ passwordOn: e.target.checked })} />
-            <span className="switch-row__text"><span className="switch-row__title">{t('prefPasswordOn')}</span><span className="muted">{wasLocked ? L(['ক্রেতারা এখন পাসওয়ার্ড ছাড়া দোকানে ঢুকতে পারছেন না।', 'Buyers need the password to enter right now.']) : L(['চালু করলে দোকানে ঢুকতে পাসওয়ার্ড লাগবে।', 'When on, buyers need a password to enter.'])}</span></span>
-          </label>
-          {prefs.passwordOn && <div className="price-grid price-grid--two">
-            <Field id="pref-password" type="password" autoComplete="new-password" maxLength={100} label={wasLocked ? t('prefPasswordNew') : t('prefPasswordSet')} help={wasLocked ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Field id="pref-message" label={t('prefPasswordMessage')} maxLength={300} placeholder={t('prefPasswordMessageHint')} value={prefs.passwordMessage} onChange={(e) => setP({ passwordMessage: e.target.value })} />
-          </div>}
-          {prefs.passwordOn && wasLocked && <a className="field__help" href={`${url}/password`} target="_blank" rel="noopener">{t('prefPasswordView')}</a>}
-        </>)}
 
         {section(L(['সার্চ ইঞ্জিন', 'Search engines']), L(['Google-এর মতো সার্চ ইঞ্জিন আপনার দোকান কীভাবে খুঁজে পাবে। সাইটম্যাপ নিজে থেকে তৈরি হয়।', 'How Google and other search engines find your store. The sitemap is made for you.']), <>
           <label className="switch-row switch-row--flush">
@@ -239,6 +233,12 @@ export function OnlineStore() {
         </>)}
       </fieldset>
 
+      {access && <StoreAccessDialog handle={handle} url={url} saved={JSON.parse(saved.prefs) as Prefs} onClose={() => setAccess(false)}
+        onSaved={(next) => {
+          // Only the access settings changed: keep any other edits on this page as they are.
+          setPrefs({ ...prefs, passwordOn: next.passwordOn, passwordMessage: next.passwordMessage })
+          setSaved({ prefs: JSON.stringify({ ...(JSON.parse(saved.prefs) as Prefs), passwordOn: next.passwordOn, passwordMessage: next.passwordMessage }) })
+        }} />}
       {picking && <MediaPicker selected={prefs.shareImage ? [prefs.shareImage] : []} max={1} onClose={() => setPicking(false)} onDone={(items) => { setP({ shareImage: items[0] ?? null }); setPicking(false) }} />}
       {/* Appears only while something is unsaved, next to wherever the seller is working. */}
       {canEdit && unsaved && <div className="save-bar" role="region" aria-label={L(['সেভ না করা পরিবর্তন', 'Unsaved changes'])}>
@@ -249,4 +249,44 @@ export function OnlineStore() {
       <div className="toast-anchor" role="status">{done && <p className="toast"><CircleCheck size={18} aria-hidden="true" />{L(['সেভ হয়েছে।', 'Saved.'])}</p>}</div>
     </form>
   )
+}
+
+// Store access: open to everyone, or a password (any length) while the store is being prepared. Saved on its own, with the
+// store's other saved preferences sent as they are (the API keeps the current password when none is typed).
+function StoreAccessDialog({ handle, url, saved, onClose, onSaved }: { handle: string; url: string; saved: Prefs; onClose: () => void; onSaved: (next: Prefs) => void }) {
+  const { t, lang } = useLang()
+  const L = (pair: readonly [string, string]) => pair[lang === 'bn' ? 0 : 1]
+  const { ref, close, props } = useDialog(onClose)
+  const [on, setOn] = useState(saved.passwordOn)
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState(saved.passwordMessage)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => { ref.current?.showModal() }, [])
+  const save = async () => {
+    setBusy(true); setError(null)
+    try {
+      const next = await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: saved.homeTitle, homeDescription: saved.homeDescription, shareImageId: saved.shareImage?.id ?? null, passwordOn: on, password, passwordMessage: message, language: saved.language } })
+      close(() => { onSaved(next); onClose() })
+    } catch (err) { setError(errorCode(err)); setBusy(false) }
+  }
+  return <dialog {...props} className="modal" aria-labelledby="store-access-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
+    <DialogHead id="store-access-title" title={L(['দোকানে কে ঢুকতে পারবে', 'Who can open the store'])} disabled={busy} onClose={() => close()} />
+    <div className="dialog__body">
+      <label className="switch-row switch-row--flush">
+        <input type="checkbox" className="check" checked={on} disabled={busy} onChange={(e) => setOn(e.target.checked)} />
+        <span className="switch-row__text"><span className="switch-row__title">{t('prefPasswordOn')}</span><span className="muted">{t('prefPasswordHelp')}</span></span>
+      </label>
+      {on && <>
+        <Field id="access-password" type="password" autoComplete="new-password" maxLength={100} disabled={busy} label={saved.passwordOn ? t('prefPasswordNew') : t('prefPasswordSet')} help={saved.passwordOn ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field id="access-message" maxLength={300} disabled={busy} label={t('prefPasswordMessage')} placeholder={t('prefPasswordMessageHint')} value={message} onChange={(e) => setMessage(e.target.value)} />
+        {saved.passwordOn && <a className="field__help" href={`${url}/password`} target="_blank" rel="noopener">{t('prefPasswordView')}</a>}
+      </>}
+      {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
+    </div>
+    <footer className="dialog__foot dialog__foot--split">
+      <Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button>
+      <Button variant="primary" disabled={busy || (on && !saved.passwordOn && !password.trim())} aria-busy={busy} onClick={() => void save()}>{L(['সেভ করুন', 'Save'])}</Button>
+    </footer>
+  </dialog>
 }

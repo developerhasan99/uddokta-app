@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Code, Image as ImageIcon, LayoutTemplate, ListTree, Monitor, MousePointerClick, Palette, PanelsTopLeft, RotateCcw, Settings, Smartphone, SquareMousePointer, TextCursorInput, Type } from 'lucide-react'
 import { catalogCss } from 'storefront/catalog'
-import { applyFilters, readSelection } from 'storefront/filters'
 import { defOf, nodeDefs, type Content, type PageNode, type Section } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx } from 'storefront/sections'
 import { pageColor, siteCss, siteElementFields, siteFontsHref, type SiteColors, type SiteElementKey, type SiteStyle } from 'storefront/site'
@@ -262,21 +261,22 @@ function LivePreview({ preview, style, content, page, header, footer, mobile, pi
   useEffect(() => {
     if (!body || !picked) return
     const el = body.querySelector(`[data-node="${picked}"]`) ?? body.querySelector(`[data-section="${picked}"]`)
-    if (!el || (el as HTMLElement).dataset.cz === 'picked') return
+    // A click in the preview already marked the element itself (inside this node or section): keep that mark.
+    const marked = body.querySelector('[data-cz=picked]')
+    if (!el || (marked && (marked === el || el.contains(marked)))) return
     for (const old of body.querySelectorAll('[data-cz=picked]')) delete (old as HTMLElement).dataset.cz
     ;(el as HTMLElement).dataset.cz = 'picked'
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [body, picked])
 
   const ctx = useMemo((): Ctx => {
-    const sel = readSelection(new URLSearchParams(), preview.filter.attrs)
-    const filtered = applyFilters(preview.filter.rows, preview.filter.attrs, sel)
     return {
       preview: true, shipping: [], lang: preview.language,
       image: (id) => (id ? preview.images[id] : undefined),
       product: (pid) => (pid && preview.product?.id === pid ? preview.product.product : undefined),
       store: preview.store, menus: preview.menus, collections: preview.collections,
-      grid: () => ({ cards: preview.cards.slice(0, 8), page: 1, hasMore: false, base: '', filters: { path: '', q: '', total: filtered.ids.length, filtered, sel, attrs: preview.filter.attrs } }),
+      // Home and product pages list products without the filter panel (it belongs to collection and all-products pages).
+      grid: () => ({ cards: preview.cards.slice(0, 8), page: 1, hasMore: false, base: '' }),
       current: { path: '', ...(page === 'product' && preview.product ? { product: preview.product } : {}) },
     }
   }, [preview, page])
