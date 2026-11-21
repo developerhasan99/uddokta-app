@@ -168,7 +168,6 @@ function NewPageDialog({ base, existing, onClose, onMade }: { base: string; exis
           <fieldset className="choice-list">
             <legend className="field__label">{t('storePageStartWith')}</legend>
             <label className="check-line"><input type="radio" className="check" name="kind" checked={kind === 'page'} onChange={() => setKind('page')} />{t('storePageBlank')}</label>
-            {kind === 'page' && <Field id="new-page-title" label={t('storePageTitle')} placeholder={t('storePageTitleHint')} maxLength={200} autoComplete="off" value={title} disabled={busy} error={tried && !title.trim() ? t('errNameRequired') : undefined} onChange={(e) => setTitle(e.target.value)} />}
             {policyKinds.map((k) => (
               <label key={k} className="check-line">
                 <input type="radio" className="check" name="kind" disabled={existing.has(k)} checked={kind === k} onChange={() => setKind(k)} />
@@ -177,6 +176,7 @@ function NewPageDialog({ base, existing, onClose, onMade }: { base: string; exis
             ))}
             <p className="field__help">{t('storePagePolicyHelp')}</p>
           </fieldset>
+          {kind === 'page' && <Field id="new-page-title" label={t('storePageTitle')} placeholder={t('storePageTitleHint')} maxLength={200} autoComplete="off" value={title} disabled={busy} error={tried && !title.trim() ? t('errNameRequired') : undefined} onChange={(e) => setTitle(e.target.value)} />}
           <label className="check-line"><input type="checkbox" className="check" checked={footer} onChange={(e) => setFooter(e.target.checked)} />{t('storePageAddToFooter')}</label>
           {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
         </div>

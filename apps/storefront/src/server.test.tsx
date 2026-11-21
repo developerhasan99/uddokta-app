@@ -800,7 +800,10 @@ test('the cart: add from the product page, change and remove lines, and check ou
   }
   const cart = async () => (await visit(s.handle, '/cart', { headers: { cookie } })).text()
   const [m] = s.product.variants
-  assert.match(await (await visit(s.handle, `/products/${encodeURIComponent((await s.call('GET', `/stores/${s.handle}/products/${s.product.id}`)).json.handle)}`)).text(), /action="\/cart\/add"/, 'product pages offer Add to cart')
+  const productPage = await (await visit(s.handle, `/products/${encodeURIComponent((await s.call('GET', `/stores/${s.handle}/products/${s.product.id}`)).json.handle)}`)).text()
+  // Selling both ways (the default), the order form is the one place to pick the option; its second button adds that to the cart.
+  assert.match(productPage, /formaction="\/cart\/add"/i, 'product pages offer Add to cart from the order form')
+  assert.doesNotMatch(productPage, /class="sf-add"/, 'no second option picker above the order form')
   assert.equal((await send('/cart/add', { variant: m.id, quantity: '2' })).status, 303)
   await send('/cart/add', { variant: tea.variants[0].id, quantity: '1' })
   await send('/cart/add', { variant: m.id, quantity: '1' })

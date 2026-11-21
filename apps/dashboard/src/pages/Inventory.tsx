@@ -240,7 +240,7 @@ export function Inventory() {
         action={!failed && !none && (
           <div className="row inventory-actions">
             {dirty && <span className="muted">{t('inventoryChanges', { n: num(changes.length) })}</span>}
-            <Button disabled={!dirty || busy} onClick={() => commit({})}>{t('productDiscard')}</Button>
+            {dirty && <Button disabled={busy} onClick={() => commit({})}>{t('productDiscard')}</Button>}
             <Button variant="primary" aria-busy={busy} disabled={!dirty || busy} onClick={() => void save()}>{t('inventoryUpdate')}</Button>
           </div>
         )}

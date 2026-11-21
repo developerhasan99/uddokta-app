@@ -163,7 +163,7 @@ export function StorePageEdit() {
         </div>
 
         <aside className="detail-side">
-          <section className="card card--form">
+          <section className="card card--form detail-side__card--first">
             <h2>{t('storePageState')}</h2>
             <fieldset className="choice-list">
               <legend className="visually-hidden">{t('storePageState')}</legend>

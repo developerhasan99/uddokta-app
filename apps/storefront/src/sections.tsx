@@ -303,6 +303,8 @@ function OrderForm({ s, ctx }: { s: Section; ctx: Ctx }) {
           <p className="sf-note">{tr(ctx.lang, ['অফার বা কুপনের ছাড় অর্ডার নিশ্চিত করার সময় যোগ হবে। পণ্য হাতে পেয়ে টাকা দিন।', 'Offer and coupon discounts are added when the order is confirmed. Pay when you receive your order.'])}</p>
           {mine && <p className="sf-error" role="alert">{tr(ctx.lang, orderErrors[mine.error] ?? orderErrors.server)}</p>}
           <button className="sf-button sf-button--block" type={ctx.preview ? 'button' : 'submit'} disabled={available.length === 0 || options.length === 0}><IconBadge name={str(s.settings.buttonIcon)} surface={s.style?.iconSurface} image={ctx?.image} />{str(s.settings.button) || tr(ctx.lang, ['অর্ডার করুন', 'Place order'])}</button>
+          {/* A product page selling both ways: the same option and quantity go to the cart, so there is one picker. */}
+          {str(s.settings.cartButton) && <button className="sf-button sf-button--block sf-button--outline" type={ctx.preview ? 'button' : 'submit'} formAction={ctx.preview ? undefined : '/cart/add'} formNoValidate disabled={available.length === 0}>{str(s.settings.cartButton)}</button>}
           <PolicyNote ctx={ctx} /></div>
         </form>
       </div>
@@ -685,8 +687,10 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
   if (!item) return ctx.preview ? <section className="sf-section"><div className="sf-wrap"><Hint ctx={ctx}>পণ্যের পেজে এখানে পণ্যটি, দাম ও অর্ডার ফর্ম দেখাবে</Hint></div></section> : null
   const prices = item.product.variants.map((v) => v.price)
   const compare = Math.max(0, ...item.product.variants.map((v) => v.comparePrice ?? 0))
-  const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || tr(ctx.lang, ['অর্ডার করুন', 'Order now']), product: item.id, button: str(s.settings.formButton) || tr(ctx.lang, ['অর্ডার নিশ্চিত করুন', 'Confirm order']) } }
   const mode = str(s.settings.buyMode) || 'both'
+  const cartLabel = str(s.settings.cartButton) || tr(ctx.lang, ['কার্টে রাখুন', 'Add to cart'])
+  // Selling both ways, the order form below is the only place to pick the option; its second button adds to the cart.
+  const order: Section = { id: 'buy', type: 'order', hidden: false, settings: { heading: str(s.settings.formHeading) || tr(ctx.lang, ['অর্ডার করুন', 'Order now']), product: item.id, button: str(s.settings.formButton) || tr(ctx.lang, ['অর্ডার নিশ্চিত করুন', 'Confirm order']), ...(mode === 'both' ? { cartButton: cartLabel } : {}) } }
   return (
     <>
       <div className="sf-wrap sf-product">
@@ -697,13 +701,13 @@ function ProductInfo({ s, ctx }: { s: Section; ctx: Ctx }) {
           {!item.product.variants.some((v) => v.available) && <p className="sf-error">{tr(ctx.lang, ['এখন স্টকে নেই', 'Out of stock'])}</p>}
           {item.product.variants.some((v) => v.available) && <div className="sf-buy">
             {mode !== 'cart' && <a className="sf-button" href="#buy">{str(s.settings.buyButton) || tr(ctx.lang, ['এখনই অর্ডার করুন', 'Order now'])}</a>}
-            {mode !== 'order' && (
+            {mode === 'cart' && (
               <form className="sf-add" method="post" action={ctx.preview ? undefined : '/cart/add'}>
                 {item.product.variants.length > 1
                   ? <label className="sf-field"><span>{tr(ctx.lang, ['অপশন', 'Option'])}</span><select name="variant">{item.product.variants.map((v) => <option key={v.id} value={v.id} disabled={!v.available}>{v.label} · {taka(v.price, ctx.lang)}{!v.available && tr(ctx.lang, [' (স্টকে নেই)', ' (out of stock)'])}</option>)}</select></label>
                   : <input type="hidden" name="variant" value={item.product.variants[0].id} />}
                 <label className="sf-field sf-add__qty"><span>{tr(ctx.lang, ['পরিমাণ', 'Quantity'])}</span><input type="number" name="quantity" min={1} max={20} defaultValue="1" inputMode="numeric" /></label>
-                <button type="submit" className={`sf-button${mode === 'both' ? ' sf-button--outline' : ''}`}>{str(s.settings.cartButton) || tr(ctx.lang, ['কার্টে রাখুন', 'Add to cart'])}</button>
+                <button type="submit" className="sf-button">{cartLabel}</button>
               </form>
             )}
           </div>}
@@ -1106,7 +1110,7 @@ export const CartDrawer = ({ lang }: { lang?: Lang }) => <dialog className="sf-d
 
 // Opens the side cart from the header's Cart link and after Add to cart, and keeps quantity and remove changes in it.
 // Only when the header asks for the drawer (data-cart-drawer); any failure falls back to the plain form or the cart page.
-export const drawerScript = `(function(){var d=document.getElementById('sf-cart');if(!d||!d.showModal||!document.querySelector('[data-cart-drawer]'))return;var b=d.querySelector('[data-cart-body]');var fmt=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function show(html,count){b.innerHTML=html;document.querySelectorAll('[data-cart-drawer]').forEach(function(a){var s=a.querySelector('.sf-bar__count');if(count>0){if(!s){s=document.createElement('span');s.className='sf-bar__count';a.appendChild(s)}s.textContent=fmt.format(count)}else if(s){s.remove()}});if(!d.open)d.showModal()}function load(r){if(!r.ok)throw new Error();var n=Number(r.headers.get('x-cart-count'))||0;return r.text().then(function(h){show(h,n)})}document.addEventListener('click',function(e){var a=e.target.closest('[data-cart-drawer]');if(a){e.preventDefault();fetch('/cart/drawer',{headers:{'x-cart':'drawer'}}).then(load).catch(function(){location.href='/cart'});return}if(e.target===d||e.target.closest('[data-cart-close]'))d.close()});document.addEventListener('submit',function(e){var f=e.target;if(!f.matches('form[action="/cart/add"],form[data-cart-form]'))return;e.preventDefault();var fd=new FormData(f);var s=e.submitter;if(s&&s.name)fd.set(s.name,s.value);f.setAttribute('aria-busy','true');fetch(f.action,{method:'POST',body:fd,headers:{'x-cart':'drawer'}}).then(load).catch(function(){f.submit()}).finally(function(){f.removeAttribute('aria-busy')})})})()`
+export const drawerScript = `(function(){var d=document.getElementById('sf-cart');if(!d||!d.showModal||!document.querySelector('[data-cart-drawer]'))return;var b=d.querySelector('[data-cart-body]');var fmt=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function show(html,count){b.innerHTML=html;document.querySelectorAll('[data-cart-drawer]').forEach(function(a){var s=a.querySelector('.sf-bar__count');if(count>0){if(!s){s=document.createElement('span');s.className='sf-bar__count';a.appendChild(s)}s.textContent=fmt.format(count)}else if(s){s.remove()}});if(!d.open)d.showModal()}function load(r){if(!r.ok)throw new Error();var n=Number(r.headers.get('x-cart-count'))||0;return r.text().then(function(h){show(h,n)})}document.addEventListener('click',function(e){var a=e.target.closest('[data-cart-drawer]');if(a){e.preventDefault();fetch('/cart/drawer',{headers:{'x-cart':'drawer'}}).then(load).catch(function(){location.href='/cart'});return}if(e.target===d||e.target.closest('[data-cart-close]'))d.close()});document.addEventListener('submit',function(e){var f=e.target;var s=e.submitter;var u=s&&s.getAttribute('formaction')==='/cart/add'?'/cart/add':f.matches('form[action="/cart/add"],form[data-cart-form]')?f.action:'';if(!u)return;e.preventDefault();var fd=new FormData(f);if(s&&s.name)fd.set(s.name,s.value);f.setAttribute('aria-busy','true');fetch(u,{method:'POST',body:fd,headers:{'x-cart':'drawer'}}).then(load).catch(function(){f.action=u;f.submit()}).finally(function(){f.removeAttribute('aria-busy')})})})()`
 
 export const cartScript = `document.querySelectorAll('form[data-cart]').forEach(function(f){var n=new Intl.NumberFormat(document.documentElement.lang==='en'?'en-US':'bn-BD');function u(){var r=f.querySelector('input[name=rate]:checked');var c=r?Number(r.dataset.chargeValue):0;f.querySelector('[data-total]').textContent='৳'+n.format(Number(f.dataset.subtotal)+c)}f.addEventListener('change',u)})`
 

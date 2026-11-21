@@ -12,12 +12,14 @@ export function Tracking() {
   const handle = current.store.handle
   const canEdit = current.role !== 'staff'
   const [form, setForm] = useState<{ metaPixel: string; tiktokPixel: string } | null>(null)
+  // What the server has, so Save is only offered after a change (like the other settings).
+  const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    api<StoreSettingsData>(`/stores/${handle}/settings`).then((s) => setForm({ metaPixel: s.metaPixel, tiktokPixel: s.tiktokPixel })).catch((err) => setError(errorCode(err)))
+    api<StoreSettingsData>(`/stores/${handle}/settings`).then((s) => { const f = { metaPixel: s.metaPixel, tiktokPixel: s.tiktokPixel }; setForm(f); setSaved(JSON.stringify(f)) }).catch((err) => setError(errorCode(err)))
   }, [handle])
 
   useEffect(() => {
@@ -32,7 +34,9 @@ export function Tracking() {
     setBusy(true)
     setError(null)
     try {
-      setForm(await api(`/stores/${handle}/tracking`, { method: 'PUT', body: form }))
+      const next = await api<{ metaPixel: string; tiktokPixel: string }>(`/stores/${handle}/tracking`, { method: 'PUT', body: form })
+      setForm(next)
+      setSaved(JSON.stringify(next))
       setDone(true)
     } catch (err) {
       setError(errorCode(err))
@@ -43,7 +47,7 @@ export function Tracking() {
 
   return (
     <form className="page page--narrow" onSubmit={(e) => void save(e)} noValidate>
-      <PageHeader title={t('tracking')} description={t('tracking.d')} action={canEdit ? <Button type="submit" variant="primary" disabled={busy || !form} aria-busy={busy}>{t('productSave')}</Button> : undefined} />
+      <PageHeader title={t('tracking')} description={t('tracking.d')} action={canEdit ? <Button type="submit" variant="primary" disabled={busy || !form || JSON.stringify(form) === saved} aria-busy={busy}>{t('productSave')}</Button> : undefined} />
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
       {!form && !error && <section className="card"><Skeleton /></section>}
       {form && (

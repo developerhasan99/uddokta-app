@@ -68,7 +68,7 @@ export function Analytics() {
                 <h2>{t('anProfitChart')}</h2>
                 <p className="muted">{t('anProfitChartD')}</p>
               </div>
-              <AreaChart values={report.series.map((d) => d.revenue)} labels={report.series.map((d) => date(new Date(`${d.day}T00:00:00Z`)))} format={money} label={t('anProfitChart')} />
+              <AreaChart values={report.series.map((d) => d.revenue)} labels={report.series.map((d) => date(new Date(`${d.day}T00:00:00Z`)))} format={money} label={t('anProfitChart')} empty={t('anTopEmpty')} />
             </section>
             <section className="card home-grid__side">
               <div>

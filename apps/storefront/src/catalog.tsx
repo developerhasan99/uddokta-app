@@ -50,7 +50,7 @@ export function ProductGrid({ cards, columns, mobileColumns, lang }: { cards: Ca
       {cards.map((card) => (
         <li key={card.id}>
           <a className="sf-card" href={productHref(card.handle)}>
-            <span className="sf-card__image">{card.image && <img src={card.image.url} alt={card.image.alt} width={card.image.width} height={card.image.height} loading="lazy" decoding="async" />}</span>
+            <span className={card.image ? 'sf-card__image' : 'sf-card__image sf-no-image'}>{card.image ? <img src={card.image.url} alt={card.image.alt} width={card.image.width} height={card.image.height} loading="lazy" decoding="async" /> : <NoImage />}</span>
             <span className="sf-card__name">{card.name}</span>
             <Price price={card.price} comparePrice={card.comparePrice} lang={lang} />
             {!card.inStock && <span className="sf-card__out">{tr(lang, ['স্টকে নেই', 'Out of stock'])}</span>}
@@ -73,8 +73,13 @@ export function Pager({ page, hasMore, base, lang }: { page: number; hasMore: bo
   )
 }
 
+// A product without a picture: a quiet picture icon on a white box, the same on cards and on the product page.
+function NoImage() {
+  return <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" /></svg>
+}
+
 export function Gallery({ images, name, stacked }: { images: Img[]; name: string; stacked?: boolean }) {
-  if (images.length === 0) return <div className="sf-product__image sf-product__image--empty" />
+  if (images.length === 0) return <div className="sf-product__image sf-product__image--empty sf-no-image"><NoImage /></div>
   return (
     <div className={stacked ? 'sf-product__images sf-product__images--stacked' : 'sf-product__images'}>
       {images.map((img, i) => <img key={img.url} className="sf-product__image" src={img.url} alt={img.alt || name} width={img.width} height={img.height} loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />)}
@@ -224,7 +229,7 @@ export const catalogCss = `${filterCss}
 .sf-price s{color:var(--sf-muted);font-size:14px}
 .sf-pager{display:flex;justify-content:center;gap:12px;margin-top:24px}
 .sf-empty{text-align:center;color:var(--sf-muted);padding:48px 0}
-.sf-product{display:grid;gap:24px;padding:24px 0 8px}
+.sf-product{display:grid;gap:24px;padding-block:24px 8px}
 .sf-product__images{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .sf-product__images .sf-product__image:not(:first-child){aspect-ratio:1;object-fit:cover}
 .sf-product__images .sf-product__image:first-child{grid-column:1/-1}
@@ -239,6 +244,7 @@ export const catalogCss = `${filterCss}
 .sf-collection-head{padding-bottom:0}
 .sf-product__image{width:100%;border-radius:var(--sf-image-radius,var(--sf-radius));background:var(--sf-tint)}
 .sf-product__image--empty{aspect-ratio:1}
+.sf-no-image{display:grid;place-items:center;background:var(--sf-paper);color:color-mix(in srgb,var(--sf-ink) 30%,transparent)}
 .sf-product h1{font-size:var(--sf-h1,26px);font-weight:var(--sf-heading-weight,700);line-height:1.3;margin-bottom:8px}
 .sf-product .sf-price strong{font-size:22px;color:var(--sf-accent)}
 .sf-description{margin-top:16px}

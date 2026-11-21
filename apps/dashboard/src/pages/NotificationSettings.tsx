@@ -13,6 +13,8 @@ export function NotificationSettings() {
   const { t } = useLang()
   const handle = useCurrentStore()!.store.handle
   const [settings, setSettings] = useState<Settings | null>(null)
+  // What the server has, so Save is only offered after a change (device choices below apply at once).
+  const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -22,7 +24,7 @@ export function NotificationSettings() {
 
   useEffect(() => {
     setSettings(null)
-    api<{ settings: Settings }>(`/stores/${handle}/notification-settings`).then((r) => setSettings(r.settings)).catch((err) => setError(errorCode(err)))
+    api<{ settings: Settings }>(`/stores/${handle}/notification-settings`).then((r) => { setSettings(r.settings); setSaved(JSON.stringify(r.settings)) }).catch((err) => setError(errorCode(err)))
   }, [handle])
 
   useEffect(() => {
@@ -37,7 +39,9 @@ export function NotificationSettings() {
     setBusy(true)
     setError(null)
     try {
-      setSettings((await api<{ settings: Settings }>(`/stores/${handle}/notification-settings`, { method: 'PUT', body: { settings } })).settings)
+      const next = (await api<{ settings: Settings }>(`/stores/${handle}/notification-settings`, { method: 'PUT', body: { settings } })).settings
+      setSettings(next)
+      setSaved(JSON.stringify(next))
       setDone(true)
     } catch (err) {
       setError(errorCode(err))
@@ -70,7 +74,7 @@ export function NotificationSettings() {
 
   return (
     <form className="page page--narrow" onSubmit={(e) => void save(e)} noValidate>
-      <PageHeader title={t('notifications')} description={t('notifications.d')} action={<Button type="submit" variant="primary" disabled={busy || !settings} aria-busy={busy}>{t('productSave')}</Button>} />
+      <PageHeader title={t('notifications')} description={t('notifications.d')} action={<Button type="submit" variant="primary" disabled={busy || !settings || JSON.stringify(settings) === saved} aria-busy={busy}>{t('productSave')}</Button>} />
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
 
       <section className="card">

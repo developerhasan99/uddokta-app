@@ -371,7 +371,9 @@ export function VerifyEmailBar() {
   return (
     <div className="verify-bar" role="status">
       <MailCheck size={16} aria-hidden="true" />
-      <span>{sent && sent !== 'sent' ? t(errorLabel(sent)) : t('verifyBar', { email: state.me.user.email })}</span>
+      {sent && sent !== 'sent'
+        ? <span>{t(errorLabel(sent))}</span>
+        : <span><span className="verify-bar__long">{t('verifyBar', { email: state.me.user.email })}</span><span className="verify-bar__short">{t('verifyBarShort')}</span></span>}
       {sent === 'sent' ? <span className="verify-bar__done">{t('verifyResent')}</span> : sent === null && <button type="button" className="verify-bar__action" onClick={() => void resend()}>{t('verifyResend')}</button>}
     </div>
   )

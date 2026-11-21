@@ -102,7 +102,7 @@ export function Domains() {
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
       {!data && !error && <section className="card"><Skeleton /></section>}
 
-      {data && !data.ip && <Notice title={t('domainSoon')} body={t('domainSoonBody')} />}
+      {data && !data.ip && <section className="card card--flush"><Notice title={t('domainSoon')} body={t('domainSoonBody')} /></section>}
 
       {data?.ip && (
         <section className="card">

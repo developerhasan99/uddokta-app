@@ -4,7 +4,7 @@ import { planFeatureLabels, planFeatures, type PlanFeature } from 'storefront/pl
 import { useCurrentStore } from '../account-context'
 import { api, errorCode } from '../api'
 import { Badge, Button, Notice, PageHeader, Skeleton } from '../components/ui'
-import { waDigits } from '../components/Support'
+import { SupportLink, waDigits } from '../components/Support'
 import { errorLabel, siteUrl, useLang, type Key } from '../i18n'
 
 // Settings › Billing (owners and admins): the store's plan, what it uses and includes, the plans it can move to,
@@ -72,7 +72,7 @@ export function Billing() {
     { key: 'billingProducts', used: usage.products, max: plan.max_products, show: (n) => num(n) },
     { key: 'billingLandingPages', used: usage.landingPages, max: plan.max_landing_pages, show: (n) => num(n) },
     { key: 'billingTeam', used: usage.members, max: plan.max_members, show: (n) => num(n) },
-    { key: 'billingStorage', used: usage.storageBytes / 1024 / 1024, max: plan.storage_mb, show: (n) => mb(Math.round(n)) },
+    { key: 'billingStorage', used: usage.storageBytes / 1024 / 1024, max: plan.storage_mb, show: (n) => (n > 0 && n < 1 ? `${num(Math.max(1, Math.round(n * 1024)))} KB` : mb(Math.round(n))) },
   ]
   const ways = ([['billingBkash', data.pay.bkash], ['billingNagad', data.pay.nagad]] as [Key, string][]).filter(([, v]) => v)
   const waNumber = waDigits(data.pay.whatsapp)
@@ -197,6 +197,8 @@ export function Billing() {
                     </dl>
                   )}
                   {data.pay.bank && <div className="billing-bank"><p className="billing-label">{t('billingBank')}</p><p className="billing-pre">{data.pay.bank}</p></div>}
+                  {/* No payment details set up yet: say how to get them instead of leaving the step empty. */}
+                  {!ways.length && !data.pay.bank && <p>{t('billingPayContact')}</p>}
                   <p className="billing-ref">{t('billingReference')} <strong>{handle}</strong> <CopyValue value={handle} label={t('billingReferenceLabel')} /></p>
                   {data.pay.note && <p className="billing-pre muted">{data.pay.note}</p>}
                 </div>
@@ -206,7 +208,9 @@ export function Billing() {
                 <div className="billing-steps__body">
                   <h3>{t('billingStepConfirm')}</h3>
                   <p className="muted">{t('billingStepConfirmD')}</p>
-                  {waNumber && <a className="btn btn--primary billing-wa" href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noopener"><MessageCircle size={16} aria-hidden="true" />{t('billingSendWa')}</a>}
+                  {waNumber
+                    ? <a className="btn btn--primary billing-wa" href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noopener"><MessageCircle size={16} aria-hidden="true" />{t('billingSendWa')}</a>
+                    : <SupportLink />}
                 </div>
               </li>
             </ol>

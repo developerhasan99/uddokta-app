@@ -63,6 +63,13 @@ main { outline: 0; }
 .page-header__text { display: grid; gap: var(--space-2xs); min-width: 0; }
 /* Wider than a phone: the text takes the room and the page's action stays on the right, however long the description. */
 @media (min-width: 40rem) { .page-header { flex-wrap: nowrap; } .page-header__text { flex: 1; } .page-header > :last-child:not(.page-header__text) { flex: none; } }
+/* Phones: a settings form's Save (the header's submit button) appears only when there is something to save, and then
+   floats at the bottom right so it stays in reach on long forms. Hidden while unchanged, so nothing shifts when it shows. */
+@media (max-width: 40rem) {
+  .page-header > .btn[type="submit"]:disabled:not([aria-busy="true"]) { display: none; }
+  .page-header > .btn[type="submit"]:is(:not(:disabled), [aria-busy="true"]) { position: fixed; right: var(--space-md); bottom: calc(var(--space-md) + env(safe-area-inset-bottom)); z-index: var(--z-dropdown); box-shadow: var(--shadow-dialog); }
+  .page:has(> .page-header > .btn[type="submit"]) { padding-bottom: calc(var(--space-xl) + var(--space-lg)); }
+}
 
 
 
@@ -171,7 +178,7 @@ main { outline: 0; }
 @media (max-width: 60rem) {
   .data-table__wide { display: none; }
 }
-.check { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); cursor: pointer; }
+.check { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); cursor: pointer; }
 .data-table .data-table__check { width: 40px; padding-inline: var(--space-sm) 0; cursor: default; }
 .data-table .data-table__check .check { display: block; }
 .filter-bar.data-list__bulk, .filter-bar.orders-bar { flex-direction: row; align-items: center; }
@@ -202,6 +209,8 @@ main { outline: 0; }
   .data-table--stack [data-label]::before { content: attr(data-label); color: var(--color-muted); font-weight: 400; }
   .data-table--stack .badge { justify-self: start; }
   .data-table--stack .end { text-align: start; }
+  /* A stacked value has the whole line: long ones (emails) wrap instead of being cut. */
+  .data-table--stack .data-table__truncate { overflow-wrap: anywhere; white-space: normal; }
 }
 
 .skeleton { display: block; height: 0.75rem; border-radius: var(--radius-control); background: var(--color-paper-3); animation: pulse 1.4s ease-in-out infinite alternate; }
@@ -213,6 +222,8 @@ main { outline: 0; }
 .stat { display: grid; overflow: hidden; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-card); }
 .stat__label { padding: var(--space-md) var(--space-md) 0; color: var(--color-muted); font-weight: 400; }
 .stat__value { padding: var(--space-2xs) var(--space-md) var(--space-sm); font-size: var(--text-2xl); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+/* A big number inside a card (Analytics' return rate) lines up with the card's text. */
+.card .stat__value { padding: 0; }
 .spark { display: block; width: 100%; height: 40px; }
 .home-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-md); align-items: stretch; }
 .home-grid__side { align-content: start; }
@@ -224,6 +235,7 @@ main { outline: 0; }
 
 /* Charts */
 .area-chart { position: relative; min-width: 0; touch-action: pan-y; }
+.area-chart--empty { display: grid; place-items: center; min-height: 10rem; border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-box); text-align: center; }
 .area-chart svg { display: block; }
 .chart__line { fill: none; stroke: var(--color-primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart__area { fill: color-mix(in oklab, var(--color-primary) 12%, transparent); }
@@ -343,6 +355,16 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .verify-bar > span:first-of-type { flex: 1; min-width: 12rem; }
 .verify-bar__action { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .verify-bar__done { font-weight: 600; color: var(--color-primary); }
+.verify-bar__action { min-height: 32px; }
+.verify-bar__short { display: none; }
+/* Phones: one line (the address is on the Profile page) so the bar does not take a third of the screen. */
+@media (max-width: 40rem) {
+  .verify-bar { flex-wrap: nowrap; padding-block: var(--space-2xs); }
+  .verify-bar > span:first-of-type { min-width: 0; }
+  .verify-bar__long { display: none; }
+  .verify-bar__short { display: inline; }
+  .verify-bar__action, .verify-bar__done { flex: none; }
+}
 .field__control { position: relative; }
 .field__toggle { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 44px; height: 100%; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); cursor: pointer; }
 .field__toggle:hover { color: var(--color-ink); }
@@ -469,6 +491,8 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .detail-side .media-details__delete { justify-self: start; margin: 0; }
 .card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
 .card__head .btn svg { flex: none; }
+/* Phones: the text keeps a readable width; a control beside it (a select, a button) moves under it when it does not fit. */
+@media (max-width: 40rem) { .card__head { flex-wrap: wrap; } .card__head > div:first-child { flex: 1 1 14rem; } }
 
 /* Toast: pinned to the bottom of the scrolling panel, centred on the form. Takes up no room of its own. */
 .toast-anchor { position: sticky; bottom: calc(var(--space-lg) + var(--space-xs)); z-index: var(--z-dropdown); display: flex; align-items: flex-end; justify-content: center; height: 0; margin-top: auto; pointer-events: none; }
@@ -484,6 +508,7 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .card--form { gap: var(--space-md); }
 .detail-side__card { gap: var(--space-md); }
 .detail-side__group { display: grid; gap: var(--space-sm); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+.detail-side__group:first-child { padding-top: 0; border-top: 0; }
 .rich-text { overflow: hidden; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-control); background: var(--color-paper); }
 .rich-text:focus-within { outline: 2px solid var(--color-focus); outline-offset: -1px; }
 .rich-text--invalid { border-color: var(--color-error); }
@@ -753,7 +778,9 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .settings__nav .nav-link { flex: none; white-space: nowrap; }
   .filter-bar { flex-direction: column; align-items: stretch; }
   .detail-layout { grid-template-columns: minmax(0, 1fr); }
-  .detail-side { position: static; }
+  /* One column: the side cards join the page; the one marked first (product status, page visibility) leads it. */
+  .detail-side { display: contents; }
+  .detail-side__card--first { order: -1; }
   .filter-search { width: auto; border-inline-start: 0; border-top: var(--rule-hair) solid var(--color-rule); height: 36px; }
 }
 
@@ -763,7 +790,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .row--end { justify-content: flex-start; }
   .guide__panel { padding-inline-start: var(--space-md); }
   .guide__icon { display: none; }
-  .price-grid, .price-grid--two { grid-template-columns: minmax(0, 1fr); }
+  .price-grid, .price-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .option-row { grid-template-columns: minmax(0, 1fr); }
   .rich-text__tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .rich-text__tools button { flex: none; width: 32px; height: 32px; }
@@ -771,6 +798,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   /* The header: back, name and status on one line; the buttons on their own line under it. */
   .detail-head { flex-wrap: wrap; row-gap: var(--space-2xs); }
   .detail-head__title { flex: 1 1 100%; }
+  .detail-head__actions { margin-inline-start: auto; }
   .bulk-bar__value { flex: 1; width: auto; min-width: 5rem; }
   .chips input { min-height: 36px; font-size: var(--text-lg); }
   .chip button { width: 32px; height: 36px; }
@@ -779,6 +807,8 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .sample-note__states { margin-inline-start: 0; }
   .account__bar .store-button__name { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+  /* An odd last tile (Analytics' profit) takes the whole row instead of leaving an empty slot. */
+  .stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .stat__value { font-size: var(--text-xl); }
   .skeleton-row > :nth-child(n + 3) { display: none; }
 }
@@ -882,7 +912,7 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .code-slot .css-editor { min-height: 0; }
 .code-slot .css-editor .cm-editor { height: 160px; }
 .css-editor .cm-scroller { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.6; }
-.css-editor .cm-gutters { border-right: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); color: var(--color-muted); }
+/* The gutter follows the editor's dark theme (a light gutter beside dark code looked broken on light pages). */
 .editor__title { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }
 .editor__title h1 { overflow: hidden; font-size: var(--text-md); text-overflow: ellipsis; white-space: nowrap; }
 .editor__tools { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-xs); }
@@ -1000,6 +1030,8 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .editor__tools .editor__save-state { display: none; }
   /* Themes on phones: the template picker takes the title's place; its extra buttons and history wait for a wider screen. */
   .editor__title:has(.theme-top) h1, .theme-top > :not(:first-child), .editor__history-open { display: none; }
+  /* The template's name (theme-top's first control) stands in for the hidden title, so it comes before the status. */
+  .editor__title .theme-top { order: -1; }
   .theme-top { margin: 0; min-width: 0; }
   .theme-top__select { max-width: 100%; min-width: 0; }
   .editor__sidebar { grid-area: main; gap: 0; padding: 0; border: 0; background: var(--color-paper); }
@@ -1581,7 +1613,8 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
 .stepper button:disabled { color: var(--color-field); cursor: not-allowed; }
 .stepper input { width: 2.5rem; min-width: 0; padding: 0; border: 0; border-inline: var(--rule-hair) solid var(--color-rule); outline-offset: -2px; background: transparent; color: var(--color-ink); font: inherit; font-size: var(--text-sm); font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
 @media (hover: hover) { .stepper button:not(:disabled):hover { background: var(--color-paper-2); } }
-.order-sum { display: grid; margin: 0; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); }
+.order-sum { display: grid; margin: 0; overflow: hidden; border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-box); }
+.order-sum .link-button { min-height: 32px; }
 .order-sum > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs) var(--space-sm); min-height: 48px; padding: var(--space-xs) var(--space-sm); }
 .order-sum > div + div { border-top: var(--rule-hair) solid var(--color-rule); }
 .order-sum dt { font-weight: 500; }
@@ -1596,6 +1629,12 @@ a.order-tag[aria-current] { background: var(--color-primary); color: var(--color
 .segmented label > span { display: block; padding: var(--space-2xs) var(--space-sm); border-radius: calc(var(--radius-control) - 2px); color: var(--color-ink-2); font-size: var(--text-sm); white-space: nowrap; cursor: pointer; }
 .segmented input:checked + span { background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-weight: 500; }
 .segmented input:focus-visible + span { outline: 2px solid var(--color-focus); }
+/* Phones: the discount form's longer three-way choices share the full width in equal parts, each label wrapping inside
+   its own part (short ones like Billing's months keep their natural size). */
+@media (max-width: 40rem) {
+  .discount-form .segmented:has(> label:nth-child(3)) { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+  .discount-form .segmented:has(> label:nth-child(3)) label > span { display: flex; align-items: center; justify-content: center; height: 100%; padding-inline: var(--space-2xs); line-height: 1.25; text-align: center; white-space: normal; }
+}
 .link-button { display: inline-flex; align-items: center; gap: var(--space-2xs); padding: 0; border: 0; background: transparent; color: var(--color-primary); font: inherit; font-size: var(--text-sm); font-weight: 500; cursor: pointer; }
 .customer-known { display: flex; align-items: flex-start; gap: var(--space-xs); margin: 0; padding: var(--space-xs); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-ink-2); font-size: var(--text-sm); }
 .customer-known svg { flex: none; margin-top: 2px; }

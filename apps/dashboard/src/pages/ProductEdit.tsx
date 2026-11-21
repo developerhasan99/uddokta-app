@@ -523,7 +523,7 @@ export function ProductEdit() {
         </div>
 
         <aside className="detail-side">
-          <section className="card detail-side__card">
+          <section className="card detail-side__card detail-side__card--first">
             <div className="field">
               <label htmlFor="product-status">{t('productStatus')}</label>
               <select id="product-status" name="status" className="input" value={form.status} onChange={(e) => change({ status: e.target.value as ProductStatus })}>
@@ -531,7 +531,9 @@ export function ProductEdit() {
               </select>
               <p className="field__help">{t(statusInfo[form.status].help)}</p>
             </div>
+          </section>
 
+          <section className="card detail-side__card">
             <div className="detail-side__group">
               <h2>{t('productSummary')}</h2>
               <dl className="media-details__facts">

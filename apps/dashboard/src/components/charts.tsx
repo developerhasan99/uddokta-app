@@ -23,7 +23,8 @@ const axisBottom = 24
 const height = 280
 
 // ponytail: hover tooltip only; add arrow-key stepping when charts drive decisions on keyboard.
-export function AreaChart({ values, labels, format, label }: { values: number[]; labels: string[]; format: (v: number) => string; label: string }) {
+// With `empty` given, a period with nothing to show says so instead of drawing a flat line on a made-up scale.
+export function AreaChart({ values, labels, format, label, empty }: { values: number[]; labels: string[]; format: (v: number) => string; label: string; empty?: string }) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(640)
   const [hover, setHover] = useState<number | null>(null)
@@ -42,7 +43,9 @@ export function AreaChart({ values, labels, format, label }: { values: number[];
   const top = Math.max(Math.ceil(peak / unit) * unit, 10)
   const { x, y, line } = scale(values, plotWidth, plotHeight, 8, top)
   const ticks = [0, 0.5, 1].map((f) => f * top)
-  const step = Math.ceil(values.length / Math.max(Math.floor(plotWidth / 90), 2))
+  // Evenly spaced date labels, the first and the last always among them.
+  const count = Math.min(Math.max(Math.floor(plotWidth / 90), 2), labels.length)
+  const shown = new Set(Array.from({ length: count }, (_, k) => Math.round((k * (labels.length - 1)) / Math.max(count - 1, 1))))
 
   const move = (e: PointerEvent<SVGSVGElement>) => {
     const left = e.currentTarget.getBoundingClientRect().left + axisWidth
@@ -50,6 +53,7 @@ export function AreaChart({ values, labels, format, label }: { values: number[];
     setHover(Math.min(Math.max(i, 0), values.length - 1))
   }
 
+  if (empty && peak === 0) return <div className="area-chart area-chart--empty" ref={box}><p className="muted">{empty}</p></div>
   return (
     <div className="area-chart" ref={box}>
       <svg width={width} height={height} role="img" aria-label={label} onPointerMove={move} onPointerLeave={() => setHover(null)}>
@@ -60,8 +64,8 @@ export function AreaChart({ values, labels, format, label }: { values: number[];
               <text className="chart__tick" x={-8} y={y(t) + 4} textAnchor="end">{format(t)}</text>
             </g>
           ))}
-          {labels.map((text, i) => i % step === 0 && (
-            <text key={text} className="chart__tick" x={x(i)} y={height - 6} textAnchor={i === 0 ? 'start' : 'middle'}>{text}</text>
+          {labels.map((text, i) => shown.has(i) && (
+            <text key={i} className="chart__tick" x={x(i)} y={height - 6} textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}>{text}</text>
           ))}
           <path d={`${line} L${plotWidth} ${plotHeight} L0 ${plotHeight} Z`} className="chart__area" />
           <path d={line} className="chart__line" />
