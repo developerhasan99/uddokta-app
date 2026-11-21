@@ -1,11 +1,12 @@
 import { Fragment, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { loadScreen } from '../components/ScreenError'
 import { DialogHead } from '../components/DialogHead'
 import { SupportLink } from '../components/Support'
 import { RichText } from '../components/RichText'
 import { DeviceSwitch, NodeDesignControls, StateSwitch, type Device, type State } from '../components/NodeDesignControls'
 import { boxDepth, boxesAbove, columns, setGrid, readClip, writeClip, findNode, insertNode, layoutPresets, pathTo, sectionPresets, moveNode, nodeName, reId, reIdSection, relocate, removeNode, starterNodes, updateNode, type Found } from '../layout-tree'
-const CssEditor = lazy(() => import('../components/CssEditor'))
-const HtmlEditor = lazy(() => import('../components/HtmlEditor'))
+const CssEditor = lazy(() => loadScreen(() => import('../components/CssEditor')))
+const HtmlEditor = lazy(() => loadScreen(() => import('../components/HtmlEditor')))
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router'
 import DOMPurify from 'dompurify'

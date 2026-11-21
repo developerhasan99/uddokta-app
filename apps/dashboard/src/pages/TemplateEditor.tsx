@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { loadScreen } from '../components/ScreenError'
 import { useParams } from 'react-router'
 import { toLayout } from 'storefront/convert'
 import { applyFilters, readSelection } from 'storefront/filters'
@@ -12,7 +13,7 @@ import { useLang } from '../i18n'
 import { Builder, frameFor, HeaderFooterFields, lookOf, usePreviewData, type BuilderHost, type BuilderLoad, type Doc, type PreviewData, type SettingsProps } from './PageEditor'
 import { templateLabels } from './Templates'
 
-const CssEditor = lazy(() => import('../components/CssEditor'))
+const CssEditor = lazy(() => loadScreen(() => import('../components/CssEditor')))
 
 type Saved = { id: string; type: TemplateType; title: string; revision: number; isDefault: boolean; builtIn: boolean; isPublished: boolean; hasChanges: boolean; draft: Doc['content'] }
 

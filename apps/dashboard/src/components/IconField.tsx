@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { loadScreen } from './ScreenError'
 import { ImageUp, Plus, X } from 'lucide-react'
 import { iconCatalog, isIconName, mediaIconId } from 'storefront/icons'
 import { MarketingIcon } from 'storefront/icon'
@@ -6,7 +7,7 @@ import { useLang } from '../i18n'
 import { Button, IconButton } from './ui'
 import type { MediaItem } from '../api'
 
-const Picker = lazy(() => import('./IconPicker').then((module) => ({ default: module.IconPicker })))
+const Picker = lazy(() => loadScreen(() => import('./IconPicker')).then((module) => ({ default: module.IconPicker })))
 
 // Shared by standalone fields, buttons, and repeating card/list items.
 // value is a library icon name, or media:<id> for the seller's own image (PNG, JPG, SVG … from the media gallery).

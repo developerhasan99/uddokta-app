@@ -12,11 +12,13 @@ import { ChangeEmail, ForgotPassword, Invite, Login, RequirePhone, ResetPassword
 import { PlanGate } from './components/Plan'
 import { Placeholder, NotFound } from './pages/Placeholder'
 import { SettingsLayout } from './pages/Settings'
+import { AppBoundary, loadScreen } from './components/ScreenError'
 
 // Screens load when first opened, so a phone downloads only the shell and the screen it needs. Sign-in screens and the
 // layouts stay in the main bundle. React Router navigates in a transition, so the current screen stays until the next
 // one has loaded; the Suspense boundaries at each Outlet only show on the first visit.
-const screen = <K extends string>(load: () => Promise<Record<K, ComponentType<any>>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })))
+// loadScreen retries a failed load and, after a new deploy, reloads once (components/ScreenError.tsx).
+const screen = <K extends string>(load: () => Promise<Record<K, ComponentType<any>>>, name: K) => lazy(() => loadScreen(load).then((m) => ({ default: m[name] })))
 const Profile = screen(() => import('./pages/Profile'), 'Profile')
 const Billing = screen(() => import('./pages/Billing'), 'Billing')
 const Home = screen(() => import('./pages/Home'), 'Home')
@@ -72,6 +74,7 @@ function Start() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LangProvider>
+      <AppBoundary>
       <AccountProvider>
         <BrowserRouter>
           <Routes>
@@ -150,6 +153,7 @@ createRoot(document.getElementById('root')!).render(
           </Routes>
         </BrowserRouter>
       </AccountProvider>
+      </AppBoundary>
     </LangProvider>
   </StrictMode>,
 )

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { loadScreen } from '../components/ScreenError'
 import { Link } from 'react-router'
 import { Check, ChevronRight, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
 import { defaultRobots } from 'storefront/paths'
@@ -12,8 +13,8 @@ import { ColorControl } from '../components/SectionDesignControls'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 
-const CssEditor = lazy(() => import('../components/CssEditor'))
-const HtmlEditor = lazy(() => import('../components/HtmlEditor'))
+const CssEditor = lazy(() => loadScreen(() => import('../components/CssEditor')))
+const HtmlEditor = lazy(() => loadScreen(() => import('../components/HtmlEditor')))
 
 type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en'; seoHidden: boolean; robotsTxt: string; sitemapKinds: SitemapKind[]; codeHead: string; codeBodyStart: string; codeBodyEnd: string }
 type SitemapKind = 'product' | 'collection' | 'storePage' | 'landingPage'

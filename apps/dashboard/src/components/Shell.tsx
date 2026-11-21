@@ -1,5 +1,6 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { ScreenBoundary } from './ScreenError'
 import { Menu, X } from 'lucide-react'
 import { rememberStore, useCurrentStore, useStorePath } from '../account-context'
 import { useLang } from '../i18n'
@@ -145,7 +146,7 @@ function StoreShell() {
         <VerifyEmailBar />
         <SuspendedBar />
         <DeletionBar />
-        <Suspense fallback={null}><Outlet /></Suspense>
+        <ScreenBoundary><Outlet /></ScreenBoundary>
       </main>
     </div>
   )
@@ -161,7 +162,7 @@ export function Shell({ bare = false }: { bare?: boolean }) {
     if (handle) rememberStore(handle)
   }, [handle])
 
-  if (current) return bare ? <Suspense fallback={null}><Outlet /></Suspense> : <PlanProvider handle={current.store.handle}><StoreShell /></PlanProvider>
+  if (current) return bare ? <ScreenBoundary><Outlet /></ScreenBoundary> : <PlanProvider handle={current.store.handle}><StoreShell /></PlanProvider>
   return (
     <AccountLayout>
       <div className="page page--narrow">
@@ -188,7 +189,7 @@ export function AccountLayout({ children }: { children?: React.ReactNode }) {
       </header>
       <main id="main" className="account__panel" tabIndex={-1}>
         <VerifyEmailBar />
-        <Suspense fallback={null}>{children ?? <Outlet />}</Suspense>
+        <ScreenBoundary>{children ?? <Outlet />}</ScreenBoundary>
       </main>
     </div>
   )

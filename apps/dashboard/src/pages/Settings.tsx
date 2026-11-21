@@ -1,5 +1,5 @@
-import { Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router'
+import { ScreenBoundary } from '../components/ScreenError'
 import { useStorePath } from '../account-context'
 import { useLang } from '../i18n'
 import { settingsNav, type NavLeaf } from '../nav'
@@ -20,7 +20,7 @@ export function SettingsLayout() {
           <NavLink key={item.path} to={path(item.path)} end className="nav-link">{t(item.key)}{item.planned && <span className="nav-soon" title={t('comingSoon')}>{t('navSoon')}</span>}<Locked item={item} /></NavLink>
         ))}
       </nav>
-      <div className="settings__body"><Suspense fallback={null}><Outlet /></Suspense></div>
+      <div className="settings__body"><ScreenBoundary><Outlet /></ScreenBoundary></div>
     </div>
   )
 }
