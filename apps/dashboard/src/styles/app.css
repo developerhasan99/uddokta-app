@@ -1061,8 +1061,22 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .store-hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: var(--space-md); }
 .store-hero__side { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
 .store-hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.store-hero__access { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); color: var(--color-muted); font-size: var(--text-sm); }
-.store-hero__access > svg { flex: none; }
+.store-hero__dot { color: var(--color-rule-strong); }
+/* Store access dialog: two choices as cards (no outline; the chosen one gets the green ring), then the password fields. */
+.store-access { width: min(30rem, calc(100% - 2 * var(--space-md))); }
+.access-choices { display: grid; gap: var(--space-xs); min-width: 0; margin: 0; padding: 0; border: 0; }
+.access-choice { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm); border-radius: var(--radius-box); background: var(--color-paper-2); cursor: pointer; transition: box-shadow var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out); }
+.access-choice:hover { background: var(--color-paper-3); }
+.access-choice[data-chosen] { background: var(--color-paper); box-shadow: 0 0 0 2px var(--color-primary); }
+.access-choice:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.access-choice__icon { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--color-paper-3); color: var(--color-ink-2); }
+.access-choice[data-chosen] .access-choice__icon { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.access-choice__text { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.access-choice__text strong { font-size: var(--text-sm); font-weight: 600; }
+.access-choice__text span { color: var(--color-muted); font-size: var(--text-sm); line-height: 1.4; }
+.access-choice__mark { display: grid; flex: none; place-items: center; width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--color-rule-strong); }
+.access-choice[data-chosen] .access-choice__mark { background: var(--color-primary); box-shadow: none; color: var(--color-primary-ink); }
+.access-fields { display: grid; gap: var(--space-sm); padding-top: var(--space-2xs); }
 /* The home page preview opens Customize; a small label says so on hover and keyboard focus. */
 .store-hero__preview { position: relative; display: flex; min-width: 0; min-height: 22rem; border-radius: var(--radius-box); color: inherit; text-decoration: none; }
 .store-hero__preview .store-preview { flex: 1; min-height: 0; }
@@ -1070,13 +1084,14 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .store-hero__preview:hover .store-hero__customize, .store-hero__preview:focus-visible .store-hero__customize { opacity: 1; transform: none; }
 .store-hero__preview:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .store-hero__preview:hover .store-preview { border-color: var(--color-rule-strong); }
-.store-hero__info { display: grid; gap: var(--space-2xs); min-width: 0; }
+.store-hero__info { display: grid; gap: var(--space-3xs); min-width: 0; margin-bottom: var(--space-2xs); }
+.store-hero__info h2 { margin-bottom: var(--space-3xs); }
 .store-hero__info h2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); font-size: var(--text-lg); }
-.store-hero__address { display: flex; align-items: center; gap: var(--space-2xs); min-width: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.store-hero__address > svg { flex: none; }
-.store-hero__address a { overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
-.store-hero__address a:hover { color: var(--color-ink); text-decoration: underline; }
-.store-hero__address .btn--icon { width: 28px; min-width: 28px; min-height: 28px; box-shadow: none; }
+.store-hero__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); min-width: 0; min-height: 28px; color: var(--color-muted); font-size: var(--text-sm); }
+.store-hero__meta > svg { flex: none; }
+.store-hero__meta a { overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.store-hero__meta a:hover { color: var(--color-ink); text-decoration: underline; }
+.store-hero__meta .btn--icon { width: 28px; min-width: 28px; min-height: 28px; box-shadow: none; }
 .store-preview { position: relative; overflow: hidden; min-height: 20rem; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-box); background: var(--color-paper-2); }
 .store-preview iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; opacity: 0; transition: opacity var(--dur-enter) var(--ease-out); }
 .store-preview[data-loaded] iframe { opacity: 1; }

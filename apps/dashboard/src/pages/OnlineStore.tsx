@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { loadScreen } from '../components/ScreenError'
 import { Link } from 'react-router'
-import { Check, ChevronRight, Paintbrush, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
+import { Check, ChevronRight, LockOpen, Paintbrush, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
 import { defaultRobots } from 'storefront/paths'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
@@ -129,17 +129,17 @@ export function OnlineStore() {
                 ? <Badge tone="warning"><Lock size={11} aria-hidden="true" /> {L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected'])}</Badge>
                 : <Badge tone="success">{L(['চালু', 'Live'])}</Badge>}
             </h2>
-            <div className="store-hero__address">
+            <div className="store-hero__meta">
               <Globe size={14} aria-hidden="true" />
               <a href={url} target="_blank" rel="noopener">{url.replace(/^https?:\/\//, '')}</a>
               <button type="button" className="btn btn--icon" aria-label={L(['ঠিকানা কপি করুন', 'Copy address'])} title={L(['ঠিকানা কপি করুন', 'Copy address'])} onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}</button>
             </div>
-          </div>
-          {/* Who can open the store: everyone, or only people with the password (landing pages always stay open). */}
-          <div className="store-hero__access">
-            {wasLocked ? <Lock size={14} aria-hidden="true" /> : <Globe size={14} aria-hidden="true" />}
-            <span>{wasLocked ? L(['শুধু পাসওয়ার্ড দিয়ে খোলে', 'Opens only with the password']) : L(['সবার জন্য খোলা', 'Open to everyone'])}</span>
-            {canEdit && <button type="button" className="link-button" onClick={() => setAccess(true)}>{wasLocked ? L(['বদলান', 'Change']) : L(['পাসওয়ার্ড দিন', 'Add a password'])}</button>}
+            {/* Who can open the store: everyone, or only people with the password (landing pages always stay open). */}
+            <div className="store-hero__meta">
+              {wasLocked ? <Lock size={14} aria-hidden="true" /> : <LockOpen size={14} aria-hidden="true" />}
+              <span>{wasLocked ? L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected']) : L(['সবার জন্য খোলা', 'Open to everyone'])}</span>
+              {canEdit && <><span className="store-hero__dot" aria-hidden="true">·</span><button type="button" className="link-button" onClick={() => setAccess(true)}>{wasLocked ? L(['বদলান', 'Change']) : L(['পাসওয়ার্ড দিন', 'Add password'])}</button></>}
+            </div>
           </div>
           <div className="store-hero__actions">
             <Link className="btn btn--primary" to={path('/online-store/customize')}><Paintbrush size={16} aria-hidden="true" />{L(['সাজান', 'Customize'])}</Link>
@@ -248,7 +248,8 @@ export function OnlineStore() {
 }
 
 // Store access: open to everyone, or a password (any length) while the store is being prepared. Saved on its own, with the
-// store's other saved preferences sent as they are (the API keeps the current password when none is typed).
+// store's other saved preferences sent as they are (the API keeps the current password when none is typed). The password
+// shows as plain text: the seller shares it with the people they let in.
 function StoreAccessDialog({ handle, url, saved, onClose, onSaved }: { handle: string; url: string; saved: Prefs; onClose: () => void; onSaved: (next: Prefs) => void }) {
   const { t, lang } = useLang()
   const L = (pair: readonly [string, string]) => pair[lang === 'bn' ? 0 : 1]
@@ -259,6 +260,7 @@ function StoreAccessDialog({ handle, url, saved, onClose, onSaved }: { handle: s
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { ref.current?.showModal() }, [])
+  const changed = on !== saved.passwordOn || (on && (password.trim() !== '' || message !== saved.passwordMessage))
   const save = async () => {
     setBusy(true); setError(null)
     try {
@@ -266,23 +268,34 @@ function StoreAccessDialog({ handle, url, saved, onClose, onSaved }: { handle: s
       close(() => { onSaved(next); onClose() })
     } catch (err) { setError(errorCode(err)); setBusy(false) }
   }
-  return <dialog {...props} className="modal" aria-labelledby="store-access-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
-    <DialogHead id="store-access-title" title={L(['দোকানে কে ঢুকতে পারবে', 'Who can open the store'])} disabled={busy} onClose={() => close()} />
+  const choices = [
+    { value: false, Icon: LockOpen, title: L(['সবার জন্য খোলা', 'Open to everyone']), help: L(['যে কেউ দোকান দেখে অর্ডার করতে পারবেন।', 'Anyone can browse and order.']) },
+    { value: true, Icon: Lock, title: L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected']), help: L(['দোকান সাজানোর সময়। ল্যান্ডিং পেজ খোলা থাকে, বিজ্ঞাপন চলবে।', 'While you set up. Landing pages stay open, so ads keep running.']) },
+  ]
+  return <dialog {...props} className="modal store-access" aria-labelledby="store-access-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
+    <DialogHead id="store-access-title" title={L(['দোকানে কে ঢুকতে পারবে', 'Who can visit the store'])} disabled={busy} onClose={() => close()} />
     <div className="dialog__body">
-      <label className="switch-row switch-row--flush">
-        <input type="checkbox" className="check" checked={on} disabled={busy} onChange={(e) => setOn(e.target.checked)} />
-        <span className="switch-row__text"><span className="switch-row__title">{t('prefPasswordOn')}</span><span className="muted">{t('prefPasswordHelp')}</span></span>
-      </label>
-      {on && <>
-        <Field id="access-password" type="password" autoComplete="new-password" maxLength={100} disabled={busy} label={saved.passwordOn ? t('prefPasswordNew') : t('prefPasswordSet')} help={saved.passwordOn ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
+      <fieldset className="access-choices" disabled={busy}>
+        <legend className="visually-hidden">{L(['দোকানে কে ঢুকতে পারবে', 'Who can visit the store'])}</legend>
+        {choices.map(({ value, Icon, title, help }) => (
+          <label key={String(value)} className="access-choice" data-chosen={on === value || undefined}>
+            <input type="radio" className="visually-hidden" name="store-access" checked={on === value} onChange={() => setOn(value)} />
+            <span className="access-choice__icon"><Icon size={18} aria-hidden="true" /></span>
+            <span className="access-choice__text"><strong>{title}</strong><span>{help}</span></span>
+            <span className="access-choice__mark" aria-hidden="true">{on === value && <Check size={12} strokeWidth={3} />}</span>
+          </label>
+        ))}
+      </fieldset>
+      {on && <div className="access-fields">
+        <Field id="access-password" autoComplete="off" spellCheck={false} maxLength={100} disabled={busy} label={saved.passwordOn ? t('prefPasswordNew') : t('prefPasswordSet')} help={saved.passwordOn ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
         <Field id="access-message" maxLength={300} disabled={busy} label={t('prefPasswordMessage')} placeholder={t('prefPasswordMessageHint')} value={message} onChange={(e) => setMessage(e.target.value)} />
-        {saved.passwordOn && <a className="field__help" href={`${url}/password`} target="_blank" rel="noopener">{t('prefPasswordView')}</a>}
-      </>}
+        {saved.passwordOn && <a className="link-button" href={`${url}/password`} target="_blank" rel="noopener"><ExternalLink size={14} aria-hidden="true" />{t('prefPasswordView')}</a>}
+      </div>}
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
     </div>
     <footer className="dialog__foot dialog__foot--split">
       <Button disabled={busy} onClick={() => close()}>{t('cancel')}</Button>
-      <Button variant="primary" disabled={busy || (on && !saved.passwordOn && !password.trim())} aria-busy={busy} onClick={() => void save()}>{L(['সেভ করুন', 'Save'])}</Button>
+      <Button variant="primary" disabled={busy || !changed || (on && !saved.passwordOn && !password.trim())} aria-busy={busy} onClick={() => void save()}>{L(['সেভ করুন', 'Save'])}</Button>
     </footer>
   </dialog>
 }
