@@ -2304,7 +2304,10 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .customize-groups__text strong { font-size: var(--text-sm); font-weight: 600; }
 .customize-groups__text span { color: var(--color-muted); font-size: 12px; }
 .customize-tree { padding: 0 var(--space-2xs) var(--space-xs); }
-.customize-tree__label { margin: var(--space-xs) var(--space-xs) var(--space-3xs); color: var(--color-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.customize-tree__label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-xs); margin: var(--space-xs) var(--space-xs) var(--space-3xs); color: var(--color-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.customize-tree__label a { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; color: var(--color-ink-2); font-weight: 500; letter-spacing: 0; text-transform: none; text-overflow: ellipsis; white-space: nowrap; }
+.customize-tree__label a svg { flex: none; }
+.customize-tree__label a:hover { color: var(--color-ink); }
 .customize-tree ul { margin: 0; padding: 0; list-style: none; }
 .customize-tree button { display: block; width: 100%; overflow: hidden; padding: 5px var(--space-xs) 5px calc(var(--space-xs) + var(--depth, 0) * 14px); border: 0; border-radius: var(--radius-media); background: none; color: var(--color-ink-2); font: inherit; font-size: 12.5px; text-align: start; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .customize-tree button:hover { background: var(--color-paper-3); color: var(--color-ink); }

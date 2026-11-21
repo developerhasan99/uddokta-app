@@ -130,6 +130,22 @@ test('the store preview shows the default published home template, else the buil
   assert.deepEqual((await preview()).images, {})
 })
 
+test('the store preview draws a product with the template it uses, and says which templates it drew', async () => {
+  const s = await shop()
+  const preview = async (q = '') => (await s.owner.call('GET', `/stores/${s.handle}/store-preview${q}`)).json
+  const builtInHome = (await preview()).homeTemplate
+  assert.ok(builtInHome?.id, 'the store’s built-in home copy is named')
+  let own = (await s.owner.call('POST', s.base, { type: 'product', title: 'Tea page', from: 'blank' })).json
+  own = (await s.owner.call('POST', `${s.base}/${own.id}/publish`, { revision: own.revision })).json
+  const tea = (await s.owner.call('POST', `/stores/${s.handle}/products`, { name: 'Tea', status: 'active', templateId: own.id, variants: [{ options: [], price: 300 }] })).json
+  const plain = (await s.owner.call('POST', `/stores/${s.handle}/products`, { name: 'Cup', status: 'active', variants: [{ options: [], price: 100 }] })).json
+  const withTea = await preview(`?product=${tea.id}`)
+  assert.deepEqual([withTea.productTemplate.id, withTea.productTemplate.title, withTea.productPage.sections], [own.id, 'Tea page', []])
+  const withCup = await preview(`?product=${plain.id}`)
+  assert.notEqual(withCup.productTemplate.id, own.id, 'a product without its own template gets the default (here the built-in copy)')
+  assert.deepEqual(withCup.productPage.sections.map((x: any) => x.type), ['productInfo'])
+})
+
 test('every store has editable built-in templates that cannot be deleted, unpublished or stop being built in', async () => {
   const s = await shop()
   const { builtInTemplates, templateTypes } = await import('storefront/site')

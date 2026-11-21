@@ -1498,6 +1498,7 @@ export function Builder({ host }: { host: BuilderHost }) {
 }
 
 // Data the preview needs to draw the store's header, footer and store blocks as the live store will.
+export type TemplateRef = { id: string; title: string }
 export type FrameTemplate = { id: string; title: string; isDefault: boolean; builtIn: boolean; sections: Section[] }
 export type PreviewData = {
   store: StoreInfo; menus: Record<string, ResolvedItem[]>; cards: Card[]; collections: CollectionCard[]
@@ -1510,8 +1511,10 @@ export type PreviewData = {
   builtIn: { header: Section[]; footer: Section[] }
   // The store's home page (default home template or built-in) and the images it and the frames use.
   home: Content; images: Record<string, { url: string; alt: string; width: number; height: number }>
-  // The default product template, for Customize to preview a product page.
+  // The product template the previewed product uses (its own, else the default), for Customize to preview a product page.
   productPage: Content
+  // Which templates those are (null: the code's built-in, for a store without its copy).
+  homeTemplate: TemplateRef | null; productTemplate: TemplateRef | null
   filter: { attrs: FilterAttribute[]; rows: FilterRow[] }
   choices: Record<'products' | 'collections' | 'pages', { id: string; name: string }[]>
 }

@@ -249,10 +249,12 @@ export function registerTemplates(app: Hono<Env>) {
     const cards = (await t.execute<{ id: string; name: string; handle: string; min_price: number; compare_price: number | null; image_key: string | null; image_alt: string; image_width: number; image_height: number; in_stock: boolean }>(sql`select * from storefront_listing(${store.id}::uuid, ${collectionId}::uuid, 48, 0)`)).rows
       .map((r) => ({ id: r.id, name: r.name, handle: r.handle, price: r.min_price, comparePrice: r.compare_price, image: img(r.image_key, r.image_alt || r.name, r.image_width, r.image_height), inStock: r.in_stock }))
     let product = null
+    let productTemplateId: string | null = null
     const productId = q('product')
     if (productId) {
-      const [found] = await t.select({ handle: products.handle }).from(products).where(and(eq(products.storeId, store.id), eq(products.id, productId)))
+      const [found] = await t.select({ handle: products.handle, templateId: products.templateId }).from(products).where(and(eq(products.storeId, store.id), eq(products.id, productId)))
       const row = found && (await t.execute<{ id: string; name: string; description: string; images: { key: string; alt: string; width: number; height: number }[]; variants: { id: string; options: string[]; price: number; comparePrice: number | null; stock: number | null }[] }>(sql`select * from storefront_product(${store.id}::uuid, ${found.handle})`)).rows[0]
+      productTemplateId = found?.templateId ?? null
       if (row) {
         const images = row.images.map((m) => img(m.key, m.alt || row.name, m.width, m.height)!)
         const attributes = (await t.execute<{ name: string; kind: string; unit: string; choices: string[]; number: string | null; flag: boolean | null }>(sql`select * from storefront_product_attributes(${store.id}::uuid, ${row.id}::uuid)`)).rows.map((a) => ({ ...a, number: a.number === null ? null : Number(a.number) }))
@@ -265,13 +267,18 @@ export function registerTemplates(app: Hono<Env>) {
     const frames = await t.select({ id: templates.id, type: templates.type, title: templates.title, isDefault: templates.isDefault, builtIn: templates.builtIn, published: templates.published })
       .from(templates).where(and(eq(templates.storeId, store.id), inArray(templates.type, ['header', 'footer']), sql`${templates.published} is not null`)).orderBy(desc(templates.isDefault), desc(templates.builtIn), templates.title)
     const frame = (type: 'header' | 'footer') => frames.filter((f) => f.type === type).map((f) => ({ id: f.id, title: f.title, isDefault: f.isDefault, builtIn: f.builtIn, sections: (f.published as Content).sections }))
-    // The home page as the storefront draws it (the default published home template, else the store's built-in copy), and the
-    // images it and the header and footer templates use, so the Online store page can preview the real home page.
-    const [homeRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'home'), sql`(${templates.isDefault} or ${templates.builtIn}) and ${templates.published} is not null`)).orderBy(desc(templates.isDefault)).limit(1)
-    const home = (homeRow?.published as Content | undefined) ?? builtInTemplates.home
-    // The product page likewise (the default product template), for Customize to preview buttons and the order form.
-    const [productRow] = await t.select({ published: templates.published }).from(templates).where(and(eq(templates.storeId, store.id), eq(templates.type, 'product'), sql`(${templates.isDefault} or ${templates.builtIn}) and ${templates.published} is not null`)).orderBy(desc(templates.isDefault)).limit(1)
-    const productPage = (productRow?.published as Content | undefined) ?? builtInTemplates.product
+    // The home and product pages as the storefront draws them (as storefront_template picks: the item's own published template,
+    // else the default, else the store's built-in copy, else the code's), with which template that is, so Customize can say so.
+    const pick = async (type: 'home' | 'product', chosen: string | null) => {
+      const [row] = await t.select({ id: templates.id, title: templates.title, published: templates.published }).from(templates)
+        .where(and(eq(templates.storeId, store.id), eq(templates.type, type), sql`${templates.published} is not null and (${templates.id} = ${chosen}::uuid or ${templates.isDefault} or ${templates.builtIn})`))
+        .orderBy(sql`${templates.id} = ${chosen}::uuid desc nulls last`, desc(templates.isDefault)).limit(1)
+      return { content: (row?.published as Content | undefined) ?? builtInTemplates[type], template: row ? { id: row.id, title: row.title } : null }
+    }
+    const homePick = await pick('home', null)
+    const productPick = await pick('product', productTemplateId)
+    const home = homePick.content
+    const productPage = productPick.content
     const mediaIds = [...new Set([home, productPage, ...frames.map((f) => f.published as Content)].flatMap((d) => references(d).media))]
     const images = Object.fromEntries((mediaIds.length ? await t.select({ id: media.id, key: media.key, name: media.name, alt: media.alt, width: media.width, height: media.height }).from(media).where(and(eq(media.storeId, store.id), inArray(media.id, mediaIds))) : [])
       .map((m) => [m.id, { url: publicUrl(m.key), alt: m.alt || m.name, width: m.width, height: m.height }]))
@@ -287,7 +294,7 @@ export function registerTemplates(app: Hono<Env>) {
       style: siteStyleOf(store), language: store.language,
       headers: frame('header'), footers: frame('footer'),
       builtIn: { header: builtInTemplates.header.sections, footer: builtInTemplates.footer.sections },
-      home, productPage, images,
+      home, productPage, homeTemplate: homePick.template, productTemplate: productPick.template, images,
       // The store's filters with the previewed list's products, so list and search templates preview their filter panel.
       filter: {
         attrs: (await t.execute(sql`select * from storefront_filter_attributes(${store.id}::uuid)`)).rows,

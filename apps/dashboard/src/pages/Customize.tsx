@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import { ArrowLeft, ChevronLeft, ChevronRight, Code, Eye, Image as ImageIcon, LayoutTemplate, ListTree, Monitor, MousePointerClick, Palette, PanelsTopLeft, RotateCcw, Settings, Smartphone, SquareMousePointer, TextCursorInput, Type } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Code, Eye, Image as ImageIcon, PenLine, LayoutTemplate, ListTree, Monitor, MousePointerClick, Palette, PanelsTopLeft, RotateCcw, Settings, Smartphone, SquareMousePointer, TextCursorInput, Type } from 'lucide-react'
 import { catalogCss } from 'storefront/catalog'
 import { defOf, nodeDefs, type Content, type PageNode, type Section } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx } from 'storefront/sections'
@@ -13,7 +13,7 @@ import { ColorControl, NumericInput } from '../components/SectionDesignControls'
 import { loadScreen } from '../components/ScreenError'
 import { Button, IconButton, PageTitle } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
-import { frameFor, usePreviewData, type PreviewData } from './PageEditor'
+import { frameFor, usePreviewData, type PreviewData, type TemplateRef } from './PageEditor'
 
 const CssEditor = lazy(() => loadScreen(() => import('../components/CssEditor')))
 
@@ -76,7 +76,8 @@ export function Customize() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const [leaving, setLeaving] = useState(false)
+  // Where the seller asked to go while changes were unsaved (back, or a template to edit).
+  const [leaving, setLeaving] = useState<string | null>(null)
 
   useEffect(() => {
     if (!preview) return
@@ -129,16 +130,24 @@ export function Customize() {
       setBusy(false)
     }
   }
-  const discard = () => { setStyle(JSON.parse(saved) as SiteStyle); setFrames(JSON.parse(savedFrames) as typeof frames); setLeaving(false) }
+  const discard = () => { setStyle(JSON.parse(saved) as SiteStyle); setFrames(JSON.parse(savedFrames) as typeof frames); setLeaving(null) }
 
   const content = page === 'product' ? preview.productPage : preview.home
-  const frameSections = (type: 'header' | 'footer') => {
+  const pageTemplate = page === 'product' ? preview.productTemplate : preview.homeTemplate
+  // The header and footer this page shows, as the storefront picks them: none when the page turns them off, the one the page
+  // chose, else the store's default (the one picked under Header and footer here, so changing it shows at once).
+  const frameOf = (type: 'header' | 'footer'): { sections: Section[]; template: TemplateRef | null } => {
+    if (content.canvas?.[type] === false) return { sections: [], template: null }
     const list = type === 'header' ? preview.headers : preview.footers
-    const chosen = frames[type] ? list.find((f) => f.id === frames[type]) : list.find((f) => f.builtIn)
-    return chosen?.sections ?? frameFor(preview, type)
+    const own = content.canvas?.[type === 'header' ? 'headerId' : 'footerId']
+    const chosen = list.find((f) => f.id === own) ?? (frames[type] ? list.find((f) => f.id === frames[type]) : list.find((f) => f.builtIn))
+    return chosen ? { sections: chosen.sections, template: { id: chosen.id, title: chosen.title } } : { sections: frameFor(preview, type), template: null }
   }
-  const header = frameSections('header')
-  const footer = frameSections('footer')
+  const headerFrame = frameOf('header')
+  const footerFrame = frameOf('footer')
+  const header = headerFrame.sections
+  const footer = footerFrame.sections
+  const editTemplate = (e: MouseEvent, to: string) => { if (dirty) { e.preventDefault(); setLeaving(to) } }
 
   const groups: { key: GroupKey; label: string; help: string; Icon: typeof Palette }[] = [
     { key: 'colors', label: L('রং', 'Colours'), help: L('মূল রং, লেখা, পটভূমি', 'Main, text, backgrounds'), Icon: Palette },
@@ -166,19 +175,19 @@ export function Customize() {
       <header className="editor__bar">
         <div className="editor__nav">
           <Link className="detail-head__back" to={path('/online-store')} aria-label={L('অনলাইন স্টোরে ফিরুন', 'Back to Online store')} title={L('অনলাইন স্টোরে ফিরুন', 'Back to Online store')}
-            onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }}><ArrowLeft size={16} aria-hidden="true" /></Link>
+            onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(path('/online-store')) } }}><ArrowLeft size={16} aria-hidden="true" /></Link>
           <span className="editor__views">{views(false)}</span>
         </div>
         <div className="editor__title">
           <h1>{L('দোকান সাজান', 'Customize store')}</h1>
           <select className="input theme-top__select" aria-label={L('যে পেজ দেখাবে', 'Page to preview')} value={page} onChange={(e) => { setPage(e.target.value as PageKey); setPicked(null) }}>
-            <option value="home">{L('হোম পেজ', 'Home page')}</option>
-            <option value="product" disabled={!preview.product}>{L('পণ্যের পেজ', 'Product page')}{preview.product ? `: ${preview.product.name}` : ''}</option>
+            <option value="home">{L('প্রিভিউ: হোম পেজ', 'Preview: Home page')}</option>
+            <option value="product" disabled={!preview.product}>{L('প্রিভিউ: পণ্যের পেজ', 'Preview: Product page')}{preview.product ? ` (${preview.product.name})` : ''}</option>
           </select>
         </div>
         <div className="editor__tools">
           {leaving
-            ? <><span className="editor__save-state">{L('সেভ না করা পরিবর্তন আছে।', 'You have unsaved changes.')}</span><Button onClick={() => setLeaving(false)}>{L('থাকুন', 'Keep editing')}</Button><Link className="btn btn--danger" to={path('/online-store')}>{L('বাদ দিয়ে বের হোন', 'Discard and leave')}</Link></>
+            ? <><span className="editor__save-state">{L('সেভ না করা পরিবর্তন আছে।', 'You have unsaved changes.')}</span><Button onClick={() => setLeaving(null)}>{L('থাকুন', 'Keep editing')}</Button><Link className="btn btn--danger" to={leaving}>{L('বাদ দিয়ে বের হোন', 'Discard and leave')}</Link></>
             : <>
               <span className="editor__save-state" role="status">{busy ? L('সেভ হচ্ছে…', 'Saving…') : dirty ? L('সেভ হয়নি', 'Unsaved') : done ? L('সেভ হয়েছে', 'Saved') : ''}</span>
               <div className="editor__devices">
@@ -217,10 +226,11 @@ export function Customize() {
             </ul>
           </> : <>
             <div className="editor__settings-head"><h2 className="editor__heading">{L('পেজের গঠন', 'Page structure')}</h2></div>
-            <p className="design-help customize__intro"><MousePointerClick size={14} aria-hidden="true" /> {L('কিছু বাছাই করলে তার সাইট-জুড়ে স্টাইল খুলবে। সেকশন বদলাতে টেমপ্লেট বা ল্যান্ডিং পেজ এডিট করুন।', 'Pick anything to open the site-wide style it follows. To change sections, edit the template or landing page.')}</p>
-            <Structure label={L('হেডার', 'Header')} sections={header} picked={picked} onPick={(id, node) => { setPicked(id); setGroup(groupOfNode(node)) }} />
-            <Structure label={page === 'product' ? L('পণ্যের পেজ', 'Product page') : L('হোম পেজ', 'Home page')} sections={content.sections} picked={picked} onPick={(id, node) => { setPicked(id); setGroup(groupOfNode(node)) }} />
-            <Structure label={L('ফুটার', 'Footer')} sections={footer} picked={picked} onPick={(id, node) => { setPicked(id); setGroup(groupOfNode(node)) }} />
+            <p className="design-help customize__intro"><MousePointerClick size={14} aria-hidden="true" /> {L('এই পেজ নিচের টেমপ্লেটগুলো দিয়ে তৈরি। কিছু বাছাই করলে তার সাইট-জুড়ে স্টাইল খুলবে; সেকশন বদলাতে টেমপ্লেটের নাম চাপুন।', 'This page is made of the templates below. Pick anything to open the site-wide style it follows; to change its sections, open the template by its name.')}</p>
+            {([[L('হেডার', 'Header'), header, headerFrame.template], [page === 'product' ? L('পণ্যের পেজ', 'Product page') : L('হোম পেজ', 'Home page'), content.sections, pageTemplate], [L('ফুটার', 'Footer'), footer, footerFrame.template]] as const).map(([label, sections, template]) => (
+              <Structure key={label} label={label} sections={sections} picked={picked} onPick={(id, node) => { setPicked(id); setGroup(groupOfNode(node)) }}
+                edit={template && <Link to={path(`/online-store/templates/${template.id}`)} title={template.title} onClick={(e) => editTemplate(e, path(`/online-store/templates/${template.id}`))}>{template.title}<PenLine size={12} aria-hidden="true" /></Link>} />
+            ))}
           </>}
         </aside>
       </div>
@@ -304,7 +314,7 @@ function LivePreview({ preview, style, content, page, header, footer, mobile, pi
 }
 
 // The page's sections and elements, read only: names and kinds, indented by nesting.
-function Structure({ label, sections, picked, onPick }: { label: string; sections: Section[]; picked: string | null; onPick: (id: string, node: PageNode | null) => void }) {
+function Structure({ label, sections, picked, onPick, edit }: { label: string; sections: readonly Section[]; picked: string | null; onPick: (id: string, node: PageNode | null) => void; edit?: ReactNode }) {
   const { lang } = useLang()
   const L = (pair: readonly [string, string]) => pair[lang === 'bn' ? 0 : 1]
   const nodeName = (n: PageNode) => (n.block ? L(defOf(n.block.type).label) : L(nodeDefs[n.kind].label))
@@ -316,7 +326,7 @@ function Structure({ label, sections, picked, onPick }: { label: string; section
   if (!visible.length) return null
   return (
     <div className="customize-tree">
-      <p className="customize-tree__label">{label}</p>
+      <p className="customize-tree__label"><span>{label}</span>{edit}</p>
       <ul>
         {visible.map((s) => [
           <li key={s.id}><button type="button" className="customize-tree__section" style={{ ['--depth' as string]: 0 }} aria-current={picked === s.id || undefined} onClick={() => onPick(s.id, null)}>{String(s.settings.name || '') || L(defOf(s.type).label)}</button></li>,
