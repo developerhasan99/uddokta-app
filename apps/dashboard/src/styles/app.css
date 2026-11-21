@@ -103,7 +103,8 @@ main { outline: 0; }
 .badge--danger { background: var(--color-error-soft); color: var(--color-error); }
 
 /* Surfaces */
-.card { display: grid; gap: var(--space-sm); padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-card); }
+/* One column that never grows past the card: a wide child (a table that scrolls) scrolls inside instead of widening the card. */
+.card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-card); }
 .card--flush { display: block; padding: 0; overflow: hidden; }
 .notice { display: grid; justify-items: center; gap: var(--space-xs); padding: var(--space-xl) var(--space-md); text-align: center; }
 .notice .btn { margin-top: var(--space-xs); }
@@ -179,6 +180,14 @@ main { outline: 0; }
 .bulk-choice { width: auto; min-width: 9rem; }
 .data-list__bulk-actions { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: var(--space-xs); min-width: 0; }
 .data-list__bulk-clear { box-shadow: none; background: transparent; color: var(--color-muted); }
+/* Phones: the count with Clear on the right, then the actions across the full width (a choice grows, buttons keep their size). */
+@media (max-width: 40rem) {
+  .filter-bar.data-list__bulk { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; row-gap: var(--space-xs); column-gap: var(--space-sm); padding-block: var(--space-xs); }
+  .data-list__bulk-actions { grid-column: 1 / -1; grid-row: 2; flex-wrap: nowrap; }
+  .data-list__bulk-actions > * { flex: none; }
+  .data-list__bulk-actions > .bulk-choice { flex: 1 1 0; min-width: 0; }
+  .data-list__bulk-clear { grid-column: 3; grid-row: 1; }
+}
 .bulk-toast { position: fixed; inset-inline: 0; bottom: var(--space-lg); z-index: var(--z-tooltip); display: flex; justify-content: center; padding-inline: var(--space-md); pointer-events: none; }
 .bulk-toast .toast { pointer-events: auto; }
 .toast__close { display: grid; place-items: center; width: 24px; height: 24px; margin-inline-end: calc(-1 * var(--space-xs)); padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-frame-muted); cursor: pointer; }
@@ -483,7 +492,9 @@ select.input { padding-inline-end: 28px; appearance: none; background: var(--col
 .rich-text__tools button[aria-pressed="true"] { background: var(--color-paper-3); color: var(--color-ink); }
 @media (hover: hover) { .rich-text__tools button:hover { background: var(--color-paper-3); } }
 .rich-text__body > * + * { margin-top: var(--space-xs); }
-.rich-text__body { min-height: 10rem; max-height: 28rem; padding: var(--space-xs) var(--space-sm); overflow-y: auto; outline: 0; }
+/* Drag the bottom corner to make it taller (desktop); phones show the whole text and the page scrolls (touch cannot resize). */
+.rich-text__body { min-height: 10rem; max-height: 28rem; padding: var(--space-xs) var(--space-sm); overflow-y: auto; outline: 0; resize: vertical; }
+.rich-text__body[style*="height"] { max-height: none; }
 .rich-text__body ul, .rich-text__body ol { padding-inline-start: var(--space-lg); }
 .rich-text__body ul { list-style: disc; }
 .rich-text__body ol { list-style: decimal; }
@@ -754,7 +765,12 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
   .guide__icon { display: none; }
   .price-grid, .price-grid--two { grid-template-columns: minmax(0, 1fr); }
   .option-row { grid-template-columns: minmax(0, 1fr); }
-  .rich-text__tools button { width: 36px; height: 36px; }
+  .rich-text__tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .rich-text__tools button { flex: none; width: 32px; height: 32px; }
+  .rich-text__body { max-height: none; resize: none; }
+  /* The header: back, name and status on one line; the buttons on their own line under it. */
+  .detail-head { flex-wrap: wrap; row-gap: var(--space-2xs); }
+  .detail-head__title { flex: 1 1 100%; }
   .bulk-bar__value { flex: 1; width: auto; min-width: 5rem; }
   .chips input { min-height: 36px; font-size: var(--text-lg); }
   .chip button { width: 32px; height: 36px; }
@@ -1154,9 +1170,17 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 @media (prefers-reduced-motion: reduce) { .save-bar { animation: none; } }
 @media (max-width: 900px) { .settings-split { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); } .settings-split__head { position: static; padding-top: 0; } .store-hero { grid-template-columns: minmax(0, 1fr); } .store-preview { min-height: 0; aspect-ratio: 16 / 10; } }
 @media (max-width: 640px) { .save-bar { left: var(--space-sm); right: var(--space-sm); transform: none; justify-content: flex-end; } @keyframes save-bar-in { from { opacity: 0; } } }
-.templates-table th:nth-child(2) { width: 11rem; }
-.templates-table th:nth-child(3) { width: 9rem; }
-.templates-table th:nth-child(4) { width: 3.5rem; }
+.templates-table__status { width: 11rem; }
+.templates-table__date { width: 9rem; }
+.templates-table__menu { width: 3.5rem; }
+/* Phones: name (with its status underneath) and the row menu. Hidden cells take no column, so the menu
+   cell falls into the second column; it gets the menu's width and the rest none. */
+@media (max-width: 40rem) {
+  .templates-table__status { width: 3rem; }
+  .templates-table__date, .templates-table__menu { width: 0; }
+  .templates-table .templates-table__more { display: table-cell; padding-inline: 0 var(--space-xs); }
+  .templates-table .template-status { margin-top: 2px; }
+}
 .template-status { flex-wrap: nowrap; gap: var(--space-2xs); }
 .data-table tbody .template-group th { height: auto; padding: var(--space-sm) var(--space-sm) var(--space-xs); background: var(--color-paper-2); font-weight: 400; }
 .template-group th > strong { display: block; color: var(--color-ink); font-size: var(--text-sm); font-weight: 600; }

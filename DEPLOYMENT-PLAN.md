@@ -675,3 +675,11 @@ Plan in `ONLINE-STORE-PLAN.md`; the owner asked to build all phases in order (de
 - Tests: storefront (validation, variables, CSS reads them, section accent still wins), API (save, refuse bad values, preview has the product page). The browser check is still to do: the Chrome extension disconnected during this task.
 - Phones (under 860px, the editor's breakpoint): Customize uses the page builder's bottom dock with Settings, Structure and Preview tabs, one full-screen pane at a time; tapping an element in the preview opens its settings. The top bar is back, the page picker and Save. Before this the preview was hidden (the builder's pane rules) and the page picker collapsed under the Save button.
 - Customize draws exactly what the storefront draws: `store-preview` picks the home and product templates as `storefront_template` does (the previewed product's own template, else the default, else the built-in copy) and returns which ones (`homeTemplate`, `productTemplate`); the header and footer follow the page's canvas (off, its own choice, else the default being edited here). The dropdown reads "Preview: …" (it only chooses the page the site styles are shown on), and Page structure names the template behind the header, the page and the footer, each linking to its editor (asking first when changes are unsaved).
+
+## Phone fixes: templates, bulk bar, product edit (November 21, 2026)
+
+- Templates list: column widths come from a `<colgroup>` (the first row is a group heading across all columns, so on phones the name got a quarter of the width); phones show the name with its status under it and the row menu.
+- Bulk-action bar (`components/Selection.tsx`, every list): on phones the count with Clear on the right, then the actions across the full width.
+- `.card` is one `minmax(0, 1fr)` column, so a wide child scrolls inside instead of widening the card. On the product page the variant table (46rem) had stretched the whole Variants card, cutting off the heading and the option edit buttons.
+- Product edit on phones: the header puts back, name and status on one line and the buttons under it (every `.detail-head` page); the description toolbar stays on one line (32px buttons, scrolls if ever needed) and the text grows with its content instead of scrolling inside. On desktop the text box can be dragged taller from its corner.
+

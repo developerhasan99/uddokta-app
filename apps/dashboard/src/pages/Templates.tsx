@@ -115,12 +115,13 @@ export function Templates() {
             <span className="data-table__text">
               <span className="data-table__name" title={name(r)}>{name(r)}</span>
               {detail(r) && <span className="template-detail">{detail(r)}</span>}
+              <span className="data-table__sub"><span className="row template-status">{status(r)}</span></span>
             </span>
           </Link>
         </td>
         <td className="data-table__meta"><span className="row template-status">{status(r)}</span></td>
         <td className="data-table__meta muted">{ago(r.updatedAt)}</td>
-        <td className="data-table__meta" onClick={(e) => e.stopPropagation()}>
+        <td className="data-table__meta templates-table__more" onClick={(e) => e.stopPropagation()}>
           {canEdit && <Dropdown.Root>
             <Dropdown.Trigger asChild><button type="button" className="btn btn--icon" disabled={busy} aria-label={`${L(['আরও', 'More'])}: ${name(r)}`}><Ellipsis size={16} aria-hidden="true" /></button></Dropdown.Trigger>
             <Dropdown.Portal>
@@ -172,6 +173,8 @@ export function Templates() {
           {!rows && <div role="status" aria-label={t('loading')}>{Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton-row"><Skeleton width="16rem" /><Skeleton width="5rem" /></div>)}</div>}
           {rows && (
             <table className="data-table templates-table">
+              {/* Column widths live here: the first row is a group heading across every column, so cells cannot set them. */}
+              <colgroup><col /><col className="templates-table__status" /><col className="templates-table__date" /><col className="templates-table__menu" /></colgroup>
               <thead>
                 <tr>
                   <th scope="col">{L(['নাম', 'Name'])}</th>
