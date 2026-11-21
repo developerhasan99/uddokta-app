@@ -39,6 +39,7 @@ const messages: Record<string, string> = {
   notFound: 'Not found. It may have been deleted.',
   userNotFound: 'No account uses this email. Ask the person to sign up first.',
   alreadyMember: 'This person is already on the store’s team.',
+  lastOwner: 'A store must keep at least one owner. Make someone else an owner first.',
   invalidRequest: 'Some values are not valid.',
   storeNotScheduled: 'The owner has not asked to delete this store. Only stores in their 30 days can be deleted from here.',
   storeNotFound: 'No store has that address. Use the part before .uddokta.live.',

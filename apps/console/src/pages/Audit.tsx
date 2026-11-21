@@ -8,7 +8,7 @@ type Entry = { id: string; admin_email: string; action: string; target_type: str
 
 const actions: Record<string, string> = {
   'user.suspend': 'Suspended user', 'user.restore': 'Restored user', 'user.signOut': 'Signed out user', 'user.passwordReset': 'Sent reset link',
-  'store.suspend': 'Suspended store', 'store.restore': 'Restored store', 'store.plan': 'Changed plan', 'store.payment': 'Recorded payment', 'store.addMember': 'Added team member',
+  'store.suspend': 'Suspended store', 'store.restore': 'Restored store', 'store.plan': 'Changed plan', 'store.payment': 'Recorded payment', 'store.addMember': 'Added team member', 'store.memberRole': 'Changed member role', 'store.memberRemove': 'Removed team member',
   'plan.create': 'Created plan', 'plan.update': 'Changed plan settings',
   'store.customPlan': 'Set custom plan', 'store.customPlanEnd': 'Ended custom plan', 'settings.billing': 'Changed payment details',
 }
@@ -17,6 +17,8 @@ function details(e: Entry) {
   if (e.action === 'store.payment') return `${d.plan}, ৳${d.amount} for ${d.months} mo by ${d.method}${d.reference ? ` (${d.reference})` : ''}, until ${d.until}`
   if (e.action === 'store.customPlan') return `৳${d.priceBdt}/month, ${(d.features as string[]).length} tools${d.until ? `, until ${d.until}` : ''}${d.billingNote ? ` · ${d.billingNote}` : ''}`
   if (e.action === 'store.addMember') return `${d.email} as ${d.role}`
+  if (e.action === 'store.memberRole') return `${d.email}: ${d.from} → ${d.role}`
+  if (e.action === 'store.memberRemove') return `${d.email} (was ${d.role})`
   if (e.action === 'store.plan') return `${d.plan ?? 'Default plan'}${d.until ? ` until ${d.until}` : ''}`
   return ''
 }

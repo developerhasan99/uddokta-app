@@ -153,6 +153,19 @@ export function registerConsole(app: Hono<Env>) {
     const added = await run((t) => one<{ m: unknown }>(t, sql`select console_add_member(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${email}, ${b.role as string}, ${reason(b)}) as m`))
     return c.json(added!.m)
   })
+  // A member's role, or taking them off the store. The database keeps at least one owner (409 lastOwner).
+  app.put('/console/stores/:id/members/:userId', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id')) || !isId(c.req.param('userId')) || !['owner', 'admin', 'staff'].includes(b.role as string)) throw fail(400, 'invalidRequest')
+    await run((t) => t.execute(sql`select console_set_member_role(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${c.req.param('userId')}::uuid, ${b.role as string}, ${reason(b)})`))
+    return c.json({ ok: true })
+  })
+  app.delete('/console/stores/:id/members/:userId', async (c) => {
+    const b = await body(c)
+    if (!isId(c.req.param('id')) || !isId(c.req.param('userId'))) throw fail(404, 'notFound')
+    await run((t) => t.execute(sql`select console_remove_member(${admin(c)}::uuid, ${c.req.param('id')}::uuid, ${c.req.param('userId')}::uuid, ${reason(b)})`))
+    return c.json({ ok: true })
+  })
   app.put('/console/stores/:id/plan', async (c) => {
     const b = await body(c)
     if (!isId(c.req.param('id')) || !(b.planId === null || isId(b.planId))) throw fail(400, 'invalidRequest')

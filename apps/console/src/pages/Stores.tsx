@@ -95,6 +95,32 @@ function AddMemberDialog({ store, onClose, onDone }: { store: Store; onClose: ()
   )
 }
 
+function MemberRoleDialog({ store, member, onClose, onDone }: { store: Store; member: Store['members'][number]; onClose: () => void; onDone: (role: string) => void }) {
+  const [role, setRole] = useState(member.role)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <Modal title={`Change ${member.name}'s role`} sub={`In ${store.name}. A store must keep at least one owner.`} onClose={onClose} foot={(close) => <>
+      <Button onClick={() => close()}>Cancel</Button>
+      <Button variant="primary" aria-busy={busy} disabled={!reason.trim() || role === member.role} onClick={async () => {
+        setBusy(true); setError(null)
+        try { await api(`/console/stores/${store.id}/members/${member.id}`, { method: 'PUT', body: { role, reason } }); close(() => onDone(role)) } catch (err) { setError(errorText(err)); setBusy(false) }
+      }}>Save role</Button>
+    </>}>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="field"><label htmlFor="member-new-role">Role</label>
+        <select id="member-new-role" className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="owner">Owner: everything, including adding and changing owners</option>
+          <option value="admin">Admin: runs the store like an owner, but cannot add or change owners</option>
+          <option value="staff">Staff: orders, products and pages; no profit, buying prices or settings</option>
+        </select>
+      </div>
+      <div className="field"><label htmlFor="member-role-reason">Reason</label><textarea id="member-role-reason" className="input console-textarea" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Kept in the audit log" /></div>
+    </Modal>
+  )
+}
+
 function PlanDialog({ store, plans, onClose, onDone }: { store: Store; plans: Plan[]; onClose: () => void; onDone: () => void }) {
   const [planId, setPlanId] = useState(store.planId ?? '')
   const [until, setUntil] = useState(store.planUntil ?? '')
@@ -210,6 +236,8 @@ export function StoreDetail() {
   const { data: store, error, reload } = useLoad(() => api<Store>(`/console/stores/${id}`), [id])
   const { data: plans } = useLoad(() => api<Plan[]>('/console/plans'), [])
   const [action, setAction] = useState<Action | null>(null)
+  // A team member being given another role or taken off the store.
+  const [member, setMember] = useState<{ kind: 'role' | 'remove'; member: Store['members'][number] } | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const navigate = useNavigate()
   if (error) return <div className="page"><LoadError error={error} retry={reload} /></div>
@@ -255,8 +283,9 @@ export function StoreDetail() {
       </section>
       <section className="data-list">
         <div className="filter-bar"><h2 className="console-h2">Team</h2><Button onClick={() => setAction('member')}>Add member</Button></div>
-        <table className="data-table"><thead><tr><th>Name</th><th>Email</th><th style={{ width: '8rem' }}>Role</th></tr></thead>
-          <tbody>{store.members.map((m) => <tr key={m.id}><th scope="row"><Link to={`/users/${m.id}`}>{m.name}</Link></th><td className="console-ellipsis">{m.email}</td><td className="console-cap">{m.role}</td></tr>)}</tbody>
+        <table className="data-table"><thead><tr><th>Name</th><th>Email</th><th style={{ width: '8rem' }}>Role</th><th style={{ width: '13rem' }}><span className="visually-hidden">Actions</span></th></tr></thead>
+          <tbody>{store.members.map((m) => <tr key={m.id}><th scope="row"><Link to={`/users/${m.id}`}>{m.name}</Link></th><td className="console-ellipsis">{m.email}</td><td className="console-cap">{m.role}</td>
+            <td className="end"><span className="console-row-actions"><Button onClick={() => setMember({ kind: 'role', member: m })}>Change role</Button><Button variant="danger" onClick={() => setMember({ kind: 'remove', member: m })}>Remove</Button></span></td></tr>)}</tbody>
         </table>
       </section>
       <section className="data-list">
@@ -270,6 +299,9 @@ export function StoreDetail() {
       {action === 'custom' && <CustomPlanDialog store={store} onClose={() => setAction(null)} onDone={() => finish('Custom plan saved.')} />}
       {action === 'endCustom' && <ReasonDialog title="End the custom plan?" sub="The store goes back to the default plan straight away. Payments already recorded stay in its history." action="End custom plan" danger
         onConfirm={(reason) => api(`/console/stores/${store.id}/custom-plan`, { method: 'DELETE', body: { reason } })} onClose={() => setAction(null)} onDone={() => finish('Custom plan ended; the store is on the default plan.')} />}
+      {member?.kind === 'role' && <MemberRoleDialog store={store} member={member.member} onClose={() => setMember(null)} onDone={(role) => { setMember(null); finish(`${member.member.name} is now ${role}.`) }} />}
+      {member?.kind === 'remove' && <ReasonDialog title={`Remove ${member.member.name} from ${store.name}?`} sub={`They lose access to this store at once (their account stays). ${member.member.role === 'owner' ? 'A store must keep at least one owner.' : ''}`} action="Remove from store" danger
+        onConfirm={(reason) => api(`/console/stores/${store.id}/members/${member.member.id}`, { method: 'DELETE', body: { reason } })} onClose={() => setMember(null)} onDone={() => { const name = member.member.name; setMember(null); finish(`${name} was removed from the team.`) }} />}
       {action === 'member' && <AddMemberDialog store={store} onClose={() => setAction(null)} onDone={(name) => finish(`${name} added to the team.`)} />}
       {action === 'plan' && <PlanDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={() => finish('Plan saved.')} />}
       {action === 'payment' && <PaymentDialog store={store} plans={plans} onClose={() => setAction(null)} onDone={(until) => finish(`Payment recorded. The plan now runs until ${date(until)}.`)} />}

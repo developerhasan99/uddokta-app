@@ -227,6 +227,36 @@ test('administrators add an existing account to any store, with a role and a rea
   await assert.rejects(tx(owner.id, (t) => t.execute(sql`select console_add_member(${owner.id}::uuid, ${storeId}::uuid, ${helper.email}, 'owner', 'x')`)), (err: any) => (err.cause?.code ?? err.code) === '42501')
 })
 
+test('administrators change a member\'s role or remove them; a store always keeps an owner; every change is audited', async () => {
+  const admin = await administrator()
+  const owner = await person()
+  const helper = await person()
+  await owner.call('POST', '/stores', { name: 'Role Shop', handle: `role-shop-${counter}` })
+  const storeId = (await owner.call('GET', '/me')).json.stores[0].id as string
+  await admin.call('POST', `/console/stores/${storeId}/members`, { email: helper.email, role: 'staff', reason: 'Setup help' })
+  const role = (who: string, r: string, reason = 'Asked by owner') => admin.call('PUT', `/console/stores/${storeId}/members/${who}`, { role: r, reason })
+  const remove = (who: string, reason = 'Left the business') => admin.call('DELETE', `/console/stores/${storeId}/members/${who}`, { reason })
+
+  assert.equal((await admin.call('PUT', `/console/stores/${storeId}/members/${helper.id}`, { role: 'admin' })).json.error, 'reasonRequired')
+  assert.equal((await role(helper.id, 'boss')).status, 400)
+  assert.equal((await role(helper.id, 'admin')).status, 200)
+  assert.equal((await helper.call('GET', '/me')).json.stores[0].role, 'admin')
+  assert.equal((await role(owner.id, 'staff')).json.error, 'lastOwner', 'the only owner cannot be demoted')
+  assert.equal((await remove(owner.id)).json.error, 'lastOwner', 'nor removed')
+  assert.equal((await role(helper.id, 'owner')).status, 200)
+  assert.equal((await remove(owner.id)).status, 200, 'with another owner, the first can go')
+  assert.equal((await owner.call('GET', '/me')).json.stores.length, 0, 'they lose the store at once')
+  assert.equal((await remove(owner.id)).status, 404, 'no longer a member')
+
+  const log = (await admin.call('GET', '/console/audit')).json.items
+  const roleEntry = log.find((e: any) => e.action === 'store.memberRole' && e.detail.role === 'owner')
+  assert.deepEqual([roleEntry.detail.email, roleEntry.detail.from, roleEntry.reason], [helper.email, 'admin', 'Asked by owner'])
+  assert.equal(log.find((e: any) => e.action === 'store.memberRemove').detail.email, owner.email)
+  for (const call of [sql`select console_set_member_role(${owner.id}::uuid, ${storeId}::uuid, ${helper.id}::uuid, 'staff', 'x')`, sql`select console_remove_member(${owner.id}::uuid, ${storeId}::uuid, ${helper.id}::uuid, 'x')`]) {
+    await assert.rejects(tx(owner.id, (t) => t.execute(call)), (err: any) => (err.cause?.code ?? err.code) === '42501')
+  }
+})
+
 test('console tables are out of reach for the app role, and the functions refuse anyone but administrators', async () => {
   const seller = await person()
   for (const table of ['platform_admins', 'plans', 'store_payments', 'console_audit', 'platform_settings']) {
