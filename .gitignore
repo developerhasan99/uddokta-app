@@ -7,3 +7,6 @@ dist
 .emails
 .env.live
 .sms
+
+# QA reports and screenshots (local review only)
+qa/
