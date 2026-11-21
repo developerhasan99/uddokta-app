@@ -268,29 +268,21 @@ function StoreAccessDialog({ handle, url, saved, onClose, onSaved }: { handle: s
       close(() => { onSaved(next); onClose() })
     } catch (err) { setError(errorCode(err)); setBusy(false) }
   }
-  const choices = [
-    { value: false, Icon: LockOpen, title: L(['সবার জন্য খোলা', 'Open to everyone']), help: L(['যে কেউ দোকান দেখে অর্ডার করতে পারবেন।', 'Anyone can browse and order.']) },
-    { value: true, Icon: Lock, title: L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected']), help: L(['দোকান সাজানোর সময়। ল্যান্ডিং পেজ খোলা থাকে, বিজ্ঞাপন চলবে।', 'While you set up. Landing pages stay open, so ads keep running.']) },
-  ]
   return <dialog {...props} className="modal store-access" aria-labelledby="store-access-title" onCancel={(e) => { e.preventDefault(); if (!busy) close() }}>
     <DialogHead id="store-access-title" title={L(['দোকানে কে ঢুকতে পারবে', 'Who can visit the store'])} disabled={busy} onClose={() => close()} />
     <div className="dialog__body">
-      <fieldset className="access-choices" disabled={busy}>
-        <legend className="visually-hidden">{L(['দোকানে কে ঢুকতে পারবে', 'Who can visit the store'])}</legend>
-        {choices.map(({ value, Icon, title, help }) => (
-          <label key={String(value)} className="access-choice" data-chosen={on === value || undefined}>
-            <input type="radio" className="visually-hidden" name="store-access" checked={on === value} onChange={() => setOn(value)} />
-            <span className="access-choice__icon"><Icon size={18} aria-hidden="true" /></span>
-            <span className="access-choice__text"><strong>{title}</strong><span>{help}</span></span>
-            <span className="access-choice__mark" aria-hidden="true">{on === value && <Check size={12} strokeWidth={3} />}</span>
-          </label>
+      {/* The same pill switch as elsewhere; the fields below always show (inactive while open), so the dialog never jumps. */}
+      <div className="segmented store-access__switch" role="radiogroup" aria-label={L(['দোকানে কে ঢুকতে পারবে', 'Who can visit the store'])}>
+        {([[false, LockOpen, L(['সবার জন্য খোলা', 'Open to everyone'])], [true, Lock, L(['পাসওয়ার্ড দিয়ে বন্ধ', 'Password protected'])]] as const).map(([value, Icon, label]) => (
+          <label key={String(value)}><input type="radio" name="store-access" checked={on === value} disabled={busy} onChange={() => setOn(value)} /><span><Icon size={14} aria-hidden="true" />{label}</span></label>
         ))}
-      </fieldset>
-      {on && <div className="access-fields">
-        <Field id="access-password" autoComplete="off" spellCheck={false} maxLength={100} disabled={busy} label={saved.passwordOn ? t('prefPasswordNew') : t('prefPasswordSet')} help={saved.passwordOn ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
-        <Field id="access-message" maxLength={300} disabled={busy} label={t('prefPasswordMessage')} placeholder={t('prefPasswordMessageHint')} value={message} onChange={(e) => setMessage(e.target.value)} />
-        {saved.passwordOn && <a className="link-button" href={`${url}/password`} target="_blank" rel="noopener"><ExternalLink size={14} aria-hidden="true" />{t('prefPasswordView')}</a>}
-      </div>}
+      </div>
+      <p className="field__help">{L(['পাসওয়ার্ড থাকলে ক্রেতারা দোকানে ঢুকতে পাসওয়ার্ড লাগবে। ল্যান্ডিং পেজ সবসময় খোলা থাকে, তাই বিজ্ঞাপন চলতে থাকবে।', 'With a password, buyers need it to enter the store. Landing pages always stay open, so ads keep running.'])}</p>
+      <div className="access-fields" aria-disabled={!on || undefined}>
+        <Field id="access-password" autoComplete="off" spellCheck={false} maxLength={100} disabled={busy || !on} label={saved.passwordOn ? t('prefPasswordNew') : t('prefPasswordSet')} help={saved.passwordOn ? t('prefPasswordKeep') : t('prefPasswordRule')} value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field id="access-message" maxLength={300} disabled={busy || !on} label={t('prefPasswordMessage')} placeholder={t('prefPasswordMessageHint')} value={message} onChange={(e) => setMessage(e.target.value)} />
+      </div>
+      {saved.passwordOn && <a className="link-button" href={`${url}/password`} target="_blank" rel="noopener"><ExternalLink size={14} aria-hidden="true" />{t('prefPasswordView')}</a>}
       {error && <p className="form-error" role="alert">{t(errorLabel(error))}</p>}
     </div>
     <footer className="dialog__foot dialog__foot--split">
