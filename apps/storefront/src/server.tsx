@@ -29,6 +29,13 @@ const proxyHost = `domains.${domain}`
 declare module 'hono' {
   interface ContextVariableMap { handle: string | null; origin: string; online: boolean }
 }
+// The dashboard (APP_URL): /admin sends sellers there, and only it may show store pages in a frame (the Online store
+// page's preview of the live store). Every other site is refused, so stores cannot be framed for clickjacking.
+const dashboardUrl = (process.env.APP_URL ?? (process.env.NODE_ENV === 'production' ? 'https://admin.uddokta.co' : 'http://localhost:5173')).replace(/\/+$/, '')
+const frameAncestors = `frame-ancestors ${new URL(dashboardUrl).origin}`
+// The dashboard's preview asks with ?preview=dashboard: the store's pixels and custom code stay out, so a seller looking at
+// their own Online store page never counts as a visit in their ads or analytics, and search engines are told to skip it.
+const forDashboard = (c: Context) => c.req.query('preview') === 'dashboard'
 const hash = (script: string) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`
 const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
 // Each response allows exactly its own inline scripts by hash: the page script, and the store's pixel loader if it has one.
@@ -37,12 +44,12 @@ const pixelHosts = 'https://connect.facebook.net https://analytics.tiktok.com'
 // another origin, its session cookie is never sent to stores, and the API refuses requests from other origins.
 const openCsp = [
   "default-src 'self' https:", "img-src 'self' https: data: blob:", "media-src 'self' https: blob:", "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
-  "style-src 'self' 'unsafe-inline' https:", 'font-src https: data:', 'frame-src https:', "connect-src 'self' https:", "form-action 'self' https:", "frame-ancestors 'none'", "base-uri 'none'",
+  "style-src 'self' 'unsafe-inline' https:", 'font-src https: data:', 'frame-src https:', "connect-src 'self' https:", "form-action 'self' https:", frameAncestors, "base-uri 'none'",
 ].join('; ')
 const cspFor = (pixel: string, custom = false) => custom ? openCsp : [
   "default-src 'self'", "img-src 'self' https: data:", "media-src https:", `script-src ${hash(pageScript)} ${hash(cartScript)} ${hash(drawerScript)} ${hash(filterScript)}${pixel ? ` ${hash(pixel)} ${pixelHosts}` : ''}`, "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com', "frame-src 'self' https://www.youtube-nocookie.com https://www.facebook.com",
-  `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", "frame-ancestors 'none'", "base-uri 'none'",
+  `connect-src 'self'${pixel ? ' https://www.facebook.com https://*.tiktok.com https://*.tiktokw.us' : ''}`, "form-action 'self'", frameAncestors, "base-uri 'none'",
 ].join('; ')
 
 // Meta and TikTok's standard loaders. The IDs were checked when saved and are checked again here, since they go into a script.
@@ -251,13 +258,14 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
 // code: the store's custom code, placed before </head>, right after <body> and before </body>. Like a Custom HTML block,
 // it is the seller's own and runs as written, so a page carrying any gets the open policy.
 const html = (c: Context, body: React.ReactElement, status: 200 | 404 | 422 | 429 = 200, pixel = '', custom = false, code?: StoreCode) => {
+  if (forDashboard(c)) code = undefined
   let page = renderToString(body)
   if (hasCode(code)) {
     page = page.replace('</head>', () => `${code.head}</head>`).replace('<body>', () => `<body>${code.start}`)
     const end = page.lastIndexOf('</body>')
     page = `${page.slice(0, end)}${code.end}${page.slice(end)}`
   }
-  return c.html(`<!doctype html>${page}`, status, { 'content-security-policy': cspFor(pixel, custom || hasCode(code)), 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache' })
+  return c.html(`<!doctype html>${page}`, status, { 'content-security-policy': cspFor(pixel, custom || hasCode(code)), 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache', ...(forDashboard(c) ? { 'x-robots-tag': 'noindex' } : {}) })
 }
 
 function notFound(c: Context) {
@@ -293,7 +301,7 @@ const storeCtx = (store: LoadedStore, path: string) => ({
 })
 
 async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
-  const pixel = pixelScript(await trackingFor(page.store_id))
+  const pixel = forDashboard(c) ? '' : pixelScript(await trackingFor(page.store_id))
   const store = await loadStore(storeHandle(c)!)
   const canvas = page.content.canvas
   // The page's chosen header and footer templates (or the store's defaults), when its canvas shows them.
@@ -375,7 +383,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
   const collections: CollectionCard[] | undefined = usesBlock(all, 'collectionList')
     ? (await tx(null, (t) => t.execute<{ id: string; name: string; handle: string; image_key: string | null; image_width: number; image_height: number }>(sql`select * from storefront_collection_cards(${store.id}::uuid)`))).rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle, image: image(r.image_key, r.name, r.image_width, r.image_height) }))
     : undefined
-  const pixel = pixelScript(await trackingFor(store.id))
+  const pixel = forDashboard(c) ? '' : pixelScript(await trackingFor(store.id))
   const ctx: Ctx = {
     preview: false,
     live: true,
@@ -431,7 +439,7 @@ async function thanks(c: Context, storeId: string, storeName: string, back: stri
   const receipt = isCheckoutToken(token) ? (await tx(null, (t) => t.execute<{ number: number; total: number }>(sql`select * from storefront_receipt(${storeId}::uuid, ${token}::uuid)`))).rows[0] : undefined
   const number = receipt?.number ?? 0
   const total = receipt?.total ?? 0
-  const pixel = pixelScript(await trackingFor(storeId), receipt ? { total, receipt: token } : undefined)
+  const pixel = forDashboard(c) ? '' : pixelScript(await trackingFor(storeId), receipt ? { total, receipt: token } : undefined)
   return html(c, (
     <Document title={tr(lang, ['অর্ডার হয়েছে', 'Order placed'])} description="" look={shown?.look} pixel={pixel} lang={lang}>
       <div className="sf-page">
@@ -456,7 +464,6 @@ export const app = new Hono()
 // ponytail: one database lookup per page for the live-domain redirect; cache it if it shows up in response times.
 // The store's own /admin opens its dashboard (sign-in first if needed); /admin/orders opens Orders, and so on. Works on
 // {store}.uddokta.live and on the seller's own domain, before any redirect to that domain. 'admin' is a reserved page handle.
-const dashboardUrl = (process.env.APP_URL ?? (process.env.NODE_ENV === 'production' ? 'https://admin.uddokta.co' : 'http://localhost:5173')).replace(/\/+$/, '')
 const adminPath = /^\/admin(\/[a-z0-9/-]*)?\/?$/i
 export const adminRedirect = (handle: string, path: string) => `${dashboardUrl}/store/${encodeURIComponent(handle)}${(adminPath.exec(path)?.[1] ?? '').replace(/\/+$/, '').toLowerCase()}`
 

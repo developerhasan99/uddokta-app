@@ -1078,7 +1078,8 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .store-hero__address a:hover { color: var(--color-ink); text-decoration: underline; }
 .store-hero__address .btn--icon { width: 28px; min-width: 28px; min-height: 28px; box-shadow: none; }
 .store-preview { position: relative; overflow: hidden; min-height: 20rem; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-box); background: var(--color-paper-2); }
-.store-preview iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+.store-preview iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; opacity: 0; transition: opacity var(--dur-enter) var(--ease-out); }
+.store-preview[data-loaded] iframe { opacity: 1; }
 .store-parts { display: grid; gap: var(--space-sm); margin-top: var(--space-xs); }
 .store-part { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-box); color: var(--color-ink); text-decoration: none; }
 .store-part:hover { border-color: var(--color-rule-strong); background: var(--color-paper-2); }

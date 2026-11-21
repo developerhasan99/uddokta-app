@@ -99,7 +99,7 @@ test('a published page renders on its store’s address, and nowhere else', asyn
   assert.match(body, /পাঞ্জাবি/)
   assert.match(body, /৳১,২০০/)
   const csp = res.headers.get('content-security-policy')!
-  assert.match(csp, /frame-ancestors 'none'/)
+  assert.match(csp, /frame-ancestors http:\/\/localhost:5173(;|$)/, 'only the dashboard may frame a store')
   const script = body.match(/<script>([\s\S]*?)<\/script>/)![1]
   assert.ok(csp.includes(`'sha256-${createHash('sha256').update(script).digest('base64')}'`), 'the page script is allowed by its hash, or browsers would block it')
   assert.equal((await visit('someone-else', s.url)).status, 404)
@@ -474,6 +474,10 @@ test('a store’s pixels load on its pages, are allowed by the page’s own poli
   const body = await res.text()
   assert.match(body, /fbq\('init','123456789012345'\);fbq\('track','PageView'\)/)
   assert.match(body, /ttq\.load\('C1ABC2DEF3'\)/)
+  // The dashboard's preview of the live store (?preview=dashboard) never fires the pixels, and search engines skip it.
+  const quiet = await visit(s.handle, `${s.url}?preview=dashboard`)
+  assert.doesNotMatch(await quiet.text(), /fbq\(|ttq\./)
+  assert.equal(quiet.headers.get('x-robots-tag'), 'noindex')
   const csp = res.headers.get('content-security-policy')!
   assert.match(csp, /https:\/\/connect\.facebook\.net/)
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
@@ -699,7 +703,7 @@ test('Custom HTML is part of the live page as written, and only that page gets t
   const open = live.headers.get('content-security-policy')!
   assert.match(open, /script-src 'self' 'unsafe-inline' 'unsafe-eval' https:/)
   assert.match(open, /form-action 'self' https:/)
-  assert.match(open, /frame-ancestors 'none'/, 'still never framed by other sites')
+  assert.match(open, /frame-ancestors http:\/\/localhost:5173(;|$)/, 'still never framed by other sites')
   assert.equal((await visit(handle, '/embed/x/custom-html')).status, 404, 'the old frame address is gone')
 })
 
@@ -867,6 +871,7 @@ test('custom code goes into every live page as written: before </head>, after <b
     assert.ok(text.trimEnd().endsWith(`${code.codeBodyEnd}</body></html>`), `body end code on ${path}`)
     assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self' 'unsafe-inline'/, 'the seller\'s scripts may run')
   }
+  assert.doesNotMatch(await (await visit(s.handle, '/?preview=dashboard')).text(), /window\.head=1|window\.end=1|<noscript>gtm/, 'the dashboard preview leaves custom code out')
   assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, codeHead: 'x'.repeat(50001) })).json.error, 'searchEnginesInvalid')
   await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, codeHead: '', codeBodyStart: '', codeBodyEnd: '' })
   const plain = await visit(s.handle, '/')

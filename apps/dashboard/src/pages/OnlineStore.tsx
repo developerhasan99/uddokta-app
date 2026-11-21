@@ -3,13 +3,12 @@ import { loadScreen } from '../components/ScreenError'
 import { Link } from 'react-router'
 import { Check, ChevronRight, Paintbrush, CircleCheck, Copy, ExternalLink, FileText, Globe, ImagePlus, LayoutTemplate, ListTree, Lock } from 'lucide-react'
 import { defaultRobots } from 'storefront/paths'
-import type { SiteStyle } from 'storefront/site'
 import { useCurrentStore, useStorePath } from '../account-context'
 import { api, errorCode, storefrontUrl, type MediaItem } from '../api'
 import { MediaPicker } from '../components/MediaPicker'
 import { DialogHead } from '../components/DialogHead'
 import { useDialog } from '../components/dialog'
-import { StorePreview } from '../components/StorePreview'
+import { StoreFrame } from '../components/StoreFrame'
 import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../components/ui'
 import { errorLabel, useLang } from '../i18n'
 
@@ -29,8 +28,6 @@ export function OnlineStore() {
   const handle = current.store.handle
   const url = storefrontUrl(handle)
   const canEdit = current.role !== 'staff'
-  // The saved look, for the home page preview (Customize changes it).
-  const [style, setStyle] = useState<SiteStyle | null>(null)
   const [prefs, setPrefs] = useState<Prefs | null>(null)
   const [saved, setSaved] = useState({ prefs: '' })
   const [access, setAccess] = useState(false)
@@ -45,8 +42,7 @@ export function OnlineStore() {
   const load = useCallback(async () => {
     setFailed(false)
     try {
-      const [s, p] = await Promise.all([api<SiteStyle>(`/stores/${handle}/site-style`), api<Prefs>(`/stores/${handle}/preferences`)])
-      setStyle(s)
+      const p = await api<Prefs>(`/stores/${handle}/preferences`)
       setPrefs(p)
       setSaved({ prefs: JSON.stringify(p) })
     } catch {
@@ -73,7 +69,7 @@ export function OnlineStore() {
   }, [unsaved])
 
   if (failed) return <div className="page page--narrow"><section className="card card--flush"><Notice role="alert" title={t('errGeneric')} action={<Button onClick={() => void load()}>{t('retry')}</Button>} /></section></div>
-  if (!style || !prefs) return <div className="page page--narrow"><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
+  if (!prefs) return <div className="page page--narrow"><Skeleton width="16rem" /><section className="card"><Skeleton /><Skeleton width="60%" /></section></div>
 
   const prefsDirty = JSON.stringify(prefs) !== saved.prefs
   const setP = (next: Partial<Prefs>) => setPrefs({ ...prefs, ...next })
@@ -121,9 +117,9 @@ export function OnlineStore() {
       {!canEdit && <p className="muted">{L(['এখানের সেটিংস শুধু মালিক ও অ্যাডমিন বদলাতে পারেন।', 'Only owners and admins can change these settings.'])}</p>}
 
       <section className="card store-hero">
-        {/* The saved look of the real home page; Customize changes it. */}
+        {/* The live store's home page (shown without its pixels or custom code); clicking opens Customize. */}
         <Link className="store-hero__preview" to={path('/online-store/customize')} aria-label={L(['দোকান সাজান', 'Customize store'])}>
-          <StorePreview handle={handle} style={style} lang={prefs.language} />
+          <StoreFrame url={url} label={L(['দোকানের হোম পেজ', "The store's home page"])} />
           <span className="store-hero__customize" aria-hidden="true"><Paintbrush size={12} />{L(['সাজান', 'Customize'])}</span>
         </Link>
         <div className="store-hero__side">
