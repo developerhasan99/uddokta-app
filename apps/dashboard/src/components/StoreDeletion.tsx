@@ -101,7 +101,8 @@ function DeleteStoreDialog({ onClose }: { onClose: () => void }) {
     setBusy(true); setError(null)
     try {
       await api(`/stores/${handle}/deletion`, { method: 'POST', body: { confirm: confirm.trim(), password } })
-      close(() => void refresh())
+      // close(then) replaces onClose, so the section's open flag is reset here too (or Delete stops opening after a restore).
+      close(() => { onClose(); void refresh() })
     } catch (err) { setError(errorCode(err)); setBusy(false) }
   }
   const enter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); void remove() } }
