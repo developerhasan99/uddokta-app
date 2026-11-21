@@ -13,8 +13,10 @@ import { Badge, Button, Field, Notice, PageHeader, Skeleton } from '../component
 import { errorLabel, useLang } from '../i18n'
 
 const CssEditor = lazy(() => import('../components/CssEditor'))
+const HtmlEditor = lazy(() => import('../components/HtmlEditor'))
 
-type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en'; seoHidden: boolean; robotsTxt: string; googleVerification: string }
+type Prefs = { homeTitle: string; homeDescription: string; shareImage: MediaItem | null; passwordOn: boolean; passwordMessage: string; language: 'bn' | 'en'; seoHidden: boolean; robotsTxt: string; sitemapKinds: SitemapKind[]; codeHead: string; codeBodyStart: string; codeBodyEnd: string }
+type SitemapKind = 'product' | 'collection' | 'storePage' | 'landingPage'
 type Counts = { templates: number; pages: number; menus: number; broken: number }
 
 // Online store: the store's address and parts (templates, pages, menus), its look (Site settings) and its preferences
@@ -85,7 +87,7 @@ export function OnlineStore() {
     setError(null)
     try {
       const nextStyle = styleDirty ? await api<SiteStyle>(`/stores/${handle}/site-style`, { method: 'PUT', body: style }) : style
-      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language, seoHidden: prefs.seoHidden, robotsTxt: prefs.robotsTxt, googleVerification: prefs.googleVerification } }) : prefs
+      const nextPrefs = prefsDirty ? await api<Prefs>(`/stores/${handle}/preferences`, { method: 'PUT', body: { homeTitle: prefs.homeTitle, homeDescription: prefs.homeDescription, shareImageId: prefs.shareImage?.id ?? null, passwordOn: prefs.passwordOn, password, passwordMessage: prefs.passwordMessage, language: prefs.language, seoHidden: prefs.seoHidden, robotsTxt: prefs.robotsTxt, sitemapKinds: prefs.sitemapKinds, codeHead: prefs.codeHead, codeBodyStart: prefs.codeBodyStart, codeBodyEnd: prefs.codeBodyEnd } }) : prefs
       setStyle(nextStyle)
       setPrefs(nextPrefs)
       setSaved({ style: JSON.stringify(nextStyle), prefs: JSON.stringify(nextPrefs) })
@@ -259,12 +261,31 @@ export function OnlineStore() {
             <a href={`${url}/sitemap.xml`} target="_blank" rel="noopener">{`${url}/sitemap.xml`}</a>
             <span className="field__help">{L(['Google Search Console-এ এই লিংকটি জমা দিন। নতুন পণ্য, কালেকশন আর পেজ নিজে থেকেই যোগ হয়; খসড়া আর লুকানো পণ্য বাদ থাকে।', 'Submit this link in Google Search Console. New products, collections and pages are added by themselves; drafts and unlisted products are left out.'])}</span>
           </div>
-          <Field id="pref-google" label={L(['Google Search Console যাচাই', 'Google Search Console verification'])} maxLength={300} autoComplete="off" placeholder={'<meta name="google-site-verification" content="…" />'} help={L(['Search Console-এর "HTML ট্যাগ" পদ্ধতির পুরো ট্যাগটি বা শুধু কোডটি দিন।', 'Paste the whole tag from Search Console\'s "HTML tag" method, or just its code.'])} value={prefs.googleVerification} onChange={(e) => setP({ googleVerification: e.target.value })} />
+          <fieldset className="choice-list">
+            <legend className="field__label">{L(['সাইটম্যাপে যা থাকবে', 'What the sitemap lists'])}</legend>
+            {([['product', L(['পণ্য', 'Products'])], ['collection', L(['কালেকশন', 'Collections'])], ['storePage', L(['দোকানের পেজ', 'Store pages'])], ['landingPage', L(['ল্যান্ডিং পেজ', 'Landing pages'])]] as const).map(([kind, label]) => (
+              <label key={kind} className="check-line"><input type="checkbox" className="check" checked={prefs.sitemapKinds.includes(kind)} onChange={(e) => setP({ sitemapKinds: e.target.checked ? [...prefs.sitemapKinds, kind] : prefs.sitemapKinds.filter((k) => k !== kind) })} />{label}</label>
+            ))}
+          </fieldset>
           <div className="field">
             <label className="field__label" htmlFor="pref-robots">robots.txt</label>
             <textarea id="pref-robots" className="input input--area input--mono" rows={7} maxLength={5000} spellCheck={false} placeholder={defaultRobots} value={prefs.robotsTxt} onChange={(e) => setP({ robotsTxt: e.target.value })} />
             <span className="field__help">{L(['ফাঁকা রাখলে আমাদের নিয়ম চলে (ধূসর লেখা): কার্ট, অ্যাকাউন্ট আর খোঁজার পেজ বাদ। সাইটম্যাপের লাইন নিজে থেকে যোগ হয়।', 'Leave it blank to use ours (the grey text): carts, accounts and search pages stay out. The sitemap line is added for you.'])} <a href={`${url}/robots.txt`} target="_blank" rel="noopener">{L(['এখন যা আছে দেখুন', 'See the current file'])}</a></span>
           </div>
+        </>)}
+
+        {section(L(['কাস্টম কোড', 'Custom code']), L(['Google Search Console যাচাই, Google Analytics, Tag Manager, চ্যাট উইজেটের মতো কোড এখানে দিন। দোকানের সব পেজ আর ল্যান্ডিং পেজে যেমন লিখেছেন তেমনই বসবে।', 'Code such as Google Search Console verification, Google Analytics, Tag Manager or a chat widget. It goes into every store page and landing page exactly as written.']), <>
+          {([
+            ['codeHead', L(['</head> এর ঠিক আগে', 'Just before </head>']), L(['যাচাইয়ের মেটা ট্যাগ, Analytics বা Tag Manager-এর মূল কোড।', 'Verification meta tags, the main Analytics or Tag Manager code.'])],
+            ['codeBodyStart', L(['<body> এর ঠিক পরে', 'Right after <body>']), L(['যেমন Tag Manager-এর noscript অংশ।', 'For example Tag Manager\'s noscript part.'])],
+            ['codeBodyEnd', L(['</body> এর ঠিক আগে', 'Just before </body>']), L(['চ্যাট উইজেট বা পেজ লোডের পরে চলা স্ক্রিপ্ট।', 'Chat widgets or scripts that run after the page loads.'])],
+          ] as const).map(([key, label, help]) => (
+            <div key={key} className="field code-slot" id={`pref-${key}`}>
+              <Suspense fallback={<div className="css-editor css-editor--loading" />}><HtmlEditor value={prefs[key]} label={label} describedBy={`pref-${key}-help`} maxLength={50000} onChange={(v) => setP({ [key]: v })} /></Suspense>
+              <span className="field__help" id={`pref-${key}-help`}>{help}</span>
+            </div>
+          ))}
+          <p className="muted">{L(['কোড শুধু আসল দোকানে চলে, ড্যাশবোর্ড বা এডিটরের প্রিভিউতে নয়। ভুল কোডে দোকানের পেজ ভেঙে যেতে পারে, তাই অন্যের দেওয়া কোড বুঝে নিয়ে বসান।', 'Code runs only on the live store, never in the dashboard or the editor preview. Broken code can break your pages, so only add code you trust.'])}</p>
         </>)}
       </fieldset>
 

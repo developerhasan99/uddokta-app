@@ -144,7 +144,7 @@ async function loadStore(handle: string) {
     if (!menus['main-menu']?.length) menus['main-menu'] = collections.map((x) => ({ title: x.name, href: collectionHref(x.handle), children: [] }))
     const info = (await t.execute<{ logo_key: string | null; logo_width: number; logo_height: number; phone: string; whatsapp: string; email: string; address: string; facebook: string }>(sql`select * from storefront_store_info(${store.id}::uuid)`)).rows[0]
     const storeInfo: StoreInfo = { name: store.name, logo: info ? image(info.logo_key, store.name, info.logo_width, info.logo_height) : null, phone: info?.phone ?? '', whatsapp: info?.whatsapp ?? '', email: info?.email ?? '', address: info?.address ?? '', facebook: info?.facebook ?? '' }
-    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string; language: string; seo_hidden: boolean; robots_txt: string; google_verification: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
+    const prefs = (await t.execute<{ home_title: string; home_description: string; share_key: string | null; share_width: number; share_height: number; password_hash: string | null; password_message: string; language: string; seo_hidden: boolean; robots_txt: string; sitemap_kinds: string[]; code_head: string; code_body_start: string; code_body_end: string }>(sql`select * from storefront_preferences(${store.id}::uuid)`)).rows[0]
     const policyRows = (await t.execute<{ kind: string; handle: string | null }>(sql`select k.kind, storefront_policy(${store.id}::uuid, k.kind) as handle from unnest(array['refund', 'terms', 'privacy', 'shipping', 'contact']) as k(kind)`)).rows
     const policies = Object.fromEntries(policyRows.filter((r) => r.handle).map((r) => [r.kind, pageHref(r.handle!)])) as Ctx['policies']
     return { ...store, collections, style, menus, info: storeInfo, prefs, policies, shipping: await shippingOptions(t, store.id) }
@@ -207,9 +207,13 @@ type Look = { css: string; fontsHref: string | null; custom: string }
 const lookOf = (style: SiteStyle): Look => ({ css: siteCss(style), fontsHref: siteFontsHref(style), custom: style.css })
 const defaultLook = lookOf(styleFromPreset('fresh'))
 
-// A store's search engine settings for every page's <head>: hidden from search engines (noindex) and Google's code.
-type Seo = { hidden: boolean; google: string }
-const seoOf = (store: LoadedStore | null | undefined): Seo | undefined => store?.prefs ? { hidden: store.prefs.seo_hidden, google: store.prefs.google_verification } : undefined
+// A store's search engine setting for every page's <head>: hidden from search engines (noindex).
+type Seo = { hidden: boolean }
+const seoOf = (store: LoadedStore | null | undefined): Seo | undefined => store?.prefs ? { hidden: store.prefs.seo_hidden } : undefined
+// The store's custom code (Online store › Custom code), written into its live pages as is.
+type StoreCode = { head: string; start: string; end: string }
+const codeOf = (store: LoadedStore | null | undefined): StoreCode | undefined => store?.prefs ? { head: store.prefs.code_head, start: store.prefs.code_body_start, end: store.prefs.code_body_end } : undefined
+const hasCode = (code: StoreCode | undefined): code is StoreCode => Boolean(code && (code.head || code.start || code.end))
 
 function Document({ title, description, noindex, canonical, shareImage, look = defaultLook, pixel, lang = 'bn', seo, children }: { title: string; description: string; noindex?: boolean; canonical?: string; shareImage?: Img; look?: Look; pixel?: string; lang?: Lang; seo?: Seo; children: React.ReactNode }) {
   // lang also tells the page scripts which digits to write.
@@ -222,7 +226,6 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
         <link rel="icon" href="/favicon.ico" />
         {description && <meta name="description" content={description} />}
         {(noindex || seo?.hidden || process.env.ROBOTS_NOINDEX === 'true') && <meta name="robots" content="noindex" />}
-        {seo?.google && <meta name="google-site-verification" content={seo.google} />}
         <meta property="og:title" content={title} />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'bn_BD'} />
@@ -245,8 +248,17 @@ function Document({ title, description, noindex, canonical, shareImage, look = d
   )
 }
 
-const html = (c: Context, body: React.ReactElement, status: 200 | 404 | 422 | 429 = 200, pixel = '', custom = false) =>
-  c.html(`<!doctype html>${renderToString(body)}`, status, { 'content-security-policy': cspFor(pixel, custom), 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache' })
+// code: the store's custom code, placed before </head>, right after <body> and before </body>. Like a Custom HTML block,
+// it is the seller's own and runs as written, so a page carrying any gets the open policy.
+const html = (c: Context, body: React.ReactElement, status: 200 | 404 | 422 | 429 = 200, pixel = '', custom = false, code?: StoreCode) => {
+  let page = renderToString(body)
+  if (hasCode(code)) {
+    page = page.replace('</head>', () => `${code.head}</head>`).replace('<body>', () => `<body>${code.start}`)
+    const end = page.lastIndexOf('</body>')
+    page = `${page.slice(0, end)}${code.end}${page.slice(end)}`
+  }
+  return c.html(`<!doctype html>${page}`, status, { 'content-security-policy': cspFor(pixel, custom || hasCode(code)), 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'cache-control': 'no-cache' })
+}
 
 function notFound(c: Context) {
   return html(c, (
@@ -309,7 +321,7 @@ async function renderPage(c: Context, page: Loaded, order?: Ctx['order']) {
       <script dangerouslySetInnerHTML={{ __html: pageScript }} />
       {store && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
     </Document>
-  ), order ? 422 : 200, pixel, hasCustomHtml(page.content) || Boolean(frame && hasCustomHtml({ version: 2, sections: [...frame.header, ...frame.footer] })))
+  ), order ? 422 : 200, pixel, hasCustomHtml(page.content) || Boolean(frame && hasCustomHtml({ version: 2, sections: [...frame.header, ...frame.footer] })), codeOf(store))
 }
 
 // Product list blocks in a template and the theme's header and footer, with their settings.
@@ -395,7 +407,7 @@ async function renderThemed(c: Context, store: LoadedStore, kind: TemplateType, 
       {/* The side cart (not on the cart page itself, which already shows the cart). */}
       {!here.cart && <><CartDrawer lang={langOf(store)} /><script dangerouslySetInnerHTML={{ __html: drawerScript }} /></>}
     </Document>
-  ), meta.status ?? 200, pixel, hasCustomHtml({ version: 2, sections: all }))
+  ), meta.status ?? 200, pixel, hasCustomHtml({ version: 2, sections: all }), codeOf(store))
 }
 
 // A missing page inside a known store: the theme's 404 template.
@@ -413,7 +425,7 @@ async function renderProduct(c: Context, store: LoadedStore, item: LoadedProduct
   })
 }
 
-async function thanks(c: Context, storeId: string, storeName: string, back: string, shown?: { look: Look; lang: Lang }) {
+async function thanks(c: Context, storeId: string, storeName: string, back: string, shown?: { look: Look; lang: Lang; code?: StoreCode }) {
   const lang = shown?.lang
   const token = c.req.query('receipt') ?? ''
   const receipt = isCheckoutToken(token) ? (await tx(null, (t) => t.execute<{ number: number; total: number }>(sql`select * from storefront_receipt(${storeId}::uuid, ${token}::uuid)`))).rows[0] : undefined
@@ -433,7 +445,7 @@ async function thanks(c: Context, storeId: string, storeName: string, back: stri
         </main>
       </div>
     </Document>
-  ), 200, pixel)
+  ), 200, pixel, false, shown?.code)
 }
 
 export const app = new Hono()
@@ -525,9 +537,11 @@ app.get('/sitemap.xml', async (c) => {
   if (!store.prefs?.seo_hidden && process.env.ROBOTS_NOINDEX !== 'true') {
     const rows = (await tx(null, (t) => t.execute<{ kind: string; handle: string; changed: string | null }>(sql`select * from storefront_sitemap(${store.id}::uuid)`))).rows
     const shop = c.get('online') && !store.prefs?.password_hash
-    if (shop) urls.push({ path: '/' }, { path: '/products' }, { path: '/collections' })
+    // What the seller chose to list (Online store › Search engines); the home page always, the list pages with their kind.
+    const kinds = new Set(store.prefs?.sitemap_kinds ?? [])
+    if (shop) urls.push({ path: '/' }, ...(kinds.has('product') ? [{ path: '/products' }] : []), ...(kinds.has('collection') ? [{ path: '/collections' }] : []))
     for (const r of rows) {
-      if (r.kind !== 'landingPage' && !shop) continue
+      if (!kinds.has(r.kind) || (r.kind !== 'landingPage' && !shop)) continue
       const path = r.kind === 'product' ? productHref(r.handle) : r.kind === 'collection' ? collectionHref(r.handle) : pageHref(r.handle)
       urls.push({ path, changed: r.changed ? new Date(r.changed).toISOString() : undefined })
     }
@@ -558,7 +572,7 @@ app.get('/api/media-files/:store/:file', async (c) => {
 
 const storeLook = async (handle: string) => {
   const store = await loadStore(handle)
-  return store ? { look: lookOf(store.style), lang: langOf(store) } : undefined
+  return store ? { look: lookOf(store.style), lang: langOf(store), code: codeOf(store) } : undefined
 }
 
 app.get('/', async (c) => {
@@ -627,7 +641,7 @@ function passwordPage(c: Context, store: LoadedStore, error: 'wrong' | 'tooMany'
           : tr(langOf(store), ['পাসওয়ার্ডটি মেলেনি। আবার চেষ্টা করুন।', 'Wrong password. Try again.'])}</p>}
       </main>
     </Document>
-  ), error === 'tooMany' ? 429 : wrong ? 422 : 200)
+  ), error === 'tooMany' ? 429 : wrong ? 422 : 200, '', false, codeOf(store))
 }
 
 app.get('/password', async (c) => {

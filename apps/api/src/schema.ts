@@ -137,10 +137,15 @@ export const stores = pgTable('stores', {
   storePasswordHash: text('store_password_hash'),
   passwordMessage: text('password_message').notNull().default(''),
   // Search engines (Online store page): hide the whole store (robots.txt and noindex), the seller's own robots.txt
-  // (blank: ours), and the Google Search Console verification code (written as a meta tag).
+  // (blank: ours) and what the sitemap lists (product, collection, storePage, landingPage).
   seoHidden: boolean('seo_hidden').notNull().default(false),
   robotsTxt: text('robots_txt').notNull().default(''),
-  googleVerification: text('google_verification').notNull().default(''),
+  sitemapKinds: text('sitemap_kinds').array().notNull().default(sql`'{product,collection,storePage,landingPage}'::text[]`),
+  // Custom code (Online store page): the seller's own HTML written into every live page of the store, as written:
+  // before </head>, right after <body> and before </body>. Never drawn in the dashboard.
+  codeHead: text('code_head').notNull().default(''),
+  codeBodyStart: text('code_body_start').notNull().default(''),
+  codeBodyEnd: text('code_body_end').notNull().default(''),
   // The language of the store's own words (buttons, form labels, messages; storefront/src/words.ts) on every store
   // page and landing page. What the seller writes is shown as written. Later: both, with a switch for buyers.
   language: text('language', { enum: ['bn', 'en'] }).notNull().default('bn'),

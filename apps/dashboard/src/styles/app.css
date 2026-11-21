@@ -862,6 +862,9 @@ fieldset.dialog__body { min-width: 0; margin: 0; border: 0; }
 .css-editor--loading { background: var(--color-paper-2); }
 .css-editor .cm-editor { height: 360px; max-height: 60dvh; font-size: 12px; }
 .css-editor .cm-editor.cm-focused { outline: 0; }
+/* Online store › Custom code: three editors on one page, so each starts shorter (it still scrolls). */
+.code-slot .css-editor { min-height: 0; }
+.code-slot .css-editor .cm-editor { height: 160px; }
 .css-editor .cm-scroller { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.6; }
 .css-editor .cm-gutters { border-right: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); color: var(--color-muted); }
 .editor__title { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }

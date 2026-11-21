@@ -855,7 +855,25 @@ test('a store password closes store pages (not landing pages) until the buyer en
   assert.match(await (await visit(s.handle, '/')).text(), /পাঞ্জাবি/, 'turning the password off opens the store')
 })
 
-test('search engines: per-store robots.txt and sitemap (only what buyers can open), hide the store, Google verification', async () => {
+test('custom code goes into every live page as written: before </head>, after <body>, before </body>, with the open policy', async () => {
+  const s = await publishedPage()
+  const code = { codeHead: '<meta name="google-site-verification" content="abc"><script>window.head=1</script>', codeBodyStart: '<noscript>gtm</noscript>', codeBodyEnd: '<script>window.end=1</script>' }
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, ...code })).status, 200)
+  for (const path of ['/', s.url]) {
+    const page = await visit(s.handle, path)
+    const text = await page.text()
+    assert.ok(text.includes(`${code.codeHead}</head>`), `head code on ${path}`)
+    assert.ok(text.includes(`<body>${code.codeBodyStart}`), `body start code on ${path}`)
+    assert.ok(text.trimEnd().endsWith(`${code.codeBodyEnd}</body></html>`), `body end code on ${path}`)
+    assert.match(page.headers.get('content-security-policy') ?? '', /script-src 'self' 'unsafe-inline'/, 'the seller\'s scripts may run')
+  }
+  assert.equal((await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, codeHead: 'x'.repeat(50001) })).json.error, 'searchEnginesInvalid')
+  await s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, codeHead: '', codeBodyStart: '', codeBodyEnd: '' })
+  const plain = await visit(s.handle, '/')
+  assert.doesNotMatch(plain.headers.get('content-security-policy') ?? '', /script-src 'self' 'unsafe-inline'/, 'no code, the strict policy again')
+})
+
+test('search engines: per-store robots.txt and sitemap (only what buyers can open and the seller ticks), hide the store', async () => {
   const s = await publishedPage()
   const prefs = (extra: object) => s.call('PUT', `/stores/${s.handle}/preferences`, { homeTitle: '', homeDescription: '', passwordOn: false, ...extra })
   await s.call('POST', `/stores/${s.handle}/products`, { name: 'গোপন', status: 'unlisted', variants: [{ options: [], price: 500 }] })
@@ -872,12 +890,17 @@ test('search engines: per-store robots.txt and sitemap (only what buyers can ope
   for (const path of ['/', '/products', `/products/${encodeURIComponent(s.product.handle)}`, `/collections/${encodeURIComponent(collection.handle)}`, s.url]) assert.ok(xml.includes(`<loc>${origin}${path}</loc>`), path)
   assert.doesNotMatch(xml, /%E0%A6%97%E0%A7%8B%E0%A6%AA%E0%A6%A8|%E0%A6%96%E0%A6%B8%E0%A6%A1%E0%A6%BC%E0%A6%BE/, 'unlisted and draft products stay out')
 
-  // The seller's own robots.txt; the sitemap line is added unless they wrote one. The verification tag may be pasted whole.
-  assert.equal((await prefs({ robotsTxt: 'User-agent: *\r\nDisallow: /secret', googleVerification: '<meta name="google-site-verification" content="abc_DEF-123" />' })).json.googleVerification, 'abc_DEF-123')
+  // The seller's own robots.txt; the sitemap line is added unless they wrote one.
+  await prefs({ robotsTxt: 'User-agent: *\r\nDisallow: /secret' })
   assert.match(await (await visit(s.handle, '/robots.txt')).text(), /^User-agent: \*\nDisallow: \/secret\n\nSitemap: /)
-  assert.match(await (await visit(s.handle, '/')).text(), /<meta name="google-site-verification" content="abc_DEF-123"\/>/)
-  assert.equal((await prefs({ googleVerification: '"><script>' })).json.error, 'searchEnginesInvalid')
   assert.equal((await prefs({ robotsTxt: 'x'.repeat(5001) })).json.error, 'searchEnginesInvalid')
+  // The sitemap lists only the kinds the seller ticks (the home page always).
+  await prefs({ sitemapKinds: ['landingPage'] })
+  const only = await (await visit(s.handle, '/sitemap.xml')).text()
+  assert.ok(only.includes(`${origin}/</loc>`) && only.includes(`${s.url}</loc>`))
+  assert.doesNotMatch(only, /\/products|\/collections/)
+  assert.equal((await prefs({ sitemapKinds: ['everything'] })).json.error, 'searchEnginesInvalid')
+  await prefs({ sitemapKinds: ['product', 'collection', 'storePage', 'landingPage'] })
   assert.equal((await prefs({})).json.robotsTxt, 'User-agent: *\nDisallow: /secret', 'fields left out keep what is saved')
 
   // Hidden: everything blocked, every page noindex, an empty sitemap.
