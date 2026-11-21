@@ -176,6 +176,7 @@ main { outline: 0; }
 .filter-bar.data-list__bulk, .filter-bar.orders-bar { flex-direction: row; align-items: center; }
 .data-list__bulk { gap: var(--space-sm); min-height: 49px; padding-inline-start: var(--space-sm); background: var(--color-paper-2); font-size: var(--text-sm); }
 .data-list__bulk strong { font-weight: 500; white-space: nowrap; }
+.bulk-choice { width: auto; min-width: 9rem; }
 .data-list__bulk-actions { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: var(--space-xs); min-width: 0; }
 .data-list__bulk-clear { box-shadow: none; background: transparent; color: var(--color-muted); }
 .bulk-toast { position: fixed; inset-inline: 0; bottom: var(--space-lg); z-index: var(--z-tooltip); display: flex; justify-content: center; padding-inline: var(--space-md); pointer-events: none; }

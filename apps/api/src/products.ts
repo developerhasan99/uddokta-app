@@ -285,6 +285,19 @@ export function registerProducts(app: Hono<Env>) {
     })
   })
 
+  // The list's bulk action: several of the store's products to one status at once (staff may, as they may edit products).
+  app.post('/stores/:handle/products/status', async (c) => {
+    const body = await c.req.json().catch(() => null) as { ids?: unknown; status?: unknown } | null
+    const ids = body?.ids
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500 || !ids.every(isId) || !productStatuses.includes(body!.status as never)) throw fail(400, 'invalidRequest')
+    return tx(c.get('userId'), async (t) => {
+      const store = await storeByHandle(t, c.req.param('handle'))
+      const changed = await t.update(products).set({ status: body!.status as (typeof productStatuses)[number] })
+        .where(and(eq(products.storeId, store.id), inArray(products.id, ids as string[]))).returning({ id: products.id })
+      return c.json({ changed: changed.length })
+    })
+  })
+
   app.put('/stores/:handle/products/:id', async (c) => {
     const id = c.req.param('id')
     if (!isId(id)) throw fail(404, 'notFound')

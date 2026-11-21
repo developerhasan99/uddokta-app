@@ -5,7 +5,7 @@ import { useStorePath, useCurrentStore } from '../account-context'
 import { api } from '../api'
 import { Badge, Button, LinkButton, Notice, PageHeader, SearchInput, Skeleton } from '../components/ui'
 import { useLang, type Key } from '../i18n'
-import { BulkBar, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
+import { BulkBar, BulkChoice, BulkDelete, SelectAllCell, SelectCell, useSelection } from '../components/Selection'
 import { productStatuses, statusInfo, type ProductStatus } from '../product-form'
 import { useUrlSearch } from '../use-url-search'
 import { ProductImportDialog } from './ProductImport'
@@ -52,6 +52,11 @@ export function Products() {
   const selection = useSelection(page?.items.map((row) => row.id) ?? [])
   const remove = async () => {
     await selection.run((id) => api(`${base}/${id}`, { method: 'DELETE' }))
+    void load()
+  }
+
+  const setStatus = async (status: string) => {
+    await selection.runAll((ids) => api(`${base}/status`, { method: 'POST', body: { ids, status } }))
     void load()
   }
 
@@ -109,7 +114,10 @@ export function Products() {
             <SearchInput label={t('productSearch')} value={text} onChange={(e) => setText(e.target.value)} />
           </div>
 
-          <BulkBar selection={selection}><BulkDelete selection={selection} onDelete={() => void remove()} /></BulkBar>
+          <BulkBar selection={selection}>
+            <BulkChoice selection={selection} label={t('productBulkStatus')} options={productStatuses.map((s) => ({ value: s, label: t(statusInfo[s].label) }))} onChoose={(s) => void setStatus(s)} />
+            {canDelete && <BulkDelete selection={selection} onDelete={() => void remove()} />}
+          </BulkBar>
 
           {!page && (
             <div role="status" aria-label={t('loading')}>
@@ -127,7 +135,7 @@ export function Products() {
             <table className="data-table">
               <thead>
                 <tr>
-                  {canDelete && <SelectAllCell selection={selection} />}
+                  <SelectAllCell selection={selection} />
                   <th scope="col">{t('products')}</th>
                   <th scope="col" className="data-table__meta">{t('colStatus')}</th>
                   <th scope="col" className="data-table__meta">{t('productStockCol')}</th>
@@ -138,7 +146,7 @@ export function Products() {
               <tbody>
                 {page.items.map((row) => (
                   <tr key={row.id} className="data-table__row" data-selected={selection.has(row.id) || undefined} onClick={() => navigate(path(`/products/${row.id}`))}>
-                    {canDelete && <SelectCell selection={selection} id={row.id} name={row.name} />}
+                    <SelectCell selection={selection} id={row.id} name={row.name} />
                     <td>
                       <Link className="data-table__file" to={path(`/products/${row.id}`)} onClick={(e) => e.stopPropagation()}>
                         <span className="data-table__thumb">{row.thumbUrl && <img src={row.thumbUrl} alt="" loading="lazy" />}</span>

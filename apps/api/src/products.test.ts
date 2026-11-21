@@ -343,3 +343,22 @@ test('inventory edits SKU, barcode and low-stock alert, counts units in open ord
   assert.deepEqual(await names('sort=oldest'), [old.id, made.id, made.id])
   assert.deepEqual(await names(''), [made.id, made.id, old.id])
 })
+
+test('bulk status: several products to draft or back in one go, staff too, never another store’s', async () => {
+  const owner = await storeOwner()
+  const a = (await owner.call('POST', owner.base, simple())).json.id
+  const b = (await owner.call('POST', owner.base, simple({ name: 'Two' }))).json.id
+  const to = (status: string, ids: unknown, who = owner.call, base = owner.base) => who('POST', `${base}/status`, { ids, status })
+  assert.deepEqual((await to('draft', [a, b])).json, { changed: 2 })
+  assert.equal((await owner.call('GET', `${owner.base}/${a}`)).json.status, 'draft')
+  assert.equal((await owner.call('GET', `${owner.base}?status=draft`)).json.counts.draft, 2)
+  const staff = await staffOf(owner)
+  assert.deepEqual((await to('unlisted', [a], staff)).json, { changed: 1 }, 'staff can change status like any product edit')
+  assert.equal((await owner.call('GET', `${owner.base}/${a}`)).json.status, 'unlisted')
+  assert.equal((await to('archived', [a])).status, 400)
+  assert.equal((await to('active', [])).status, 400)
+  assert.equal((await to('active', ['not-an-id'])).status, 400)
+  const other = await storeOwner()
+  assert.deepEqual((await to('active', [a, b], other.call, other.base)).json, { changed: 0 }, 'another store reaches nothing')
+  assert.equal((await owner.call('GET', `${owner.base}/${b}`)).json.status, 'draft')
+})

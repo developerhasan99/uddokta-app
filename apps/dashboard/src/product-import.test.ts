@@ -27,7 +27,7 @@ test('Shopify: variants, images, prices, stock and costs come in; image rows are
   const [tee] = file.products
   assert.equal(tee.handle, 'tee')
   assert.equal(tee.description, '<h2>Soft</h2><p>Pure <strong>cotton</strong></p>')
-  assert.deepEqual([tee.brand, tee.productType, tee.tags, tee.seoTitle, tee.status], ['Acme', 'Shirts', ['summer', 'cotton'], 'Tee SEO', 'active'])
+  assert.deepEqual([tee.brand, tee.productType, tee.tags, tee.seoTitle, tee.status], ['Acme', 'Shirts', ['summer', 'cotton'], 'Tee SEO', 'draft'])
   assert.deepEqual(tee.options, [{ name: 'Size', values: ['M', 'L'] }, { name: 'Colour', values: ['Red', 'Blue'] }])
   // L/Blue was not in the file: added out of stock so the seller can sell or remove it.
   assert.deepEqual(tee.variants.map((v) => [v.options.join('/'), v.price, v.comparePrice, v.stock, v.sku, v.cost]), [
@@ -38,14 +38,14 @@ test('Shopify: variants, images, prices, stock and costs come in; image rows are
   assert.equal(tee.variants[0].image, 'https://cdn.shopify.com/tee-red.jpg')
 })
 
-test('Shopify: a single "Default Title" variant means no options; draft, archived and unpublished map to our statuses', () => {
+test('Shopify: a single "Default Title" variant means no options; every product arrives as a draft, whatever its status there', () => {
   const row = (handle: string, status: string, published: string, price = '100') => [handle, `Item ${handle}`, 'Plain words', '', '', '', published, 'Title', 'Default Title', '', '', '', '', '', price, '', '', '', '', '', '', '', '', status]
   const file = readProductFile(csv([shopifyHead, row('a', 'active', 'true'), row('b', 'draft', 'true'), row('c', 'archived', 'true'), row('d', 'active', 'false'), row('e', 'active', 'true', '')]))!
   const [a, b, c, d, e] = file.products
   assert.deepEqual(a.options, [])
   assert.deepEqual(a.variants.map((v) => [v.options, v.price, v.stock]), [[[], 100, null]])
   assert.equal(a.description, '<p>Plain words</p>')
-  assert.deepEqual([a, b, c, d].map((p) => p.status), ['active', 'draft', 'draft', 'unlisted'])
+  assert.deepEqual([a, b, c, d].map((p) => p.status), ['draft', 'draft', 'draft', 'draft'])
   // No price: kept as a draft at ৳0 so it cannot sell for nothing.
   assert.deepEqual([e.status, e.variants[0].price, e.notes], ['draft', 0, ['noPrice']])
 })
@@ -72,14 +72,14 @@ test('WooCommerce: simple and variable products, "any" values, sale prices and c
   ]))!
   assert.equal(file.source, 'woocommerce')
   const [mug, hoodie, secret] = file.products
-  assert.deepEqual([mug.handle, mug.status, mug.productType, mug.brand, mug.tags], ['Mug', 'active', 'Mugs', 'Acme', ['gift', 'ceramic']])
+  assert.deepEqual([mug.handle, mug.status, mug.productType, mug.brand, mug.tags], ['Mug', 'draft', 'Mugs', 'Acme', ['gift', 'ceramic']])
   assert.equal(mug.description, '<p>First line<br>second line</p><p>New <em>paragraph</em></p>')
   // A simple product's attributes are facts, not buyer choices; the seller sets those up as Attributes later.
   assert.deepEqual(mug.options, [])
   assert.deepEqual(mug.variants.map((v) => [v.price, v.comparePrice, v.stock, v.sku]), [[250, 300, 7, 'MUG']])
   assert.equal(mug.images.length, 2)
 
-  assert.equal(hoodie.status, 'unlisted')
+  assert.equal(hoodie.status, 'draft', 'imports wait as drafts for the seller to check')
   assert.equal(hoodie.description, '<p>Warm</p>')
   // Colour is "any" on the M variation, so every parent colour is offered; Size uses only the sizes sold.
   assert.deepEqual(hoodie.options, [{ name: 'Size', values: ['S, small', 'M'] }, { name: 'Colour', values: ['Grey', 'Black'] }])

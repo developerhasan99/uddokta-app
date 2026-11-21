@@ -10,7 +10,8 @@ export type ImportImage = { url: string; alt: string }
 export type ImportNote = 'noPrice' | 'addedVariants' | 'imagesCut' | 'descriptionDropped'
 export type ImportProduct = {
   // Sent as the product's address: an existing product with it means "already in the store", so a second run skips it.
-  handle: string; name: string; description: string; status: 'active' | 'unlisted' | 'draft'
+  // Every import starts as a draft: the seller checks prices, stock and photos before buyers see it.
+  handle: string; name: string; description: string; status: 'draft'
   productType: string; brand: string; tags: string[]; seoTitle: string; seoDescription: string
   options: { name: string; values: string[] }[]; variants: ImportVariant[]; images: ImportImage[]; notes: ImportNote[]
 }
@@ -104,7 +105,7 @@ function buildProduct(base: Omit<ImportProduct, 'options' | 'variants' | 'images
   let description = base.description
   if (description.length > maxDescription) { description = ''; notes.push('descriptionDropped') }
   return {
-    ...base, description, status: notes.includes('noPrice') ? 'draft' : base.status, options, variants, notes: unique(notes) as ImportNote[],
+    ...base, description, status: 'draft', options, variants, notes: unique(notes) as ImportNote[],
     images: kept.map((url) => ({ url, alt: gallery.find((i) => i.url === url)?.alt ?? '' })),
   }
 }
@@ -136,11 +137,9 @@ function readShopify(header: string[], rows: Row[]): ImportFile {
     })
     const gallery = group.map((r) => ({ url: httpUrl(r('Image Src')), alt: cut(r('Image Alt Text'), 500), position: Number(r('Image Position')) || 0 }))
       .filter((i) => i.url).sort((a, b) => a.position - b.position)
-    const status = head('Status').trim().toLowerCase()
-    const published = (head('Published') || head('Published on online store')).trim().toLowerCase()
     const product = buildProduct({
       handle: cut(handle, 200), name, description: richText(head('Body (HTML)'), false),
-      status: status && status !== 'active' ? 'draft' : published === 'false' ? 'unlisted' : 'active',
+      status: 'draft' as const,
       productType: cut(head('Type') || head('Product Category').split('>').pop() || '', 100), brand: cut(head('Vendor'), 100), tags: tagList(head('Tags')),
       seoTitle: cut(head('SEO Title'), 300), seoDescription: cut(head('SEO Description'), 1000),
     }, used.map((n) => ({ name: head(`Option${n} Name`), values: variantRows.map((r) => r(`Option${n} Value`)) })), raw, gallery.map(({ url, alt }) => ({ url, alt })))
@@ -178,10 +177,9 @@ function readWoo(header: string[], rows: Row[]): ImportFile {
     const name = cut(r('Name'), 200)
     if (!name) { file.skipped.push({ name: r('SKU') || r('ID'), reason: 'noName' }); continue }
     if (!kind.includes('simple') && !kind.includes('variable')) { file.skipped.push({ name, reason: 'unsupportedType' }); continue }
-    const published = r('Published').trim()
     const base = {
       handle: name, name, description: richText((r('Description') || r('Short description')).replace(/\\n/g, '\n'), true),
-      status: (published === '1' ? (r('Visibility in catalog').trim() === 'hidden' ? 'unlisted' : 'active') : 'draft') as ImportProduct['status'],
+      status: 'draft' as const,
       productType: cut(wooList(r('Categories'))[0]?.split('>').pop() ?? '', 100), brand: cut(wooList(r('Brands'))[0] ?? '', 100), tags: tagList(r('Tags').replace(/\\,/g, ' ')),
       seoTitle: '', seoDescription: '',
     }

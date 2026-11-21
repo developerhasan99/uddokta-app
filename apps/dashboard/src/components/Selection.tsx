@@ -18,6 +18,21 @@ export function useSelection(ids: string[]) {
     toggleAll: () => setPicked(all ? new Set() : new Set(ids)),
     clear: () => setPicked(new Set()),
     dismiss: () => setResult(null),
+    // One request for every selected row (a bulk endpoint); on failure the rows stay selected.
+    runAll: async (action: (ids: string[]) => Promise<unknown>) => {
+      const ids = selected
+      setBusy(true)
+      setResult(null)
+      try {
+        await action(ids)
+        setPicked(new Set())
+        setResult({ done: ids.length, failed: 0 })
+      } catch {
+        setResult({ done: 0, failed: ids.length })
+      } finally {
+        setBusy(false)
+      }
+    },
     // ponytail: one existing per-item request each, in parallel; add a bulk endpoint if sellers act on hundreds at once.
     run: async (action: (id: string) => Promise<unknown>) => {
       const ids = selected
@@ -75,6 +90,14 @@ export function BulkBar({ selection, failedText, children }: { selection: Select
       </p>}
     </div>, document.body)}
   </>
+}
+
+// Change every selected row to one of a few values (a product's status), from a compact menu in the bulk bar.
+export function BulkChoice({ selection, label, options, onChoose }: { selection: Selection; label: string; options: { value: string; label: string }[]; onChoose: (value: string) => void }) {
+  return <select className="input bulk-choice" aria-label={label} value="" disabled={selection.busy} onChange={(e) => { if (e.target.value) onChoose(e.target.value) }}>
+    <option value="" disabled>{label}</option>
+    {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+  </select>
 }
 
 // Delete with a second click to confirm, kept inside the bulk bar so nothing jumps.
