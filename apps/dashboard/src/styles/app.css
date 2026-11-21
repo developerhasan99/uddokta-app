@@ -1075,6 +1075,10 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .store-hero__preview:hover .store-hero__customize, .store-hero__preview:focus-visible .store-hero__customize { opacity: 1; transform: none; }
 .store-hero__preview:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .store-hero__preview:hover .store-preview { border-color: var(--color-rule-strong); }
+/* Stacked (narrow screens): the preview takes a desktop screen's shape instead of a tall fixed height. */
+@media (max-width: 900px) { .store-hero__preview { min-height: 0; aspect-ratio: 16 / 10; } }
+/* Touch screens have no hover: the Customize button below says it, so the label stays hidden. */
+@media (hover: none) { .store-hero__customize { display: none; } }
 .store-hero__info { display: grid; gap: var(--space-3xs); min-width: 0; margin-bottom: var(--space-2xs); }
 .store-hero__info h2 { margin-bottom: var(--space-3xs); }
 .store-hero__info h2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); font-size: var(--text-lg); }
