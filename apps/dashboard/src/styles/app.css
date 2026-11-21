@@ -2289,9 +2289,8 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 
 /* Online store › Customize (pages/Customize.tsx): the editor's frame with a settings list and a read-only page structure. */
 .customize .editor__sidebar > aside { overflow-y: auto; }
-/* Both view buttons (settings, structure) show here, on phones too; the page builder hides its last one. */
+/* Both view buttons (settings, structure) show here; the page builder hides its last one. On phones they move to the dock. */
 .customize .editor__views .btn--icon:last-child { display: inline-flex; }
-@media (max-width: 719px) { .customize .editor__views { display: flex; } }
 .customize__intro { display: flex; gap: var(--space-2xs); align-items: flex-start; margin: 0; padding: 0 var(--space-sm) var(--space-xs); }
 .customize__intro svg { flex: none; margin-top: 2px; }
 .customize__back { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-inline-end: var(--space-2xs); padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: inherit; cursor: pointer; vertical-align: -6px; }
@@ -2311,8 +2310,11 @@ select.input { padding-inline-end: 32px; background-position: right 10px center;
 .customize-tree button:hover { background: var(--color-paper-3); color: var(--color-ink); }
 .customize-tree button[aria-current] { background: color-mix(in srgb, var(--color-primary) 18%, transparent); color: var(--color-ink); }
 .customize-tree button.customize-tree__section { font-weight: 600; color: var(--color-ink); }
-@media (max-width: 719px) {
-  .customize { grid-template: "bar" auto "error" auto "sidebar" minmax(0, 42dvh) "preview" minmax(0, 1fr) / minmax(0, 1fr); }
-  .customize .editor__sidebar { border-right: 0; border-bottom: var(--rule-hair) solid var(--color-rule-strong); }
+/* Phones (the editor's 860px breakpoint): the page builder's panes and bottom dock, with three tabs;
+   the top bar is back, the page picker and Save. */
+@media (max-width: 860px) {
+  .customize .editor__dock { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .customize .editor__dock .btn--icon:nth-child(n) { border-inline-end: 0; }
   .customize .editor__title h1 { display: none; }
+  .customize .theme-top__select { width: 100%; max-width: none; }
 }

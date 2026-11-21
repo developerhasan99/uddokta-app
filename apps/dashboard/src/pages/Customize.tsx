@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import { ArrowLeft, ChevronLeft, ChevronRight, Code, Image as ImageIcon, LayoutTemplate, ListTree, Monitor, MousePointerClick, Palette, PanelsTopLeft, RotateCcw, Settings, Smartphone, SquareMousePointer, TextCursorInput, Type } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Code, Eye, Image as ImageIcon, LayoutTemplate, ListTree, Monitor, MousePointerClick, Palette, PanelsTopLeft, RotateCcw, Settings, Smartphone, SquareMousePointer, TextCursorInput, Type } from 'lucide-react'
 import { catalogCss } from 'storefront/catalog'
 import { defOf, nodeDefs, type Content, type PageNode, type Section } from 'storefront/schema'
 import { css as storefrontCss, PageView, type Ctx } from 'storefront/sections'
@@ -69,6 +69,8 @@ export function Customize() {
   const [page, setPage] = useState<PageKey>('home')
   const [mobile, setMobile] = useState(false)
   const [view, setView] = useState<'settings' | 'structure'>('settings')
+  // Phones show one pane at a time, switched from the bottom dock (as in the page builder).
+  const [pane, setPane] = useState<'edit' | 'preview'>('edit')
   const [group, setGroup] = useState<GroupKey | null>(null)
   const [picked, setPicked] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -150,17 +152,22 @@ export function Customize() {
   ]
   const open = groups.find((g) => g.key === group)
 
+  // Shown in the top bar on wide screens and, with short labels, in the bottom dock on phones.
+  const dockLabel = (dock: boolean, text: string) => dock && <span className="editor__dock-label">{text}</span>
+  const views = (dock: boolean) => <>
+    <IconButton label={L('সাইটের সেটিংস', 'Site settings')} title={L('সাইটের সেটিংস', 'Site settings')} aria-pressed={view === 'settings' && (!dock || pane === 'edit')} onClick={() => { setView('settings'); setGroup(null); setPane('edit') }}><Settings size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L('সেটিংস', 'Settings'))}</IconButton>
+    <IconButton label={L('পেজের গঠন', 'Page structure')} title={L('পেজের গঠন', 'Page structure')} aria-pressed={view === 'structure' && (!dock || pane === 'edit')} onClick={() => { setView('structure'); setGroup(null); setPane('edit') }}><ListTree size={dock ? 20 : 16} aria-hidden="true" />{dockLabel(dock, L('গঠন', 'Structure'))}</IconButton>
+    {dock && <IconButton label={L('প্রিভিউ', 'Preview')} title={L('প্রিভিউ', 'Preview')} aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}><Eye size={20} aria-hidden="true" />{dockLabel(true, L('প্রিভিউ', 'Preview'))}</IconButton>}
+  </>
+
   return (
-    <div className="editor customize">
+    <div className="editor customize" data-pane={pane}>
       <PageTitle title={L('দোকান সাজান', 'Customize store')} />
       <header className="editor__bar">
         <div className="editor__nav">
           <Link className="detail-head__back" to={path('/online-store')} aria-label={L('অনলাইন স্টোরে ফিরুন', 'Back to Online store')} title={L('অনলাইন স্টোরে ফিরুন', 'Back to Online store')}
             onClick={(e) => { if (dirty) { e.preventDefault(); setLeaving(true) } }}><ArrowLeft size={16} aria-hidden="true" /></Link>
-          <span className="editor__views">
-            <IconButton label={L('সাইটের সেটিংস', 'Site settings')} title={L('সাইটের সেটিংস', 'Site settings')} aria-pressed={view === 'settings'} onClick={() => { setView('settings'); setGroup(null) }}><Settings size={16} aria-hidden="true" /></IconButton>
-            <IconButton label={L('পেজের গঠন', 'Page structure')} title={L('পেজের গঠন', 'Page structure')} aria-pressed={view === 'structure'} onClick={() => { setView('structure'); setGroup(null) }}><ListTree size={16} aria-hidden="true" /></IconButton>
-          </span>
+          <span className="editor__views">{views(false)}</span>
         </div>
         <div className="editor__title">
           <h1>{L('দোকান সাজান', 'Customize store')}</h1>
@@ -220,8 +227,10 @@ export function Customize() {
 
       <section className={`editor__preview${mobile ? ' editor__preview--mobile' : ''}`} aria-label={L('প্রিভিউ', 'Preview')}>
         <LivePreview preview={preview} style={style} content={content} page={page} header={header} footer={footer} mobile={mobile} picked={picked}
-          onPick={(g, id) => { setGroup(g); setPicked(id) }} />
+          onPick={(g, id) => { setGroup(g); setPicked(id); setPane('edit') }} />
       </section>
+
+      <nav className="editor__dock" aria-label={L('দোকান সাজান', 'Customize store')}>{views(true)}</nav>
     </div>
   )
 }
